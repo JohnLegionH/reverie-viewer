@@ -207,7 +207,7 @@ public sealed class EditController
     {
         _selection.Add(id);
         // the region answers a selection with the object's properties (owner, creator, permissions)
-        _submit(new ObjectPropertiesIntent(id));
+        _submit(new ObjectPropertiesIntent(id, Hold: true));
     }
 
     /// <summary>What may be done with a selected object.</summary>

@@ -223,7 +223,7 @@ public sealed class InteractionController
         {
             Selected = root.Id;
             Properties = null;
-            _submit(new ObjectPropertiesIntent(root.Id.LocalId));
+            _submit(new ObjectPropertiesIntent(root.Id.LocalId, Hold: true));
         }
     }
 
@@ -452,7 +452,7 @@ public sealed class InteractionController
             case PickKind.Object when Resolve(pick, out var prim, out var root):
                 Selected = root.Id;
                 Properties = null;
-                _submit(new ObjectPropertiesIntent(root.Id.LocalId));
+                _submit(new ObjectPropertiesIntent(root.Id.LocalId, Hold: true));
                 Menu = MenuKind.Object;
                 Entries = ObjectMenu(prim, root);
                 break;

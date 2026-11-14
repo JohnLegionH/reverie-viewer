@@ -584,8 +584,9 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 self.SitOnGround();
                 break;
             case RequestObjectPropertiesCommand props:
-                // the selection is what makes the region send the properties; the library lets go of it again once they arrive
-                if (_client.Network.CurrentSim is { } propSim) _client.Objects.SelectObject(propSim, props.LocalId, true);
+                // the selection is what makes the region send the properties; a held one stays until an ObjectDeselect (the edit tools and the
+                // right-click selection, as the official viewer's), any other is let go of again by the library once they arrive
+                if (_client.Network.CurrentSim is { } propSim) _client.Objects.SelectObject(propSim, props.LocalId, !props.Hold);
                 break;
             case TakeObjectCommand take:
                 SendDeRez(take.LocalId, take.Copy);

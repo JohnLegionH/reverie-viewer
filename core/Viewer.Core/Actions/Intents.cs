@@ -636,7 +636,7 @@ public sealed record ObjectPropertiesIntent(uint LocalId, bool Hold = false) : A
 {
     public override ActionKind Kind => ActionKind.ObjectProperties;
     public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 ? [new("properties.no_object")] : [];
-    internal override TransportCommand? ToCommand() => new RequestObjectPropertiesCommand(LocalId);
+    internal override TransportCommand? ToCommand() => new RequestObjectPropertiesCommand(LocalId, Hold);
 }
 
 /// <summary>Take an object into inventory (its Objects folder), or take a copy of it.</summary>
