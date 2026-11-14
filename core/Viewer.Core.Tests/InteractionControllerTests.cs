@@ -244,7 +244,7 @@ public class InteractionControllerTests
     public void Inspect_and_open_from_the_object_menu_keep_the_selection_for_their_window()
     {
         var r = new Rig();
-        r.Prim(1, new Vector3(10, 10, 30), Touchy);
+        r.Prim(1, new Vector3(10, 10, 30), new PrimInteraction(0, ObjectFlagBits.YouOwner));   // an own object: Open is offered
         foreach (var choice in new[] { "inspect", "open" })
         {
             r.C.RightClick(r.Down(10, 10));
