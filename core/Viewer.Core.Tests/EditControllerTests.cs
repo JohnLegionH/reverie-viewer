@@ -32,13 +32,14 @@ public class EditControllerTests
         public WorldState World = new(new CoreLog(new ListSink(), "test"));
         public List<ActionIntent> Sent = new();
         public EditLimits Limits = EditLimits.Official;
+        public List<RegionArea> Regions = [new(0, 0, 256, 256)];
         public EditController C;
 
         public Rig()
         {
             World.BeginRegion(Sim, new RegionInfo("Here", 1000, 1000, 256, 256, false));
             World.ApplyAvatar(Sim, new AvatarData(500, Me, "Me", new Vector3(100, 100, 21), Quaternion.Identity, new Vector3(0.45f, 0.6f, 1.9f)));
-            C = new EditController(World, i => { Sent.Add(i); return new ActionResult(ActionStatus.Sent, Sent.Count); }, () => Limits);
+            C = new EditController(World, i => { Sent.Add(i); return new ActionResult(ActionStatus.Sent, Sent.Count); }, () => Limits, regions: () => Regions);
         }
 
         public void Prim(uint local, Vector3 pos, uint flags, uint parent = 0, Vector3? scale = null) =>
@@ -142,9 +143,9 @@ public class EditControllerTests
         Assert.Equal((1u, new Vector3(10, 10, 0.2f), new Vector3(10, 10, 30), (Quaternion?)null, true), (size.LocalId, size.Scale!.Value, size.Position!.Value, size.Rotation, size.Linkset));
         Assert.True(r.C.SetSize(new Vector3(200, 0.001f, 1)));
         Assert.Equal(new Vector3(128, 0.01f, 1), r.Last<UpdateObjectIntent>().Scale);
-        Assert.True(r.C.SetPosition(new Vector3(300, 12, 5000)));
+        Assert.True(r.C.SetPosition(new Vector3(100, 12, 5000)));
         var pos = r.Last<UpdateObjectIntent>();
-        Assert.Equal(new Vector3(256, 12, 4096), pos.Position);
+        Assert.Equal(new Vector3(100, 12, 4096), pos.Position);
         Assert.Null(pos.Scale);
         Assert.True(r.C.SetRotation(new Vector3(0, 0, 90)));
         var rot = r.Last<UpdateObjectIntent>();
@@ -267,5 +268,98 @@ public class EditControllerTests
         r.C.Click(r.At(60, 60), false);
         Assert.False(r.C.CopyInPlace());
         Assert.DoesNotContain(r.Sent, i => i is DuplicateObjectsIntent);
+    }
+    // ---------------- deselecting (llselectmgr.cpp deselectAll and deselectObjectOnly send ObjectDeselect) ----------------
+
+    private static uint[] Deselected(Rig r) => r.Sent.OfType<DeselectObjectsIntent>().SelectMany(d => d.LocalIds).ToArray();
+
+    [Fact]
+    public void What_leaves_the_selection_is_deselected_on_the_region_click_elsewhere_Shift_click_click_on_nothing_and_Edit_linked_off()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(2, new Vector3(20, 0, 0), Own, parent: 1);
+        r.Prim(3, new Vector3(50, 50, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        Assert.Empty(Deselected(r));
+        r.C.Click(r.At(50, 50), false);                              // something else: the first goes
+        Assert.Equal([1u], Deselected(r));
+        r.Sent.Clear();
+        r.C.Click(r.At(10, 10), true);                               // Shift adds, nothing goes
+        Assert.Empty(Deselected(r));
+        r.C.Click(r.At(50, 50), true);                               // Shift-click a selected one: it goes
+        Assert.Equal([3u], Deselected(r));
+        r.Sent.Clear();
+        r.C.Click(r.At(200, 200), false);                            // a click on nothing
+        Assert.Equal([1u], Deselected(r));
+        r.C.EditLinked = true;
+        r.C.Click(r.At(30, 10), false);
+        r.Sent.Clear();
+        r.C.EditLinked = false;                                      // the part goes, its root is selected
+        Assert.Equal([2u], Deselected(r));
+        Assert.Contains(r.Sent, i => i is ObjectPropertiesIntent { LocalId: 1 });
+        Assert.Equal([1u], r.C.Selection);
+        r.Sent.Clear();
+        r.C.SelectMany([3], shift: false);                           // a drag-select replaces
+        Assert.Equal([1u], Deselected(r));
+    }
+
+    [Fact]
+    public void Leaving_build_mode_a_teleport_and_logging_out_deselect_everything_selected_in_one_message()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(3, new Vector3(50, 50, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([1, 3], shift: false);
+        r.Sent.Clear();
+        r.C.CloseBuild();
+        var d = Assert.Single(r.Sent.OfType<DeselectObjectsIntent>());
+        Assert.Equal([1u, 3u], d.LocalIds.Order().ToArray());
+
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([3], shift: false);
+        r.Sent.Clear();
+        r.C.Receive(new TeleportProgressed(TeleportPhase.Started, "", true));
+        Assert.Equal([3u], Deselected(r));
+        Assert.Empty(r.C.Selection);
+
+        r.C.SelectMany([1], shift: false);
+        r.Sent.Clear();
+        r.C.BeforeLogout();
+        Assert.Equal([1u], Deselected(r));
+        Assert.Empty(r.C.Selection);
+        r.Sent.Clear();
+        r.C.Deselect();                                              // nothing selected: nothing sent
+        Assert.Empty(r.Sent);
+    }
+
+    // ---------------- typed positions (llpanelobject.cpp sendPosition: the place must lie in a region the viewer knows) ----------------
+
+    [Fact]
+    public void A_typed_position_outside_the_own_region_is_sent_when_a_known_neighbour_holds_it_and_refused_otherwise()
+    {
+        var r = new Rig();
+        r.Regions.Add(new RegionArea(256, 0, 256, 256));              // a neighbour to the east
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        r.Sent.Clear();
+        Assert.True(r.C.SetPosition(new Vector3(300, 12, 30)));       // inside the neighbour: sent as typed, in the own region's frame
+        Assert.Equal(new Vector3(300, 12, 30), r.Last<UpdateObjectIntent>().Position);
+        r.Sent.Clear();
+        Assert.False(r.C.SetPosition(new Vector3(-5, 12, 30)));       // west of the region, no neighbour there: nothing sent
+        Assert.False(r.C.SetPosition(new Vector3(100, 600, 30)));
+        Assert.Empty(r.Sent);
+
+        var v = new Rig();                                           // a var region of 512 x 512 alone
+        v.Regions[0] = new RegionArea(0, 0, 512, 512);
+        v.Prim(1, new Vector3(10, 10, 30), Own);
+        v.C.SelectTool(BuildTool.Edit);
+        v.C.Click(v.At(10, 10), false);
+        Assert.True(v.C.SetPosition(new Vector3(400, 500, 5000)));
+        Assert.Equal(new Vector3(400, 500, 4096), v.Last<UpdateObjectIntent>().Position);
+        Assert.False(v.C.SetPosition(new Vector3(512, 10, 30)));     // the far edge belongs to the next region (pointInRegionGlobal)
     }
 }

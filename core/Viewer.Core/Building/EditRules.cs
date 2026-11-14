@@ -129,6 +129,9 @@ public static class ScaleHandles
     }
 }
 
+/// <summary>A region's ground area in metres, its south-west corner relative to the agent's own region's.</summary>
+public readonly record struct RegionArea(float X, float Y, float Width, float Depth);
+
 /// <summary>Number entry in the edit window.</summary>
 public static class EditNumbers
 {
@@ -174,6 +177,8 @@ public static class EditNumbers
         float low = MathF.Min(MathF.Max(ground - halfDiagonal, limits.MinHeight), limits.MaxHeight);
         return new Vector3(Math.Clamp(p.X, 0, regionWidth), Math.Clamp(p.Y, 0, regionHeight), Math.Clamp(p.Z, low, limits.MaxHeight));
     }
+
+    public static Vector3? TypedPosition(Vector3 p, IReadOnlyList<RegionArea> regions, float ground, float halfDiagonal, EditLimits limits) => null;
 
     /// <summary>A size typed in: each axis held to the limits (the physical limits for a physical object).</summary>
     public static Vector3 ClampScale(Vector3 s, bool physical, EditLimits limits)

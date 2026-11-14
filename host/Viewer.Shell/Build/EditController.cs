@@ -31,7 +31,8 @@ public sealed class EditController
 
     /// <param name="ground">The ground's height at a point of the region, when known (a typed height may go down to the ground less half the
     /// object's diagonal).</param>
-    public EditController(WorldState world, Func<ActionIntent, ActionResult> submit, Func<EditLimits>? limits = null, Func<float, float, float>? ground = null)
+    public EditController(WorldState world, Func<ActionIntent, ActionResult> submit, Func<EditLimits>? limits = null, Func<float, float, float>? ground = null,
+        Func<IReadOnlyList<RegionArea>>? regions = null)
     {
         _world = world;
         _submit = submit;
@@ -154,6 +155,8 @@ public sealed class EditController
         }
         Changed?.Invoke();
     }
+
+    public void BeforeLogout() { }
 
     public void Deselect()
     {

@@ -163,12 +163,23 @@ public class EditToolsTests
     }
 
     [Fact]
-    public void A_typed_position_stays_in_the_region_above_the_ground_less_half_the_diagonal_and_under_the_height_limit()
+    public void A_typed_position_must_lie_in_a_known_region_and_its_height_stays_above_the_ground_less_half_the_diagonal_and_under_the_limit()
     {
         var o = EditLimits.Official;
-        Assert.Equal(new Vector3(0, 256, 19.5f), EditNumbers.ClampPosition(new Vector3(-5, 300, 5), 256, 256, 20, 0.5f, o));
-        Assert.Equal(new Vector3(400, 10, 4096), EditNumbers.ClampPosition(new Vector3(400, 10, 5000), 512, 512, 20, 0.5f, o));
-        Assert.Equal(new Vector3(100, 100, 30), EditNumbers.ClampPosition(new Vector3(100, 100, 30), 256, 256, 20, 0.5f, o));
+        RegionArea[] here = [new(0, 0, 256, 256)], withNorth = [new(0, 0, 256, 256), new(0, 256, 256, 256)], bigger = [new(0, 0, 512, 512)];
+        Assert.Null(EditNumbers.TypedPosition(new Vector3(-5, 100, 30), here, 20, 0.5f, o));
+        Assert.Null(EditNumbers.TypedPosition(new Vector3(100, 256, 30), here, 20, 0.5f, o));
+        Assert.Equal(new Vector3(100, 300, 19.5f), EditNumbers.TypedPosition(new Vector3(100, 300, 5), withNorth, 20, 0.5f, o));
+        Assert.Equal(new Vector3(400, 10, 4096), EditNumbers.TypedPosition(new Vector3(400, 10, 5000), bigger, 20, 0.5f, o));
+        Assert.Equal(new Vector3(100, 100, 30), EditNumbers.TypedPosition(new Vector3(100, 100, 30), here, 20, 0.5f, o));
+    }
+
+    [Fact]
+    public void ObjectDeselect_carries_each_local_id()
+    {
+        var d = LmvEdit.Deselect(Agent, Session, [7, 9]);
+        Assert.Equal((Agent, Session), (d.AgentData.AgentID, d.AgentData.SessionID));
+        Assert.Equal([7u, 9u], d.ObjectData.Select(b => b.ObjectLocalID).ToArray());
     }
 
     [Fact]

@@ -23,6 +23,12 @@ internal static class LmvEdit
     /// <summary>ObjectDuplicate's flag that makes the copy the selected one; the Move tool's Shift-drag leaves it off, so the copy stays behind.</summary>
     public const uint DuplicateCreateSelected = 1u << 1;
 
+    public static ObjectDeselectPacket Deselect(UUID agent, UUID session, IReadOnlyList<uint> locals) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = [],
+    };
+
     public static ObjectNamePacket ObjectName(UUID agent, UUID session, uint local, string name) => new()
     {
         AgentData = { AgentID = agent, SessionID = session },

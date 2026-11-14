@@ -171,7 +171,7 @@ public class InteractionControllerTests
     }
 
     [Fact]
-    public void A_left_click_on_land_or_an_avatar_sends_nothing_and_clears_the_selection()
+    public void A_left_click_on_land_or_an_avatar_clears_the_selection_and_deselects_it_on_the_region()
     {
         var r = new Rig();
         r.Prim(1, new Vector3(10, 10, 30));
@@ -180,7 +180,8 @@ public class InteractionControllerTests
         r.Sent.Clear();
         r.C.LeftDown(r.Down(70, 70));
         r.C.LeftUp(r.Down(70, 70));
-        Assert.Empty(r.Sent);
+        // the selection goes, and the region is told (llselectmgr.cpp deselectAll sends ObjectDeselect)
+        Assert.Equal([1u], Assert.IsType<DeselectObjectsIntent>(Assert.Single(r.Sent)).LocalIds);
         Assert.Null(r.C.Selected);
     }
 
@@ -509,5 +510,17 @@ public class InteractionControllerTests
         var details = new ParcelDetailsReceived(4, "Plot", "", Me, false, 4096, false, false, false, false, false, false, 0, 0f);
         r.C.Receive(details);
         Assert.Equal(details, r.C.Parcel);
+    }
+    [Fact]
+    public void A_right_click_on_another_object_deselects_the_one_selected_before()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30));
+        r.Prim(3, new Vector3(50, 50, 30));
+        r.C.RightClick(r.Down(10, 10));
+        r.Sent.Clear();
+        r.C.RightClick(r.Down(50, 50));
+        Assert.Equal([1u], Assert.Single(r.Sent.OfType<DeselectObjectsIntent>()).LocalIds);
+        Assert.Contains(r.Sent, i => i is ObjectPropertiesIntent { LocalId: 3 });
     }
 }

@@ -94,6 +94,14 @@ public sealed record DelinkObjectsIntent(IReadOnlyList<uint> LocalIds) : ActionI
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
 
+/// <summary>Tell the region the objects are no longer selected (ObjectDeselect): a selected physical object is held still until then.</summary>
+public sealed record DeselectObjectsIntent(IReadOnlyList<uint> LocalIds) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => EditText.Objects(LocalIds);
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
 /// <summary>Copy objects in place (the Move tool's Shift-drag): with no flags the copy stays where it is and the original stays selected.</summary>
 public sealed record DuplicateObjectsIntent(IReadOnlyList<uint> Roots, Vector3 Offset, uint Flags = 0) : ActionIntent
 {
