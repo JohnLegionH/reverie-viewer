@@ -87,16 +87,33 @@ public class FirstOpenSizeTests
     }
 
     [Fact]
-    public void Fitting_to_content_grows_the_window_but_not_past_85_percent_of_the_main_view()
+    public void Fitting_to_content_grows_the_window_but_not_past_85_percent_of_the_main_view_in_height()
     {
         var m = Manager(null, Screen, Inventory);
         m.Open("inventory");
         Assert.True(m.FitToContent("inventory", 600, 700));
         Assert.Equal(new UiSize(600, 700), new UiSize(m.RectOf("inventory")!.Value.W, m.RectOf("inventory")!.Value.H));
-        m.FitToContent("inventory", 4000, 4000);
+        m.FitToContent("inventory", 1000, 4000);
         var r = m.RectOf("inventory")!.Value;
-        Assert.Equal(1920 * 0.85f, r.W, 1);
-        Assert.Equal(1080 * 0.85f, r.H, 1);
+        Assert.Equal(1000, r.W, 1);
+        Assert.Equal(1080 * 0.85f, r.H, 1);   // taller content scrolls
+    }
+
+    [Fact]
+    public void Content_wider_than_85_percent_of_the_main_view_widens_the_window_to_it_inside_the_view()
+    {
+        // a row of buttons cannot scroll sideways: a window whose content is wider than the share takes the content's width, up to the
+        // whole view, and moves left so it stays inside (a 200 % interface in a small window: Preferences' OK button stays in it)
+        var m = Manager(null, Screen, Inventory);
+        m.Open("inventory");
+        Assert.True(m.FitToContent("inventory", 1800, 600));
+        var r = m.RectOf("inventory")!.Value;
+        Assert.Equal(1800, r.W, 1);
+        Assert.True(r.X + r.W <= 1920.5f, $"right edge {r.X + r.W}");
+        m.FitToContent("inventory", 4000, 600);
+        r = m.RectOf("inventory")!.Value;
+        Assert.Equal(1920, r.W, 1);
+        Assert.Equal(0, r.X, 1);
     }
 
     [Fact]

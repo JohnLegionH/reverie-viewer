@@ -132,7 +132,7 @@ public class FloaterResizeTests
     {
         var m = OpenAlpha();
         Assert.True(m.FitToContent("alpha", 5000, 5000));
-        Assert.Equal((Bounds.W * FloaterManager.FirstOpenShare, Bounds.H * FloaterManager.FirstOpenShare), (Rect(m).W, Rect(m).H));   // at most 85 % of it when it opens
+        Assert.Equal((Bounds.W, Bounds.H * FloaterManager.FirstOpenShare), (Rect(m).W, Rect(m).H));   // the content's width up to the whole view; at most 85 % of its height when it opens
         Assert.True(Bounds.Encloses(Rect(m)));
     }
 }

@@ -24,8 +24,9 @@
 #                        and opens without needing to scroll; the table of old, new and official sizes is printed
 #   folders_click_only   a made-up inventory driven with real mouse and key events: the pointer over five folders opens none; a
 #                        click on a name selects only; a click on the arrow opens and closes; a double-click toggles; a right-click
-#                        on My Suitcase shows its menu and toggles nothing; Right and Left; a dragged item held over a closed folder
-#                        opens it after the official delay, not before, and the drop still moves it; Esc closes the window
+#                        on My Suitcase shows its menu and toggles nothing; Right and Left; an item dragged and held 2 s over a closed
+#                        folder leaves it closed and marks it (drop-target outline, "Drop to move here", dashed dragged row), and the drop
+#                        moves the item into the closed folder; Esc closes the window
 # -Live (a test account; -LoginUri the grid's login address):
 #   remember_login       the login screen, password typed and remember ticked, logs in; the saved file holds no readable hash
 #   ctrl_i               control+I opens the inventory
@@ -37,7 +38,8 @@
 #   sort_after_relog     the inventory sorted by date in the first start is sorted by date after the second start's login
 #   upload_notice        one generated image uploaded: the notice names it, Show in inventory opens the inventory on it (-InventoryWrites only)
 #   texture_preview      that texture opened as Enter does: the preview draws it with its size (-InventoryWrites only)
-#   folders_click_only_live  the same pointer and key steps on the real inventory (reading only: the drag is cancelled, nothing moved)
+#   folders_click_only_live  the same pointer and key steps on the real inventory, the arrow on a folder with contents; the dragged item is
+#                        dropped into a closed folder and then moved back where it was
 #   main_windows_live    Inventory, Preferences, the overrider's editor, Nearby Chat and the other main windows opened once each and
 #                        captured (screenshots in the sandbox); each opens without needing to scroll
 #   saved_login          the viewer started again: the login screen with an empty password field logs in with the saved hash
