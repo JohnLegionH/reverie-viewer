@@ -118,14 +118,17 @@ public sealed record LocationAddress(string Region, Vector3? Position);
 
 public static class LocationField
 {
-    /// <summary>The display-mode parts, or null without a region. The position is rounded as the location bar rounds it (<see cref="LocationText"/>).</summary>
+    /// <summary>The display-mode parts, or null without a region. The position is rounded to whole metres and, while the avatar
+    /// moves, to every second metre (faster than a walk's 1.5 m/s) or every fourth (faster than 6 m/s), so the numbers do not flicker
+    /// (the location bar's rule, <see cref="LocationText"/>).</summary>
     public static LocationParts? Display(string? region, string? parcel, Vector3 position, float speed)
     {
         if (string.IsNullOrWhiteSpace(region))
             return null;
-        string text = LocationText.Build(region, null, position, speed);
-        int open = text.LastIndexOf(" (", StringComparison.Ordinal);
-        string coords = text[(open + 2)..^1];
+        int x = (int)(position.X + 0.5f), y = (int)(position.Y + 0.5f), z = (int)(position.Z + 0.5f);
+        if (speed > 6f) { x -= x % 4; y -= y % 4; }
+        else if (speed > 1.5f) { x -= x % 2; y -= y % 2; }
+        string coords = $"{x}, {y}, {z}";
         string name = region.Trim();
         string? own = string.IsNullOrWhiteSpace(parcel) || string.Equals(parcel.Trim(), name, StringComparison.OrdinalIgnoreCase) ? null : parcel.Trim();
         return new LocationParts(own, name, coords);
