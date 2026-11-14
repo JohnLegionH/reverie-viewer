@@ -41,11 +41,116 @@ public static class InventoryFeature
     }
 }
 
-/// <summary>The tree: rows can be dragged and dropped on a folder (or on an item, which means its folder).</summary>
+/// <summary>
+/// The tree: rows can be dragged and dropped on a folder (or on an item, which means its folder). Folders open and close on a click
+/// only (<see cref="FolderTreeInput"/>): the engine's own unfolding of folders under a drag is off, because it also unfolded them
+/// under a pointer that merely passed over while the engine still thought a drag was going on; instead a closed folder opens when a
+/// dragged item is held over it with the button down for the official delay (<see cref="DragAutoOpen"/>), and a drag whose button
+/// is no longer held is ended. A right press is taken here before the engine sees it, so it selects its row and asks for the menu
+/// without toggling the folder. Left and Right keys follow the official folder view.
+/// </summary>
 public partial class InventoryTree : Tree
 {
     /// <summary>Raised when a row was dropped: the dragged id and the id of the row it was dropped on.</summary>
     public event Action<Guid, Guid>? Dropped;
+
+    /// <summary>A right press selected this row; its menu is to open at the pointer.</summary>
+    public event Action<Guid>? MenuRequested;
+
+    /// <summary>A double-click on a row's name, or Enter on it: a folder is toggled, an item opened.</summary>
+    public event Action<Guid>? RowActivated;
+
+    /// <summary>Whether a row is a folder (the panel answers from the model; an empty folder has no child rows).</summary>
+    public Func<Guid, bool>? IsFolder;
+
+    private readonly DragAutoOpen _dragOpen = new();
+
+    public InventoryTree()
+    {
+        EnableDragUnfolding = false;
+    }
+
+    /// <summary>Folders opened by a held drag (the automation's count).</summary>
+    public int DragOpens { get; private set; }
+
+    public override void _GuiInput(InputEvent e)
+    {
+        switch (e)
+        {
+            case InputEventMouseButton { ButtonIndex: MouseButton.Right } mb:
+                AcceptEvent();   // the engine would also fold a folder whose arrow is under a right press
+                if (!mb.Pressed)
+                    return;
+                var item = GetItemAtPosition(mb.Position);
+                var id = IdOf(item);
+                if (id == Guid.Empty || FolderTreeInput.Press(RowButton.Right, RowPart.Name, IsFolder?.Invoke(id) ?? false, mb.DoubleClick) != TreeAction.SelectAndMenu)
+                    return;
+                item.Select(0);
+                MenuRequested?.Invoke(id);
+                return;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true, DoubleClick: true } dc:
+                // the first click already did what a click does (the arrow toggled the folder, the name selected the row); the second
+                // toggles the folder (back, on the arrow) or opens the item, as the official folder view's double-click does
+                if (IdOf(GetItemAtPosition(dc.Position)) is var hit && hit != Guid.Empty)
+                {
+                    AcceptEvent();
+                    GetItemAtPosition(dc.Position)!.Select(0);
+                    RowActivated?.Invoke(hit);
+                }
+                return;
+            case InputEventKey { Pressed: true } k when GetSelected() is { } sel && KeyOf(k) is { } key:
+                bool isFolder = IsFolder?.Invoke(IdOf(sel)) ?? sel.GetFirstChild() is not null;
+                bool hasParentRow = sel.GetParent() is { } parent && parent != GetRoot();
+                switch (FolderTreeInput.Key(key, isFolder, isFolder && !sel.Collapsed, hasParentRow))
+                {
+                    case TreeAction.Expand: sel.Collapsed = false; AcceptEvent(); break;
+                    case TreeAction.Collapse: sel.Collapsed = true; AcceptEvent(); break;
+                    case TreeAction.SelectParent: sel.GetParent()!.Select(0); ScrollToItem(sel.GetParent()!); AcceptEvent(); break;
+                    case TreeAction.None when key is TreeKey.Left or TreeKey.Right: AcceptEvent(); break;
+                    default: break;   // Up and Down: the engine moves the selection
+                }
+                return;
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter or Key.KpEnter } when GetSelected() is { } chosen && IdOf(chosen) is var cid && cid != Guid.Empty:
+                AcceptEvent();
+                RowActivated?.Invoke(cid);
+                return;
+        }
+    }
+
+    private static TreeKey? KeyOf(InputEventKey k) =>
+        k.IsAction("ui_left", true) ? TreeKey.Left : k.IsAction("ui_right", true) ? TreeKey.Right : null;
+
+    public override void _Process(double delta)
+    {
+        var vp = GetViewport();
+        bool dragging = vp.GuiIsDragging();
+        bool held = Input.IsMouseButtonPressed(MouseButton.Left);
+        if (DragAutoOpen.IsStaleDrag(dragging, held))
+        {
+            vp.GuiCancelDrag();   // a drag the engine never ended: hovering must not drag or open anything
+            dragging = false;
+        }
+        Guid under = Guid.Empty;
+        bool closed = false;
+        if (dragging && IsVisibleInTree() && GetGlobalRect().HasPoint(GetGlobalMousePosition()))
+        {
+            var item = GetItemAtPosition(GetLocalMousePosition());
+            if (item is not null && item.GetFirstChild() is not null)
+            {
+                under = IdOf(item);
+                closed = item.Collapsed;
+            }
+        }
+        var open = _dragOpen.Step(under, closed, dragging, held, (long)Time.GetTicksMsec());
+        if (open == Guid.Empty)
+            return;
+        var row = GetItemAtPosition(GetLocalMousePosition());
+        if (row is not null && IdOf(row) == open)
+        {
+            row.Collapsed = false;   // raises the collapse signal, which opens it in the view model too
+            DragOpens++;
+        }
+    }
 
     /// <summary>The dragged row's id may be moved onto the row (the panel decides by the rules).</summary>
     public Func<Guid, Guid, bool>? CanDropOn;
@@ -169,8 +274,9 @@ public partial class InventoryPanel : VBoxContainer
         TreeView.ItemCollapsed += OnItemCollapsed;
         TreeView.ItemSelected += OnItemSelected;
         TreeView.ItemEdited += OnItemEdited;
-        TreeView.ItemMouseSelected += OnItemMouse;
-        TreeView.ItemActivated += () => { if (InventoryTree.IdOf(TreeView.GetSelected()) is var id && id != Guid.Empty && CanOpen(id)) OpenRequested?.Invoke(id); };
+        TreeView.MenuRequested += OnRowMenu;
+        TreeView.IsFolder = id => _model?.Folder(id) is not null;
+        TreeView.RowActivated += OnRowActivated;
         TreeView.CanDropOn = (dragged, target) => _actions is not null && _actions.WhyNotMove(dragged, DropFolder(target)) is null;
         TreeView.Dropped += OnDropped;
         AddChild(TreeView);
@@ -527,13 +633,32 @@ public partial class InventoryPanel : VBoxContainer
         return true;
     }
 
-    private void OnItemMouse(Vector2 position, long mouseButton)
+    /// <summary>A double-click on a row's name or Enter: a folder opens or closes (the official folder view toggles it), an item that
+    /// opens in a window of its own opens.</summary>
+    private void OnRowActivated(Guid id)
     {
-        if (mouseButton != (long)MouseButton.Right)
-            return;   // the item menu opens on a right-click only
+        _selected = id;
+        if (_view is not null && _model?.Folder(id) is not null)
+        {
+            if (FolderTreeInput.Press(RowButton.Left, RowPart.Name, isFolder: true, doubleClick: true) == TreeAction.SelectAndToggle)
+            {
+                _view.Toggle(id);
+                _dirty = true;
+            }
+            return;
+        }
+        if (CanOpen(id))
+            OpenRequested?.Invoke(id);
+    }
+
+    /// <summary>Toggles a folder in the view as a double-click does (the automation's check).</summary>
+    internal void Activate(Guid id) => OnRowActivated(id);
+
+    private void OnRowMenu(Guid id)
+    {
         if (!_contextToggle.PressOpens("context", (long)Time.GetTicksMsec()))
             return;   // the right-click that just closed it
-        _selected = InventoryTree.IdOf(TreeView.GetSelected());
+        _selected = id;
         RefreshControls();
         Context.SetItemDisabled(0, NewFolderButton.Disabled);
         Context.SetItemDisabled(1, RenameButton.Disabled);

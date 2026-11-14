@@ -10,8 +10,8 @@ public static class BrandText
     public static string For(string? gridName, StringTable strings) =>
         string.IsNullOrWhiteSpace(gridName) ? strings.Get("brand.default") : gridName.Trim();
 
-    /// <summary>The window title: the same text as the menu bar's.</summary>
-    public static string WindowTitle(string? gridName, StringTable strings) => For(gridName, strings);
-
-    public static string WindowTitle(StringTable strings) => "";
+    /// <summary>The window title: the viewer's own name and nothing else, as the official viewer's (llappviewer.cpp sets it to
+    /// APP_NAME); the grid's name stays in the menu bar. The name comes from the string table's one entry for it, so renaming
+    /// the viewer is one change.</summary>
+    public static string WindowTitle(StringTable strings) => strings.Get("brand.default");
 }

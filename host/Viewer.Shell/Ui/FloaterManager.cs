@@ -20,7 +20,8 @@ public interface IFloaterPlaces
     void Set(string id, UiRect rect);
     /// <summary>Writes the places changed since the last call where they are kept between runs (nothing for places kept in memory).</summary>
     void Flush() { }
-    /// <summary>True the first time it is asked for a window (stub).</summary>
+    /// <summary>True only the first time it is asked for a window, ever (kept between runs where places are): the one look at
+    /// whether a remembered place still holds the window's old default size, which is then dropped so the new size shows.</summary>
     bool TakeSizeCheck(string id) => false;
 }
 
@@ -48,6 +49,18 @@ public sealed class SettingsFloaterPlaces(SettingsService settings) : IFloaterPl
         foreach (var (id, rect) in _changed)
             settings.SetText(KeyOf(id), Format(rect));
         _changed.Clear();
+    }
+
+    /// <summary>The windows already given the one-time size check, kept as one comma-separated setting.</summary>
+    public const string SizeCheckKey = "floater_sizes_checked";
+
+    public bool TakeSizeCheck(string id)
+    {
+        var done = (settings.GetText(SizeCheckKey) ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+        if (Array.IndexOf(done, id) >= 0)
+            return false;
+        settings.SetText(SizeCheckKey, string.Join(",", done.Append(id)));
+        return true;
     }
 
     private static string Format(UiRect r) => string.Join(",", new[] { r.X, r.Y, r.W, r.H }.Select(v => MathF.Round(v).ToString(System.Globalization.CultureInfo.InvariantCulture)));
@@ -105,9 +118,22 @@ public sealed class FloaterManager
 
     public FloaterManager(IFloaterPlaces? places = null) => _places = places ?? new MemoryFloaterPlaces();
 
+    /// <summary>The largest share of the main view a window takes when it opens for the first time (its own size or its content's).</summary>
     public const float FirstOpenShare = 0.85f;
 
-    public UiSize FirstOpenSize(FloaterSpec spec) => spec.DefaultSize;
+    /// <summary>
+    /// The size a window opens at when it has no remembered place: the larger of its own default and the official viewer's window it
+    /// stands for (<see cref="OfficialFloaterSizes"/>) in each direction, no more than <see cref="FirstOpenShare"/> of the main view,
+    /// and never below the window's minimum (a main view smaller than that minimum wins, as everywhere).
+    /// </summary>
+    public UiSize FirstOpenSize(FloaterSpec spec)
+    {
+        var official = OfficialFloaterSizes.Of(spec.Id);
+        float w = Math.Max(spec.DefaultSize.W, official?.W ?? 0), h = Math.Max(spec.DefaultSize.H, official?.H ?? 0);
+        w = Math.Max(Math.Min(w, _bounds.W * FirstOpenShare), spec.MinSize.W);
+        h = Math.Max(Math.Min(h, _bounds.H * FirstOpenShare), spec.MinSize.H);
+        return new UiSize(MathF.Round(w), MathF.Round(h));
+    }
 
     /// <summary>Raised after any change a view must redraw for (open, close, move, resize, focus, bounds).</summary>
     public event Action? Changed;
@@ -151,8 +177,13 @@ public sealed class FloaterManager
         int at = IndexOf(id);
         if (at >= 0)
             return Raise(at);
-        var wanted = _places.Get(id)
-            ?? new UiRect(_bounds.X + FirstOffset + CascadeStep * _open.Count, _bounds.Y + FirstOffset + CascadeStep * _open.Count, spec.DefaultSize.W, spec.DefaultSize.H);
+        var remembered = _places.Get(id);
+        // once per window: a place that still has the old default size was never resized, so it gives way to the new first-open size
+        if (_places.TakeSizeCheck(id) && remembered is { } old && old.W == spec.DefaultSize.W && old.H == spec.DefaultSize.H && FirstOpenSize(spec) != spec.DefaultSize)
+            remembered = null;
+        var size = FirstOpenSize(spec);
+        var wanted = remembered
+            ?? new UiRect(_bounds.X + FirstOffset + CascadeStep * _open.Count, _bounds.Y + FirstOffset + CascadeStep * _open.Count, size.W, size.H);
         var rect = Clamp(spec, wanted);
         _open.Add((id, rect));
         _wanted[id] = rect;
@@ -280,8 +311,9 @@ public sealed class FloaterManager
     }
 
     /// <summary>
-    /// Makes an open window at least as large as its content needs, within the main view; true when that changed it. The shell asks
-    /// once, when a window opens, so a later drag can make the window smaller than its content (which then scrolls).
+    /// Makes an open window at least as large as its content needs, up to <see cref="FirstOpenShare"/> of the main view (never
+    /// smaller than it was); true when that changed it. The shell asks once, when a window opens, so a later drag can make the
+    /// window smaller than its content (which then scrolls).
     /// </summary>
     public bool FitToContent(string id, float width, float height)
     {
@@ -289,7 +321,9 @@ public sealed class FloaterManager
         if (at < 0)
             return false;
         var r = _open[at].Rect;
-        var fitted = Clamp(_specs[id], r with { W = Math.Max(r.W, width), H = Math.Max(r.H, height) });
+        float w = Math.Max(r.W, Math.Min(width, MathF.Round(_bounds.W * FirstOpenShare)));
+        float h = Math.Max(r.H, Math.Min(height, MathF.Round(_bounds.H * FirstOpenShare)));
+        var fitted = Clamp(_specs[id], r with { W = w, H = h });
         if (fitted == r)
             return false;
         Replace(at, fitted);

@@ -33,7 +33,7 @@ public partial class Main
     private void ApplyBranding(GridBranding branding)
     {
         _shell?.SetBrand(branding.Name);
-        if (_strings is not null) GetWindow().Title = BrandText.WindowTitle(branding.Name, _strings);
+        if (_strings is not null) GetWindow().Title = BrandText.WindowTitle(_strings);
         _loginScreen?.ApplyBranding(branding);
         _gridAccent = branding.Accent;
         _preferences?.SetGridAccent(branding.Accent);
@@ -65,10 +65,10 @@ public partial class Main
             return;
         if (session!.Region is { } region)
         {
-            // as the official viewer's location string: the parcel's name, the region, and the position in it (rounded by how fast the agent moves)
-            _shell.Navigation.SetLocation(session.World.LastSelfMotion is { } self
-                ? LocationText.Build(region.Name, session.AgentParcelName, self.Motion.Position - session.World.OriginOffset, self.Motion.Velocity.Length())
-                : region.Name);
+            // as the official location bar: "Parcel, Region" when the parcel has a name, the region alone when not, without coordinates
+            // (the bar's default); the region's maturity text is not known to the session yet, so it is left out
+            var (where, speed) = session.World.LastSelfMotion is { } self ? (self.Motion.Position - session.World.OriginOffset, self.Motion.Velocity.Length()) : (System.Numerics.Vector3.Zero, 0f);
+            _shell.Navigation.SetLocation(LocationText.Build(LocationText.BarFormat(showCoordinates: false), region.Name, session.AgentParcelName, where, speed));
         }
         _shell.SetUnread(_notePanels?.Toasts.Unread ?? 0);
     }

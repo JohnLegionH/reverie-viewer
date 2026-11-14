@@ -18,6 +18,14 @@
 #   window_after_restart that window, left open at quit, opens where it was after the viewer is started again
 #   sort_after_restart   the inventory sorted by date stays sorted by date after the viewer is started again
 #   ao_editor_fits       the overrider's set editor at its default size: no control cut short, past the window's edge, or overlapping
+#   size_cleanup_once    a remembered place that still has the old default size gives way to the new first-open size; a place the
+#                        person changed stays (the run's settings are seeded with one of each before the first start)
+#   first_open_sizes     every window opened for the first time is at least its first-open size (ours or the official, the larger)
+#                        and opens without needing to scroll; the table of old, new and official sizes is printed
+#   folders_click_only   a made-up inventory driven with real mouse and key events: the pointer over five folders opens none; a
+#                        click on a name selects only; a click on the arrow opens and closes; a double-click toggles; a right-click
+#                        on My Suitcase shows its menu and toggles nothing; Right and Left; a dragged item held over a closed folder
+#                        opens it after the official delay, not before, and the drop still moves it; Esc closes the window
 # -Live (a test account; -LoginUri the grid's login address):
 #   remember_login       the login screen, password typed and remember ticked, logs in; the saved file holds no readable hash
 #   ctrl_i               control+I opens the inventory
@@ -29,6 +37,9 @@
 #   sort_after_relog     the inventory sorted by date in the first start is sorted by date after the second start's login
 #   upload_notice        one generated image uploaded: the notice names it, Show in inventory opens the inventory on it (-InventoryWrites only)
 #   texture_preview      that texture opened as Enter does: the preview draws it with its size (-InventoryWrites only)
+#   folders_click_only_live  the same pointer and key steps on the real inventory (reading only: the drag is cancelled, nothing moved)
+#   main_windows_live    Inventory, Preferences, the overrider's editor, Nearby Chat and the other main windows opened once each and
+#                        captured (screenshots in the sandbox); each opens without needing to scroll
 #   saved_login          the viewer started again: the login screen with an empty password field logs in with the saved hash
 #   saved_entry_aside    the run's saved-login file is moved aside (move-aside), so no test login stays remembered
 # Exit: 0 all passed; 1 a check failed; 3 blocked (an input is missing).
@@ -138,9 +149,56 @@ function SavedFileHasNoHash {
 }
 
 # ---------------- offline ----------------
+# one remembered place at the old default size (never resized) and one the person changed, as an earlier version would have saved them
+$seed = Join-Path $appdata "NativeViewer\settings.json"
+$seeded = $false
+if (-not (Test-Path -LiteralPath $seed)) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $appdata "NativeViewer") | Out-Null
+    Set-Content -LiteralPath $seed -Value '{"floater_inventory_rect":"40,40,420,520","floater_people_rect":"100,100,520,470"}' -Encoding utf8
+    $seeded = $true
+}
 $v = Start-Viewer "offline"
 if (-not $v) { Record "start" $false "no automation token file within $StartSeconds s"; exit 1 }
 try {
+    # the one-time clean-up of remembered places at the old default size
+    $inv = @((Api $v "windows" '{"action":"open","name":"inventory"}').open | Where-Object { $_.id -eq "inventory" })
+    $ppl = @((Api $v "windows" '{"action":"open","name":"people"}').open | Where-Object { $_.id -eq "people" })
+    Start-Sleep -Milliseconds 800
+    $inv = @((Api $v "windows" '{"action":"state"}').open | Where-Object { $_.id -eq "inventory" })
+    $ppl = @((Api $v "windows" '{"action":"state"}').open | Where-Object { $_.id -eq "people" })
+    $invOk = $inv.Count -eq 1 -and $inv[0].rect[2] -ge 420 -and $inv[0].rect[3] -ge 570
+    $pplOk = $ppl.Count -eq 1 -and $ppl[0].rect[0] -eq 100 -and $ppl[0].rect[1] -eq 100 -and $ppl[0].rect[2] -ge 520 -and $ppl[0].rect[3] -ge 470
+    Record "size_cleanup_once" ($seeded -and $invOk -and $pplOk) "seeded $seeded; inventory remembered at the old default 420x520 opened at [$(@($inv | ForEach-Object { $_.rect -join ',' }))]; people remembered at 100,100,520,470 (changed by the person) opened at [$(@($ppl | ForEach-Object { $_.rect -join ',' }))]"
+    [void](Api $v "windows" '{"action":"close","name":"inventory"}')
+    [void](Api $v "windows" '{"action":"close","name":"people"}')
+
+    # every window's first opening: at least its first-open size, nothing needing to scroll
+    $ids = @((Api $v "open_window" '{}').ids)
+    if ($ids.Count -eq 0) { $ids = @((Api $v "open_window" '{}').windows) }
+    $bad = @(); $rows = @()
+    foreach ($id in $ids) {
+        if ($id -in @("inventory", "people")) { continue }
+        $o = Api $v "windows" (@{ action = "open"; name = $id })
+        if (-not $o.done) { $rows += "  $id`: did not open offline"; continue }
+        Start-Sleep -Milliseconds 700
+        $f = Api $v "windows" (@{ action = "fit"; name = $id })
+        $small = $f.first_open -and ($f.rect[2] + 0.5 -lt [Math]::Min($f.first_open[0], $f.needed[0]) -or $f.rect[3] + 0.5 -lt [Math]::Min($f.first_open[1], $f.needed[1]))
+        $row = "  $id`: old [$($f.spec_default -join 'x')] new [$($f.rect[2])x$($f.rect[3])] official [$(if ($f.official) { $f.official -join 'x' } else { 'none' })] first-open [$($f.first_open -join 'x')] content needs [$($f.needed -join 'x')] scrolls $($f.scrolls) problems $(@($f.problems).Count)"
+        $rows += $row
+        if ($f.scrolls -or $small) { $bad += $id }
+        [void](Api $v "windows" (@{ action = "close"; name = $id }))
+    }
+    Record "first_open_sizes" ($ids.Count -gt 0 -and $bad.Count -eq 0) "$($ids.Count) windows; too small or needing to scroll: [$($bad -join ', ')]"
+    foreach ($r in $rows) { Say $r }
+
+    # inventory folders open on a click only (a made-up inventory; real mouse and key events)
+    $pc = Api $v "inventory_view" '{"action":"pointer"}'
+    Record "folders_click_only" ($pc.opened_by_hover -eq 0 -and $pc.folders_hovered -ge 5 -and $pc.name_click_selects_without_toggle -and $pc.arrow_click_opens -and $pc.arrow_click_closes -and $pc.double_click_toggles -and
+        $pc.right_click_menu -and $pc.right_click_selects -and $pc.right_click_toggled -eq $false -and $pc.key_right_opens -and $pc.key_left_closes -and $pc.key_left_to_parent -and
+        $pc.drag_open_before_delay -eq $false -and $pc.drag_open_after_delay -and $pc.drops_moved -eq 1 -and -not $pc.drag_still_running -and $pc.esc_closed_window) `
+        ("hovered $($pc.folders_hovered) folders, opened by hover $($pc.opened_by_hover); name click selects only $($pc.name_click_selects_without_toggle); arrow opens $($pc.arrow_click_opens) closes $($pc.arrow_click_closes) (x tried [$(@($pc.arrow_x_tried) -join ',')]); " +
+         "double-click toggles $($pc.double_click_toggles); right-click on My Suitcase: menu $($pc.right_click_menu), selected $($pc.right_click_selects), toggled $($pc.right_click_toggled); keys Right opens $($pc.key_right_opens), Left closes $($pc.key_left_closes), Left to parent $($pc.key_left_to_parent); " +
+         "drag held: open at 0.45 s $($pc.drag_open_before_delay), at 1 s $($pc.drag_open_after_delay), drops moved $($pc.drops_moved), drag left running $($pc.drag_still_running); Esc closed the window $($pc.esc_closed_window) $($pc.refused)")
     # Enter in the password field starts a login: with a name and no password it stops at the missing password
     $before = Api $v "login_screen" '{"action":"state"}'
     [void](Api $v "login_screen" @{ action = "submit"; name = "Test User"; login_uri = "https://grid.example.org:8002/" })
@@ -251,6 +309,32 @@ if ($Live) {
             Record "folder_toggle_live" ($tg.opened -and $tg.closed -and $tg.stayed_open -and $tg.stayed_closed -and $tg.own_outfit_folder_top_level) `
                 "folder: $($tg.folder); opened $($tg.opened), stayed open over 3 reads $($tg.stayed_open) (tree drawn $($tg.draws_while_open) times); closed $($tg.closed), stayed closed over 3 reads $($tg.stayed_closed) (drawn $($tg.draws_while_closed)); own Current Outfit is the top-level one: $($tg.own_outfit_folder_top_level) $($tg.refused)"
             $liveSorted = Api $v "inventory_view" '{"action":"sort","sort":"date"}'
+
+            # the same pointer and key steps on the real inventory (reading only)
+            $pl = Api $v "inventory_view" '{"action":"pointer_live"}'
+            Record "folders_click_only_live" ($pl.opened_by_hover -eq 0 -and $pl.folders_hovered -ge 1 -and $pl.name_click_selects_without_toggle -and $pl.arrow_click_opens -and $pl.arrow_click_closes -and
+                ($pl.right_click_menu -or -not $pl.suitcase) -and $pl.right_click_toggled -ne $true -and $pl.key_right_opens -and $pl.key_left_closes -and
+                ($null -eq $pl.drag_open_after_delay -or ($pl.drag_open_before_delay -eq $false -and $pl.drag_open_after_delay)) -and -not $pl.drag_still_running) `
+                ("hovered $($pl.folders_hovered) folders, opened by hover $($pl.opened_by_hover); name click selects only $($pl.name_click_selects_without_toggle); arrow opens $($pl.arrow_click_opens) closes $($pl.arrow_click_closes); double-click toggles $($pl.double_click_toggles); " +
+                 "My Suitcase present $($pl.suitcase): right-click menu $($pl.right_click_menu), selected $($pl.right_click_selects), toggled $($pl.right_click_toggled); keys Right $($pl.key_right_opens) Left $($pl.key_left_closes) parent $($pl.key_left_to_parent); " +
+                 "a folder dragged and held over a closed one: open at 0.45 s $($pl.drag_open_before_delay), at 1 s $($pl.drag_open_after_delay) (cancelled, nothing moved: moves $($pl.drops_moved)); Esc closed $($pl.esc_closed_window) $($pl.refused)")
+
+            # the main windows opened once each and captured
+            $shots = Join-Path $Sandbox "windows"
+            New-Item -ItemType Directory -Force -Path $shots | Out-Null
+            $mainBad = @(); $mainRows = @()
+            foreach ($id in @("inventory", "preferences", "addon.ao.editor", "nearby_chat", "conversations", "people", "world_map", "appearance", "outfits", "about_land", "personal_lighting")) {
+                $o = Api $v "windows" (@{ action = "open"; name = $id })
+                if (-not $o.done) { $mainRows += "  $id`: did not open"; continue }
+                Start-Sleep -Milliseconds 1500
+                $f = Api $v "windows" (@{ action = "fit"; name = $id })
+                [void](Api $v "screenshot" (@{ dir = $shots; name = ("window-" + ($id -replace '[^A-Za-z0-9_-]', '-')) }))
+                $mainRows += "  $id`: at [$($f.rect -join ',')] content needs [$($f.needed -join 'x')] scrolls $($f.scrolls) problems $(@($f.problems).Count)"
+                if ($f.scrolls) { $mainBad += $id }
+                [void](Api $v "windows" (@{ action = "close"; name = $id }))
+            }
+            Record "main_windows_live" ($mainBad.Count -eq 0 -and $mainRows.Count -gt 0) "needing to scroll: [$($mainBad -join ', ')]; screenshots in $shots"
+            foreach ($r in $mainRows) { Say $r }
 
             if ($InventoryWrites) {
                 # the AO set editor: New set asks for a name with the keyboard in the field; Esc closes it; Enter makes the set, which is then listed and picked

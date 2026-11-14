@@ -57,8 +57,7 @@ public partial class Main
     private void OnSkyChoice(SkyChoice choice)
     {
         if (_presenter is not null) { _presenter.FixedSkies = _fixedSkies; _presenter.Sky = choice; _presenter.RefreshSky(); }
-        Log.Info("sky.choice", CoreLog.F("choice", SkyChoices.Label(choice)));
-        if (_strings is not null) GetWindow().Title = _strings.Get("sky.title", SkyChoices.Label(choice));
+        Log.Info("sky.choice", CoreLog.F("choice", SkyChoices.Label(choice)));   // the choice is in the log; the window title stays the viewer's name
     }
 
     /// <summary>A built-in sky the grid could not serve: the sky in force stays, and a notice says so (the official viewer's FailedToFindSettings does the same).</summary>

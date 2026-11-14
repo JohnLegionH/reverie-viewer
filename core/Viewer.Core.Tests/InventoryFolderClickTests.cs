@@ -153,6 +153,18 @@ public class InventoryFolderClickTests
     }
 
     [Fact]
+    public void No_tree_in_the_viewer_unfolds_its_folders_under_a_passing_drag()
+    {
+        string host = Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot");
+        var bad = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(host, "*.cs", SearchOption.AllDirectories))
+            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"new Tree\s*\{[^}]*\}"))
+                if (!Regex.IsMatch(m.Value, @"EnableDragUnfolding\s*=\s*false"))
+                    bad.Add(Path.GetFileName(file));
+        Assert.True(bad.Count == 0, "trees that unfold under a drag: " + string.Join(", ", bad));
+    }
+
+    [Fact]
     public void A_right_press_on_the_tree_is_taken_before_the_engine_can_toggle_a_folder()
     {
         string text = Panels;

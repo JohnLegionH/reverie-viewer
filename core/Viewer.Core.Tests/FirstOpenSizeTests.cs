@@ -24,7 +24,7 @@ public class FirstOpenSizeTests
     private static readonly UiRect Screen = new(0, 0, 1920, 1080);
     private static readonly FloaterSpec Inventory = new("inventory", "inventory.title", new UiSize(420, 520), new UiSize(300, 320));
     private static readonly FloaterSpec People = new("people", "people.title", new UiSize(500, 440), new UiSize(360, 320));
-    private static readonly FloaterSpec Model = new("model", "model.title", new UiSize(460, 620), new UiSize(360, 420));
+    private static readonly FloaterSpec Model = new("upload_model", "model.title", new UiSize(460, 620), new UiSize(360, 420));
     private static readonly FloaterSpec Prefs = new("preferences", "prefs.title", new UiSize(700, 620), new UiSize(520, 360));
     private static readonly FloaterSpec NoCounterpart = new("addons", "addons.title", new UiSize(420, 460), new UiSize(320, 260));
 
@@ -41,8 +41,8 @@ public class FirstOpenSizeTests
     [InlineData("inventory", "floater_my_inventory.xml", 418, 570)]
     [InlineData("people", "floater_people.xml", 370, 570)]
     [InlineData("preferences", "floater_preferences.xml", 658, 530)]
-    [InlineData("land", "floater_about_land.xml", 634, 420)]
-    [InlineData("map", "floater_world_map.xml", 650, 600)]
+    [InlineData("about_land", "floater_about_land.xml", 634, 420)]
+    [InlineData("world_map", "floater_world_map.xml", 650, 600)]
     [InlineData("about", "floater_about.xml", 500, 440)]
     [InlineData("notifications", "floater_notifications_tabbed.xml", 435, 550)]
     public void The_official_sizes_are_those_of_the_official_windows(string id, string file, float w, float h)

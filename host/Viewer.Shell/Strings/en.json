@@ -36,7 +36,6 @@
   "login.resolved.label": "Login address in use",
   "login.resolved.none": "Not looked up yet.",
   "login.resolved.is": "Login address: {0}",
-  "sky.title": "Viewer - time of day: {0}",
   "shell.menubar": "Main menu",
   "shell.toolbar": "Toolbar",
   "shell.main": "Main view",

@@ -32,7 +32,18 @@ public partial class Main
             _ => true,
         };
         if (action == "fit" && id is not null && _shell.Frames.TryGetValue(id, out var frame))
-            return new { id, problems = FitProblems(frame), rect = floaters.RectOf(id) is { } at ? Rect(at) : null };
+        {
+            var needed = frame.NeededSize();
+            var rect = floaters.RectOf(id);
+            return new
+            {
+                id, problems = FitProblems(frame), rect = rect is { } at ? Rect(at) : null, needed = new[] { MathF.Round(needed.X), MathF.Round(needed.Y) },
+                spec_default = floaters.SpecOf(id) is { } spec ? new[] { spec.DefaultSize.W, spec.DefaultSize.H } : null,
+                official = OfficialFloaterSizes.Of(id) is { } o ? new[] { o.W, o.H } : null,
+                first_open = floaters.SpecOf(id) is { } s2 ? new[] { floaters.FirstOpenSize(s2).W, floaters.FirstOpenSize(s2).H } : null,
+                scrolls = rect is { } r && (r.W + 0.5f < needed.X || r.H + 0.5f < needed.Y),
+            };
+        }
         return new
         {
             done,
@@ -95,6 +106,12 @@ public partial class Main
                 if (_inventoryFor is not null)
                     return new { refused = "in_world" };   // the check binds a made-up inventory: only before a login
                 return await SuitcaseCheck(panel);
+            case "pointer":
+                return await PointerCheck(panel, live: false);
+            case "pointer_live":
+                if (_inventoryFor is null)
+                    return new { refused = "not_in_world" };
+                return await PointerCheck(panel, live: true);
             case "toggle_live":
                 if (_inventoryFor is null || panel.Model is not { } live)
                     return new { refused = "not_in_world" };

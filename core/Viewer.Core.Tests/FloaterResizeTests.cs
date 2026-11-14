@@ -132,7 +132,7 @@ public class FloaterResizeTests
     {
         var m = OpenAlpha();
         Assert.True(m.FitToContent("alpha", 5000, 5000));
-        Assert.Equal((Bounds.W, Bounds.H), (Rect(m).W, Rect(m).H));
+        Assert.Equal((Bounds.W * FloaterManager.FirstOpenShare, Bounds.H * FloaterManager.FirstOpenShare), (Rect(m).W, Rect(m).H));   // at most 85 % of it when it opens
         Assert.True(Bounds.Encloses(Rect(m)));
     }
 }

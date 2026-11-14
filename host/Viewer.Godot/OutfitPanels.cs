@@ -120,7 +120,7 @@ public partial class OutfitPanel : VBoxContainer
 
     private Tree MakeTree(string name, string key)
     {
-        var t = new Tree { Name = name, HideRoot = true, SelectMode = Tree.SelectModeEnum.Single, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.All };
+        var t = new Tree { Name = name, HideRoot = true, SelectMode = Tree.SelectModeEnum.Single, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.All, EnableDragUnfolding = false };   // folders open on a click only, never under a passing drag
         t.AccessibilityName = _strings.Get(key);
         return t;
     }

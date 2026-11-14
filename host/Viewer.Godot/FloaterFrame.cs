@@ -124,13 +124,39 @@ public partial class FloaterFrame : PanelContainer
     private Vector2 _restoreMinimum;
     private MarginContainer? _pad;
 
-    /// <summary>The size the window needs to show its content without scrolling (title bar, content, grip, frame).</summary>
+    /// <summary>The size the window needs to show its content without scrolling (title bar, content, grip, frame). Content inside a
+    /// scroll area counts at its full size: a scroll area asks for almost nothing itself, so a window of settings in one would
+    /// otherwise open needing to scroll.</summary>
     public Vector2 NeededSize()
     {
         var chrome = GetThemeStylebox("panel").GetMinimumSize();
         float h = TitleBar.GetCombinedMinimumSize().Y + (_foot?.GetCombinedMinimumSize().Y ?? 0);
         var pad = _pad?.GetCombinedMinimumSize() ?? Vector2.Zero;
+        if (_pad is not null)
+            pad += ScrolledAway(_pad);
         return new Vector2(pad.X + chrome.X, h + pad.Y + chrome.Y);
+    }
+
+    /// <summary>How much more room the content inside the scroll areas under a node needs than those areas ask for.</summary>
+    private static Vector2 ScrolledAway(Node node)
+    {
+        var extra = Vector2.Zero;
+        foreach (var child in node.GetChildren())
+        {
+            if (child is not Control { Visible: true } c)
+                continue;
+            Vector2 more = Vector2.Zero;
+            if (c is ScrollContainer scroll)
+            {
+                foreach (var inner in scroll.GetChildren())
+                    if (inner is Control { Visible: true } content)
+                        more = (content.GetCombinedMinimumSize() - scroll.GetCombinedMinimumSize()).Max(Vector2.Zero);
+            }
+            else
+                more = ScrolledAway(c);
+            extra = new Vector2(Math.Max(extra.X, more.X), extra.Y + more.Y);
+        }
+        return extra;
     }
 
     public override void _EnterTree() => _restoreMinimum = _restoreMinimum == default ? CustomMinimumSize : _restoreMinimum;

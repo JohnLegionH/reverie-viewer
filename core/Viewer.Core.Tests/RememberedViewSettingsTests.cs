@@ -80,7 +80,7 @@ public class RememberedViewSettingsTests
         Assert.True(store.Writes > writes);
         var after = Manager(store, out _);
         after.Open("inventory");
-        Assert.Equal(new UiRect(640, 120, 420, 520), after.RectOf("inventory"));
+        Assert.Equal(new UiRect(640, 120, 420, 570), after.RectOf("inventory"));
     }
 
     [Fact]
@@ -100,10 +100,10 @@ public class RememberedViewSettingsTests
     [Fact]
     public void A_remembered_place_off_the_screen_is_brought_back_on_it()
     {
-        var store = new MemoryStore("{\"floater_inventory_rect\":\"5000,-300,420,520\"}");
+        var store = new MemoryStore("{\"floater_inventory_rect\":\"5000,-300,400,500\"}");
         var m = Manager(store, out _);
         m.Open("inventory");
-        Assert.Equal(new UiRect(1500, 0, 420, 520), m.RectOf("inventory"));   // the remembered size, pulled to the nearest place on the screen
+        Assert.Equal(new UiRect(1520, 0, 400, 500), m.RectOf("inventory"));   // the remembered size, pulled to the nearest place on the screen
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class RememberedViewSettingsTests
         var after = Manager(store, out _, Spec, map);
         after.Open("map");
         after.Open("inventory");
-        Assert.Equal(new UiRect(10, 20, 420, 520), after.RectOf("inventory"));
+        Assert.Equal(new UiRect(10, 20, 420, 570), after.RectOf("inventory"));
         Assert.Equal(new UiRect(900, 300, 720, 560), after.RectOf("map"));
     }
 }
