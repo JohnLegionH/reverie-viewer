@@ -31,16 +31,19 @@ public class LaunchFolderTests : IDisposable
     private static string Tool(string name) => Path.Combine(Environment.GetEnvironmentVariable("NV_TOOLS_DIR") is { Length: > 0 } d ? d : Path.Combine(TestPaths.RepoRoot, "tools"), name);
 
     /// <summary>A made-up exported build: the stand-in executable (a copy of cmd.exe, so a run ends by itself), a pck, a data folder, a sandbox and a development export.</summary>
-    private string MakeBuild(string name = "build")
+    private string MakeBuild(string name = "build", bool dataFolder = true, bool hostAssembly = true)
     {
         string build = Path.Combine(_dir, name);
-        Directory.CreateDirectory(Path.Combine(build, "data_Viewer.Godot_windows_x86_64"));
+        Directory.CreateDirectory(build);
+        if (dataFolder)
+            Directory.CreateDirectory(Path.Combine(build, "data_Viewer.Godot_windows_x86_64"));
         Directory.CreateDirectory(Path.Combine(build, "appdata"));
         Directory.CreateDirectory(Path.Combine(build, "dev"));
         File.Copy(CmdExe, Path.Combine(build, "Reverie.console.exe"));
         File.WriteAllBytes(Path.Combine(build, "Reverie.exe"), new byte[] { 1, 2, 3, 4 });
         File.WriteAllBytes(Path.Combine(build, "Reverie.pck"), new byte[] { 5, 6, 7 });
-        File.WriteAllText(Path.Combine(build, "data_Viewer.Godot_windows_x86_64", "Viewer.Godot.dll"), "dll");
+        if (dataFolder && hostAssembly)
+            File.WriteAllText(Path.Combine(build, "data_Viewer.Godot_windows_x86_64", "Viewer.Godot.dll"), "dll");
         File.WriteAllText(Path.Combine(build, "dev", "Reverie.exe"), "dev");
         return build;
     }
@@ -178,6 +181,26 @@ public class LaunchFolderTests : IDisposable
         string output = p.StandardOutput.ReadToEnd();
         Assert.True(p.WaitForExit(TimeSpan.FromSeconds(timeoutSeconds + 60)), "godot.ps1 did not end");
         return (p.ExitCode, output + err.Result);
+    }
+
+    [Fact]
+    public void An_export_is_complete_only_with_its_data_folder_and_the_host_assembly_in_it()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        Assert.Equal("True", RunFunctions($"Test-ExportComplete '{MakeBuild("whole")}'"));
+        Assert.Equal("False", RunFunctions($"Test-ExportComplete '{MakeBuild("no-data", dataFolder: false)}'"));
+        Assert.Equal("False", RunFunctions($"Test-ExportComplete '{MakeBuild("no-dll", hostAssembly: false)}'"));
+    }
+
+    [Fact]
+    public void A_run_of_an_export_without_its_data_folder_is_refused_and_nothing_starts()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        string build = MakeBuild("no-data", dataFolder: false);
+        var (exit, output) = RunGodotScript(build, "/c exit 3 --test-render");
+        Assert.Equal(127, exit);   // the stand-in would have ended with 3 had it started
+        Assert.Contains("incomplete export", output);
+        Assert.False(Directory.Exists(Path.Combine(_dir, "diag")) && Directory.GetDirectories(Path.Combine(_dir, "diag"), "launch-*").Length > 0, "no launch folder is made for an incomplete export");
     }
 
     [Fact]
