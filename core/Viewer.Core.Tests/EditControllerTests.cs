@@ -225,9 +225,9 @@ public class EditControllerTests
         Viewer.Shell.BuildMenu.Install(menus, () => inWorld);
         Viewer.Shell.BuildMenu.InstallEditing(menus, () => inWorld, () => r.C, () => selected);
         var build = menus.Menus.Single(m => m.Id == "build");
-        Assert.Equal(["build.toggle", "build.tool.focus", "build.tool.move", "build.tool.edit", "build.create", "build.edit_linked", "build.link", "build.unlink", "build.upload"],
+        Assert.Equal(["build.toggle", "build.tool.focus", "build.tool.move", "build.tool.edit", "build.create", "build.edit_linked", "build.link", "build.unlink", "build.options", "build.upload"],
             build.Entries.Select(e => e.Id));
-        Assert.Equal(["control|B", "control|1", "control|2", "control|3", "control|4", null, "control|L", "control|shift|L", null], build.Entries.Select(e => e.Shortcut));
+        Assert.Equal(["control|B", "control|1", "control|2", "control|3", "control|4", null, "control|L", "control|shift|L", null, null], build.Entries.Select(e => e.Shortcut));
         Assert.All(build.Entries, e => Assert.True(Viewer.Shell.StringTable.English().Has(e.LabelKey), e.LabelKey));
         var toggle = build.Entries[0];
         Assert.False(toggle.Checked!());
@@ -487,5 +487,24 @@ public class EditControllerTests
         Assert.False(r.C.ManipMove(new Vector3(1, 0, 0)));
         Assert.False(r.C.SnapSelectionXY());
         Assert.Empty(r.Sent);
+    }
+    [Fact]
+    public void The_Build_menus_Options_hold_the_grid_entries_with_their_official_shortcuts_and_they_are_no_longer_listed_as_not_built()
+    {
+        var r = new Rig();
+        var menus = new Viewer.Shell.MenuModel();
+        bool inWorld = true;
+        Viewer.Shell.BuildMenu.Install(menus, () => inWorld);
+        Viewer.Shell.BuildMenu.InstallEditing(menus, () => inWorld, () => r.C, () => true);
+        var options = Assert.Single(menus.Menus.Single(m => m.Id == "build").Entries, e => e.Id == "build.options");
+        Assert.Equal(["build.grid.snap", "build.grid.snap_xy", "build.grid.use_selection", "build.grid.options"], options.Children!.Select(e => e.Id));
+        Assert.Equal(["G", "shift|X", "shift|G", "control|shift|B"], options.Children!.Select(e => e.Shortcut));
+        Assert.All(options.Children!, e => Assert.True(Viewer.Shell.StringTable.English().Has(e.LabelKey), e.LabelKey));
+        var snap = options.Children!.Single(e => e.Id == "build.grid.snap");
+        Assert.Equal(r.C.SnapEnabled, snap.Checked!());
+        r.C.ToggleSnap();
+        Assert.Equal(r.C.SnapEnabled, snap.Checked!());
+        Assert.Same(snap, menus.ForShortcut("g"));
+        Assert.DoesNotContain(Viewer.Shell.ViewerShortcuts.NotBuilt, n => n.Shortcut is "G" or "shift|X" or "shift|G" or "control|shift|B");
     }
 }
