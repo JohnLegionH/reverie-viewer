@@ -182,14 +182,16 @@ public class EditControllerTests
         Assert.Equal(new SetObjectFlagsIntent(1, false, true, true), r.Last<SetObjectFlagsIntent>());
         Assert.True(r.C.SetLocked(true));
         var lk = r.Last<SetObjectLockedIntent>();
-        Assert.Equal(([1u], true), (lk.LocalIds.ToArray(), lk.Locked));
+        Assert.Equal([1u], lk.LocalIds.ToArray());
+        Assert.True(lk.Locked);
         Assert.True(r.C.SetName("Floor"));
         Assert.Equal(new SetObjectNameIntent(1, "Floor"), r.Last<SetObjectNameIntent>());
         Assert.True(r.C.SetDescription("Plank floor"));
         Assert.Equal(new SetObjectDescriptionIntent(1, "Plank floor"), r.Last<SetObjectDescriptionIntent>());
         Assert.True(r.C.SetPermission(0x10, 1u << 15, true));
         var pm = r.Last<SetObjectPermissionsIntent>();
-        Assert.Equal(([1u], (byte)0x10, true, 1u << 15), (pm.LocalIds.ToArray(), pm.Field, pm.Set, pm.Mask));
+        Assert.Equal([1u], pm.LocalIds.ToArray());
+        Assert.Equal(((byte)0x10, true, 1u << 15), (pm.Field, pm.Set, pm.Mask));
     }
 
     [Fact]
@@ -235,7 +237,8 @@ public class EditControllerTests
         r.C.Click(r.At(10, 10), false);
         Assert.True(r.C.CopyInPlace());
         var d = r.Last<DuplicateObjectsIntent>();
-        Assert.Equal(([1u], Vector3.Zero, 0u), (d.Roots.ToArray(), d.Offset, d.Flags));
+        Assert.Equal([1u], d.Roots.ToArray());
+        Assert.Equal((Vector3.Zero, 0u), (d.Offset, d.Flags));
         r.Sent.Clear();
         r.C.Click(r.At(60, 60), false);
         Assert.False(r.C.CopyInPlace());
