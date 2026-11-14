@@ -28,6 +28,8 @@
     <!-- The interface font and icons (Inter, Tabler Icons; licences in ThirdPartyLicenses). -->
     <EmbeddedResource Include="Assets\Icons\*.svg" LogicalName="Viewer.Shell.Icons.%(Filename).svg" />
     <EmbeddedResource Include="Assets\Fonts\*.ttf" LogicalName="Viewer.Shell.Fonts.%(Filename).ttf" />
+    <!-- The Reverie interface's icons (Lucide; licence in ThirdPartyLicenses). -->
+    <EmbeddedResource Include="Assets\Icons\Lucide\*.svg" LogicalName="Viewer.Shell.Lucide.%(Filename).svg" />
     <!-- The interface sounds (made by tools/ui-sounds; this viewer's own generated work). -->
     <EmbeddedResource Include="Assets\Sounds\*.wav" LogicalName="Viewer.Shell.Sounds.%(Filename).wav" />
     <!-- The login screen's default background picture (credited in THIRD-PARTY-NOTICES.md). -->

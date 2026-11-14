@@ -491,6 +491,27 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 - **Licence:** SIL Open Font License 1.1, full text in `ThirdPartyLicenses/LICENSE-Inter.txt`. The font files are not
   renamed or modified.
 
+## Lucide (ISC)
+
+- **Files:** `host/Viewer.Shell/Assets/Icons/Lucide/*.svg`, the icons of the Reverie interface (the top bar, menus, windows,
+  controls and the dock). Each is Lucide's own drawing, written out as the plain SVG Lucide publishes (24-unit grid, stroke 2,
+  round caps and joins) from the icon data of lucide-preact 1.39.0; the paths are unchanged. The viewer sets the stroke colour
+  in the text when it turns an icon into a picture.
+- **Source:** https://github.com/lucide-icons/lucide (lucide-preact 1.39.0 on npm).
+- **Copyright:** "Copyright (c) 2026 Lucide Icons and Contributors"; the icons Lucide took from Feather also carry "Copyright
+  (c) 2013-present Cole Bemis" under the MIT licence (both notices kept as they are in `ThirdPartyLicenses/LICENSE-Lucide.txt`).
+- **Licence:** ISC, and MIT for the Feather-derived icons listed in that file; full texts in `ThirdPartyLicenses/LICENSE-Lucide.txt`.
+
+## Noto Sans (SIL Open Font License 1.1)
+
+- **Files:** `host/Viewer.Shell/Assets/Fonts/NotoSans-Regular.ttf` and `NotoSans-Bold.ttf`, unchanged, version 2.015. The
+  interface falls back to them for characters Inter does not have; for CJK, Arabic, emoji and other scripts it falls back to
+  the fonts installed on the system, so none of those are carried.
+- **Source:** https://github.com/notofonts/latin-greek-cyrillic.
+- **Copyright:** "Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)".
+- **Licence:** SIL Open Font License 1.1, full text in `ThirdPartyLicenses/LICENSE-NotoSans.txt`. The font files are not
+  renamed or modified.
+
 ## Login background picture (generated)
 
 - **File:** `host/Viewer.Shell/Assets/Splash/login-splash.jpg`, the picture the login screen shows behind its card.

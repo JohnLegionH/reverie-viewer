@@ -52,10 +52,10 @@ public static class UiAssets
             .Replace("currentColor", colour.Hex);
     }
 
-    /// <summary>The font file's bytes ("Inter-Regular", "Inter-SemiBold"), or empty for an unknown name.</summary>
+    /// <summary>The font file's bytes ("Inter-Regular", "Inter-SemiBold", "NotoSans-Regular", "NotoSans-Bold"), or empty for an unknown name.</summary>
     public static byte[] Font(string name)
     {
-        if (name is not ("Inter-Regular" or "Inter-SemiBold"))
+        if (name is not ("Inter-Regular" or "Inter-SemiBold" or "NotoSans-Regular" or "NotoSans-Bold"))
             return [];
         using var stream = typeof(UiAssets).Assembly.GetManifestResourceStream($"Viewer.Shell.Fonts.{name}.ttf");
         return stream is null ? [] : ReadAll(stream);
