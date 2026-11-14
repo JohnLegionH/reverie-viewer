@@ -23,27 +23,95 @@ internal static class LmvEdit
     /// <summary>ObjectDuplicate's flag that makes the copy the selected one; the Move tool's Shift-drag leaves it off, so the copy stays behind.</summary>
     public const uint DuplicateCreateSelected = 1u << 1;
 
-    public static ObjectNamePacket ObjectName(UUID agent, UUID session, uint local, string name) => new();
+    public static ObjectNamePacket ObjectName(UUID agent, UUID session, uint local, string name) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = [new ObjectNamePacket.ObjectDataBlock { LocalID = local, Name = Utils.StringToBytes(name) }],
+    };
 
-    public static ObjectDescriptionPacket ObjectDescription(UUID agent, UUID session, uint local, string description) => new();
+    public static ObjectDescriptionPacket ObjectDescription(UUID agent, UUID session, uint local, string description) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = [new ObjectDescriptionPacket.ObjectDataBlock { LocalID = local, Description = Utils.StringToBytes(description) }],
+    };
 
-    public static ObjectPermissionsPacket ObjectPermissions(UUID agent, UUID session, IReadOnlyList<uint> locals, byte field, bool set, uint mask) => new();
+    public static ObjectPermissionsPacket ObjectPermissions(UUID agent, UUID session, IReadOnlyList<uint> locals, byte field, bool set, uint mask) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        HeaderData = { Override = false },
+        ObjectData = locals.Select(l => new ObjectPermissionsPacket.ObjectDataBlock { ObjectLocalID = l, Field = field, Set = (byte)(set ? 1 : 0), Mask = mask }).ToArray(),
+    };
 
     /// <summary>Locked: the owner's move and modify taken away (locking) or given back.</summary>
-    public static ObjectPermissionsPacket Lock(UUID agent, UUID session, IReadOnlyList<uint> locals, bool locked) => new();
+    public static ObjectPermissionsPacket Lock(UUID agent, UUID session, IReadOnlyList<uint> locals, bool locked) =>
+        ObjectPermissions(agent, session, locals, FieldOwner, !locked, LmvBuild.PermMove | LmvBuild.PermModify);
 
     /// <summary>One object's new place, rotation and size; <paramref name="linkset"/> moves the whole linkset by its root.</summary>
     public static MultipleObjectUpdatePacket Update(UUID agent, UUID session, uint local, System.Numerics.Vector3? position, System.Numerics.Quaternion? rotation,
-        System.Numerics.Vector3? scale, bool linkset, bool uniform = false) => new();
+        System.Numerics.Vector3? scale, bool linkset, bool uniform = false)
+    {
+        byte type = (byte)((position is null ? 0 : UpdPosition) | (rotation is null ? 0 : UpdRotation) | (scale is null ? 0 : UpdScale)
+            | (linkset ? UpdLinkedSets : 0) | (uniform && scale is not null ? UpdUniform : 0));
+        var data = new List<byte>(36);
+        void Put(float a, float b, float c) { data.AddRange(BitConverter.GetBytes(a)); data.AddRange(BitConverter.GetBytes(b)); data.AddRange(BitConverter.GetBytes(c)); }
+        if (position is { } p)
+            Put(p.X, p.Y, p.Z);
+        if (rotation is { } r)
+        {
+            // the rotation packed to its vector part, normalised with w >= 0 (LLQuaternion::packToVector3)
+            var q = System.Numerics.Quaternion.Normalize(r);
+            if (q.W < 0)
+                q = new System.Numerics.Quaternion(-q.X, -q.Y, -q.Z, -q.W);
+            Put(q.X, q.Y, q.Z);
+        }
+        if (scale is { } sc)
+            Put(sc.X, sc.Y, sc.Z);
+        return new MultipleObjectUpdatePacket
+        {
+            AgentData = { AgentID = agent, SessionID = session },
+            ObjectData = [new MultipleObjectUpdatePacket.ObjectDataBlock { ObjectLocalID = local, Type = type, Data = data.ToArray() }],
+        };
+    }
 
-    public static ObjectFlagUpdatePacket Flags(UUID agent, UUID session, uint local, bool physical, bool temporary, bool phantom) => new();
+    public static ObjectFlagUpdatePacket Flags(UUID agent, UUID session, uint local, bool physical, bool temporary, bool phantom) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session, ObjectLocalID = local, UsePhysics = physical, IsTemporary = temporary, IsPhantom = phantom, CastsShadows = false },
+        ExtraPhysics = [],
+    };
 
-    public static ObjectShapePacket Shape(UUID agent, UUID session, uint local, ShapeBytes shape) => new();
+    public static ObjectShapePacket Shape(UUID agent, UUID session, uint local, ShapeBytes b) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData =
+        [
+            new ObjectShapePacket.ObjectDataBlock
+            {
+                ObjectLocalID = local, PathCurve = b.PathCurve, ProfileCurve = b.ProfileCurve, PathBegin = b.PathBegin, PathEnd = b.PathEnd,
+                PathScaleX = b.PathScaleX, PathScaleY = b.PathScaleY, PathShearX = b.PathShearX, PathShearY = b.PathShearY,
+                PathTwist = b.PathTwist, PathTwistBegin = b.PathTwistBegin, PathRadiusOffset = b.PathRadiusOffset,
+                PathTaperX = b.PathTaperX, PathTaperY = b.PathTaperY, PathRevolutions = b.PathRevolutions, PathSkew = b.PathSkew,
+                ProfileBegin = b.ProfileBegin, ProfileEnd = b.ProfileEnd, ProfileHollow = b.ProfileHollow,
+            },
+        ],
+    };
 
     /// <summary>ObjectLink with the roots in the order given (the first becomes the root).</summary>
-    public static ObjectLinkPacket Link(UUID agent, UUID session, IReadOnlyList<uint> ordered) => new();
+    public static ObjectLinkPacket Link(UUID agent, UUID session, IReadOnlyList<uint> ordered) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = ordered.Select(l => new ObjectLinkPacket.ObjectDataBlock { ObjectLocalID = l }).ToArray(),
+    };
 
-    public static ObjectDelinkPacket Delink(UUID agent, UUID session, IReadOnlyList<uint> locals) => new();
+    public static ObjectDelinkPacket Delink(UUID agent, UUID session, IReadOnlyList<uint> locals) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = locals.Select(l => new ObjectDelinkPacket.ObjectDataBlock { ObjectLocalID = l }).ToArray(),
+    };
 
-    public static ObjectDuplicatePacket Duplicate(UUID agent, UUID session, UUID group, IReadOnlyList<uint> roots, System.Numerics.Vector3 offset, uint flags) => new();
+    public static ObjectDuplicatePacket Duplicate(UUID agent, UUID session, UUID group, IReadOnlyList<uint> roots, System.Numerics.Vector3 offset, uint flags) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session, GroupID = group },
+        SharedData = { Offset = new LibreMetaverse.Vector3(offset.X, offset.Y, offset.Z), DuplicateFlags = flags },
+        ObjectData = roots.Select(l => new ObjectDuplicatePacket.ObjectDataBlock { ObjectLocalID = l }).ToArray(),
+    };
 }

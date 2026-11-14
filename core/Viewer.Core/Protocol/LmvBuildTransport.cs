@@ -46,6 +46,8 @@ internal sealed partial class LmvTransport
                     BuildRules.RezRemovesItem(copyable, inTrash), inTrash ? UUID.Zero : item.ParentUUID), sim);
                 break;
             }
+            case EditObjectCommand edit:
+                return ExecuteEdit(sim, edit.Edit);
             case DeleteObjectCommand delete:
                 _client.Network.SendPacket(LmvBuild.DeRez(self.AgentID, self.SessionID, delete.LocalId, BuildRules.DeRezTrash,
                     _client.Inventory.FindFolderForType(FolderType.Trash), UUID.Random()), sim);
