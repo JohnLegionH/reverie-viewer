@@ -208,6 +208,52 @@ public class InteractionControllerTests
         Assert.Contains("touch", r.C.Entries.Select(e => e.Id));
     }
 
+    // The official viewer selects the right-clicked object only while its menu holds it (llviewermenu.cpp, the menu holder drops its
+    // selection when the menus hide; llviewerwindow.cpp then clears a selection nothing else holds): after Sit Here, or a menu closed
+    // with no choice, the highlight goes. A choice that opens a window about the object (Inspect, Open, Buy, Pay) keeps it.
+
+    [Fact]
+    public void Sit_here_from_the_object_menu_leaves_no_selection_or_highlight_once_the_menu_closes()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30));
+        r.C.RightClick(r.Down(10, 10));
+        Assert.NotNull(r.C.Selected);
+        Assert.True(r.C.Choose("sit"));
+        r.C.CloseMenu();
+        Assert.Null(r.C.Selected);
+        Assert.Null(r.C.Properties);
+    }
+
+    [Fact]
+    public void An_object_menu_closed_with_no_choice_leaves_no_selection()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Touchy);
+        r.C.RightClick(r.Down(10, 10));
+        Assert.NotNull(r.C.Selected);
+        r.C.CloseMenu();
+        Assert.Null(r.C.Selected);
+        r.C.RightClick(r.Down(10, 10));
+        Assert.True(r.C.Choose("touch"));
+        r.C.CloseMenu();
+        Assert.Null(r.C.Selected);
+    }
+
+    [Fact]
+    public void Inspect_and_open_from_the_object_menu_keep_the_selection_for_their_window()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Touchy);
+        foreach (var choice in new[] { "inspect", "open" })
+        {
+            r.C.RightClick(r.Down(10, 10));
+            Assert.True(r.C.Choose(choice));
+            r.C.CloseMenu();
+            Assert.Equal(new ObjectId(r.World.Epoch, 1), r.C.Selected);
+        }
+    }
+
     [Fact]
     public void Touch_from_the_menu_sends_a_grab_and_a_release_of_the_clicked_prim()
     {
