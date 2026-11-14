@@ -169,7 +169,7 @@ public partial class TestRender
             shell.ShowWorldRows(true);
             shell.SetConnected(true);
             shell.SetBrand(ExampleBranding().Name);
-            shell.Navigation.SetLocation("Example Region");
+            shell.SetLocation(new LocationParts(null, "Example Region", "128, 128, 30"));
             shell.SetUnread(3);
             shell.Shell.Floaters.Open(ChatFeature.NearbyId);
             shell.Shell.Floaters.Open(PeopleFeature.PeopleId);

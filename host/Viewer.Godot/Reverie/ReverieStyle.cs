@@ -22,7 +22,9 @@ public static class ReverieStyle
         Card = "RvCard", CardWarning = "RvCardWarning", WarnText = "RvWarnText", CardHeading = "RvCardHeading", ListRow = "RvListRow",
         ListRowSelected = "RvListRowSelected", Sidebar = "RvSidebar", Overline = "RvOverline", Track = "RvTrack", Segment = "RvSegment",
         SegmentSelected = "RvSegmentSelected", Window = "RvWindow", TitleBar = "RvTitleBar", WindowTitle = "RvWindowTitle",
-        Popup = "RvPopup", Slider = "RvSlider", Switch = "RvSwitch", Stepper = "RvStepper", Caption = "RvCaption";
+        Popup = "RvPopup", Slider = "RvSlider", Switch = "RvSwitch", Stepper = "RvStepper", Caption = "RvCaption",
+        Dock = "RvDock", DockButton = "RvDockButton", DockButtonOn = "RvDockButtonOn", DockButtonAttention = "RvDockButtonAttention",
+        DockLabel = "RvDockLabel", DockDivider = "RvDockDivider", DockDot = "RvDockDot", Pill = "RvPill";
 
     /// <summary>The variant the tokens are: light when the bar is light.</summary>
     public static ReverieVariant VariantOf(ThemeTokens t) => t.Bar.Luminance > 0.5 ? ReverieVariant.Light : ReverieVariant.Dark;
@@ -120,6 +122,21 @@ public static class ReverieStyle
         ButtonVariation(theme, SegmentSelected, r, normal: C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), border: clear, 0, control, 12, 3, r["text.strong"], ReverieTheme.TypeSmall, semibold);
         foreach (var name in new[] { ListRow, ListRowSelected })
             theme.SetConstant("align_to_largest_stylebox", name, 0);
+
+        // the dock and the floating pills: the base surface at 95 %, the dock's radius (a pill's is half its height), the floating
+        // shadow; dock buttons in the same family of states, the "on" one on the selected surface, attention a 2-pixel accent ring
+        var dockPanel = Face(A(r["surface.base"], ReverieTheme.FloatingOpacity), C(r["border.control"]), 1, ReverieTheme.RadiusDock, ReverieTheme.DockPadding, ReverieTheme.DockPadding);
+        Shadow(dockPanel);
+        Panel(theme, Dock, dockPanel);
+        var pillPanel = Face(A(r["surface.base"], ReverieTheme.FloatingOpacity), C(r["border.control"]), 1, Px(ReverieTheme.PillHeight / 2), 14, 0);
+        Shadow(pillPanel);
+        Panel(theme, Pill, pillPanel);
+        ButtonVariation(theme, DockButton, r, normal: clear, hover, selected, border: clear, 0, ReverieTheme.RadiusDockButton, 2, 4, r["text.primary"], ReverieTheme.TypeDock, null);
+        ButtonVariation(theme, DockButtonOn, r, normal: selected, selected, selected, border: clear, 0, ReverieTheme.RadiusDockButton, 2, 4, r["text.strong"], ReverieTheme.TypeDock, null);
+        ButtonVariation(theme, DockButtonAttention, r, normal: clear, hover, selected, border: C(r.Accent), 2, ReverieTheme.RadiusDockButton, 2, 4, r["text.strong"], ReverieTheme.TypeDock, null);
+        LabelVariation(theme, DockLabel, r["text.secondary"], ReverieTheme.TypeDock, null);
+        Panel(theme, DockDivider, Face(C(r["border.default"]), C(r["border.default"]), 0, 0, 0, 0));
+        Panel(theme, DockDot, Face(C(r.Accent), C(r.Accent), 0, 4, 0, 0));
 
         // the location field's edit mode
         theme.SetTypeVariation(LocationEdit, "LineEdit");

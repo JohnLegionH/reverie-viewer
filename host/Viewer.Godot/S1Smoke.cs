@@ -321,18 +321,26 @@ public partial class S1Smoke : Node
             var problems = new List<string>();
             var model = shell.Shell;
 
-            if (!window.Encloses(shell.Menu.GetGlobalRect())) problems.Add($"menu bar outside the window ({shell.Menu.GetGlobalRect()})");
-            if (shell.Menu.GetMenuCount() != model.Menus.Menus.Count) problems.Add($"menu bar holds {shell.Menu.GetMenuCount()} menus, expected {model.Menus.Menus.Count}");
-            for (int m = 0; m < Math.Min(shell.Menu.GetMenuCount(), model.Menus.Menus.Count); m++)
+            // the top bar: the app menu first, then one title per menu of the model, each dropdown with every entry
+            if (!window.Encloses(shell.TopBar.GetGlobalRect())) problems.Add($"top bar outside the window ({shell.TopBar.GetGlobalRect()})");
+            if (shell.Menu.Titles.Count != model.Menus.Menus.Count + 1) problems.Add($"menu bar holds {shell.Menu.Titles.Count} menus, expected {model.Menus.Menus.Count + 1}");
+            if (shell.Menu.Titles.Count > 0 && shell.Menu.Titles[0].Text != table.Get("topbar.app")) problems.Add($"the app menu reads {shell.Menu.Titles[0].Text}");
+            if (shell.Menu.Titles.Count > 0 && shell.Menu.Filled(0).ItemCount != TopBarMenuMap.AppEntries.Length) problems.Add($"the app menu holds {shell.Menu.Filled(0).ItemCount} items");
+            for (int m = 0; m < Math.Min(shell.Menu.Titles.Count - 1, model.Menus.Menus.Count); m++)
             {
                 var def = model.Menus.Menus[m];
-                if (shell.Menu.GetMenuTitle(m) != table.Get(def.LabelKey)) problems.Add($"menu {def.Id}: title {shell.Menu.GetMenuTitle(m)}");
-                var popup = shell.Menu.GetNode<PopupMenu>(def.Id);
+                if (shell.Menu.Titles[m + 1].Text != table.Get(def.LabelKey)) problems.Add($"menu {def.Id}: title {shell.Menu.Titles[m + 1].Text}");
+                var popup = shell.Menu.Filled(m + 1);
+                if (popup.Name != def.Id) problems.Add($"menu {def.Id}: its dropdown is named {popup.Name}");
                 if (popup.ItemCount != def.Entries.Count) problems.Add($"menu {def.Id}: {popup.ItemCount} items, expected {def.Entries.Count}");
                 for (int i = 0; i < popup.ItemCount; i++)
                     if (popup.GetItemText(i).Contains("[[")) problems.Add($"menu {def.Id}: item {i} has no string");
             }
-            if (shell.Toolbar.Visible) problems.Add("the toolbar is shown with no button");
+            // the dock: every standard button, inside the window, its names from the string table
+            if (shell.Dock.Buttons.Count != shell.DockModel.Items.Count) problems.Add($"the dock shows {shell.Dock.Buttons.Count} buttons, expected {shell.DockModel.Items.Count}");
+            if (!window.Encloses(shell.Dock.GetGlobalRect())) problems.Add($"dock outside the window ({shell.Dock.GetGlobalRect()})");
+            foreach (var b in shell.Dock.Buttons.Values)
+                if (b.Text.Contains("[[") || string.IsNullOrEmpty(b.AccessibilityName)) problems.Add($"dock {b.Name}: no string");
             var login0 = login.GetGlobalRect();
             if (!shell.MainView.GetGlobalRect().Encloses(login0)) problems.Add($"login screen outside the main view ({login0} in {shell.MainView.GetGlobalRect()})");
 
@@ -394,7 +402,7 @@ public partial class S1Smoke : Node
             for (int i = 0; i < 2; i++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var model = shell.Shell;
-            int menusBefore = shell.Menu.GetMenuCount();
+            int menusBefore = shell.Menu.Titles.Count;
             var settings = new SettingsService(null);
             var (nearby, conversations) = ChatFeature.Install(shell, settings);
             var self = Guid.NewGuid();
@@ -407,8 +415,8 @@ public partial class S1Smoke : Node
             conversations.Bind(hub);
             for (int i = 0; i < 2; i++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            if (shell.Menu.GetMenuCount() != menusBefore + 1) problems.Add($"menu bar holds {shell.Menu.GetMenuCount()} menus after the feature added one (was {menusBefore})");
-            if (!shell.Toolbar.Visible || shell.Toolbar.GetChildCount() != 2) problems.Add($"toolbar: visible {shell.Toolbar.Visible}, {shell.Toolbar.GetChildCount()} buttons");
+            if (shell.Menu.Titles.Count != menusBefore + 1) problems.Add($"menu bar holds {shell.Menu.Titles.Count} menus after the feature added one (was {menusBefore})");
+            if (!shell.Dock.Visible || shell.Dock.Buttons.Count != shell.DockModel.Items.Count) problems.Add($"dock: visible {shell.Dock.Visible}, {shell.Dock.Buttons.Count} buttons");
 
             model.Commands.Execute("floater.chat");
             hub.Enqueue(new ChatReceived(null, other, other, "Example Resident", ChatSource.Agent, ChatLineType.Say, ChatAudible.Fully, System.Numerics.Vector3.Zero,
@@ -521,7 +529,7 @@ public partial class S1Smoke : Node
             var frame = shell.Frames[PeopleFeature.PeopleId];
             if (!frame.Visible) problems.Add("the people floater did not open");
             if (!window.Encloses(frame.GetGlobalRect())) problems.Add($"people outside the window ({frame.GetGlobalRect()})");
-            if (shell.Toolbar.GetChildCount() != 3) problems.Add($"toolbar holds {shell.Toolbar.GetChildCount()} buttons, expected 3");
+            if (shell.Dock.Buttons.Count != shell.DockModel.Items.Count) problems.Add($"the dock holds {shell.Dock.Buttons.Count} buttons, expected {shell.DockModel.Items.Count}");
             foreach (var c in Descendants(frame).OfType<Control>().Where(c => c is Label or Button or CheckBox or ItemList or OptionButton or TabContainer))
                 if (string.IsNullOrWhiteSpace(c.AccessibilityName)) problems.Add($"people {c.Name}: no accessible name");
 
@@ -838,8 +846,9 @@ public partial class S1Smoke : Node
             var world = model.Menus.Menus.FirstOrDefault(m => m.Id == "world");
             if (world is null || world.Entries.Count != 6) problems.Add($"the World menu holds {world?.Entries.Count ?? 0} entries, expected 6");
             // the Environment submenu: its own popup with the official items, a check on the one in force, the choice made through the command
-            var envPopup = world is null ? null : shell.Menu.GetNode<PopupMenu>("world").GetNodeOrNull<PopupMenu>("world_environment");
-            shell.Menu.GetNode<PopupMenu>("world").EmitSignal(PopupMenu.SignalName.AboutToPopup);
+            int worldIndex = shell.Menu.Menus.ToList().FindIndex(m => m.Id == "world");
+            PopupMenu? Env() => worldIndex < 0 ? null : shell.Menu.Filled(worldIndex).GetNodeOrNull<PopupMenu>("world_environment");   // as the menu opens
+            var envPopup = Env();
             if (envPopup is null || envPopup.ItemCount != 8) problems.Add($"the Environment submenu holds {envPopup?.ItemCount ?? 0} items, expected 8");
             else
             {
@@ -847,13 +856,13 @@ public partial class S1Smoke : Node
                 for (int i = 0; i < 8; i++) if (envPopup.GetItemText(i) != table.Get(want[i])) problems.Add($"Environment item {i} reads '{envPopup.GetItemText(i)}', expected '{table.Get(want[i])}'");
                 if (!envPopup.IsItemChecked(5)) problems.Add("Use Shared Environment is not checked with nothing chosen");
                 model.Menus.Activate("env.midnight", model.Commands);
-                shell.Menu.GetNode<PopupMenu>("world").EmitSignal(PopupMenu.SignalName.AboutToPopup);
+                envPopup = Env()!;
                 if (envChoice.Current != Viewer.Core.World.SkyChoice.Midnight || !envPopup.IsItemChecked(4) || envPopup.IsItemChecked(5)) problems.Add("choosing Midnight did not move the check mark");
                 model.Menus.Activate("env.legacymidday", model.Commands);
-                shell.Menu.GetNode<PopupMenu>("world").EmitSignal(PopupMenu.SignalName.AboutToPopup);
+                envPopup = Env()!;
                 if (envChoice.Current != Viewer.Core.World.SkyChoice.LegacyMidday || !envPopup.IsItemChecked(2) || envPopup.IsItemChecked(4)) problems.Add("choosing Midday (Legacy) did not move the check mark");
                 model.Menus.Activate("env.pauseclouds", model.Commands);
-                shell.Menu.GetNode<PopupMenu>("world").EmitSignal(PopupMenu.SignalName.AboutToPopup);
+                envPopup = Env()!;
                 if (!envChoice.CloudsPaused || !envPopup.IsItemChecked(7)) problems.Add("Pause Clouds did not pause and check");
                 model.Menus.Activate("env.pauseclouds", model.Commands);
                 model.Menus.Activate("env.region", model.Commands);
@@ -882,7 +891,7 @@ public partial class S1Smoke : Node
             personalPanel.ResetButton.EmitSignal(BaseButton.SignalName.Pressed);
             if (personal.IsActive || Math.Abs(personalPanel.SliderRows[Viewer.Core.World.PersonalField.HazeDensity].Slider.Value - Viewer.Core.World.RegionEnvironment.Default.SkyAt(0.5).HazeDensity) > 1e-6) problems.Add("Reset did not put the region's values back");
             model.Floaters.Close(PersonalLightingFeature.FloaterId);
-            if (shell.Toolbar.GetChildCount() != 3) problems.Add($"toolbar holds {shell.Toolbar.GetChildCount()} buttons, expected 3");
+            if (shell.Dock.Buttons.Count != shell.DockModel.Items.Count) problems.Add($"the dock holds {shell.Dock.Buttons.Count} buttons, expected {shell.DockModel.Items.Count}");
 
             // the teleport floater
             model.Commands.Execute("floater.teleport");

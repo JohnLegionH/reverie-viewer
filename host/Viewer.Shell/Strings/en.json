@@ -996,6 +996,7 @@
   "topbar.back": "Back",
   "topbar.home": "Home",
   "topbar.landmark": "Add a landmark here",
+  "topbar.landmark.unavailable": "Making landmarks is not in this viewer yet",
   "topbar.location": "Location",
   "topbar.location.hint": "Region name or address",
   "topbar.status": "Status",

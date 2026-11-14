@@ -23,8 +23,18 @@ public partial class Main
             return;
         _nearbyLines = new NearbyLines(strings, UserSettings(null));
         _shell.MainView.AddChild(_nearbyLines);
-        _shell.Navigation.HomeButton.Pressed += () => _shell.Shell.Commands.Execute("travel.home");
-        _shell.Navigation.LocationSubmitted += TeleportToTyped;
+        var bar = _shell.TopBar;
+        bar.Home.Pressed += () => _shell.Shell.Commands.Execute("travel.home");
+        bar.Back.Pressed += () => { if (_teleportHistory.Back() is { } back) TeleportTo(back, rememberDeparture: false); };
+        bar.Location.Submitted += address => TeleportTo(address, rememberDeparture: true);
+        // the viewer cannot make a landmark yet: the star says so instead of doing nothing
+        bar.Location.Star.Disabled = true;
+        bar.Location.Star.TooltipText = strings.Get("topbar.landmark.unavailable");
+        if (!_shell.Shell.Commands.Has("app.logout"))
+            _shell.Shell.Commands.Register("app.logout", () => _ = LogOutFromMenu());
+        if (!_shell.Shell.Commands.Has("app.check_updates"))
+            _shell.Shell.Commands.Register("app.check_updates", () => _ = CheckForUpdatesFromMenu(strings));
+        _shell.RebuildMenus();
         model.BrandingChanged += branding => Callable.From(() => ApplyBranding(branding)).CallDeferred();
         ApplyBranding(model.Branding);   // a grid that answered before the bars were built
     }
@@ -40,14 +50,47 @@ public partial class Main
         _preferences?.SetGridAccent(branding.Accent);
     }
 
-    /// <summary>"Region", or "Region/x/y/z" with the position inside it.</summary>
-    private void TeleportToTyped(string typed)
+    private readonly TeleportHistory _teleportHistory = new();
+    private LocationAddress? _here;
+
+    /// <summary>A place typed in the location field (a region name, region/x/y/z, or a hop or secondlife address), or Back: the
+    /// teleport is asked for; the place left is remembered for Back.</summary>
+    private void TeleportTo(LocationAddress address, bool rememberDeparture)
     {
-        var parts = typed.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0 || _travel is null)
+        if (_travel is null)
             return;
-        float Coord(int at, float fallback) => parts.Length > at && float.TryParse(parts[at], NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : fallback;
-        _travel.Teleport.ToRegion(parts[0], new System.Numerics.Vector3(Coord(1, 128), Coord(2, 128), Coord(3, 30)));
+        if (rememberDeparture && _here is { } from)
+            _teleportHistory.Departed(from);
+        _travel.Teleport.ToRegion(address.Region, address.Position ?? new System.Numerics.Vector3(128, 128, 30));
+    }
+
+    /// <summary>Log out (the app menu): the session ends and the login screen comes back.</summary>
+    private async System.Threading.Tasks.Task LogOutFromMenu()
+    {
+        if (Model?.Session is not { IsEnded: false } s)
+            return;
+        using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try { await s.LogoutAsync(cts.Token); }
+        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException) { GD.Print("logout: " + ex.GetType().Name); }
+    }
+
+    /// <summary>Check for updates (the app menu): asks the release page only when chosen, and says what it found in a notice.</summary>
+    private async System.Threading.Tasks.Task CheckForUpdatesFromMenu(StringTable strings)
+    {
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("ReverieViewer");
+        var result = await UpdateCheck.RunAsync(async url =>
+        {
+            using var reply = await http.GetAsync(url);
+            return ((int)reply.StatusCode, await reply.Content.ReadAsStringAsync());
+        }, Viewer.Core.Identity.ViewerIdentity.Current.Version);
+        string text = result.Outcome switch
+        {
+            UpdateOutcome.UpToDate => strings.Get("update.uptodate"),
+            UpdateOutcome.Available => strings.Get("update.available", result.Version ?? ""),
+            _ => strings.Get("update.failed"),
+        };
+        Callable.From(() => _shell?.ShowNotice(text)).CallDeferred();
     }
 
     private string? _gridName;
@@ -100,8 +143,11 @@ public partial class Main
             // as the official location bar: "Parcel, Region" when the parcel has a name, the region alone when not, without coordinates
             // (the bar's default); the region's maturity text is not known to the session yet, so it is left out
             var (where, speed) = session.World.LastSelfMotion is { } self ? (self.Motion.Position - session.World.OriginOffset, self.Motion.Velocity.Length()) : (System.Numerics.Vector3.Zero, 0f);
-            _shell.Navigation.SetLocation(LocationText.Build(LocationText.BarFormat(showCoordinates: false), region.Name, session.AgentParcelName, where, speed));
+            // the top bar's location field: the parcel (when it has a name), the region once, and the coordinates dimmer (spec 3)
+            _shell.SetLocation(LocationField.Display(region.Name, session.AgentParcelName, where, speed));
+            _here = new LocationAddress(region.Name, where);
         }
         _shell.SetUnread(_notePanels?.Toasts.Unread ?? 0);
+        _shell.SetUnreadConversations(_comms?.Ims.Open.Sum(c => c.Unread) ?? 0);
     }
 }

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "Viewer contributors",
   "licence": "LGPL-2.1-only",
-  "interface": "0.3",
+  "interface": "0.5",
   "job": "ao",
   "permissions": ["session", "motion", "animations.read", "animations.play", "window", "inventory.read", "inventory.write"],
   "inventory_folder": "#Firestorm/#AO",

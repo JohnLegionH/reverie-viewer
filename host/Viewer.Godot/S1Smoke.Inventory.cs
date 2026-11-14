@@ -34,7 +34,7 @@ public partial class S1Smoke
             for (int i = 0; i < 2; i++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var model = shell.Shell;
-            int menusBefore = shell.Menu.GetMenuCount(), buttonsBefore = shell.Toolbar.GetChildCount();
+            int menusBefore = shell.Menu.Titles.Count;
             var panel = InventoryFeature.Install(shell, redrawGapMs: 0);   // the redraw gap has its own unit tests; here every change shows at once
 
             Guid Id(int n) => Guid.Parse($"00000000-0000-4000-8000-{n:x12}");
@@ -68,8 +68,8 @@ public partial class S1Smoke
             for (int i = 0; i < 3; i++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
-            if (shell.Menu.GetMenuCount() != menusBefore + 1) problems.Add($"menu bar holds {shell.Menu.GetMenuCount()} menus after the feature added one (was {menusBefore})");
-            if (shell.Toolbar.GetChildCount() != buttonsBefore + 1) problems.Add($"toolbar holds {shell.Toolbar.GetChildCount()} buttons (was {buttonsBefore})");
+            if (shell.Menu.Titles.Count != menusBefore + 1) problems.Add($"menu bar holds {shell.Menu.Titles.Count} menus after the feature added one (was {menusBefore})");
+            if (shell.Dock.Buttons.Keys.All(b => b.Id != "inventory")) problems.Add("the dock has no Inventory button");
             var window = GetViewport().GetVisibleRect();
             var frame = shell.Frames[InventoryFeature.FloaterId];
             if (!frame.Visible) problems.Add("the inventory did not open");

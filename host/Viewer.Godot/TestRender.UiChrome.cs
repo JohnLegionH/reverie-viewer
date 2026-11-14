@@ -16,9 +16,9 @@ public partial class TestRender
 {
     /// <summary>
     /// --tr-uichrome=PCT:WxH [--tr-golden=file]: the in-world frame in a window of W x H pixels at an interface size of PCT %, drawn the way
-    /// the window applies its content scale (the viewport's 2D size is W/s x H/s and stretched). The run FAILS unless the menu row, the
-    /// navigation bar, the chat bar, the toolbar and the clock are wholly inside the window, every toolbar button that shows is inside the
-    /// toolbar, every button is either shown or behind the More button, and each open floating window lies inside the main view.
+    /// the window applies its content scale (the viewport's 2D size is W/s x H/s and stretched). The run FAILS unless the top bar, the
+    /// chat bar, the dock and the status area are wholly inside the window, the dock sits above the chat bar with every button shown
+    /// inside it (it wraps, it hides none), and each open floating window lies inside the main view.
     /// </summary>
     private async Task<int> UiChromeRun(string spec, string? golden)
     {
@@ -48,7 +48,7 @@ public partial class TestRender
         shell.ShowWorldRows(true);
         shell.SetConnected(true);
         shell.SetBrand(ExampleBranding().Name);
-        shell.Navigation.SetLocation("Example Region");
+        shell.SetLocation(new LocationParts(null, "Example Region", "128, 128, 30"));
         shell.SetUnread(3);
         shell.Shell.Floaters.Open(ChatFeature.NearbyId);
         shell.Shell.Floaters.Open(PeopleFeature.PeopleId);
@@ -68,7 +68,7 @@ public partial class TestRender
             inner.Position.X >= outer.Position.X - slack && inner.Position.Y >= outer.Position.Y - slack
             && inner.End.X <= outer.End.X + slack && inner.End.Y <= outer.End.Y + slack;
         var rects = new Dictionary<string, object?>();
-        foreach (var name in new[] { "menu_row", "nav_bar", "chat_bar", "toolbar_bar", "clock", "connection" })
+        foreach (var name in new[] { "top_bar", "chat_bar", "dock", "time", "connection" })
         {
             var r = Rect(name);
             rects[name] = r is { } q ? new[] { q.Position.X, q.Position.Y, q.Size.X, q.Size.Y } : null;
@@ -78,36 +78,26 @@ public partial class TestRender
                 fails.Add($"{name} {rr} is not inside the window {viewport}");
         }
         // the rows stack top to bottom without drawing over each other (a bar taller than the room the layout gave it covers its neighbour)
-        var column = new[] { "menu_row", "nav_bar", "main_view", "chat_bar", "toolbar_bar" };
+        var column = new[] { "top_bar", "main_view", "chat_bar" };
         for (int i = 0; i + 1 < column.Length; i++)
             if (Rect(column[i]) is { } upper && Rect(column[i + 1]) is { } lower && upper.End.Y > lower.Position.Y + slack)
                 fails.Add($"{column[i]} (bottom {upper.End.Y}) covers {column[i + 1]} (top {lower.Position.Y})");
-        if (Rect("menu_row") is { } menuRow)
-            foreach (var name in new[] { "clock", "connection", "menu_bar" })
-                if (Rect(name) is { } child && !Inside(menuRow, child))
-                    fails.Add($"{name} {child} is not inside the menu row {menuRow}");
-        int total = shell.Shell.Toolbar.Buttons.Count, shown = 0;
-        bool more = false;
-        if (Rect("toolbar_bar") is { } toolbarBar)
+        if (Rect("top_bar") is { } topBar)
+            foreach (var name in new[] { "time", "connection", "rv_menu_bar" })
+                if (Rect(name) is { } child && !Inside(topBar, child))
+                    fails.Add($"{name} {child} is not inside the top bar {topBar}");
+        // the dock floats above the chat bar with every button shown inside it (it wraps to more rows, it never hides a button)
+        if (Rect("dock") is { } dockRect)
         {
-            foreach (var b in shell.Shell.Toolbar.Buttons)
-                if (Rect(b.Id) is { } br)
-                {
-                    shown++;
-                    if (!Inside(toolbarBar, br))
-                        fails.Add($"toolbar button {b.Id} {br} is not inside the toolbar {toolbarBar}");
-                }
-            if (Rect("toolbar_more") is { } moreRect)
+            if (Rect("chat_bar") is { } chatBar && dockRect.End.Y > chatBar.Position.Y + slack)
+                fails.Add($"the dock (bottom {dockRect.End.Y}) covers the chat bar (top {chatBar.Position.Y})");
+            foreach (var (item, button) in shell.Dock.Buttons)
             {
-                more = true;
-                if (!Inside(toolbarBar, moreRect))
-                    fails.Add($"the More button {moreRect} is not inside the toolbar {toolbarBar}");
+                if (!button.IsVisibleInTree())
+                    fails.Add($"dock button {item.Id} is hidden");
+                else if (!Inside(dockRect, button.GetGlobalRect()))
+                    fails.Add($"dock button {item.Id} {button.GetGlobalRect()} is not inside the dock {dockRect}");
             }
-            int hidden = shell.HiddenToolbarButtons;
-            if (shown + hidden != total)
-                fails.Add($"{total} toolbar buttons, {shown} shown and {hidden} behind More");
-            if ((hidden > 0) != more)
-                fails.Add(hidden > 0 ? "buttons are hidden but the More button is not shown" : "the More button is shown with nothing behind it");
         }
         if (Rect("main_view") is { } mainView)
             foreach (var f in shell.Shell.Floaters.OpenFloaters)
@@ -135,7 +125,7 @@ public partial class TestRender
         }
         _result["ui_chrome"] = new Dictionary<string, object?>
         {
-            ["percent"] = pct, ["window"] = $"{w}x{h}", ["logical"] = $"{view.Size.X}x{view.Size.Y}", ["toolbar_buttons"] = total, ["shown"] = shown, ["more"] = more,
+            ["percent"] = pct, ["window"] = $"{w}x{h}", ["logical"] = $"{view.Size.X}x{view.Size.Y}", ["dock_buttons"] = shell.Dock.Buttons.Count, ["dock_rows"] = shell.DockRows,
             ["rects"] = rects, ["problems"] = fails,
         };
         foreach (var f in fails)

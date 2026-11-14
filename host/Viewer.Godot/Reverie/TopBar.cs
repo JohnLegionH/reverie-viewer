@@ -12,14 +12,14 @@ namespace Viewer.Godot;
 /// <summary>One entry of a Reverie dropdown menu: an icon in the 16-pixel column, the label, the shortcut text at the right, a check
 /// mark, a submenu, or a separator.</summary>
 public sealed record RvMenuEntry(string Label, string? Icon = null, string? Shortcut = null, Action? Run = null, bool Enabled = true,
-    bool? Checked = null, IReadOnlyList<RvMenuEntry>? Children = null, bool Separator = false)
+    bool? Checked = null, IReadOnlyList<RvMenuEntry>? Children = null, bool Separator = false, string? Id = null)
 {
     public static RvMenuEntry Line { get; } = new("", Separator: true);
 }
 
 /// <summary>One menu of the menu bar: its title and the entries it shows when opened (asked for each time it opens, so entries that
 /// do not work are left out at that moment).</summary>
-public sealed record RvMenu(string Title, Func<IReadOnlyList<RvMenuEntry>> Entries, bool IsApp = false);
+public sealed record RvMenu(string Title, Func<IReadOnlyList<RvMenuEntry>> Entries, bool IsApp = false, string? Id = null);
 
 /// <summary>
 /// The menu bar: text titles, each opening its dropdown on a click only. With a menu open, moving the pointer onto another title opens
@@ -55,7 +55,7 @@ public partial class RvMenuBar : HBoxContainer
             title.GuiInput += e => Key(e, title);
             _titles.Add(title);
             AddChild(title);
-            var popup = new PopupMenu { Name = "menu_" + i, ThemeTypeVariation = ReverieStyle.Popup };
+            var popup = new PopupMenu { Name = _menus[i].Id ?? "menu_" + i, ThemeTypeVariation = ReverieStyle.Popup };
             popup.PopupHide += () => { if (_syncing == 0 && _state.Open == index) { _state.Close(); Sync(); } };
             popup.WindowInput += e => PopupKey(e, popup);
             _popups.Add(popup);
@@ -66,6 +66,15 @@ public partial class RvMenuBar : HBoxContainer
 
     /// <summary>The open menu's index, or null.</summary>
     public int? OpenMenu => _state.Open;
+
+    public IReadOnlyList<RvMenu> Menus => _menus;
+
+    /// <summary>Fills a menu's dropdown from its entries now, as opening it does (for checks that read a dropdown's items).</summary>
+    public PopupMenu Filled(int index)
+    {
+        Fill(_popups[index], _menus[index].Entries());
+        return _popups[index];
+    }
 
     public IReadOnlyList<Button> Titles => _titles;
 
@@ -204,6 +213,8 @@ public partial class RvMenuBar : HBoxContainer
             if (e.Children is { } kids)
             {
                 var sub = new PopupMenu { ThemeTypeVariation = ReverieStyle.Popup };
+                if (e.Id is { } subId)
+                    sub.Name = subId.Replace('.', '_');
                 popup.AddChild(sub);
                 Fill(sub, kids);
                 popup.AddSubmenuNodeItem(e.Label, sub, id);
@@ -334,7 +345,7 @@ public partial class TopBar : PanelContainer
     private readonly Label _time, _balance;
     private bool _ownRow, _statusDown;
 
-    public RvMenuBar Menus { get; }
+    public RvMenuBar Menus { get; private set; }
     public RvLocationField Location { get; }
     public RvIconButton Back { get; }
     public RvIconButton Home { get; }
@@ -401,6 +412,26 @@ public partial class TopBar : PanelContainer
     }
 
     public void SetGrid(string? name) => Grid.Text = name ?? "";
+
+    /// <summary>Puts a new menu bar in (a feature added a menu or an entry after the bar was built).</summary>
+    public void SetMenus(IReadOnlyList<RvMenu> menus, string accessibleName)
+    {
+        int at = Menus.GetIndex();
+        _left.RemoveChild(Menus);
+        Menus.QueueFree();
+        Menus = new RvMenuBar(menus, accessibleName);
+        _left.AddChild(Menus);
+        _left.MoveChild(Menus, at);
+        Callable.From(Relayout).CallDeferred();
+    }
+
+    /// <summary>Shows or hides the centre zone (Back, Home and the location field): only in the world.</summary>
+    public void ShowPlace(bool inWorld)
+    {
+        Back.Visible = inWorld;
+        Home.Visible = inWorld;
+        Location.Visible = inWorld;
+    }
 
     public void SetTime(string text) => _time.Text = text;
 

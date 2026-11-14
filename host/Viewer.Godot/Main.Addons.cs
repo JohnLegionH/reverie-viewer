@@ -361,6 +361,7 @@ public partial class Main
         }
 
         SyncAddonQuickBar(host);
+        SyncAddonDock(host);
         foreach (var id in _addonMenu.Keys.Concat(_addonSubmenus).ToArray())
             s.Menus.RemoveEntry("me", id);
         _addonMenu.Clear();
@@ -393,6 +394,57 @@ public partial class Main
             s.Menus.AddEntry("me", new MenuEntry(id, id, "", Order: 9, Children: children));
         }
     }
+
+    private readonly Dictionary<DockItem, AddonDockItem> _addonDock = new();
+    private bool _addonDockWired;
+
+    /// <summary>The add-ons' dock items (interface 0.5): each becomes a button in the dock's Make group, in the order the add-ons were
+    /// turned on, with its state kept up to date; an add-on turned off takes its buttons with it.</summary>
+    private void SyncAddonDock(AddonHost host)
+    {
+        if (_shell is null)
+            return;
+        var dock = _shell.DockModel;
+        if (!_addonDockWired)
+        {
+            _addonDockWired = true;
+            _shell.AddonDockUsed += (item, index) =>
+            {
+                if (!_addonDock.TryGetValue(item, out var source))
+                    return;
+                if (index < 0)
+                    source.Click();
+                else
+                    source.ChooseMenu(index);
+            };
+        }
+        var wanted = host.DockItems;
+        foreach (var (shown, source) in _addonDock.ToArray())
+            if (!wanted.Any(w => ReferenceEquals(w.Item, source)))
+            {
+                dock.RemoveAddonItem(shown.Owner!, shown.Id);
+                _addonDock.Remove(shown);
+            }
+        foreach (var (addonId, source) in wanted)
+        {
+            var shown = _addonDock.FirstOrDefault(p => ReferenceEquals(p.Value, source)).Key;
+            if (shown is null)
+            {
+                var kind = source.Kind switch { AddonDockKind.Toggle => DockItemKind.Toggle, AddonDockKind.ToggleWithMenu => DockItemKind.ToggleWithMenu, _ => DockItemKind.Action };
+                shown = dock.AddAddonItem(addonId, source.Id, source.Label, kind, source.Icon, source.Tooltip, Menu(source));
+                if (shown is null)
+                    continue;
+                _addonDock[shown] = source;
+            }
+            dock.SetOn(shown, source.On);
+            dock.SetAttention(shown, source.Attention, source.Count);
+            if (!shown.Menu.SequenceEqual(Menu(source)))
+                dock.SetMenu(shown, Menu(source));
+        }
+    }
+
+    private static DockMenuEntry[] Menu(AddonDockItem item) =>
+        item.Menu.Select(m => new DockMenuEntry(m.Label, m.Icon, m.Checked, m.Separator)).ToArray();
 
     /// <summary>The add-ons' quick controls, at the end of the toolbar's row: one small row per add-on, drawn by the same view as windows.</summary>
     private void SyncAddonQuickBar(AddonHost host)

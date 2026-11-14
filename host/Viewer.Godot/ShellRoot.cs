@@ -10,44 +10,26 @@ using Viewer.Shell;
 namespace Viewer.Godot;
 
 /// <summary>
-/// The window frame, built in code from a <see cref="ShellController"/>, top to bottom: the menu bar (the grid's mark and name
-/// in the accent, the menus, and on the right the clock and the connection), the navigation bar and the chat bar when a
-/// session is in the world, the main view, and the toolbar with an icon above each label. The floaters sit above everything. The
-/// main view and the floater layer let the pointer through to the world wherever nothing is drawn, so the camera keeps its mouse.
-/// Every text comes from the string table and every control has an accessible name. Where things go is decided by the
-/// controller (tested without the engine); this draws it. Behaviour follows common viewer conventions (menu bar on top,
-/// toolbar at the bottom, floating panels); no layout file of any viewer is used.
+/// The window frame, built in code from a <see cref="ShellController"/>, top to bottom: the top bar (the app menu and the official
+/// top-level menus, Back, Home and the location field in the world, and the status area), the main view, the chat bar when a session
+/// is in the world, and the dock floating 14 above the bottom row over the world. The floaters sit above everything. The main view and
+/// the floater layer let the pointer through to the world wherever nothing is drawn, so the camera keeps its mouse. Every text comes
+/// from the string table and every control has an accessible name. Where things go is decided by the controller (tested without the
+/// engine); this draws it. No layout file of any viewer is used.
 /// </summary>
 public partial class ShellRoot : Control
 {
     private readonly StringTable _strings;
-    private readonly MenuBar _menuBar;
-    private readonly PanelContainer _menuRow;
-    private readonly ColorRect _brandMark;
-    private readonly Label _brandName;
-    private readonly Label _clock;
-    private readonly TextureRect _connectionIcon;
-    private readonly Label _connectionLabel;
-    private readonly PanelContainer _toolbarPanel;
-    private readonly HBoxContainer _toolbar;
-    private readonly HBoxContainer _toolbarRow;
     private readonly Control _floaterLayer;
     private readonly Dictionary<string, FloaterFrame> _frames = new();
-    private readonly Dictionary<string, (Button Button, ToolbarButton Model)> _toolbarButtons = new();
-    private readonly List<PopupMenu> _popups = new();
-    /// <summary>Which top menu is open, and whether a press on the bar is the click that just closed one (see <see cref="MenuToggle"/>).</summary>
-    private readonly MenuToggle _menuToggle = new();
+    private PopupMenu? _dockMenu;
+    private bool _connected;
 
     /// <summary>The id of the top menu open now, or null.</summary>
-    public string? OpenMenu => _menuToggle.Open;
+    public string? OpenMenu => TopBar.Menus.OpenMenu is { } i && i < TopBar.Menus.Menus.Count ? TopBar.Menus.Menus[i].Id : null;
 
-    /// <summary>The ids of the top menus whose popup is on screen (for the automation's check).</summary>
-    public string[] VisibleMenus() => _popups.Where(p => p.Visible).Select(p => p.Name.ToString()).ToArray();
-    private Button? _moreButton;
-    private ContextMenuPanel? _moreMenu;
-    private PanelContainer? _badge;
-    private Label? _badgeText;
-    private bool _connected;
+    /// <summary>The ids of the top menus whose dropdown is on screen (for the automation's check).</summary>
+    public string[] VisibleMenus() => TopBar.Menus.Popups.Where(p => p.Visible).Select(p => p.Name.ToString()).ToArray();
 
     public ShellController Shell { get; }
 
@@ -55,18 +37,26 @@ public partial class ShellRoot : Control
     /// a render case that draws the shell in a sub-viewport sets its own, so the main window is left alone.</summary>
     public Action<float>? ScaleSink { get; set; }
 
-    /// <summary>How many toolbar buttons are behind the More button at the current width.</summary>
-    public int HiddenToolbarButtons { get; private set; }
+    /// <summary>How many rows the dock takes at the current width (it wraps before any button is hidden).</summary>
+    public int DockRows { get; private set; } = 1;
 
     /// <summary>The region between the bars: the login screen and, later, the world's own overlays go here.</summary>
     public Control MainView { get; }
 
-    public MenuBar Menu => _menuBar;
-    public HBoxContainer Toolbar => _toolbar;
-    /// <summary>The row the toolbar sits in; add-ons' quick controls go at its end.</summary>
-    public HBoxContainer ToolbarRow => _toolbarRow;
-    public NavBar Navigation { get; }
+    public TopBar TopBar { get; }
+
+    /// <summary>The top bar's menu bar.</summary>
+    public RvMenuBar Menu => TopBar.Menus;
+
+    public DockModel DockModel { get; }
+    public Dock Dock { get; }
+
+    /// <summary>The row at the dock's end where an add-on's older quick controls go.</summary>
+    public HBoxContainer ToolbarRow => Dock.QuickRow;
     public ChatBar Chat { get; }
+
+    /// <summary>An add-on's dock button was clicked, or an entry of its menu chosen (the entry's index; -1 for the click).</summary>
+    public event Action<DockItem, int>? AddonDockUsed;
 
     public IReadOnlyDictionary<string, FloaterFrame> Frames => _frames;
 
@@ -85,55 +75,22 @@ public partial class ShellRoot : Control
         MainView.AccessibilityName = _strings.Get("shell.main");
         AddChild(MainView);
 
-        Navigation = new NavBar(_strings) { Visible = false };
-        AddChild(Navigation);
         Chat = new ChatBar(_strings) { Visible = false };
         AddChild(Chat);
 
-        _toolbarPanel = new PanelContainer { Name = "toolbar_bar", ThemeTypeVariation = UiTheme.BarPanel, MouseFilter = MouseFilterEnum.Stop };
-        _toolbar = new HBoxContainer { Name = "toolbar", Alignment = BoxContainer.AlignmentMode.Center };
-        _toolbar.AddThemeConstantOverride("separation", 4);
-        _toolbar.AccessibilityName = _strings.Get("shell.toolbar");
-        _toolbar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _toolbarRow = new HBoxContainer { Name = "toolbar_row" };
-        _toolbarRow.AddChild(_toolbar);
-        _toolbarPanel.AddChild(_toolbarRow);
-        AddChild(_toolbarPanel);
+        // the dock floats over the world, centred, 14 above the bottom row
+        DockModel = DockModel.Standard();
+        Dock = new Dock(DockModel, _strings) { IsOpen = DockItemOpen };
+        Dock.Clicked += OnDockClicked;
+        Dock.MenuRequested += OpenDockMenu;
+        DockModel.Changed += () => { if (IsInsideTree()) ApplyLayout(); };
+        AddChild(Dock);
 
-        _menuRow = new PanelContainer { Name = "menu_row", ThemeTypeVariation = UiTheme.BarPanel, MouseFilter = MouseFilterEnum.Stop };
-        var row = new HBoxContainer { Name = "menu_content" };
-        _menuRow.AddChild(row);
-        _brandMark = new ColorRect { Name = "brand_mark", CustomMinimumSize = new Vector2(14, 14), SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
-        row.AddChild(_brandMark);
-        _brandName = new Label { Name = "brand_name", ThemeTypeVariation = UiTheme.BrandLabel, Text = _strings.Get("brand.default") };
-        _brandName.AccessibilityName = _brandName.Text;
-        row.AddChild(_brandName);
-        _menuBar = new MenuBar { Name = "menu_bar" };
-        _menuBar.AccessibilityName = _strings.Get("shell.menubar");
-        // a menu opens on a click and, while one is open, follows the pointer across the bar (the engine's switch on hover); the press
-        // that closes a menu reaches its popup first, so the same press on the bar must not open a menu again
-        _menuBar.GuiInput += e =>
-        {
-            if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } && _menuToggle.Open is null
-                && _lastClosedMenu is { } closed && !_menuToggle.PressOpens(closed, (long)Time.GetTicksMsec()))
-                _menuBar.AcceptEvent();
-        };
-        row.AddChild(_menuBar);
-        row.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
-        _clock = new Label { Name = "clock", ThemeTypeVariation = UiTheme.MutedLabel };
-        _clock.AccessibilityName = _strings.Get("status.clock");
-        row.AddChild(_clock);
-        _connectionIcon = new TextureRect { Name = "connection_icon", StretchMode = TextureRect.StretchModeEnum.KeepCentered, CustomMinimumSize = new Vector2(20, 0), MouseFilter = MouseFilterEnum.Ignore };
-        row.AddChild(_connectionIcon);
-        _connectionLabel = new Label { Name = "connection", ThemeTypeVariation = UiTheme.MutedLabel };
-        row.AddChild(_connectionLabel);
-        AddChild(_menuRow);
-
-        BuildMenus();
-        RebuildToolbar();
-        // feature code adds its menus, entries and buttons when it is ready, after the frame is drawn: draw them again then
+        TopBar = new TopBar(_strings, TopMenus());
+        TopBar.ShowPlace(false);
+        AddChild(TopBar);
+        // feature code adds its menus and entries when it is ready, after the frame is drawn: draw them again then
         shell.Menus.Changed += RebuildMenus;
-        shell.Toolbar.Changed += RebuildToolbar;
         Theme = ShellTheme.Build(UiTheme.Tokens);
         UiTheme.Changed += OnThemeChanged;
         Restyle();
@@ -149,42 +106,65 @@ public partial class ShellRoot : Control
         shell.Focus.TextReleaseRequested += () => GetViewport()?.GuiReleaseFocus();
     }
 
-    /// <summary>The grid's name shown in the menu bar next to its mark (null: the viewer's own placeholder name).</summary>
-    public void SetBrand(string? gridName)
-    {
-        _brandName.Text = BrandText.For(gridName, _strings);
-        _brandName.AccessibilityName = _brandName.Text;
-    }
+    /// <summary>The grid's name in the status area (null: none yet).</summary>
+    public void SetBrand(string? gridName) => TopBar.SetGrid(gridName);
 
-    /// <summary>Shows the navigation bar and the chat bar (a session is in the world) or hides them.</summary>
+    /// <summary>The location field's text (null: no region yet).</summary>
+    public void SetLocation(LocationParts? parts) => TopBar.Location.Show(parts);
+
+    /// <summary>Shows the world's parts of the frame (Back, Home, the location field and the chat bar) while a session is in the world.</summary>
     public void ShowWorldRows(bool inWorld)
     {
-        Navigation.Visible = inWorld;
         Chat.Visible = inWorld;
-        Shell.Chrome = new ChromeRows(Toolbar: true, NavBar: inWorld, ChatBar: inWorld);
+        TopBar.ShowPlace(inWorld);
+        Shell.Chrome = new ChromeRows(Toolbar: false, NavBar: false, ChatBar: inWorld);
         if (IsInsideTree())
             ApplyLayout();
     }
 
-    /// <summary>The connection mark on the right of the menu bar.</summary>
+    private PanelContainer? _caption;
+    private SceneTreeTimer? _captionTimer;
+
+    /// <summary>A short caption near the top centre for four seconds (spec 8's visual cue), such as what Check for updates found.</summary>
+    public void ShowNotice(string text)
+    {
+        if (_caption is null)
+        {
+            _caption = new PanelContainer { Name = "caption", ThemeTypeVariation = ReverieStyle.Pill, MouseFilter = MouseFilterEnum.Ignore };
+            _caption.AddChild(new Label { Name = "text", ThemeTypeVariation = ReverieStyle.Status, VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore });
+            AddChild(_caption);
+        }
+        var label = _caption.GetNode<Label>("text");
+        label.Text = text;
+        label.AccessibilityName = text;
+        _caption.Visible = true;
+        _caption.ResetSize();
+        var size = _caption.GetCombinedMinimumSize();
+        _caption.Size = size;
+        _caption.Position = new Vector2(MathF.Round((GetViewportRect().Size.X - size.X) / 2), MainArea.Position.Y + 12);
+        var timer = _captionTimer = GetTree().CreateTimer(4);
+        timer.Timeout += () => { if (_captionTimer == timer && _caption is not null) _caption.Visible = false; };
+    }
+
+    /// <summary>The connection state in the status area.</summary>
     public void SetConnected(bool connected)
     {
         _connected = connected;
-        _connectionLabel.Text = _strings.Get(connected ? "status.connected" : "status.disconnected");
-        _connectionLabel.AccessibilityName = _connectionLabel.Text;
-        _connectionIcon.Texture = IconCache.Get(UiIcons.Connection, 16);
-        _connectionIcon.Modulate = ShellTheme.C(connected ? UiTheme.Tokens.Success : UiTheme.Tokens.TextSecondary);
+        TopBar.SetConnection(_strings.Get(connected ? "status.connected" : "status.disconnected"), connected);
     }
 
-    /// <summary>The count on the notifications button (0: none shown).</summary>
+    /// <summary>Unread notices: the Notices button shows attention and the count (0: none).</summary>
     public void SetUnread(int count)
     {
-        if (_badge is null || _badgeText is null)
-            return;
-        _badge.Visible = count > 0;
-        _badgeText.Text = count > 99 ? _strings.Get("toolbar.unread.cap") : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        if (_toolbarButtons.TryGetValue("toolbar_notifications", out var b))
-            b.Button.AccessibilityName = count > 0 ? _strings.Get("toolbar.unread", count) : _strings.Get(b.Model.LabelKey);
+        if (DockModel.Item("notices") is { } notices)
+            DockModel.SetAttention(notices, count > 0, count > 0 ? count : null);
+    }
+
+    /// <summary>Unread conversations: the Convos button shows attention until it is opened (0: none).</summary>
+    public void SetUnreadConversations(int count)
+    {
+        if (DockModel.Item("convos") is { } convos)
+            DockModel.SetAttention(convos, count > 0, count > 0 ? count : null);
     }
 
     /// <summary>Builds the engine theme again from the current tokens, applies the UI scale and redraws what draws itself.</summary>
@@ -200,16 +180,11 @@ public partial class ShellRoot : Control
         Redraw(this);
     }
 
-    /// <summary>The pieces that take their colour or picture from the tokens directly.</summary>
+    /// <summary>The pieces that take their picture from the tokens directly.</summary>
     private void Restyle()
     {
-        _brandMark.Color = ShellTheme.C(UiTheme.Tokens.Accent);
         SetConnected(_connected);
-        foreach (var (button, model) in _toolbarButtons.Values)
-            if (model.Icon is { } icon)
-                button.Icon = IconCache.Get(icon, 18);
-        if (_moreButton is not null)
-            _moreButton.Icon = IconCache.Get(UiIcons.Down, 18);
+        Dock.Rebuild();
     }
 
     private static void Redraw(Node node)
@@ -249,7 +224,7 @@ public partial class ShellRoot : Control
         set
         {
             _fixedClock = value;
-            _clock.Text = ClockText.For(DateTime.Now, value, System.Globalization.CultureInfo.CurrentCulture);
+            TopBar.SetTime(ClockText.For(DateTime.Now, value, System.Globalization.CultureInfo.CurrentCulture));
         }
     }
 
@@ -264,7 +239,7 @@ public partial class ShellRoot : Control
         if ((_clockAge += delta) >= 1)
         {
             _clockAge = 0;
-            _clock.Text = ClockText.For(DateTime.Now, FixedClockText, System.Globalization.CultureInfo.CurrentCulture);
+            TopBar.SetTime(ClockText.For(DateTime.Now, FixedClockText, System.Globalization.CultureInfo.CurrentCulture));
         }
     }
 
@@ -288,98 +263,71 @@ public partial class ShellRoot : Control
     /// <summary>Adds a panel's content to its floater; the floater itself is registered with the controller's floaters first.</summary>
     public void SetFloaterContent(string floaterId, Control content) => _frames[floaterId].SetContent(content);
 
-    /// <summary>Draws the toolbar again from its model (after feature code added a button).</summary>
-    public void RebuildToolbar()
+    /// <summary>The window a built-in dock button opens: the one the feature's toolbar entry names for the same command, else the
+    /// window of the command's own name.</summary>
+    private string? FloaterOf(DockItem item)
     {
-        foreach (var child in _toolbar.GetChildren())
-        {
-            _toolbar.RemoveChild(child);
-            child.QueueFree();
-        }
-        _toolbarButtons.Clear();
-        _badge = null;
-        _badgeText = null;
-        foreach (var b in Shell.Toolbar.Buttons)
-        {
-            string label = _strings.Get(b.LabelKey);
-            var button = new Button
-            {
-                Name = b.Id, Text = label, ThemeTypeVariation = UiTheme.ToolbarButton, CustomMinimumSize = new Vector2(64, 0),
-                VerticalIconAlignment = VerticalAlignment.Top, IconAlignment = HorizontalAlignment.Center, ExpandIcon = false, FocusMode = FocusModeEnum.Click,
-            };
-            button.AddThemeConstantOverride("icon_max_width", 18);
-            if (b.Icon is { } icon)
-                button.Icon = IconCache.Get(icon, 18);
-            button.AccessibilityName = label;
-            string command = b.CommandId;
-            var model = b;
-            button.Pressed += () =>
-            {
-                // an open window that is behind is brought to the front, as the official toolbar does; anything else runs the command
-                if (model.FloaterId is { } floater && Shell.Floaters.IsOpen(floater) && Shell.Floaters.FocusedId != floater)
-                    Shell.Floaters.Focus(floater);
-                else
-                    Shell.Commands.Execute(command);
-                button.ReleaseFocus();   // a click leaves no focus outline behind; the pressed look is only the window being open
-            };
-            _toolbar.AddChild(button);
-            _toolbarButtons[b.Id] = (button, b);
-            if (b.Id == "toolbar_notifications")
-            {
-                _badge = new PanelContainer { Name = "unread_badge", ThemeTypeVariation = UiTheme.BadgePanel, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
-                _badge.AnchorLeft = 1; _badge.AnchorRight = 1; _badge.OffsetLeft = -22; _badge.OffsetRight = 0; _badge.OffsetTop = 0; _badge.OffsetBottom = 14;
-                _badgeText = new Label { Name = "unread_count", HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
-                _badgeText.AddThemeColorOverride("font_color", ShellTheme.C(UiTheme.Tokens.AccentFillText));
-                _badge.AddChild(_badgeText);
-                button.AddChild(_badge);
-            }
-        }
-        // the button at the right end that holds the buttons that do not fit the width (shown by FitToolbar)
-        if (_moreButton is not null)
-        {
-            _toolbarRow.RemoveChild(_moreButton);
-            _moreButton.QueueFree();
-        }
-        _moreButton = new Button
-        {
-            Name = "toolbar_more", Text = _strings.Get("toolbar.more"), ThemeTypeVariation = UiTheme.ToolbarButton, CustomMinimumSize = new Vector2(64, 0),
-            VerticalIconAlignment = VerticalAlignment.Top, IconAlignment = HorizontalAlignment.Center, ExpandIcon = false, FocusMode = FocusModeEnum.Click, Visible = false,
-        };
-        _moreButton.AddThemeConstantOverride("icon_max_width", 18);
-        _moreButton.Icon = IconCache.Get(UiIcons.Down, 18);
-        _moreButton.AccessibilityName = _strings.Get("toolbar.more.named");
-        _moreButton.Pressed += OpenMoreMenu;
-        _toolbarRow.AddChild(_moreButton);
-        if (IsInsideTree())
-        {
-            SyncToolbarState();
-            ApplyLayout();
-        }
+        if (item.Owner is not null || item.CommandId is not { } command)
+            return null;
+        if (Shell.Toolbar.Buttons.FirstOrDefault(b => b.CommandId == command)?.FloaterId is { } named)
+            return named;
+        return command.StartsWith("floater.", StringComparison.Ordinal) && Shell.Floaters.Specs.Any(f => f.Id == command["floater.".Length..]) ? command["floater.".Length..] : null;
     }
 
-    /// <summary>The buttons that do not fit the bar's width, in a menu above the More button; choosing one does what its button does.</summary>
-    private void OpenMoreMenu()
+    /// <summary>A built-in button shows as on while its window is open.</summary>
+    private bool DockItemOpen(DockItem item) => FloaterOf(item) is { } floater && Shell.Floaters.IsOpen(floater);
+
+    /// <summary>A click on a dock button: an open window that is behind comes to the front; anything else runs the button's command
+    /// (a built-in button) or tells its add-on.</summary>
+    private void OnDockClicked(DockItem item)
     {
-        if (_moreButton is null)
+        if (item.Owner is not null)
+        {
+            AddonDockUsed?.Invoke(item, -1);
             return;
-        _moreMenu ??= new ContextMenuPanel(_strings);
-        if (_moreMenu.GetParent() is null)
-            MainView.AddChild(_moreMenu);
-        var hidden = Shell.Toolbar.Buttons.Skip(Shell.Toolbar.Buttons.Count - HiddenToolbarButtons).ToList();
-        var entries = hidden.Select(b => new ContextEntry(b.Id, b.LabelKey)).ToList();
-        var at = _moreButton.GetGlobalRect().Position;
-        _moreMenu.Open(at, entries, id =>
-        {
-            if (hidden.FirstOrDefault(b => b.Id == id) is { } picked)
-                Shell.Commands.Execute(picked.CommandId);
-        }, MainView.Size);
+        }
+        if (item.Attention && item.Id == "convos")
+            DockModel.SetAttention(item, false);   // the ring stays until the conversations are opened
+        if (FloaterOf(item) is { } floater && Shell.Floaters.IsOpen(floater) && Shell.Floaters.FocusedId != floater)
+            Shell.Floaters.Focus(floater);
+        else if (item.CommandId is { } command)
+            Shell.Commands.Execute(command);
     }
 
-    /// <summary>A button shows as active while the window it opens is open.</summary>
-    private void SyncToolbarState()
+    /// <summary>A dock button's menu (its arrow or a right-click), above the button.</summary>
+    private void OpenDockMenu(DockItem item, Vector2 at)
     {
-        foreach (var (button, model) in _toolbarButtons.Values)
-            button.ThemeTypeVariation = model.IsPressed(Shell.Floaters) ? UiTheme.ToolbarButtonActive : UiTheme.ToolbarButton;
+        if (item.Menu.Count == 0)
+            return;
+        if (_dockMenu is null)
+        {
+            _dockMenu = new PopupMenu { Name = "dock_menu", ThemeTypeVariation = ReverieStyle.Popup };
+            AddChild(_dockMenu);
+        }
+        var menu = _dockMenu;
+        menu.Clear();
+        foreach (var signal in menu.GetSignalConnectionList(PopupMenu.SignalName.IdPressed))
+            menu.Disconnect(PopupMenu.SignalName.IdPressed, signal["callable"].AsCallable());
+        for (int i = 0; i < item.Menu.Count; i++)
+        {
+            var e = item.Menu[i];
+            if (e.Separator)
+            {
+                menu.AddSeparator("", i);
+                continue;
+            }
+            if (e.Checked is { } on)
+            {
+                menu.AddCheckItem(e.Label, i);
+                menu.SetItemChecked(menu.ItemCount - 1, on);
+            }
+            else
+                menu.AddItem(e.Label, i);
+        }
+        menu.IdPressed += id => AddonDockUsed?.Invoke(item, (int)id);
+        menu.ResetSize();
+        var size = menu.GetContentsMinimumSize();
+        menu.Popup(new Rect2I((Vector2I)(at - new Vector2(0, size.Y + 6)).Round(), Vector2I.Zero));
     }
 
     /// <summary>A menu entry's shortcut as the engine's key code ("control|U" is Ctrl+U), or none: the menu shows it beside the entry and the
@@ -404,16 +352,28 @@ public partial class ShellRoot : Control
     }
 
     /// <summary>Draws the menu bar again from its model (after feature code added a menu or an entry).</summary>
-    public void RebuildMenus()
+    public void RebuildMenus() => TopBar.SetMenus(TopMenus(), _strings.Get("shell.menubar"));
+
+    /// <summary>The top bar's menus from the model: the app menu, then the official menus; entries are read each time a menu opens.</summary>
+    private IReadOnlyList<RvMenu> TopMenus()
     {
-        foreach (var popup in _popups)
-        {
-            _menuBar.RemoveChild(popup);
-            popup.QueueFree();
-        }
-        _popups.Clear();
-        BuildMenus();
+        var views = TopBarMenuMap.Build(Shell.Menus, Shell.Commands);
+        return views.Select(v => new RvMenu(_strings.Get(v.TitleKey), () => Entries(v.Id), v.IsApp, v.Id)).ToArray();
     }
+
+    private IReadOnlyList<RvMenuEntry> Entries(string menuId)
+    {
+        var view = TopBarMenuMap.Build(Shell.Menus, Shell.Commands).FirstOrDefault(m => m.Id == menuId);
+        return view is null ? [] : view.Entries.Select(ToEntry).ToArray();
+    }
+
+    private RvMenuEntry ToEntry(TopMenuEntryView e) =>
+        new(_strings.Get(e.LabelKey), e.Icon, ShortcutText(e.Shortcut), e.CommandId is { } c ? () => Shell.Commands.Execute(c) : null, e.Enabled, e.Checked,
+            e.Children?.Select(ToEntry).ToArray(), false, e.Id);
+
+    /// <summary>A shortcut as the official menus write it ("control|U") in the engine's key text ("Ctrl+U"), or none.</summary>
+    private static string? ShortcutText(string? shortcut) =>
+        Accelerator(shortcut) is var key && key != Key.None ? OS.GetKeycodeString(key) : null;
 
     /// <summary>Registers a floater after the frame is built (a feature that becomes ready later) and gives it its content.</summary>
     public void AddFloater(FloaterSpec spec, Control content)
@@ -431,62 +391,6 @@ public partial class ShellRoot : Control
             return;
         frame.Title.Text = title;
         frame.Title.AccessibilityName = title;
-    }
-
-    private string? _lastClosedMenu;
-
-    private void BuildMenus()
-    {
-        int index = 0;
-        foreach (var menu in Shell.Menus.Menus)
-        {
-            string title = _strings.Get(menu.LabelKey);
-            var popup = new PopupMenu { Name = menu.Id };
-            popup.AccessibilityName = title;
-            _menuBar.AddChild(popup);
-            _menuBar.SetMenuTitle(index++, title);
-            string menuId = menu.Id;
-            var submenus = new Dictionary<string, PopupMenu>();   // one popup per submenu entry, made the first time the menu opens
-            void Fill()
-            {
-                // read the model each time the menu opens: an entry may have been added, enabled or checked since
-                var entries = Shell.Menus.Menus.First(m => m.Id == menuId).Entries;
-                popup.Clear();
-                for (int i = 0; i < entries.Count; i++)
-                {
-                    var entry = entries[i];
-                    if (entry.Children is not { } kids)
-                    {
-                        popup.AddItem(_strings.Get(entry.LabelKey), i, Accelerator(entry.Shortcut));
-                        popup.SetItemDisabled(i, !entry.IsEnabled);
-                        continue;
-                    }
-                    string entryId = entry.Id;
-                    if (!submenus.TryGetValue(entryId, out var sub))
-                    {
-                        sub = new PopupMenu { Name = entryId.Replace('.', '_') };
-                        sub.AccessibilityName = _strings.Get(entry.LabelKey);
-                        popup.AddChild(sub);
-                        sub.IdPressed += id => Shell.Menus.Activate(Shell.Menus.Menus.First(m => m.Id == menuId).Entries.First(e => e.Id == entryId).Children![(int)id].Id, Shell.Commands);
-                        submenus[entryId] = sub;
-                    }
-                    sub.Clear();
-                    for (int k = 0; k < kids.Count; k++)
-                    {
-                        if (kids[k].Checked is null) sub.AddItem(_strings.Get(kids[k].LabelKey), k, Accelerator(kids[k].Shortcut));
-                        else { sub.AddCheckItem(_strings.Get(kids[k].LabelKey), k); sub.SetItemChecked(k, kids[k].IsChecked); }
-                        sub.SetItemDisabled(k, !kids[k].IsEnabled);
-                    }
-                    popup.AddSubmenuNodeItem(_strings.Get(entry.LabelKey), sub, i);
-                }
-            }
-            Fill();
-            popup.AboutToPopup += Fill;
-            popup.AboutToPopup += () => _menuToggle.Opened(menuId);
-            popup.PopupHide += () => { _menuToggle.Closed(menuId, (long)Time.GetTicksMsec()); _lastClosedMenu = menuId; };
-            popup.IdPressed += id => Shell.Menus.Activate(Shell.Menus.Menus.First(m => m.Id == menuId).Entries[(int)id].Id, Shell.Commands);
-            _popups.Add(popup);
-        }
     }
 
     private void AddFrame(FloaterSpec spec)
@@ -561,62 +465,28 @@ public partial class ShellRoot : Control
         // the window's size in interface units (the engine has already divided the pixels by the scale), and the height each bar's
         // content needs: a bar taller than its design height would draw over its neighbour or past the window's edge
         var size = GetViewportRect().Size;
-        var needs = new BarHeights(_menuRow.GetCombinedMinimumSize().Y, Navigation.GetCombinedMinimumSize().Y, Chat.GetCombinedMinimumSize().Y, _toolbarPanel.GetCombinedMinimumSize().Y);
+        var needs = new BarHeights(TopBar.GetCombinedMinimumSize().Y, 0, Chat.GetCombinedMinimumSize().Y, 0);
         var regions = Shell.Layout(new UiSize(size.X, size.Y), needs);
         MainArea = new Rect2(regions.Main.X, regions.Main.Y, regions.Main.W, regions.Main.H);
-        FitMenuRow(regions.MenuBar.W);
-        FitToolbar(regions.Toolbar.W);
-        Place(_menuRow, regions.MenuBar);
-        Place(Navigation, regions.NavBar);
-        Navigation.Visible = regions.NavBar.H > 0;
+        Place(TopBar, regions.MenuBar);
         Place(MainView, regions.Main);
         Place(Chat, regions.ChatBar);
         Chat.Visible = regions.ChatBar.H > 0;
-        Place(_toolbarPanel, regions.Toolbar);
-        _toolbar.Visible = regions.Toolbar.H > 0;
-        _toolbarPanel.Visible = regions.Toolbar.H > 0;
+        // the dock: centred, 14 above the bottom row (the chat bar in the world, the window's edge before), wrapping within the width
+        Dock.QuickRow.Visible = Dock.QuickRow.GetChildCount() > 0;
+        Dock.MaxWidth = Math.Max(ReverieTheme.DockButtonWidth + 2 * (ReverieTheme.DockPadding + 1), size.X - 2 * ReverieTheme.DockEdge);
+        var dock = Dock.Fit();
+        DockRows = Dock.Rows(dock.X - 2 * (ReverieTheme.DockPadding + 1));
+        float bottom = regions.ChatBar.H > 0 ? regions.ChatBar.Y : size.Y;
+        Dock.Position = new Vector2(MathF.Round((size.X - dock.X) / 2), bottom - ReverieTheme.DockEdge - dock.Y);
+        Dock.Size = dock;
     }
 
-    /// <summary>A menu row wider than the window drops its optional parts: first the grid's name, then the connection's words (its
-    /// mark stays). The menus and the clock always stay.</summary>
-    private void FitMenuRow(float width)
-    {
-        _brandName.Visible = true;
-        _connectionLabel.Visible = true;
-        if (_menuRow.GetCombinedMinimumSize().X > width)
-            _brandName.Visible = false;
-        if (_menuRow.GetCombinedMinimumSize().X > width)
-            _connectionLabel.Visible = false;
-    }
-
-    /// <summary>Fits the toolbar to its row again (after something else in the row, such as an add-on's quick control, came or went).</summary>
+    /// <summary>Lays the dock out again (after something in its quick row, such as an add-on's quick control, came or went).</summary>
     public void RefitToolbar()
     {
         if (IsInsideTree())
             ApplyLayout();
-    }
-
-    /// <summary>The toolbar buttons that fit the width show; the rest are behind the More button at the right end (<see cref="ToolbarFit"/>).</summary>
-    private void FitToolbar(float width)
-    {
-        var buttons = Shell.Toolbar.Buttons.Select(b => _toolbarButtons.TryGetValue(b.Id, out var pair) ? pair.Button : null).Where(b => b is not null).Select(b => b!).ToList();
-        if (_moreButton is null)
-            return;
-        var widths = buttons.Select(b => b.GetCombinedMinimumSize().X).ToList();
-        float margins = _toolbarPanel.GetThemeStylebox("panel").GetMinimumSize().X;
-        float separation = _toolbar.GetThemeConstant("separation");
-        // anything else in the row (the add-ons' quick controls) keeps its own width; the buttons fit in what is left
-        float others = 0;
-        foreach (var child in _toolbarRow.GetChildren())
-        {
-            if (child is Control c && c != _toolbar && c != _moreButton && c.Visible)
-                others += c.GetCombinedMinimumSize().X + _toolbarRow.GetThemeConstant("separation");
-        }
-        var fit = ToolbarFit.Plan(widths, width - margins - others, separation, _moreButton.GetCombinedMinimumSize().X);
-        for (int i = 0; i < buttons.Count; i++)
-            buttons[i].Visible = i < fit.Shown;
-        _moreButton.Visible = fit.NeedsMore;
-        HiddenToolbarButtons = fit.Hidden;
     }
 
     private static void Place(Control c, UiRect r)
@@ -672,6 +542,5 @@ public partial class ShellRoot : Control
             f.Size = new Vector2(open[i].Rect.W, f.Minimized ? FloaterFrame.TitleBarHeight : open[i].Rect.H);
             _floaterLayer.MoveChild(f, i);   // the nearer, the later
         }
-        SyncToolbarState();
     }
 }

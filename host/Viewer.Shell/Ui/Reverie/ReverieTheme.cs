@@ -121,6 +121,11 @@ public static class ReverieTheme
         LocationMinWidth = 240, IconButton = 28, IconSmall = 16, TitleBarHeight = 42, TitleButton = 30, ListRow = 32, SidebarRow = 34,
         ChipHeight = 28, ButtonHeight = 36, SegmentHeight = 28, SwitchWidth = 42, SwitchHeight = 24, SwitchKnob = 18;
 
+    /// <summary>The dock: a button, its icon, the dock's padding and gap, a divider and its margin, the distance from the window's edge;
+    /// the chat pill and context pill's height and their icon buttons.</summary>
+    public const float DockButtonWidth = 62, DockButtonHeight = 54, DockIcon = 26, DockPadding = 6, DockGap = 2, DockDividerHeight = 32,
+        DockDividerMargin = 5, DockEdge = 14, PillHeight = 44, PillButton = 32, PillIcon = 18;
+
     /// <summary>The tokens in the shape the engine theme builder reads; colours the design does not name keep the Classic values.</summary>
     public static ThemeTokens ToThemeTokens(ReverieTokens r)
     {
