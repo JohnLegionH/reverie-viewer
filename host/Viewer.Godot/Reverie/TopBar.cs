@@ -311,8 +311,17 @@ public partial class RvLocationField : PanelContainer
         _display.TooltipText = parts is null ? "" : string.Join(" ", new[] { parts.Parcel, parts.Region, parts.Coordinates }.Where(t => !string.IsNullOrEmpty(t)));
     }
 
+    /// <summary>The field's text fitted to its width: the coordinates are left out when the names and the coordinates do not fit
+    /// together (the region's name is never cut for them; the tooltip keeps the whole place).</summary>
+    public void FitText(float width)
+    {
+        float names = (_parcel.Visible ? _parcel.GetCombinedMinimumSize().X + 6 : 0) + _region.GetCombinedMinimumSize().X;
+        float room = width - Star.GetCombinedMinimumSize().X - 4 - 24;   // the star, the gap and the field's rounded ends
+        _coords.Visible = names + 6 + _coords.GetCombinedMinimumSize().X <= room;
+    }
+
     /// <summary>Display mode's text as one line, for checks: the parts that are shown, in order.</summary>
-    public string DisplayText => string.Join(" | ", new[] { _parcel.Visible ? _parcel.Text : null, _region.Text, _coords.Text }.Where(t => !string.IsNullOrEmpty(t)));
+    public string DisplayText => string.Join(" | ", new[] { _parcel.Visible ? _parcel.Text : null, _region.Text, _coords.Visible ? _coords.Text : null }.Where(t => !string.IsNullOrEmpty(t)));
 
     public void BeginEdit()
     {
@@ -524,6 +533,7 @@ public partial class TopBar : PanelContainer
         float inner = available - 16;
         if (_second.Visible && _second.GetCombinedMinimumSize().X - inner is var over2 and > 0.5f)
             Location.CustomMinimumSize = new Vector2(Math.Max(ReverieTheme.LocationMinWidth / 2, Location.CustomMinimumSize.X - over2), ReverieTheme.LocationHeight);
+        Location.FitText(Location.CustomMinimumSize.X);
         if (_first.GetCombinedMinimumSize().X - inner is var over1 and > 0.5f)
             Menus.CustomMinimumSize = new Vector2(Math.Max(0, Menus.CustomMinimumSize.X - over1), 0);
     }

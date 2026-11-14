@@ -47,8 +47,9 @@ public sealed class ShellController
     public ToolbarModel Toolbar { get; }
     public ShellCommands Commands { get; }
 
-    /// <summary>Which optional rows of the frame are shown (the toolbar shows while it has a button).</summary>
-    public ChromeRows Chrome { get; set; }
+    /// <summary>Which optional rows of the frame are shown. The toolbar row shows while the frame asks for it and it has a button (a
+    /// frame whose dock floats over the world asks for none).</summary>
+    public ChromeRows Chrome { get; set; } = new(Toolbar: true);
 
     /// <summary>Lays the frame out for a window size and gives the floaters the main region to live in.</summary>
     /// <summary>As <see cref="Layout(UiSize)"/>, but a bar whose content needs more height than its design height gets what it needs
@@ -66,7 +67,7 @@ public sealed class ShellController
 
     private ShellRegions Layout(UiSize window, ShellMetrics metrics)
     {
-        var regions = ShellLayout.Compute(window, metrics, Chrome with { Toolbar = Toolbar.Buttons.Count > 0 });
+        var regions = ShellLayout.Compute(window, metrics, Chrome with { Toolbar = Chrome.Toolbar && Toolbar.Buttons.Count > 0 });
         Floaters.SetBounds(regions.Main);
         return regions;
     }
