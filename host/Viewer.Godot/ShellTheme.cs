@@ -293,25 +293,57 @@ public static class ShellTheme
 }
 
 /// <summary>
-/// The interface fonts, made once from the files carried in the shell assembly (Inter, SIL OFL 1.1). For characters Inter does not
-/// have (CJK, Arabic, emoji and other scripts) the engine falls back to the fonts installed on the system (the font's system
-/// fallback, on by default), so the package stays small. No fallback font is attached: the engine sizes a line by the tallest font in
-/// a chain, so an attached fallback would change every line's height. Noto Sans travels with the viewer for the windows that ask for
-/// it by name.
+/// The interface fonts, made once from the files carried in the shell assembly: Inter (SIL OFL 1.1), with Noto Sans (SIL OFL 1.1)
+/// attached for the characters Inter does not have (Devanagari and the rest of Noto Sans's set), so a machine without those system
+/// fonts still shows that text; past Noto, the engine falls back to the fonts installed on the system (CJK, Arabic, emoji). The engine
+/// sizes a line by the tallest font in a chain, and Noto stands taller than Inter, so Noto is given Inter's ascent and descent at
+/// every size: a line keeps Inter's height whichever font draws its letters. This is done once, here, for the one engine theme.
 /// </summary>
 public static class Fonts
 {
-    private static FontFile? _regular, _semiBold, _noto;
+    private static FontFile? _inter, _interSemiBold, _noto, _notoBold;
+    private static Font? _regular, _semiBold;
 
-    public static FontFile? Regular => _regular ??= Make("Inter-Regular");
+    /// <summary>Inter with Noto Sans attached: the theme's font.</summary>
+    public static Font? Regular => _regular ??= Chain(InterRegular, Noto);
 
-    public static FontFile? SemiBold => _semiBold ??= Make("Inter-SemiBold");
+    /// <summary>Inter SemiBold with Noto Sans Bold attached.</summary>
+    public static Font? SemiBold => _semiBold ??= Chain(InterSemiBold, NotoBold);
 
-    /// <summary>Noto Sans, regular.</summary>
-    public static FontFile? Noto => _noto ??= Make("NotoSans-Regular");
+    /// <summary>Noto Sans, regular (fitted to Inter's line height).</summary>
+    public static FontFile? Noto => _noto ??= Fitted(Make("NotoSans-Regular"), InterRegular);
+
+    /// <summary>Noto Sans, bold (fitted to Inter SemiBold's line height).</summary>
+    public static FontFile? NotoBold => _notoBold ??= Fitted(Make("NotoSans-Bold"), InterSemiBold);
 
     /// <summary>Inter regular on its own, without anything attached (the line height the interface keeps).</summary>
-    public static FontFile? InterRegular => Regular;
+    public static FontFile? InterRegular => _inter ??= Make("Inter-Regular");
+
+    public static FontFile? InterSemiBold => _interSemiBold ??= Make("Inter-SemiBold");
+
+    /// <summary>The sizes whose metrics are fitted: every size the interface draws text at, at any interface size.</summary>
+    public const int FittedMin = 6, FittedMax = 96;
+
+    private static Font? Chain(FontFile? inter, FontFile? noto)
+    {
+        if (inter is null)
+            return null;
+        // a wrapper, so Inter's own file stays without a fallback (the height it keeps is measured on it)
+        return noto is null ? inter : new FontVariation { BaseFont = inter, Fallbacks = [noto] };
+    }
+
+    /// <summary>The fallback takes the main font's ascent and descent at each size, so the chain's line height is the main font's.</summary>
+    private static FontFile? Fitted(FontFile? fallback, FontFile? main)
+    {
+        if (fallback is null || main is null)
+            return fallback;
+        for (int size = FittedMin; size <= FittedMax; size++)
+        {
+            fallback.SetCacheAscent(0, size, main.GetAscent(size));
+            fallback.SetCacheDescent(0, size, main.GetDescent(size));
+        }
+        return fallback;
+    }
 
     private static FontFile? Make(string name)
     {
