@@ -1,0 +1,244 @@
+// Copyright (c) 2026 Legion Builds
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+using System.Numerics;
+using Viewer.Core.Actions;
+using Viewer.Core.Avatars;
+using Viewer.Core.Building;
+using Viewer.Core.Diagnostics;
+using Viewer.Core.Interaction;
+using Viewer.Core.Meshing;
+using Viewer.Core.Session;
+using Viewer.Core.World;
+using Viewer.Shell.Build;
+using Xunit;
+
+namespace Viewer.Core.Tests;
+
+/// <summary>
+/// Build mode, the edit selection and what each edit sends, on an in-memory world: the tools and their keys' effect, click and Shift-click
+/// selection, Edit linked, read-only selection, typed numbers and their clamps, shape, flags, Locked, Link with its root, Unlink and the
+/// Shift-drag copy. No engine and no grid; each test builds its own world, so the class runs in parallel.
+/// </summary>
+public class EditControllerTests
+{
+    private static readonly SimRef Sim = new(256000UL << 32 | 256000UL, "Here");
+    private static readonly Guid Me = Guid.Parse("2a4c6e80-1b3d-4f5a-8c7e-9d0f1a2b3c01");
+    private static Guid G(uint n) => new((int)n, 0, 0, new byte[8]);
+    private const uint Own = ObjectFlagBits.YouOwner | ObjectFlagBits.Modify | ObjectFlagBits.Move | ObjectFlagBits.Copy | ObjectFlagBits.Transfer;
+
+    private sealed class Rig
+    {
+        public WorldState World = new(new CoreLog(new ListSink(), "test"));
+        public List<ActionIntent> Sent = new();
+        public EditLimits Limits = EditLimits.Official;
+        public EditController C;
+
+        public Rig()
+        {
+            World.BeginRegion(Sim, new RegionInfo("Here", 1000, 1000, 256, 256, false));
+            World.ApplyAvatar(Sim, new AvatarData(500, Me, "Me", new Vector3(100, 100, 21), Quaternion.Identity, new Vector3(0.45f, 0.6f, 1.9f)));
+            C = new EditController(World, i => { Sent.Add(i); return new ActionResult(ActionStatus.Sent, Sent.Count); }, () => Limits);
+        }
+
+        public void Prim(uint local, Vector3 pos, uint flags, uint parent = 0, Vector3? scale = null) =>
+            World.ApplyObject(Sim, new PrimData(local, G(local), parent, 0, pos, Quaternion.Identity, scale ?? new Vector3(2, 2, 2), Interaction: new PrimInteraction(0, flags)));
+
+        public PickResult At(float x, float y) => ObjectPicker.Pick(World, new PickRay(new Vector3(x, y, 60), new Vector3(0, 0, -1)), (_, _) => 20f, ignoreAgent: Me);
+
+        public T Last<T>() where T : ActionIntent => Assert.IsType<T>(Sent[^1]);
+    }
+
+    [Fact]
+    public void Ctrl_B_opens_build_mode_with_the_Create_tool_and_closing_ends_it_with_Edit_linked_off_and_nothing_selected()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.C.ToggleBuild();
+        Assert.True(r.C.BuildMode);
+        Assert.Equal(BuildTool.Create, r.C.Tool);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.EditLinked = true;
+        Assert.True(r.C.Click(r.At(10, 10), shift: false));
+        Assert.Equal([1u], r.C.Selection);
+        r.C.ToggleBuild();
+        Assert.False(r.C.BuildMode);
+        Assert.False(r.C.EditLinked);
+        Assert.Empty(r.C.Selection);
+        r.C.SelectTool(BuildTool.Move);   // Ctrl+2 from outside build mode opens it with that tool
+        Assert.True(r.C.BuildMode);
+        Assert.Equal(BuildTool.Move, r.C.Tool);
+        r.C.CloseBuild();
+        Assert.False(r.C.BuildMode);
+    }
+
+    [Fact]
+    public void A_click_selects_the_root_Shift_click_adds_and_removes_Edit_linked_selects_the_part_and_a_click_on_nothing_clears()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(2, new Vector3(20, 0, 0), Own, parent: 1);          // a child at (30, 10)
+        r.Prim(3, new Vector3(50, 50, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        Assert.True(r.C.Click(r.At(30, 10), false));
+        Assert.Equal([1u], r.C.Selection);
+        Assert.Contains(r.Sent, i => i is ObjectPropertiesIntent { LocalId: 1 });
+        Assert.True(r.C.Click(r.At(50, 50), true));
+        Assert.Equal([1u, 3u], r.C.Selection);
+        Assert.Equal(3u, r.C.Primary);
+        Assert.True(r.C.Click(r.At(10, 10), true));                 // Shift-click a selected one: removed
+        Assert.Equal([3u], r.C.Selection);
+        Assert.True(r.C.Click(r.At(10, 10), false));                // plain click: replaces
+        Assert.Equal([1u], r.C.Selection);
+        r.C.EditLinked = true;
+        Assert.True(r.C.Click(r.At(30, 10), false));
+        Assert.Equal([2u], r.C.Selection);
+        Assert.True(r.C.Click(r.At(200, 200), false));              // nothing under the pointer
+        Assert.Empty(r.C.Selection);
+        r.C.SelectMany([1, 2, 3], shift: false);                     // drag-select, Edit linked off: roots once each
+        r.C.EditLinked = false;
+        r.C.SelectMany([2, 3], shift: false);
+        Assert.Equal([1u, 3u], r.C.Selection);
+    }
+
+    [Fact]
+    public void Clicks_are_not_the_edit_tools_outside_build_mode_or_with_the_Create_tool()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        Assert.False(r.C.Click(r.At(10, 10), false));
+        r.C.ToggleBuild();
+        Assert.False(r.C.Click(r.At(10, 10), false));
+        Assert.Empty(r.C.Selection);
+    }
+
+    [Fact]
+    public void Someone_elses_object_selects_read_only_and_no_edit_is_sent_for_it()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), 0);
+        r.C.SelectTool(BuildTool.Edit);
+        Assert.True(r.C.Click(r.At(10, 10), false));
+        Assert.Equal([1u], r.C.Selection);
+        Assert.True(r.C.Access(1).ReadOnly);
+        r.Sent.Clear();
+        Assert.False(r.C.SetPosition(new Vector3(12, 12, 30)));
+        Assert.False(r.C.SetSize(new Vector3(1, 1, 1)));
+        Assert.False(r.C.SetName("Mine now"));
+        Assert.False(r.C.SetShape(PrimShape.Box with { ProfileHollow = 0.5 }));
+        Assert.Empty(r.Sent);
+    }
+
+    [Fact]
+    public void Typed_numbers_go_out_clamped_by_the_grids_limits_with_the_official_update_bits()
+    {
+        var r = new Rig();
+        r.Limits = EditLimits.Official with { MaxScale = 128 };
+        r.Prim(1, new Vector3(10, 10, 30), Own, scale: new Vector3(0.5f, 0.5f, 0.5f));
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        Assert.True(r.C.SetSize(new Vector3(10, 10, 0.2f)));
+        var size = r.Last<UpdateObjectIntent>();
+        Assert.Equal((1u, new Vector3(10, 10, 0.2f), new Vector3(10, 10, 30), (Quaternion?)null, true), (size.LocalId, size.Scale!.Value, size.Position!.Value, size.Rotation, size.Linkset));
+        Assert.True(r.C.SetSize(new Vector3(200, 0.001f, 1)));
+        Assert.Equal(new Vector3(128, 0.01f, 1), r.Last<UpdateObjectIntent>().Scale);
+        Assert.True(r.C.SetPosition(new Vector3(300, 12, 5000)));
+        var pos = r.Last<UpdateObjectIntent>();
+        Assert.Equal(new Vector3(256, 12, 4096), pos.Position);
+        Assert.Null(pos.Scale);
+        Assert.True(r.C.SetRotation(new Vector3(0, 0, 90)));
+        var rot = r.Last<UpdateObjectIntent>();
+        Assert.NotNull(rot.Position);
+        Assert.True(Vector3.Distance(Vector3.UnitY, Vector3.Transform(Vector3.UnitX, rot.Rotation!.Value)) < 1e-4f);
+    }
+
+    [Fact]
+    public void With_Edit_linked_a_part_moves_alone()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(2, new Vector3(20, 0, 0), Own, parent: 1);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.EditLinked = true;
+        r.C.Click(r.At(30, 10), false);
+        Assert.True(r.C.SetPosition(new Vector3(21, 0, 0)));
+        var u = r.Last<UpdateObjectIntent>();
+        Assert.Equal((2u, false), (u.LocalId, u.Linkset));
+    }
+
+    [Fact]
+    public void Shape_flags_lock_name_and_permissions_are_sent_for_the_selection()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        Assert.True(r.C.SetShape(PrimShape.Box with { ProfileHollow = 0.99, PathTwist = 0.5 }));
+        var sh = r.Last<SetObjectShapeIntent>();
+        Assert.Equal(1u, sh.LocalId);
+        Assert.Equal(47500, sh.Shape.ProfileHollow);
+        Assert.Equal(50, sh.Shape.PathTwist);
+        Assert.True(r.C.SetFlags(physical: false, temporary: true, phantom: true));
+        Assert.Equal(new SetObjectFlagsIntent(1, false, true, true), r.Last<SetObjectFlagsIntent>());
+        Assert.True(r.C.SetLocked(true));
+        var lk = r.Last<SetObjectLockedIntent>();
+        Assert.Equal(([1u], true), (lk.LocalIds.ToArray(), lk.Locked));
+        Assert.True(r.C.SetName("Floor"));
+        Assert.Equal(new SetObjectNameIntent(1, "Floor"), r.Last<SetObjectNameIntent>());
+        Assert.True(r.C.SetDescription("Plank floor"));
+        Assert.Equal(new SetObjectDescriptionIntent(1, "Plank floor"), r.Last<SetObjectDescriptionIntent>());
+        Assert.True(r.C.SetPermission(0x10, 1u << 15, true));
+        var pm = r.Last<SetObjectPermissionsIntent>();
+        Assert.Equal(([1u], (byte)0x10, true, 1u << 15), (pm.LocalIds.ToArray(), pm.Field, pm.Set, pm.Mask));
+    }
+
+    [Fact]
+    public void Link_makes_the_last_selected_the_root_and_is_refused_for_what_may_not_be_linked()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(3, new Vector3(50, 50, 30), Own);
+        r.Prim(4, new Vector3(80, 80, 30), ObjectFlagBits.Modify | ObjectFlagBits.Move);   // not ours
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        r.C.Click(r.At(50, 50), true);
+        Assert.Null(r.C.Link());
+        Assert.Equal([3u, 1u], r.Last<LinkObjectsIntent>().OrderedRoots.ToArray());
+        r.Sent.Clear();
+        r.C.Click(r.At(80, 80), true);
+        Assert.Equal("link.not_owned", r.C.Link());
+        Assert.DoesNotContain(r.Sent, i => i is LinkObjectsIntent);
+        r.C.EditLinked = true;
+        r.C.SelectMany([1, 3], false);
+        Assert.Equal("link.edit_linked", r.C.Link());
+    }
+
+    [Fact]
+    public void Unlink_sends_every_prim_of_the_selected_linksets()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(2, new Vector3(20, 0, 0), Own, parent: 1);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        Assert.True(r.C.Unlink());
+        Assert.Equal([1u, 2u], r.Last<DelinkObjectsIntent>().LocalIds.OrderBy(i => i).ToArray());
+    }
+
+    [Fact]
+    public void A_Shift_drag_copies_the_selection_in_place_so_the_copy_stays_behind_and_needs_copy_permission()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(5, new Vector3(60, 60, 30), ObjectFlagBits.YouOwner | ObjectFlagBits.Modify | ObjectFlagBits.Move);   // no copy
+        r.C.SelectTool(BuildTool.Move);
+        r.C.Click(r.At(10, 10), false);
+        Assert.True(r.C.CopyInPlace());
+        var d = r.Last<DuplicateObjectsIntent>();
+        Assert.Equal(([1u], Vector3.Zero, 0u), (d.Roots.ToArray(), d.Offset, d.Flags));
+        r.Sent.Clear();
+        r.C.Click(r.At(60, 60), false);
+        Assert.False(r.C.CopyInPlace());
+        Assert.DoesNotContain(r.Sent, i => i is DuplicateObjectsIntent);
+    }
+}
