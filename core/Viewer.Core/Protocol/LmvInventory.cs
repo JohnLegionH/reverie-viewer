@@ -224,8 +224,31 @@ internal sealed partial class LmvTransport
                 inv.UpdateFolderProperties(new UUID(r.FolderId), new UUID(r.ParentId), r.NewName, (FolderType)r.KindNumber);
                 break;
             case MoveInventoryFolderCommand m:
-                inv.MoveFolder(new UUID(m.FolderId), new UUID(m.NewParentId));
+                // the official viewer's message; the library's own folder move would go by the inventory capability
+                _client.Network.SendPacket(InventoryMovePackets.Folder(_client.Self.AgentID, _client.Self.SessionID, m.FolderId, m.NewParentId));
+                KeepLibraryStoreParent(m.FolderId, m.NewParentId, null);
                 break;
+        }
+    }
+
+    /// <summary>Gives the library's own copy of a moved item or folder its new parent (and name), as the library's move calls
+    /// do, so a later report from the library about that entry does not carry the old parent back to the core.</summary>
+    private void KeepLibraryStoreParent(Guid id, Guid newParent, string? newName)
+    {
+        try
+        {
+            var store = _client.Inventory.Store;
+            if (store is null || !store.TryGetValue(new UUID(id), out var node) || node is null)
+                return;
+            if (!string.IsNullOrEmpty(newName) && node is InventoryItem)
+                node.Name = newName;
+            node.ParentUUID = new UUID(newParent);
+            store.UpdateNodeFor(node);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // the core's model already shows the move; the library's copy is put right by its next read of the folder
+            _log.Warn("inventory.store-move-skipped", CoreLog.F("error", ex.GetType().Name));
         }
     }
 }

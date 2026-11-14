@@ -34,6 +34,7 @@ public sealed class InventoryModel
     private readonly HashSet<Guid> _inFlight = new();
     private readonly HashSet<Guid> _refetch = new();   // folders changed while a request was out: the answer may predate the change
     private readonly HashSet<Guid> _everLoaded = new();   // folders whose contents arrived at least once this session
+    private readonly HashSet<Guid> _staleAnswer = new();   // folders whose read was out when a move was shown: that answer predates the move
     private int _revision;
 
     private Guid _owner, _root, _libraryOwner, _libraryRoot;
@@ -96,7 +97,7 @@ public sealed class InventoryModel
 
     private bool ApplySkeleton(InventorySkeletonReceived s)
     {
-        _folders.Clear(); _items.Clear(); _subfolders.Clear(); _contents.Clear(); _load.Clear(); _waiting.Clear(); _inFlight.Clear(); _everLoaded.Clear();
+        _folders.Clear(); _items.Clear(); _subfolders.Clear(); _contents.Clear(); _load.Clear(); _waiting.Clear(); _inFlight.Clear(); _everLoaded.Clear(); _staleAnswer.Clear();
         _owner = s.OwnerId; _root = s.RootId; _libraryOwner = s.LibraryOwnerId; _libraryRoot = s.LibraryRootId;
         _attachmentLimit = s.AttachmentLimit;
         foreach (var f in s.Folders.Concat(s.LibraryFolders))
@@ -109,10 +110,19 @@ public sealed class InventoryModel
         if (!_folders.TryGetValue(f.FolderId, out var folder))
             return false;
         _inFlight.Remove(f.FolderId);
+        bool stale = _staleAnswer.Remove(f.FolderId);
         if (!f.Ok)
         {
             _refetch.Remove(f.FolderId);
             return SetLoad(f.FolderId, FolderLoad.Failed);
+        }
+        if (stale)
+        {
+            // the answer left before a move this session has already shown: applying it would undo the move on screen
+            _refetch.Remove(f.FolderId);
+            _load[f.FolderId] = FolderLoad.Loading;
+            _waiting.Enqueue(f.FolderId);
+            return false;
         }
         bool changed = false;
         var keepFolders = f.Folders.Select(x => x.Id).ToHashSet();
@@ -232,6 +242,7 @@ public sealed class InventoryModel
         _load.Remove(id);
         _inFlight.Remove(id);
         _everLoaded.Remove(id);
+        _staleAnswer.Remove(id);
         return true;
     }
 
@@ -344,8 +355,45 @@ public sealed class InventoryModel
         }
     }
 
-    /// <summary>Shows a move at once, before the grid answers.</summary>
-    public bool MoveLocally(Guid id, Guid newParent) => false;
+    /// <summary>
+    /// Shows a move of an item or a folder at once, before the grid answers, as the official viewer does when it sends a move
+    /// (its model takes the new parent straight away; nothing is read back). A read of either folder that was already on its
+    /// way left before the move, so its answer is set aside when it comes and the folder is asked for once more. True when
+    /// anything changed.
+    /// </summary>
+    public bool MoveLocally(Guid id, Guid newParent)
+    {
+        bool changed;
+        List<(Guid Folder, Guid Owner)> start;
+        lock (_gate)
+        {
+            if (!_folders.ContainsKey(newParent) || id == newParent)
+                return false;
+            Guid oldParent;
+            if (_folders.TryGetValue(id, out var folder))
+            {
+                oldParent = folder.ParentId;
+                changed = PutFolder(folder with { ParentId = newParent });
+            }
+            else if (_items.TryGetValue(id, out var item))
+            {
+                oldParent = item.ParentId;
+                changed = PutItem(item with { ParentId = newParent });
+            }
+            else
+                return false;
+            foreach (var touched in new[] { oldParent, newParent })
+                if (_inFlight.Contains(touched))
+                    _staleAnswer.Add(touched);
+            if (changed)
+                _revision++;
+            start = StartWaiting();
+        }
+        Send(start);
+        if (changed)
+            Changed?.Invoke();
+        return changed;
+    }
 
     /// <summary>Drops what is known of a folder's contents and asks for them again (after a command, so the grid's answer settles what the folder holds).</summary>
     public bool Invalidate(Guid folderId)

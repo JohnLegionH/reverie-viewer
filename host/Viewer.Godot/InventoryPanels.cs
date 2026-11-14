@@ -51,8 +51,9 @@ public static class InventoryFeature
 /// </summary>
 public partial class InventoryTree : Tree
 {
-    /// <summary>Raised when a row was dropped: the dragged id and the id of the row it was dropped on.</summary>
-    public event Action<Guid, Guid>? Dropped;
+    /// <summary>Raised when rows were dropped: the dragged ids (the selection, when the drag began on a selected row) and the id
+    /// of the row they were dropped on.</summary>
+    public event Action<IReadOnlyList<Guid>, Guid>? Dropped;
 
     /// <summary>A right press selected this row; its menu is to open at the pointer.</summary>
     public event Action<Guid>? MenuRequested;
@@ -101,6 +102,8 @@ public partial class InventoryTree : Tree
                 var id = IdOf(item);
                 if (id == Guid.Empty || FolderTreeInput.Press(RowButton.Right, RowPart.Name, IsFolder?.Invoke(id) ?? false, mb.DoubleClick) != TreeAction.SelectAndMenu)
                     return;
+                if (!item!.IsSelected(0))
+                    DeselectAll();   // a right press on a row outside the selection makes it the only one
                 item.Select(0);
                 MenuRequested?.Invoke(id);
                 return;
@@ -229,32 +232,43 @@ public partial class InventoryTree : Tree
 
     public static Guid IdOf(TreeItem? item) => item is not null && item.GetMetadata(0).VariantType == Variant.Type.String && Guid.TryParse(item.GetMetadata(0).AsString(), out var g) ? g : Guid.Empty;
 
+    /// <summary>The ids of the selected rows, in tree order.</summary>
+    public List<Guid> SelectedIds()
+    {
+        var ids = new List<Guid>();
+        for (var item = GetNextSelected(null); item is not null; item = GetNextSelected(item))
+            if (IdOf(item) is var id && id != Guid.Empty)
+                ids.Add(id);
+        return ids;
+    }
+
     public override Variant _GetDragData(Vector2 atPosition)
     {
         var item = GetItemAtPosition(atPosition);
-        var id = IdOf(item);
-        if (id == Guid.Empty)
+        var ids = InventoryDragSet.For(IdOf(item), SelectedIds());
+        if (ids.Count == 0)
             return default;
-        SetDragPreview(new Label { Text = item!.GetText(0) });
-        return id.ToString();
+        SetDragPreview(new Label { Text = ids.Count == 1 ? item!.GetText(0) : $"{item!.GetText(0)} (+{ids.Count - 1})" });
+        return InventoryDragSet.Encode(ids);
     }
+
+    private static IReadOnlyList<Guid> DraggedIds(Variant data) =>
+        data.VariantType == Variant.Type.String ? InventoryDragSet.Decode(data.AsString()) : Array.Empty<Guid>();
 
     public override bool _CanDropData(Vector2 atPosition, Variant data)
     {
-        if (data.VariantType != Variant.Type.String || !Guid.TryParse(data.AsString(), out var dragged))
-            return false;
+        var dragged = DraggedIds(data);
         var target = IdOf(GetItemAtPosition(atPosition));
-        return target != Guid.Empty && (CanDropOn?.Invoke(dragged, target) ?? false);
+        // the drop is offered when any dragged row may go there; each is checked again when it lands
+        return target != Guid.Empty && dragged.Any(d => CanDropOn?.Invoke(d, target) ?? false);
     }
 
     public override void _DropData(Vector2 atPosition, Variant data)
     {
-        if (data.VariantType == Variant.Type.String && Guid.TryParse(data.AsString(), out var dragged))
-        {
-            var target = IdOf(GetItemAtPosition(atPosition));
-            if (target != Guid.Empty)
-                Dropped?.Invoke(dragged, target);
-        }
+        var dragged = DraggedIds(data);
+        var target = IdOf(GetItemAtPosition(atPosition));
+        if (dragged.Count > 0 && target != Guid.Empty)
+            Dropped?.Invoke(dragged, target);
     }
 }
 
@@ -339,13 +353,14 @@ public partial class InventoryPanel : VBoxContainer
 
         TreeView = new InventoryTree
         {
-            Name = "tree", HideRoot = true, SelectMode = global::Godot.Tree.SelectModeEnum.Single, DropModeFlags = (int)global::Godot.Tree.DropModeFlagsEnum.OnItem,
+            Name = "tree", HideRoot = true, SelectMode = global::Godot.Tree.SelectModeEnum.Multi, DropModeFlags = (int)global::Godot.Tree.DropModeFlagsEnum.OnItem,
             SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.All,
         };
         TreeView.AccessibilityName = strings.Get("inventory.tree");
         TreeView.DropText = strings.Get(DragFeedback.TextKey);
         TreeView.ItemCollapsed += OnItemCollapsed;
         TreeView.ItemSelected += OnItemSelected;
+        TreeView.MultiSelected += (_, _, _) => OnItemSelected();
         TreeView.ItemEdited += OnItemEdited;
         TreeView.MenuRequested += OnRowMenu;
         TreeView.IsFolder = id => _model?.Folder(id) is not null;
@@ -539,6 +554,8 @@ public partial class InventoryPanel : VBoxContainer
                     }
                     if (row.Id == _selected)
                         selected = item;
+                    else if (_selection.Contains(row.Id))
+                        item.Select(0);   // the rest of a multi-row selection survives the redraw
                 }
             }
             if (selected is not null)
@@ -660,11 +677,14 @@ public partial class InventoryPanel : VBoxContainer
         _dirty = true;
     }
 
+    private HashSet<Guid> _selection = new();   // every selected row (Ctrl and Shift add rows); _selected is the one with the cursor
+
     private void OnItemSelected()
     {
         if (_building)
             return;
         _selected = InventoryTree.IdOf(TreeView.GetSelected());
+        _selection = TreeView.SelectedIds().ToHashSet();
         CancelConfirm();
         RefreshControls();
     }
@@ -765,13 +785,15 @@ public partial class InventoryPanel : VBoxContainer
     }
 
     /// <summary>A row was dropped on another row (also the entry the start-up check uses).</summary>
-    public void Drop(Guid dragged, Guid target) => OnDropped(dragged, target);
+    public void Drop(Guid dragged, Guid target) => OnDropped(new[] { dragged }, target);
 
-    private void OnDropped(Guid dragged, Guid target)
+    private void OnDropped(IReadOnlyList<Guid> dragged, Guid target)
     {
         if (_actions is null)
             return;
-        Show(_actions.Move(dragged, DropFolder(target)));
+        var results = _actions.MoveMany(dragged, DropFolder(target));
+        // a refusal is what the user needs to hear; otherwise the first result says what happened
+        Show(results.FirstOrDefault(r => !r.Submitted) ?? results.FirstOrDefault() ?? new InventoryActionResult(false, null, null));
     }
 
     /// <summary>New folder under the selection (or My Inventory), named from the string table; it then waits to be named.</summary>

@@ -678,11 +678,9 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 self.ScriptQuestionReply(SimulatorOf(answer.Sim) ?? _client.Network.CurrentSim!, new UUID(answer.ItemId), new UUID(answer.TaskId), (ScriptPermission)answer.Granted);
                 break;
             case MoveInventoryItemCommand mv:
-                // the library sends this one at once (a single packet); a failure to send reaches the pipeline as a throw
-                if (mv.NewName is null)
-                    _client.Inventory.MoveItem(new UUID(mv.ItemId), new UUID(mv.FolderId));
-                else
-                    _client.Inventory.MoveItem(new UUID(mv.ItemId), new UUID(mv.FolderId), mv.NewName);
+                // the official viewer's message, sent at once (a single packet); a failure to send reaches the pipeline as a throw
+                _client.Network.SendPacket(InventoryMovePackets.Item(self.AgentID, self.SessionID, mv.ItemId, mv.FolderId, mv.NewName));
+                KeepLibraryStoreParent(mv.ItemId, mv.FolderId, mv.NewName);
                 break;
             case RequestTaskInventoryCommand or CopyTaskContentsCommand or BuyObjectCommand or RequestPayPriceCommand or PayObjectCommand:
                 return ExecuteTrade(command);

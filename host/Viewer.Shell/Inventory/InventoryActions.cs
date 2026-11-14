@@ -6,14 +6,31 @@ using Viewer.Core.Inventory;
 
 namespace Viewer.Shell.Inventory;
 
-/// <summary>What a drag in the inventory tree carries.</summary>
+/// <summary>
+/// What a drag in the inventory tree carries: every selected row when the row the drag started on is one of them (Ctrl and
+/// Shift add rows to the selection, as in the official inventory), otherwise just that row. The ids travel as one text.
+/// </summary>
 public static class InventoryDragSet
 {
-    public static IReadOnlyList<Guid> For(Guid dragged, IReadOnlyList<Guid> selected) => Array.Empty<Guid>();
+    public static IReadOnlyList<Guid> For(Guid dragged, IReadOnlyList<Guid> selected)
+    {
+        if (dragged == Guid.Empty)
+            return Array.Empty<Guid>();
+        return selected.Contains(dragged) ? selected.Where(id => id != Guid.Empty).Distinct().ToList() : new[] { dragged };
+    }
 
-    public static string Encode(IReadOnlyList<Guid> ids) => "";
+    public static string Encode(IReadOnlyList<Guid> ids) => string.Join(",", ids);
 
-    public static IReadOnlyList<Guid> Decode(string? text) => Array.Empty<Guid>();
+    public static IReadOnlyList<Guid> Decode(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return Array.Empty<Guid>();
+        var ids = new List<Guid>();
+        foreach (var part in text.Split(','))
+            if (Guid.TryParse(part, out var id) && id != Guid.Empty && !ids.Contains(id))
+                ids.Add(id);
+        return ids;
+    }
 }
 
 /// <summary>What became of a request to change the inventory: refused here (nothing submitted), or submitted to the pipeline.</summary>
