@@ -304,21 +304,19 @@ public sealed class AddonDockItem
     /// <summary>Raised to the viewer when the add-on changed the item's state or removed it.</summary>
     public event Action? Changed;
 
-    public void SetOn(bool on) { if (!STUB) { On = on; Changed?.Invoke(); } }
+    public void SetOn(bool on) { }
 
-    public void SetAttention(bool on, int? count = null) { if (!STUB) { Attention = on; Count = on ? count : null; Changed?.Invoke(); } }
+    public void SetAttention(bool on, int? count = null) { }
 
-    public void SetMenu(IReadOnlyList<AddonDockMenuEntry> menu) { if (!STUB) { _menu = menu.ToArray(); Changed?.Invoke(); } }
+    public void SetMenu(IReadOnlyList<AddonDockMenuEntry> menu) { }
 
-    public void Remove() { if (!STUB) { Removed = true; Changed?.Invoke(); } }
+    public void Remove() { }
 
     /// <summary>The viewer: the button was clicked.</summary>
-    public void Click() { if (!STUB) Clicked?.Invoke(); }
+    public void Click() { }
 
     /// <summary>The viewer: a menu entry was chosen.</summary>
-    public void ChooseMenu(int index) { if (!STUB && index >= 0 && index < _menu.Count) MenuChosen?.Invoke(index); }
-
-    private const bool STUB = true;
+    public void ChooseMenu(int index) { }
 }
 
 /// <summary>One restriction an object holds: the object, the behaviour and its option, whether the viewer enforces it, and
