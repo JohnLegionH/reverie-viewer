@@ -127,7 +127,7 @@ public static class ReverieTheme
         var classic = ThemePresets.Get(ThemePresets.Classic);
         return classic with
         {
-            Panel = r["surface.base"], Bar = r["surface.base"], Input = r["surface.raised"], Border = r["border.control"],
+            Panel = r["surface.base"] with { A = FloatingOpacity }, Bar = r["surface.base"], Input = r["surface.raised"], Border = r["border.control"],
             Text = r["text.primary"], TextSecondary = r["text.secondary"], Accent = r.Accent, AccentFill = r.Accent,
             AccentFillText = r.OnAccent, Warning = r["warn.border"], WarningText = r["warn.text"], Success = r["status.ok"],
             ChatAgent = r["text.primary"], ChatTyping = r["text.muted"], Radius = RadiusControl, BorderWidth = 1,
