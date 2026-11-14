@@ -180,12 +180,10 @@ public sealed partial class AoAddon : IAddon, IAddonDiagnostics
         _sets.Enabled = usable;
         _previous.Enabled = _next.Enabled = usable && use;
         _reload.Enabled = attached;
-        if (_quickUse is not null && _quickSet is not null)
+        if (_dockItem is not null)
         {
-            _quickUse.On = use;
-            _quickSet.Items = _names;
-            _quickSet.Selected = _sets.Selected;
-            _quickSet.Enabled = usable;
+            _dockItem.SetOn(use);
+            _dockItem.SetMenu(DockMenu());
         }
         Layout();
         _status.Text = !attached ? "Log in to use your animation sets."
@@ -251,7 +249,7 @@ public sealed partial class AoAddon : IAddon, IAddonDiagnostics
             edited_id = EditedSet()?.ToString(),
             set_ids = (Library()?.SetFolders() ?? []).Select(s => s.Id.ToString()).ToArray(),
             editor_controls = _editor?.Controls.Select(c => c.Id).ToArray() ?? [],
-            quick = _quickUse is not null && _quickSet is not null,
+            dock = _dockItem is not null,
             use = engine.UseAo,
             enabled = engine.Enabled,
             loaded = engine.Loaded,

@@ -38,8 +38,18 @@ public sealed partial class AoAddon
     private AddonButtonRow? _setRow;
     private AddonDropZone? _drop;
     private AddonChoice? _show;
-    private AddonToggle? _quickUse;
-    private AddonChoice? _quickSet;
+    private AddonDockItem? _dockItem;
+
+    /// <summary>The dock button's menu: the sets, the one in use checked, then "Edit sets..." (the spec's set picker).</summary>
+    private IReadOnlyList<AddonDockMenuEntry> DockMenu()
+    {
+        var current = _engine?.CurrentSet?.Name;
+        var entries = _names.Select(n => new AddonDockMenuEntry(n, Checked: n == current)).ToList();
+        if (entries.Count > 0)
+            entries.Add(new AddonDockMenuEntry("", Separator: true));
+        entries.Add(new AddonDockMenuEntry("Edit sets..."));
+        return entries;
+    }
     private IReadOnlyList<AoReviewRow>? _review;
     private Guid _confirmRemove;
     private AoStateId? _shown;
@@ -91,16 +101,21 @@ public sealed partial class AoAddon
         _controlsButton = new AddonButton("switch_window") { Text = "On/off switch and stand controls…" };
         _controlsButton.Pressed += _window.Open;
 
-        _quickUse = new AddonToggle("quick_use") { Text = "AO", On = context.GetSetting(UseKey) == "true" };
-        _quickUse.Toggled += Use;
-        _quickSet = new AddonChoice("quick_set") { Text = "Set" };
-        _quickSet.Chosen += index => { if (index >= 0 && index < _names.Length) Select(_names[index]); };
-        // the quick bar: the switch (on its own), the set picker, and a button that opens this editor
-        var quickEdit = new AddonButton("quick_edit") { Text = "AO sets…" };
-        quickEdit.Pressed += _editor.Open;
-        context.AddQuickControl(_quickUse);
-        context.AddQuickControl(_quickSet);
-        context.AddQuickControl(quickEdit);
+        // the dock button (interface 0.5): a click turns the AO on or off; its menu lists the sets, the one in use checked, then
+        // "Edit sets...", which opens this editor
+        _dockItem = context.AddDockItem("ao", "AO", AddonDockKind.ToggleWithMenu, "person-standing", "Animation Overrider", DockMenu());
+        if (_dockItem is not null)
+        {
+            _dockItem.SetOn(context.GetSetting(UseKey) == "true");
+            _dockItem.Clicked += () => Use(!_dockItem.On);
+            _dockItem.MenuChosen += index =>
+            {
+                if (index < _names.Length)
+                    Select(_names[index]);
+                else
+                    _editor.Open();
+            };
+        }
         context.Tick += LookForAwaited;
         Layout();
     }

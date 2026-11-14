@@ -149,7 +149,14 @@ public sealed class AddonHost : IActionVeto, IDisposable
         _entries.Where(e => e.Context is not null).SelectMany(e => e.Context!.QuickControls.Select(c => (e.Id, c))).ToArray();
 
     /// <summary>The add-ons' dock items (interface 0.5), in the order the add-ons were turned on, with the add-on each belongs to.</summary>
-    public IReadOnlyList<(string AddonId, AddonDockItem Item)> DockItems => [];
+    public IReadOnlyList<(string AddonId, AddonDockItem Item)> DockItems =>
+        _entries.Where(e => e.Context is not null).OrderBy(e => e.Context!.StartOrder)
+            .SelectMany(e => e.Context!.DockItems.Where(d => !d.Removed).Select(d => (e.Id, d))).ToArray();
+
+    private long _starts;
+
+    /// <summary>The next start's place in the order add-ons were turned on.</summary>
+    internal long NextStartOrder() => ++_starts;
 
     /// <summary>The add-ons' menu items.</summary>
     public IReadOnlyList<(string AddonId, string Label, Action Chosen)> MenuItems =>
@@ -710,6 +717,9 @@ internal sealed class AddonContext(AddonHost host, AddonEntry entry) : IAddonCon
     internal IReadOnlyList<AddonWindow> Windows => _windows;
     internal IReadOnlyList<(string Label, Action Chosen)> MenuItems => _menuItems;
     internal IReadOnlyList<AddonControl> QuickControls => _quick;
+    internal IReadOnlyList<AddonDockItem> DockItems => _dock;
+    internal long StartOrder { get; } = host.NextStartOrder();
+    private readonly List<AddonDockItem> _dock = [];
     internal bool Previewing { get; private set; }
 
     internal IEnumerable<Func<AddonAction, AddonVerdict>> FiltersFor(AddonActionKind kind) =>
@@ -814,6 +824,23 @@ internal sealed class AddonContext(AddonHost host, AddonEntry entry) : IAddonCon
         _windows.Add(window);
         host.RaiseScreenChanged();
         return window;
+    }
+
+    public AddonDockItem? AddDockItem(string id, string label, AddonDockKind kind, string? icon = null, string? tooltip = null,
+        IReadOnlyList<AddonDockMenuEntry>? menu = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        if (!Need(AddonPermissions.Window))
+            return null;
+        // at most two items per add-on, each id once (the spec's dock rules); the dock cuts the name to fit
+        _dock.RemoveAll(d => d.Removed);
+        if (_dock.Count >= 2 || _dock.Any(d => d.Id == id))
+            return null;
+        var item = AddonDockItem.Create(id, label ?? "", kind, icon, tooltip, menu);
+        item.Changed += host.RaiseScreenChanged;
+        _dock.Add(item);
+        host.RaiseScreenChanged();
+        return item;
     }
 
     public void AddMenuItem(string label, Action chosen)

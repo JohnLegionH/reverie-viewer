@@ -304,19 +304,57 @@ public sealed class AddonDockItem
     /// <summary>Raised to the viewer when the add-on changed the item's state or removed it.</summary>
     public event Action? Changed;
 
-    public void SetOn(bool on) { _ = Changed; }
+    /// <summary>Turns a toggle on or off (the dot shows and the name reads "· On" or "· Off").</summary>
+    public void SetOn(bool on)
+    {
+        if (Removed || On == on)
+            return;
+        On = on;
+        Changed?.Invoke();
+    }
 
-    public void SetAttention(bool on, int? count = null) { }
+    /// <summary>Sets attention on or off (the ring that pulses until opened), with an optional count shown in the name.</summary>
+    public void SetAttention(bool on, int? count = null)
+    {
+        if (Removed)
+            return;
+        Attention = on;
+        Count = on ? count : null;
+        Changed?.Invoke();
+    }
 
-    public void SetMenu(IReadOnlyList<AddonDockMenuEntry> menu) { }
+    /// <summary>Replaces the menu's entries.</summary>
+    public void SetMenu(IReadOnlyList<AddonDockMenuEntry> menu)
+    {
+        ArgumentNullException.ThrowIfNull(menu);
+        if (Removed)
+            return;
+        _menu = menu.ToArray();
+        Changed?.Invoke();
+    }
 
-    public void Remove() { }
+    /// <summary>Takes the item off the dock.</summary>
+    public void Remove()
+    {
+        if (Removed)
+            return;
+        Removed = true;
+        Changed?.Invoke();
+    }
 
     /// <summary>The viewer: the button was clicked.</summary>
-    public void Click() { _ = Clicked; }
+    public void Click()
+    {
+        if (!Removed)
+            Clicked?.Invoke();
+    }
 
-    /// <summary>The viewer: a menu entry was chosen.</summary>
-    public void ChooseMenu(int index) { _ = MenuChosen; }
+    /// <summary>The viewer: a menu entry was chosen (an index past the end is ignored).</summary>
+    public void ChooseMenu(int index)
+    {
+        if (!Removed && index >= 0 && index < _menu.Count && !_menu[index].Separator)
+            MenuChosen?.Invoke(index);
+    }
 }
 
 /// <summary>One restriction an object holds: the object, the behaviour and its option, whether the viewer enforces it, and
