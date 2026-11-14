@@ -158,6 +158,9 @@ public sealed class InventoryActions
         return Run(new InventoryMoveIntent(id, newParent), item.ParentId, newParent);
     }
 
+    /// <summary>Moves several items or folders into one folder.</summary>
+    public IReadOnlyList<InventoryActionResult> MoveMany(IReadOnlyList<Guid> ids, Guid newParent) => Array.Empty<InventoryActionResult>();
+
     /// <summary>Moves to the Trash folder (it never purges). Asks for the user's confirmation first: <paramref name="confirmed"/>.</summary>
     public InventoryActionResult Trash(Guid id, bool confirmed)
     {

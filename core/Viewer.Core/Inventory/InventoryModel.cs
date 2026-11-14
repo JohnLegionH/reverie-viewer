@@ -344,6 +344,9 @@ public sealed class InventoryModel
         }
     }
 
+    /// <summary>Shows a move at once, before the grid answers.</summary>
+    public bool MoveLocally(Guid id, Guid newParent) => false;
+
     /// <summary>Drops what is known of a folder's contents and asks for them again (after a command, so the grid's answer settles what the folder holds).</summary>
     public bool Invalidate(Guid folderId)
     {

@@ -221,19 +221,114 @@ public class InventoryActionsTests
 
     // ---------------- what the pipeline says, and the read after ----------------
 
+    // A move is shown at once and not read back, as the official viewer does (LLInventoryModel::changeItemParent updates its
+    // own model and sends the move; it does not fetch either folder again). Reading both folders straight after the move
+    // raced the move itself: an answer the grid gave before it applied the move put the item back where it was.
+
+    /// <summary>A folder the grid knows of but whose contents were never read: a closed folder that was never opened.</summary>
+    private static readonly Guid Closed = Guid.Parse("00000000-0000-4000-8000-0000000000e5");
+
+    private static void AddClosed(Rig r) =>
+        r.Model.Apply(new InventoryChanged(new[] { F(Closed, Root, "Closed") }, Array.Empty<InventoryItemData>(), Array.Empty<Guid>(), Array.Empty<Guid>()));
+
     [Fact]
-    public void A_submitted_change_reads_the_folders_it_touches_again()
+    public void A_moved_item_shows_in_an_open_folder_at_once_and_neither_folder_is_read_again()
     {
         var r = new Rig();
         var item = I(1, Mine, "Note");
         r.Put(item);
-        r.Actions.Move(item.Id, Elsewhere);
-        Assert.Contains((Mine, Owner), r.Requests);
-        Assert.Contains((Elsewhere, Owner), r.Requests);
+        Assert.True(r.Actions.Move(item.Id, Elsewhere).Submitted);
+        Assert.Equal(Elsewhere, r.Model.Item(item.Id)!.ParentId);
+        Assert.Contains(r.Model.ChildItems(Elsewhere), i => i.Id == item.Id);
+        Assert.DoesNotContain(r.Model.ChildItems(Mine), i => i.Id == item.Id);
+        Assert.Empty(r.Requests);
     }
 
     [Fact]
-    public void A_new_folder_and_a_rename_read_the_parent_again_and_a_trash_reads_the_trash_too()
+    public void A_moved_item_shows_in_a_closed_folder_at_once_and_the_folder_stays_closed()
+    {
+        var r = new Rig();
+        AddClosed(r);
+        var item = I(1, Mine, "Note");
+        r.Put(item);
+        Assert.True(r.Actions.Move(item.Id, Closed).Submitted);
+        Assert.Equal(Closed, r.Model.Item(item.Id)!.ParentId);
+        Assert.DoesNotContain(r.Model.ChildItems(Mine), i => i.Id == item.Id);
+        Assert.Equal(FolderLoad.NotLoaded, r.Model.LoadState(Closed));
+        Assert.Empty(r.Requests);
+    }
+
+    [Fact]
+    public void A_moved_folder_shows_under_its_new_parent_at_once_open_or_closed()
+    {
+        var r = new Rig();
+        AddClosed(r);
+        Assert.True(r.Actions.Move(MineSub, Elsewhere).Submitted);
+        Assert.Equal(Elsewhere, r.Model.Folder(MineSub)!.ParentId);
+        Assert.Contains(r.Model.ChildFolders(Elsewhere), f => f.Id == MineSub);
+        Assert.DoesNotContain(r.Model.ChildFolders(Mine), f => f.Id == MineSub);
+        Assert.True(r.Actions.Move(MineSub, Closed).Submitted);
+        Assert.Equal(Closed, r.Model.Folder(MineSub)!.ParentId);
+        Assert.True(r.Model.IsDescendantOf(Inside, Closed));
+        Assert.Empty(r.Requests);
+    }
+
+    [Fact]
+    public void Several_items_move_together_each_with_its_own_request_and_a_refused_one_stays()
+    {
+        var r = new Rig();
+        AddClosed(r);
+        var a = I(1, Mine, "A");
+        var b = I(2, Mine, "B");
+        var c = I(3, Elsewhere, "C");
+        r.Put(a); r.Put(b); r.Put(c);
+        var results = r.Actions.MoveMany(new[] { a.Id, b.Id, c.Id, MineSub }, Closed);
+        Assert.Equal(4, results.Count);
+        Assert.All(results, x => Assert.True(x.Submitted));
+        Assert.Equal(new ActionIntent[]
+        {
+            new InventoryMoveIntent(a.Id, Closed), new InventoryMoveIntent(b.Id, Closed), new InventoryMoveIntent(c.Id, Closed), new InventoryFolderMoveIntent(MineSub, Closed),
+        }, r.Submitted.ToArray());
+        Assert.Equal(new[] { a.Id, b.Id, c.Id }.OrderBy(x => x), r.Model.ChildItems(Closed).Select(i => i.Id).OrderBy(x => x));
+        Assert.Contains(r.Model.ChildFolders(Closed), f => f.Id == MineSub);
+        Assert.Empty(r.Requests);
+
+        // into an open folder, with one the rules refuse (it is already there): the others still move
+        var d = I(4, Mine, "D");
+        var e = I(5, Elsewhere, "E");
+        r.Put(d); r.Put(e);
+        r.Submitted.Clear();
+        results = r.Actions.MoveMany(new[] { d.Id, e.Id }, Elsewhere);
+        Assert.True(results[0].Submitted);
+        Assert.False(results[1].Submitted);
+        Assert.Equal("inventory.same_parent", results[1].Code);
+        Assert.Equal(new ActionIntent[] { new InventoryMoveIntent(d.Id, Elsewhere) }, r.Submitted.ToArray());
+        Assert.Equal(Elsewhere, r.Model.Item(d.Id)!.ParentId);
+    }
+
+    [Fact]
+    public void A_folder_answer_that_left_before_the_move_does_not_put_the_item_back()
+    {
+        var r = new Rig();
+        var item = I(1, Mine, "Note");
+        r.Put(item);
+        Assert.True(r.Model.Invalidate(Mine));   // a read of Mine is on its way when the drop happens
+        var before = r.Model.ChildItems(Mine).ToList();
+        r.Requests.Clear();
+        Assert.True(r.Actions.Move(item.Id, Elsewhere).Submitted);
+        // the grid's answer to the read that left before the move still lists the item in Mine
+        r.Model.Apply(new InventoryFolderFetched(Mine, true, 2, 0, r.Model.ChildFolders(Mine).ToList(), before));
+        Assert.Equal(Elsewhere, r.Model.Item(item.Id)!.ParentId);
+        Assert.DoesNotContain(r.Model.ChildItems(Mine), i => i.Id == item.Id);
+        Assert.Contains((Mine, Owner), r.Requests);   // that answer is set aside and the folder is asked for once more
+        // the next answer is the grid's word on the folder
+        r.Model.Apply(new InventoryFolderFetched(Mine, true, 3, 0, r.Model.ChildFolders(Mine).ToList(), Array.Empty<InventoryItemData>()));
+        Assert.Equal(FolderLoad.Loaded, r.Model.LoadState(Mine));
+        Assert.Equal(Elsewhere, r.Model.Item(item.Id)!.ParentId);
+    }
+
+    [Fact]
+    public void A_new_folder_and_a_rename_read_the_parent_again_and_a_trash_shows_in_the_trash_at_once()
     {
         var r = new Rig();
         r.Actions.NewFolder(Mine, "New Folder");
@@ -243,8 +338,8 @@ public class InventoryActionsTests
         Assert.Contains((Mine, Owner), r.Requests);
         r.Settle();
         r.Actions.Trash(MineSub, true);
-        Assert.Contains((Mine, Owner), r.Requests);
-        Assert.Contains((Trash, Owner), r.Requests);
+        Assert.Equal(Trash, r.Model.Folder(MineSub)!.ParentId);
+        Assert.Empty(r.Requests);
     }
 
     [Fact]
@@ -255,15 +350,16 @@ public class InventoryActionsTests
         Assert.False(result.Submitted);
         Assert.Equal(ActionStatus.Failed, result.Pipeline?.Status);
         Assert.Empty(r.Requests);
+        Assert.Equal(Mine, r.Model.Folder(MineSub)!.ParentId);
     }
 
     [Fact]
-    public void An_outcome_that_is_not_known_is_submitted_and_the_read_settles_it()
+    public void A_move_whose_outcome_is_not_known_is_shown_as_sent()
     {
         var r = new Rig { Answer = ActionStatus.OutcomeUnknown };
         var result = r.Actions.Move(MineSub, Elsewhere);
         Assert.True(result.Submitted);
-        Assert.Contains((Elsewhere, Owner), r.Requests);
+        Assert.Equal(Elsewhere, r.Model.Folder(MineSub)!.ParentId);
     }
 
     [Fact]
