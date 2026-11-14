@@ -218,6 +218,8 @@ public partial class RvMenuBar : HBoxContainer
                 popup.AddChild(sub);
                 Fill(sub, kids);
                 popup.AddSubmenuNodeItem(e.Label, sub, id);
+                if (e.Icon is { } subIcon && ReverieIcons.Get(subIcon) is { } subTexture)
+                    popup.SetItemIcon(popup.ItemCount - 1, subTexture);   // a submenu's row has its icon in the column too
             }
             else if (e.Checked is { } on)
                 popup.AddIconCheckItem(ReverieIcons.Get(e.Icon ?? LucideIcons.Check)!, e.Label, id);

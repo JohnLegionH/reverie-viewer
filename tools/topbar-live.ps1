@@ -9,7 +9,7 @@
 #   location    the region's name once, then the coordinates
 #   typed       a place typed in the location field (this region, another spot) and Enter: the avatar moves there
 #   status      the grid's name, the time and "Connected" at the right, taking no clicks and no focus
-#   dock        every button with its name under it; the AO button toggles "AO · On" and "AO · Off"; its menu ends with "Edit sets..."
+#   dock        every button with its name under it; the AO button toggles "AO - On" and "AO - Off" (a middle dot in the viewer); its menu ends with "Edit sets..."
 # Writes only into -Sandbox.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\topbar-live.ps1 -Sandbox <new folder> -LoginUri <uri> -Account <alias>
 #     [-Start <uri:region&x&y&z>] [-Accounts <accounts file>]
@@ -144,7 +144,7 @@ try {
         $c2 = Api $v "dock" (@{ id = "ao"; owner = $ao[0].owner })
         Start-Sleep -Milliseconds 800
         $back = @((Top $v).dock | Where-Object { $_.id -eq "ao" })[0].name
-        Record "ao_toggle" ($first -ne $after -and $back -eq $first -and ("$first $after" -match "AO · On") -and ("$first $after" -match "AO · Off")) "AO reads [$first], after a click [$after], after another [$back]"
+        Record "ao_toggle" ($first -ne $after -and $back -eq $first -and ("$first $after" -match "AO $([char]0xB7) On") -and ("$first $after" -match "AO $([char]0xB7) Off")) "AO reads [$first], after a click [$after], after another [$back]"
         Record "ao_menu" (@($c2.menu)[-1] -eq "Edit sets...") "the AO menu: [$(@($c2.menu) -join ' | ')]"
     } else { Record "ao_toggle" $false "no AO button on the dock" }
     [void](Api $v "session" '{"action":"logout"}')
