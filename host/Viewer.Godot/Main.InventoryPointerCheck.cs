@@ -37,7 +37,8 @@ public partial class Main
             model = real;
             var top = model.ChildFolders(model.RootId);
             suitcase = top.FirstOrDefault(f => f.Name == "My Suitcase")?.Id ?? Guid.Empty;
-            folders = top.Where(f => f.Id != suitcase).Select(f => f.Id).Take(5).ToList();
+            // folders with contents first: an empty folder that is open has no arrow to close it with
+            folders = top.Where(f => f.Id != suitcase).OrderByDescending(f => f.DescendentCount).Select(f => f.Id).Take(5).ToList();
             dragItem = Guid.Empty;
         }
         else
@@ -75,6 +76,22 @@ public partial class Main
             return null;
         }
         bool Expanded(Guid id) => panel.View?.IsExpanded(id) ?? false;
+        // a row scrolled into view first (a real inventory is longer than the window), and a folder's contents arrived (a real
+        // inventory reads a folder from the grid when it opens, and the list is drawn again when they arrive)
+        async Task<TreeItem?> Shown(Guid id)
+        {
+            if (Row(id) is not { } r)
+                return null;
+            tree.ScrollToItem(r, false);
+            await Frames(3);
+            return Row(id);
+        }
+        async Task Loaded(Guid id)
+        {
+            for (int i = 0; i < 40 && model.LoadState(id) is FolderLoad.Loading or FolderLoad.NotLoaded && Expanded(id); i++)
+                await Wait(0.25);
+            await Wait(0.4);
+        }
         Vector2 ToWindow(Vector2 viewport)
         {
             var win = GetWindow().Size; var vis = GetViewport().GetVisibleRect().Size;
@@ -128,7 +145,7 @@ public partial class Main
 
             // 2. a click on a name selects it and toggles nothing
             Guid first = present[0];
-            await Click(NameAt(Row(first)!));
+            await Click(NameAt((await Shown(first))!));
             bool nameSelects = panel.SelectedItem == first && !Expanded(first);
 
             // 3. a click on the arrow opens the folder: the arrow is drawn in the indent just left of the row's icon
@@ -145,9 +162,11 @@ public partial class Main
                 await Click(new Vector2(x, rr.Position.Y + rr.Size.Y / 2));
                 if (Expanded(first)) { arrowOpens = true; arrowX = x - rr.Position.X; break; }
             }
+            if (arrowOpens)
+                await Loaded(first);
             // and a second click on the arrow closes it again
             bool arrowCloses = false;
-            if (arrowOpens && Row(first) is { } again)
+            if (arrowOpens && await Shown(first) is { } again)
             {
                 var ar = RowRect(again);
                 await Wait(0.3);
@@ -157,7 +176,7 @@ public partial class Main
 
             // 4. a double-click on a name toggles it
             bool doubleToggles = false;
-            if (present.Count > 1 && Row(present[1]) is { } second)
+            if (present.Count > 1 && await Shown(present[1]) is { } second)
             {
                 var at = NameAt(second);
                 Move(at); await Frames(1);
@@ -165,12 +184,12 @@ public partial class Main
                 Button(at, MouseButton.Left, true, doubleClick: true); await Frames(1); Button(at, MouseButton.Left, false);
                 await Wait(0.45);
                 doubleToggles = Expanded(present[1]);
-                if (doubleToggles) { panel.Activate(present[1]); await Wait(0.3); }
+                if (doubleToggles) { await Loaded(present[1]); panel.Activate(present[1]); await Wait(0.3); }
             }
 
             // 5. a right-click on the suitcase folder: its menu shows, it is selected, nothing opens or closes
             bool? menuShows = null, rightToggled = null, rightSelects = null;
-            if (suitcase != Guid.Empty && Row(suitcase) is { } sc)
+            if (suitcase != Guid.Empty && await Shown(suitcase) is { } sc)
             {
                 bool before = Expanded(suitcase);
                 await Click(NameAt(sc), MouseButton.Right);
@@ -181,7 +200,7 @@ public partial class Main
                 await Wait(0.3);
                 if (panel.Context.Visible) { panel.Context.Hide(); await Frames(2); }
                 // and a right press on its arrow toggles nothing either
-                if (Row(suitcase) is { } sc2)
+                if (await Shown(suitcase) is { } sc2)
                 {
                     var sr = RowRect(sc2);
                     bool b2 = Expanded(suitcase);
@@ -193,10 +212,12 @@ public partial class Main
             }
 
             // 6. keys: Right opens the selected folder, Left closes it, Left again moves to its parent
-            await Click(NameAt(Row(first)!));
+            await Click(NameAt((await Shown(first))!));
             tree.GrabFocus();
             Key(global::Godot.Key.Right); await Wait(0.3);
             bool rightKeyOpens = Expanded(first);
+            await Loaded(first);
+            if (await Shown(first) is { } kept) { kept.Select(0); tree.GrabFocus(); await Frames(2); }
             Key(global::Godot.Key.Left); await Wait(0.3);
             bool leftKeyCloses = !Expanded(first);
             Key(global::Godot.Key.Left); await Wait(0.3);
@@ -207,6 +228,7 @@ public partial class Main
             string? seenMid = null;
             int dropsMoved = 0;
             Guid target = present.Count > 2 ? present[2] : present[^1];
+            if (await Shown(target) is null) { }
             TreeItem? source = dragItem != Guid.Empty ? Row(dragItem) : present.Count > 3 && Row(present[3]) is { } p3 ? p3 : null;
             if (source is not null && Row(target) is { } tgt)
             {
@@ -249,7 +271,7 @@ public partial class Main
             {
                 live, folders_hovered = present.Count, opened_by_hover = openedByHover,
                 name_click_selects_without_toggle = nameSelects,
-                arrow_click_opens = arrowOpens, arrow_click_closes = arrowCloses, arrow_x_tried = tried,
+                arrow_click_opens = arrowOpens, arrow_click_closes = arrowCloses, arrow_folder_contents = model.Folder(present[0])?.DescendentCount, arrow_x_tried = tried,
                 double_click_toggles = doubleToggles,
                 suitcase = suitcase != Guid.Empty, right_click_menu = menuShows, right_click_selects = rightSelects, right_click_toggled = rightToggled,
                 key_right_opens = rightKeyOpens, key_left_closes = leftKeyCloses, key_left_to_parent = leftKeyToParent,

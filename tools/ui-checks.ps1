@@ -319,9 +319,9 @@ if ($Live) {
             Record "folders_click_only_live" ($pl.opened_by_hover -eq 0 -and $pl.folders_hovered -ge 1 -and $pl.name_click_selects_without_toggle -and $pl.arrow_click_opens -and $pl.arrow_click_closes -and
                 ($pl.right_click_menu -or -not $pl.suitcase) -and $pl.right_click_toggled -ne $true -and $pl.key_right_opens -and $pl.key_left_closes -and
                 ($null -eq $pl.drag_open_after_delay -or ($pl.drag_open_before_delay -eq $false -and $pl.drag_open_after_delay)) -and -not $pl.drag_still_running) `
-                ("hovered $($pl.folders_hovered) folders, opened by hover $($pl.opened_by_hover); name click selects only $($pl.name_click_selects_without_toggle); arrow opens $($pl.arrow_click_opens) closes $($pl.arrow_click_closes); double-click toggles $($pl.double_click_toggles); " +
+                ("hovered $($pl.folders_hovered) folders, opened by hover $($pl.opened_by_hover); name click selects only $($pl.name_click_selects_without_toggle); arrow opens $($pl.arrow_click_opens) closes $($pl.arrow_click_closes) (a folder holding $($pl.arrow_folder_contents)); double-click toggles $($pl.double_click_toggles); " +
                  "My Suitcase present $($pl.suitcase): right-click menu $($pl.right_click_menu), selected $($pl.right_click_selects), toggled $($pl.right_click_toggled); keys Right $($pl.key_right_opens) Left $($pl.key_left_closes) parent $($pl.key_left_to_parent); " +
-                 "a folder dragged and held over a closed one: open at 0.45 s $($pl.drag_open_before_delay), at 1 s $($pl.drag_open_after_delay) (cancelled, nothing moved: moves $($pl.drops_moved)); Esc closed $($pl.esc_closed_window) $($pl.refused)")
+                 "a folder dragged (started $($pl.drag_started)) and held over a closed one: open at 0.45 s $($pl.drag_open_before_delay), at 1 s $($pl.drag_open_after_delay) (cancelled, nothing moved: moves $($pl.drops_moved)); Esc closed $($pl.esc_closed_window) $($pl.refused)")
 
             # the main windows opened once each and captured
             $shots = Join-Path $Sandbox "windows"
@@ -333,12 +333,12 @@ if ($Live) {
                 Start-Sleep -Milliseconds 1500
                 $f = Api $v "windows" (@{ action = "fit"; name = $id })
                 [void](Api $v "screenshot" (@{ dir = $shots; name = ("window-" + ($id -replace '[^A-Za-z0-9_-]', '-')) }))
-                $mainRows += "  $id`: at [$($f.rect -join ',')] content needs [$($f.needed -join 'x')] scrolls $($f.scrolls) problems $(@($f.problems).Count)"
+                $mainRows += "  $id`: at [$($f.rect -join ',')] content needs [$($f.needed -join 'x')] scrolls $($f.scrolls) first opening $($f.first_opening) problems $(@($f.problems).Count)"
                 $bl = (Api $v "windows" '{"action":"state"}').bounds
-                if ($f.scrolls -and $f.rect[3] -lt [Math]::Round($bl[3] * 0.85) - 1 -and $f.rect[2] -lt [Math]::Round($bl[2] * 0.85) - 1) { $mainBad += $id }
+                if ($f.first_opening -and $f.scrolls -and $f.rect[3] -lt [Math]::Round($bl[3] * 0.85) - 1 -and $f.rect[2] -lt [Math]::Round($bl[2] * 0.85) - 1) { $mainBad += $id }
                 [void](Api $v "windows" (@{ action = "close"; name = $id }))
             }
-            Record "main_windows_live" ($mainBad.Count -eq 0 -and $mainRows.Count -gt 0) "needing to scroll: [$($mainBad -join ', ')]; screenshots in $shots"
+            Record "main_windows_live" ($mainBad.Count -eq 0 -and $mainRows.Count -gt 0) "opened for the first time and needing to scroll below the 85 % cap: [$($mainBad -join ', ')] (a window this run sized itself keeps that size); screenshots in $shots"
             foreach ($r in $mainRows) { Say $r }
 
             if ($InventoryWrites) {

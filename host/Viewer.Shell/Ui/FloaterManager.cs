@@ -317,6 +317,9 @@ public sealed class FloaterManager
     // windows opened at their first-open size (no remembered place) since they last opened
     private readonly HashSet<string> _firstOpening = new();
 
+    /// <summary>Whether an open window opened at its first-open size, with no remembered place.</summary>
+    public bool OpenedAtFirstSize(string id) => IndexOf(id) >= 0 && _firstOpening.Contains(id);
+
     /// <summary>
     /// Makes a window opened at its first-open size at least as large as its content needs, up to <see cref="FirstOpenShare"/> of
     /// the main view (never smaller than it was); true when that changed it. A window that opened at a remembered place keeps the

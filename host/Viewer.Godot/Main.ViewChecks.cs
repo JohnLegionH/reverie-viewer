@@ -42,6 +42,7 @@ public partial class Main
                 official = OfficialFloaterSizes.Of(id) is { } o ? new[] { o.W, o.H } : null,
                 first_open = floaters.SpecOf(id) is { } s2 ? new[] { floaters.FirstOpenSize(s2).W, floaters.FirstOpenSize(s2).H } : null,
                 scrolls = rect is { } r && (r.W + 0.5f < needed.X || r.H + 0.5f < needed.Y),
+                first_opening = floaters.OpenedAtFirstSize(id),
             };
         }
         return new
