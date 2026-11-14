@@ -362,4 +362,130 @@ public class EditControllerTests
         Assert.Equal(new Vector3(400, 500, 4096), v.Last<UpdateObjectIntent>().Position);
         Assert.False(v.C.SetPosition(new Vector3(512, 10, 30)));     // the far edge belongs to the next region (pointInRegionGlobal)
     }
+    // ---------------- the handles' drags (llmaniptranslate.cpp, llmaniprotate.cpp, llmanipscale.cpp as behaviour) ----------------
+
+    private static UpdateObjectIntent[] Updates(Rig r) => r.Sent.OfType<UpdateObjectIntent>().ToArray();
+    private static void Near(Vector3 want, Vector3 got, float tol = 1e-3f) => Assert.True(Vector3.Distance(want, got) <= tol, $"want {want}, got {got}");
+
+    [Fact]
+    public void A_move_handle_drag_moves_every_selected_object_by_the_same_amount_and_snaps_the_selections_centre_to_the_grid()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10.2f, 10, 30), Own);
+        r.Prim(3, new Vector3(12.2f, 10, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([1, 3], shift: false);
+        Near(new Vector3(11.2f, 10, 30), r.C.Pivot ?? new Vector3(float.NaN));   // no centre fails the comparison
+        r.C.SnapEnabled = false;
+        Assert.True(r.C.BeginManip());
+        r.Sent.Clear();
+        Assert.True(r.C.ManipMove(new Vector3(1, 0, 0)));
+        var u = Updates(r);
+        Assert.Equal(2, u.Length);
+        Near(new Vector3(11.2f, 10, 30), u.Single(x => x.LocalId == 1).Position!.Value);
+        Near(new Vector3(13.2f, 10, 30), u.Single(x => x.LocalId == 3).Position!.Value);
+        Assert.All(u, x => Assert.True(x.Linkset && x.Rotation is null && x.Scale is null));
+        r.Sent.Clear();
+        r.C.SnapEnabled = true;                                       // the centre 11.2 + 1 = 12.2 snaps to 12.0 along x only
+        Assert.True(r.C.ManipMove(new Vector3(1, 0, 0)));
+        Near(new Vector3(11.0f, 10, 30), Updates(r).Single(x => x.LocalId == 1).Position!.Value);
+        r.C.EndManip();
+    }
+
+    [Fact]
+    public void A_ring_drag_turns_the_selection_about_its_centre_and_a_corner_or_face_drag_stretches_it()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own, scale: new Vector3(1, 1, 1));
+        r.Prim(3, new Vector3(12, 10, 30), Own, scale: new Vector3(1, 1, 1));
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([1, 3], shift: false);
+        Assert.True(r.C.BeginManip());
+        r.Sent.Clear();
+        Assert.True(r.C.ManipRotate(Vector3.UnitZ, 90));
+        var u = Updates(r);
+        Near(new Vector3(11, 9, 30), u.Single(x => x.LocalId == 1).Position!.Value);
+        Near(new Vector3(11, 11, 30), u.Single(x => x.LocalId == 3).Position!.Value);
+        Near(Vector3.UnitY, Vector3.Transform(Vector3.UnitX, u[0].Rotation!.Value));
+        r.C.EndManip();
+
+        Assert.True(r.C.BeginManip());
+        r.Sent.Clear();
+        Assert.True(r.C.ManipScaleCorner(2));                          // both grow, and spread from the centre
+        u = Updates(r);
+        Near(new Vector3(2, 2, 2), u.Single(x => x.LocalId == 1).Scale!.Value);
+        Near(new Vector3(9, 10, 30), u.Single(x => x.LocalId == 1).Position!.Value);
+        r.C.EndManip();
+
+        r.C.SelectMany([1], shift: false);
+        Assert.True(r.C.BeginManip());
+        r.Sent.Clear();
+        Assert.True(r.C.ManipScaleFace(0, 1, 3));                       // the +x face out to 3 m: the -x face stays put
+        var f = Updates(r).Single();
+        Near(new Vector3(3, 1, 1), f.Scale!.Value);
+        Near(new Vector3(11, 10, 30), f.Position!.Value);
+        Assert.False(f.Uniform);
+        r.Sent.Clear();
+        r.C.StretchBothSides = true;                                    // both sides: the centre stays, sent as a uniform change
+        Assert.True(r.C.ManipScaleFace(0, 1, 3));
+        f = Updates(r).Single();
+        Near(new Vector3(10, 10, 30), f.Position!.Value);
+        Assert.True(f.Uniform);
+        r.C.EndManip();
+    }
+
+    [Fact]
+    public void With_Edit_linked_a_handle_moves_the_part_alone_in_its_roots_frame()
+    {
+        var r = new Rig();
+        var turned = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2);
+        r.World.ApplyObject(Sim, new PrimData(1, G(1), 0, 0, new Vector3(10, 10, 30), turned, new Vector3(2, 2, 2), Interaction: new PrimInteraction(0, Own)));
+        r.Prim(2, new Vector3(2, 0, 0), Own, parent: 1);              // in the world at (10, 12, 30)
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.EditLinked = true;
+        r.C.SelectMany([2], shift: false);
+        Near(new Vector3(10, 12, 30), r.C.Pivot ?? new Vector3(float.NaN));   // no centre fails the comparison
+        Assert.True(r.C.BeginManip());
+        r.Sent.Clear();
+        r.C.SnapEnabled = false;
+        Assert.True(r.C.ManipMove(new Vector3(0, 1, 0)));             // one metre north in the world is one along the root's own x
+        var u = Updates(r).Single();
+        Assert.Equal((2u, false), (u.LocalId, u.Linkset));
+        Near(new Vector3(3, 0, 0), u.Position!.Value);
+    }
+
+    [Fact]
+    public void Snap_XY_puts_each_selected_object_on_the_grid_use_selection_for_grid_moves_the_grid_and_G_toggles_snapping()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10.3f, 10.8f, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10.3f, 10.8f), false);
+        r.Sent.Clear();
+        Assert.True(r.C.SnapSelectionXY());                            // Shift+X
+        Near(new Vector3(10.5f, 11f, 30), Updates(r).Single().Position!.Value);
+        r.C.UseSelectionForGrid();                                     // Shift+G: the grid's origin and turn are the selection's
+        Assert.Equal(GridMode.Reference, r.C.Grid);
+        Near(new Vector3(10.3f, 10.8f, 30), r.C.GridOrigin);
+        r.Sent.Clear();
+        Assert.True(r.C.SnapSelectionXY());                            // already on the moved grid: stays
+        Near(new Vector3(10.3f, 10.8f, 30), Updates(r).Single().Position!.Value);
+        bool before = r.C.SnapEnabled;
+        r.C.ToggleSnap();                                              // G
+        Assert.Equal(!before, r.C.SnapEnabled);
+    }
+
+    [Fact]
+    public void Someone_elses_object_has_no_handle_drag_and_nothing_is_sent()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), 0);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        r.Sent.Clear();
+        Assert.False(r.C.BeginManip());
+        Assert.False(r.C.ManipMove(new Vector3(1, 0, 0)));
+        Assert.False(r.C.SnapSelectionXY());
+        Assert.Empty(r.Sent);
+    }
 }

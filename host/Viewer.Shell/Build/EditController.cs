@@ -11,6 +11,10 @@ using Viewer.Core.World;
 
 namespace Viewer.Shell.Build;
 
+/// <summary>Where the grid lies: the region's axes, the selected object's own, or a place and turn taken from the selection (Use Selection for
+/// Grid, Shift+G).</summary>
+public enum GridMode { World, Local, Reference }
+
 /// <summary>The build tools as the official viewer names them (lltoolmgr.cpp, menu_viewer.xml: Ctrl+1 to Ctrl+5).</summary>
 public enum BuildTool { Focus, Move, Edit, Create, Land }
 
@@ -327,6 +331,22 @@ public sealed class EditController
             return false;
         return Send(new DuplicateObjectsIntent(roots, Vector3.Zero, 0));
     }
+
+    // ---------------- the handles ----------------
+
+    public GridMode Grid { get; set; }
+    public Vector3 GridOrigin { get; set; }
+    public Quaternion GridRotation { get; set; } = Quaternion.Identity;
+    public Vector3? Pivot => null;
+    public bool BeginManip() => false;
+    public bool ManipMove(Vector3 delta) => false;
+    public bool ManipRotate(Vector3 axis, float degrees) => false;
+    public bool ManipScaleCorner(float ratio) => false;
+    public bool ManipScaleFace(int axis, int sign, float newSize) => false;
+    public void EndManip() { }
+    public bool SnapSelectionXY() => false;
+    public void UseSelectionForGrid() { }
+    public void ToggleSnap() { }
 
     // ---------------- the world ----------------
 
