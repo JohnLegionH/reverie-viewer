@@ -377,7 +377,9 @@ public partial class S1Smoke : Node
                 for (int i = 0; i < popup.ItemCount; i++)
                     if (popup.GetItemText(i).Contains("[[")) problems.Add($"menu {def.Id}: item {i} has no string");
             }
-            // the dock: every standard button, inside the window, its names from the string table
+            // the dock: hidden on the login screen (it would cover the form), every standard button there for the world, inside the
+            // window, its names from the string table
+            if (shell.Dock.Visible) problems.Add("the dock shows over the login screen");
             if (shell.Dock.Buttons.Count != shell.DockModel.Items.Count) problems.Add($"the dock shows {shell.Dock.Buttons.Count} buttons, expected {shell.DockModel.Items.Count}");
             if (!window.Encloses(shell.Dock.GetGlobalRect())) problems.Add($"dock outside the window ({shell.Dock.GetGlobalRect()})");
             foreach (var b in shell.Dock.Buttons.Values)
@@ -457,7 +459,7 @@ public partial class S1Smoke : Node
             for (int i = 0; i < 2; i++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (shell.Menu.Titles.Count != menusBefore + 1) problems.Add($"menu bar holds {shell.Menu.Titles.Count} menus after the feature added one (was {menusBefore})");
-            if (!shell.Dock.Visible || shell.Dock.Buttons.Count != shell.DockModel.Items.Count) problems.Add($"dock: visible {shell.Dock.Visible}, {shell.Dock.Buttons.Count} buttons");
+            if (shell.Dock.Buttons.Count != shell.DockModel.Items.Count) problems.Add($"dock: {shell.Dock.Buttons.Count} buttons, expected {shell.DockModel.Items.Count}");
 
             model.Commands.Execute("floater.chat");
             hub.Enqueue(new ChatReceived(null, other, other, "Example Resident", ChatSource.Agent, ChatLineType.Say, ChatAudible.Fully, System.Numerics.Vector3.Zero,

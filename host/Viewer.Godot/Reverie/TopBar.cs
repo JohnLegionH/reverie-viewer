@@ -271,7 +271,7 @@ public partial class RvLocationField : PanelContainer
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 4);
         AddChild(row);
-        _display = new Button { Name = "location_display", ThemeTypeVariation = ReverieStyle.LocationButton, SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.All, ClipText = true };
+        _display = new Button { Name = "location_display", ThemeTypeVariation = ReverieStyle.LocationButton, SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.All, ClipText = true, ClipContents = true };
         _display.AccessibilityName = strings.Get("topbar.location");
         var labels = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         labels.SetAnchorsPreset(LayoutPreset.FullRect);

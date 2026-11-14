@@ -147,7 +147,7 @@ public partial class Dock : PanelContainer
         {
             Name = "dock_" + item.Id + (item.Owner is null ? "" : "_" + item.Owner), ThemeTypeVariation = ReverieStyle.DockButton,
             CustomMinimumSize = new Vector2(ReverieTheme.DockButtonWidth, ReverieTheme.DockButtonHeight), VerticalIconAlignment = VerticalAlignment.Top,
-            IconAlignment = HorizontalAlignment.Center, ExpandIcon = false, FocusMode = FocusModeEnum.All, ClipText = true,
+            IconAlignment = HorizontalAlignment.Center, ExpandIcon = false, FocusMode = FocusModeEnum.All, ClipText = false,   // a name of ten characters is never cut: the button widens past 62 for it
             TooltipText = item.Tooltip ?? "",
         };
         button.AddThemeConstantOverride("icon_max_width", (int)ReverieTheme.DockIcon);

@@ -80,7 +80,9 @@ public partial class ShellRoot : Control
 
         // the dock floats over the world, centred, 14 above the bottom row
         DockModel = DockModel.Standard();
-        Dock = new Dock(DockModel, _strings) { IsOpen = DockItemOpen };
+        // the dock shows in the world only: before a login its buttons have nothing to open, and floating over the login screen it
+        // would cover the login form
+        Dock = new Dock(DockModel, _strings) { IsOpen = DockItemOpen, Visible = false };
         Dock.Clicked += OnDockClicked;
         Dock.MenuRequested += OpenDockMenu;
         DockModel.Changed += () => { if (IsInsideTree()) ApplyLayout(); };
@@ -117,6 +119,7 @@ public partial class ShellRoot : Control
     public void ShowWorldRows(bool inWorld)
     {
         Chat.Visible = inWorld;
+        Dock.Visible = inWorld;
         TopBar.ShowPlace(inWorld);
         Shell.Chrome = new ChromeRows(Toolbar: false, NavBar: false, ChatBar: inWorld);
         if (IsInsideTree())
@@ -470,6 +473,8 @@ public partial class ShellRoot : Control
         // content needs: a bar taller than its design height would draw over its neighbour or past the window's edge
         var size = GetViewportRect().Size;
         TopBar.FitTo(size.X);   // the narrow-window rule works on the window's width in interface units
+        // the old toolbar and navigation rows are gone: the dock floats, so no row is kept for them whatever the controller says
+        Shell.Chrome = Shell.Chrome with { Toolbar = false, NavBar = false };
         var needs = new BarHeights(TopBar.GetCombinedMinimumSize().Y, 0, Chat.GetCombinedMinimumSize().Y, 0);
         var regions = Shell.Layout(new UiSize(size.X, size.Y), needs);
         MainArea = new Rect2(regions.Main.X, regions.Main.Y, regions.Main.W, regions.Main.H);
