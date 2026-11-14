@@ -165,7 +165,7 @@ if ($o -and $o.self) {
     $all = @(Controls)
     foreach ($c in $all) { Note ("  control {0} {1} '{2}' at {3:N0},{4:N0} {5:N0}x{6:N0} focus={7}" -f $c.type, $c.path, $c.text, $c.x, $c.y, $c.w, $c.h, $c.focus) }
     $buttons = @($all | Where-Object { $_.type -match "Button" -and $_.path -notmatch "(?i)close|resize|menu" } )
-    $toolbar = @($buttons | Where-Object { $_.path -match "toolbar_(inventory|people|map|outfits)" })
+    $toolbar = @($buttons | Where-Object { $_.path -match "dock_(inventory|people|map|outfits)" })
     if ($toolbar.Count -lt 1) { $toolbar = $buttons }
     $chat = @($all | Where-Object { $_.path -match "chat_bar.*input" }) | Select-Object -First 1
     Note ("toolbar candidates {0}; chat field: {1}" -f $toolbar.Count, $(if ($chat) { $chat.path } else { "none" }))

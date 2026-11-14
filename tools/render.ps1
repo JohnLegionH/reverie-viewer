@@ -656,7 +656,7 @@ function Invoke-UiChromeCases {
                 $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win $goldenArg"
                 $c = $r.Json.ui_chrome
                 $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $c -and -not @($c.problems).Count
-                Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) logical $($c.logical), $($c.shown) of $($c.toolbar_buttons) toolbar buttons shown, More $($c.more)$(if ($wantsGolden -and $r.Json.diff) { '; ' + $r.Json.diff.summary })$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
+                Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) logical $($c.logical), $($c.dock_buttons) dock buttons in $($c.dock_rows) row(s)$(if ($wantsGolden -and $r.Json.diff) { '; ' + $r.Json.diff.summary })$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
             }
         }
     }
