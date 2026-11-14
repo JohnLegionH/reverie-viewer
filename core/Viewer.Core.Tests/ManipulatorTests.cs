@@ -123,4 +123,16 @@ public class ManipulatorTests
         var turned = Manipulator.GridLines(Vector3.Zero, Vector3.Zero, Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 4), 1f, 1f, 1f);
         Assert.Contains(turned, l => MathF.Abs(l.From.X - l.To.X) > 1e-3f && MathF.Abs(l.From.Y - l.To.Y) > 1e-3f);   // diagonal in the world
     }
+    [Fact]
+    public void Plane_handles_sit_on_the_cameras_side_of_the_selection()
+    {
+        var c = new Vector3(10, 10, 30);
+        var southWestBelow = View with { Camera = new Vector3(0, 0, 20) };
+        var p = Manipulator.PlaneCentre(c, Quaternion.Identity, 2, 1f, southWestBelow);
+        Assert.True(p.X < c.X && p.Y < c.Y && p.Z == c.Z, p.ToString());
+        var q = Manipulator.PlaneCentre(c, Quaternion.Identity, 0, 1f, southWestBelow);
+        Assert.True(q.X == c.X && q.Y < c.Y && q.Z < c.Z, q.ToString());
+        var r = Manipulator.PlaneCentre(c, Quaternion.Identity, 2, 1f, View with { Camera = new Vector3(20, 20, 40) });
+        Assert.True(r.X > c.X && r.Y > c.Y, r.ToString());
+    }
 }

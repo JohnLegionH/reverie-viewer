@@ -151,7 +151,7 @@ public static class Manipulator
                     var dir = Vector3.Transform(AxisVector(axis), frame);
                     // the plane handle square to this axis, at 1.8 arrow lengths along the other two
                     var (u, w) = Others(axis);
-                    var corner = centre + (Vector3.Transform(AxisVector(u), frame) + Vector3.Transform(AxisVector(w), frame)) * arrow * PlaneOffset;
+                    var corner = PlaneCentre(centre, frame, axis, arrow, view);
                     if (project(corner) is { } pc)
                     {
                         float half = MathF.Max(PickPixels, (project(corner + Vector3.Transform(AxisVector(u), frame) * arrow * PlaneTick) is { } edge ? Vector2.Distance(edge, pc) : 0));
@@ -215,6 +215,18 @@ public static class Manipulator
 
     private static (int, int) Others(int axis) => axis switch { 0 => (1, 2), 1 => (0, 2), _ => (0, 1) };
 
+    /// <summary>The middle of the plane handle square to <paramref name="axis"/>: 1.8 arrow lengths out along the other two axes, on the camera's side
+    /// of each, so it is never hidden behind the selection (the official plane handles turn to face the camera the same way).</summary>
+    public static Vector3 PlaneCentre(Vector3 centre, Quaternion frame, int axis, float arrow, HandleView view)
+    {
+        var (u, w) = Others(axis);
+        var du = Vector3.Transform(AxisVector(u), frame);
+        var dw = Vector3.Transform(AxisVector(w), frame);
+        var toCamera = view.Camera - centre;
+        float su = Vector3.Dot(toCamera, du) < 0 ? -1 : 1, sw = Vector3.Dot(toCamera, dw) < 0 ? -1 : 1;
+        return centre + (du * su + dw * sw) * arrow * PlaneOffset;
+    }
+
     private static float SegmentDistance(Vector2 p, Vector2 a, Vector2 b)
     {
         var ab = b - a;
@@ -253,7 +265,7 @@ public static class Manipulator
                     }
                     // the plane handle: a small square at 1.8 arrow lengths along the other two axes
                     var pcol = Pick(new Handle(HandleKind.Plane, axis), Colour(axis));
-                    var pc = centre + (du + dw) * arrow * PlaneOffset;
+                    var pc = PlaneCentre(centre, frame, axis, arrow, view);
                     float t = arrow * PlaneTick;
                     var q = new[] { pc + (du + dw) * t, pc + (du - dw) * t, pc - (du + dw) * t, pc - (du - dw) * t };
                     for (int i = 0; i < 4; i++)

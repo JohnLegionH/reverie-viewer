@@ -77,7 +77,7 @@ public partial class TestRender
             for (int x = 0; x < size.X; x++)
             {
                 var c = img.GetPixel(x, y);
-                if (c.R > 0.85f && c.G > 0.85f && c.B < 0.4f) yellow++;
+                if (c.R > 0.85f && c.G > 0.85f && c.B < 0.6f) yellow++;   // the lit handle's yellow (1, 1, 0.2) reads back as about (1, 1, 0.49)
             }
         float far = PlaceCamera(16f);
         await Frames(2);

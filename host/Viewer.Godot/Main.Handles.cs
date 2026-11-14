@@ -300,18 +300,18 @@ public partial class Main
                 case "plane":
                 {
                     int axis = AxisOf(parts[1][0]);
-                    var (u, w) = axis switch { 0 => (1, 2), 1 => (0, 2), _ => (0, 1) };
-                    float arrow = Manipulator.Metres(Manipulator.ArrowPixels, centre, view);
-                    from = centre + (NVector3.Transform(Manipulator.AxisVector(u), frame) + NVector3.Transform(Manipulator.AxisVector(w), frame)) * arrow * Manipulator.PlaneOffset;
+                    from = Manipulator.PlaneCentre(centre, frame, axis, Manipulator.Metres(Manipulator.ArrowPixels, centre, view), view);
                     to = from + new NVector3(x, y, z);
                     break;
                 }
                 case "ring":
                 {
                     int axis = AxisOf(parts[1][0]);
-                    var (u, _) = axis switch { 0 => (1, 2), 1 => (0, 2), _ => (0, 1) };
+                    var (u, w) = axis switch { 0 => (1, 2), 1 => (0, 2), _ => (0, 1) };
                     var n = NVector3.Transform(Manipulator.AxisVector(axis), frame);
-                    var start = NVector3.Transform(Manipulator.AxisVector(u), frame) * Manipulator.Metres(Manipulator.RingPixels, centre, view);
+                    // start 45 degrees round the ring, away from where it crosses the other two
+                    var start = NVector3.Normalize(NVector3.Transform(Manipulator.AxisVector(u), frame) + NVector3.Transform(Manipulator.AxisVector(w), frame))
+                        * Manipulator.Metres(Manipulator.RingPixels, centre, view);
                     from = centre + start;
                     float reach = y >= 1 ? Manipulator.SnapRingRadii * 1.3f : 1f;   // outside the snap ring the turn snaps
                     to = centre + NVector3.Transform(start, NQuaternion.CreateFromAxisAngle(n, x * MathF.PI / 180f)) * reach;
