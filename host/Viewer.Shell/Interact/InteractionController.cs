@@ -305,6 +305,10 @@ public sealed class InteractionController
         return true;
     }
 
+    /// <summary>Takes back into the inventory each of the objects named by local id that the agent may take (the menu's rule), by its root, once
+    /// per root and with no pick: the live checks use it to take back everything a run rezzed. Returns the roots whose take was sent.</summary>
+    public IReadOnlyList<uint> TakeBack(IEnumerable<uint> localIds) => [];
+
     private bool SittingOn(ObjectState root)
     {
         if (Me() is not { ParentLocalId: not 0 } me || _world.Object(new ObjectId(root.Id.Epoch, me.ParentLocalId)) is not { } seat)

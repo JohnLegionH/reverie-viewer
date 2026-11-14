@@ -286,6 +286,20 @@ public class InteractionControllerTests
     }
 
     [Fact]
+    public void Take_back_by_id_takes_each_own_root_once_with_no_pick_and_leaves_what_may_not_be_taken()
+    {
+        var r = new Rig();
+        uint own = ObjectFlagBits.YouOwner | ObjectFlagBits.Copy;
+        r.Prim(1, new Vector3(10, 10, 30), new PrimInteraction(0, own));
+        r.Prim(2, new Vector3(1, 0, 0), new PrimInteraction(0, own), parent: 1);   // a child of 1: its root is taken, once
+        r.Prim(3, new Vector3(40, 40, 30), new PrimInteraction(0, own));           // another own box, far from any pick
+        r.Prim(4, new Vector3(50, 50, 30), new PrimInteraction(0, 0));             // someone else's: never taken
+        var taken = r.C.TakeBack([1, 2, 3, 4, 99]);                                  // 99 is not in the region
+        Assert.Equal([1u, 3u], taken);
+        Assert.Equal([new TakeIntent(1, false), new TakeIntent(3, false)], r.Sent.Cast<TakeIntent>().ToArray());
+    }
+
+    [Fact]
     public void Sit_stand_take_and_take_copy_from_the_menu_run_their_intents()
     {
         var r = new Rig();
