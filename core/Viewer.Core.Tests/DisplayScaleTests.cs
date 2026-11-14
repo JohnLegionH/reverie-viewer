@@ -25,7 +25,8 @@ public class DisplayScaleTests
     [InlineData(168f, 175)]
     [InlineData(192f, 200)]
     [InlineData(288f, 200)]   // the interface scale tops out at 200 percent
-    [InlineData(72f, 100)]    // and never goes below 100
+    [InlineData(72f, 75)]     // and never goes below 75
+    [InlineData(84f, 88)]
     [InlineData(0f, 100)]     // no reading
     [InlineData(-5f, 100)]
     public void The_display_scale_for_a_dpi_is_its_percent_of_96_within_the_interface_range(float dpi, int expected) =>
