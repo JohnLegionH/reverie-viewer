@@ -29,6 +29,9 @@ public sealed class RenderBackendsTests
         string build = Path.Combine(root, "host", "Viewer.Godot", "build");
         Directory.CreateDirectory(build);
         File.WriteAllText(Path.Combine(build, "Reverie.console.exe"), "");   // present, never started
+        // a complete export: the data folder with the host assembly beside the executable (render.ps1 starts nothing without it)
+        Directory.CreateDirectory(Path.Combine(build, "data_Viewer.Godot_windows_x86_64"));
+        File.WriteAllText(Path.Combine(build, "data_Viewer.Godot_windows_x86_64", "Viewer.Godot.dll"), "");
         string local = Path.Combine(root, "fixtures-local");
         Directory.CreateDirectory(Path.Combine(local, "assets"));
         File.WriteAllText(Path.Combine(local, "assets", "6ed24bd8-91aa-4b12-ccc7-c97c857ab4e0.anim"), "");   // the avatar cases look for this file; with it they run, and every run goes to the stand-in launcher

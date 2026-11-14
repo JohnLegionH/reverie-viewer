@@ -65,6 +65,9 @@ exit 0
         string build = Path.Combine(root, "host", "Viewer.Godot", "build");
         Directory.CreateDirectory(build);
         File.WriteAllText(Path.Combine(build, "Reverie.console.exe"), "");   // present, never started
+        // a complete export: the data folder with the host assembly beside the executable (render.ps1 starts nothing without it)
+        Directory.CreateDirectory(Path.Combine(build, "data_Viewer.Godot_windows_x86_64"));
+        File.WriteAllText(Path.Combine(build, "data_Viewer.Godot_windows_x86_64", "Viewer.Godot.dll"), "");
         string local = Path.Combine(root, "fixtures-local");
         Directory.CreateDirectory(Path.Combine(local, "assets"));
         string characters = Path.Combine(root, "characters");
