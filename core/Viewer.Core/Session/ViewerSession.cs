@@ -186,6 +186,9 @@ public sealed class ViewerSession : IDisposable
     /// <summary>The grid's texture upload (its two capability steps), when the transport has one.</summary>
     public Viewer.Core.Building.ITextureUploadService? BuildService => _transport as Viewer.Core.Building.ITextureUploadService;
 
+    /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
+    public Viewer.Core.Building.EditLimits EditLimits => (_transport as Viewer.Core.Protocol.LmvTransport)?.EditLimits() ?? Viewer.Core.Building.EditLimits.Official;
+
     /// <summary>The grid's model upload (the same capability as images, with a model request), or null when the transport has none.</summary>
     public Viewer.Core.Building.IModelUploadService? ModelService => _transport as Viewer.Core.Building.IModelUploadService;
 

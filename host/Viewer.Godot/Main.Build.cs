@@ -20,6 +20,7 @@ public partial class Main
     private void AttachBuild(ViewerSession s, InteractionController ic)
     {
         ic.PlaySound = slot => _uiSounds?.Play(slot);
+        AttachEdit(s, ic);
         if (_build is not null || _shell is null)
             return;
         var shell = _shell.Shell;
@@ -35,7 +36,6 @@ public partial class Main
         // after an upload a notice says what was uploaded and where, with Show in inventory (which opens the inventory on the item)
         _build.Image.Finished += () => PostUploadNotice(_build.Image.Uploaded, Viewer.Shell.Notifications.UploadFolder.Textures);
         _build.Bulk.Finished += () => PostUploadNotice(_build.Bulk.Uploaded, Viewer.Shell.Notifications.UploadFolder.Textures);
-        shell.Commands.Register(BuildMenu.CreateCommand, () => _interact?.BeginCreate());
         shell.Commands.Register(BuildMenu.ImageCommand, () => _build.ImageDialog.PopupCentered());
         shell.Commands.Register(BuildMenu.BulkCommand, () => _build.BulkDialog.PopupCentered());
         _models = ModelFeature.Install(_shell, () => _interactFor?.ModelService,

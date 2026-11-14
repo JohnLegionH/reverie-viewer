@@ -145,6 +145,7 @@ public partial class Main
         {
             if (e is ObjectPropertiesReceived named) _objectNames[named.ObjectId] = named.Name;   // (the development probe reads these)
             ic.Receive(e);
+            _edit?.Receive(e);
         }
         while (_textChanges.TryDequeue(out var c))
             TrackText(sess.World, c);
@@ -246,7 +247,11 @@ public partial class Main
             _stage!.AddChild(_outline);
         }
         var prims = new List<Presentation.OutlinedPrim>();
-        if (ic.Selected is { } sel && world.Object(sel) is { } root)
+        foreach (var (editRoot, highlight) in EditOutlined(world))
+            foreach (var o in new[] { editRoot }.Concat(world.Linkset(editRoot.Id)))
+                if (ObjectPicker.WorldPose(world, o, out var pos, out var rot))
+                    prims.Add(new Presentation.OutlinedPrim(o, pos, rot, o.Id == highlight));
+        if (prims.Count == 0 && ic.Selected is { } sel && world.Object(sel) is { } root)
         {
             foreach (var o in new[] { root }.Concat(world.Linkset(sel)))
                 if (ObjectPicker.WorldPose(world, o, out var pos, out var rot))
@@ -310,6 +315,8 @@ public partial class Main
     {
         if (_interact is not { } ic || _interactUi is null || _camera is null)
             return false;
+        if (EditInput(e))
+            return true;
         switch (e)
         {
             case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } when ic.Placing:

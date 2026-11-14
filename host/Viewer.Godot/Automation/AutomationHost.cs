@@ -333,6 +333,14 @@ public partial class AutomationHost : Node
                 return m.InteractCall(action, target, Num(call.Body, "x", 128), Num(call.Body, "y", 128), Num(call.Body, "z", 30), Str(call.Body, "entry"), Str(call.Body, "expect"), Num(call.Body, "distance", 0)) is { } done
                     ? AutomationReply.Ok(done) : AutomationReply.Error(409, "no session");
             }
+            case "edit":   // {action: state|toggle|tool|click|select|linked|position|size|rotation|shape|name|flags|locked|link|unlink|drag, x?, y?, z?, text?, expect?}: build mode's edit tools (answers ids, numbers and states)
+            {
+                string action = Str(call.Body, "action") ?? "state";
+                if (action is not ("state" or "toggle" or "tool" or "click" or "select" or "linked" or "position" or "size" or "rotation" or "shape" or "name" or "flags" or "locked" or "link" or "unlink" or "drag"))
+                    return AutomationReply.Error(400, "action must be state, toggle, tool, click, select, linked, position, size, rotation, shape, name, flags, locked, link, unlink or drag");
+                return m.EditCall(action, Num(call.Body, "x", 128), Num(call.Body, "y", 128), Num(call.Body, "z", 30), Str(call.Body, "text"), Str(call.Body, "expect")) is { } edited
+                    ? AutomationReply.Ok(edited) : AutomationReply.Error(409, "not in the world");
+            }
             case "build":   // {action: state|create|rez|upload_image|upload_bulk|press_upload|upload_model|upload_bulk_models|press_model_upload|take_back, x?, y?, z?, id?, text?, expect?}: the Build menu's tools (answers ids, counts, sizes and states; a name only through expect; for the model windows expect carries their settings)
             {
                 string action = Str(call.Body, "action") ?? "state";
