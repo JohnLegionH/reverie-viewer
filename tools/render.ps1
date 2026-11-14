@@ -634,8 +634,8 @@ function Invoke-UiSceneCases {
 
 function Invoke-UiChromeCases {
     # the in-world frame at the interface sizes 100, 150 and 200 % in three window sizes, on each backend (--tr-uichrome=PCT:WxH). Every case asserts that the
-    # menu row, navigation bar, chat bar, toolbar and clock are wholly inside the window, that each toolbar button is shown or behind More, and that the open
-    # windows are inside the main view. The 1152x648 cases (the stressed size) also have a golden: fixtures\ui\golden-uichrome-<pct>-1152x648-<backend>.png.
+    # top bar, chat bar, dock and status area are wholly inside the window, that the dock sits above the chat bar with every button shown inside it, and that
+    # the open windows are inside the main view. The 1152x648 cases (the stressed size) also have a golden: fixtures\ui\golden-uichrome-<pct>-1152x648-<backend>.png.
     foreach ($be in $Backends) {
         foreach ($win in @("1152x648", "1280x720", "1920x1080")) {
             foreach ($pct in @(100, 150, 200)) {
