@@ -86,6 +86,18 @@ public class ShellChromeLayoutTests
     }
 
     [Fact]
+    public void A_frame_that_keeps_no_toolbar_row_has_none_even_with_buttons_and_the_default_keeps_one_for_them()
+    {
+        var shell = new ShellController(StringTable.English(), () => { });
+        shell.Toolbar.Add(new ToolbarButton("tb.about", "menu.help.about", "floater.about"));
+        Assert.True(shell.Layout(new UiSize(1280, 720)).Toolbar.H > 0);   // as before: a button gets its row
+        shell.Chrome = new ChromeRows(Toolbar: false, ChatBar: true);   // a frame whose dock floats asks for none
+        var r = shell.Layout(new UiSize(1280, 720));
+        Assert.Equal(0, r.Toolbar.H);
+        Assert.Equal(720, r.ChatBar.Y + r.ChatBar.H);
+    }
+
+    [Fact]
     public void Floaters_live_in_the_main_view_only_and_the_controller_keeps_them_there_when_a_row_appears()
     {
         var shell = new ShellController(StringTable.English(), () => { });
