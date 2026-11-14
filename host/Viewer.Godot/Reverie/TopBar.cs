@@ -26,7 +26,7 @@ public sealed record RvMenu(string Title, Func<IReadOnlyList<RvMenuEntry>> Entri
 /// that one (the official viewer's behaviour); with none open, moving over the titles opens nothing. Left and Right move between the
 /// titles, carrying an open menu along; Enter, Space or Down opens the focused one. Which menu is open is kept by <see cref="MenuBarState"/>.
 /// </summary>
-public partial class RvMenuBar : HBoxContainer
+public partial class RvMenuBar : HFlowContainer
 {
     private readonly List<RvMenu> _menus;
     private readonly List<Button> _titles = new();
@@ -40,7 +40,11 @@ public partial class RvMenuBar : HBoxContainer
         _state = new MenuBarState(menus.Count);
         Name = "rv_menu_bar";
         AccessibilityName = accessibleName;
-        AddThemeConstantOverride("separation", 0);
+        // the titles wrap to a second line only when even the menus alone are wider than the window (a large interface in a small
+        // window): nothing is ever cut off
+        AddThemeConstantOverride("h_separation", 0);
+        AddThemeConstantOverride("v_separation", 0);
+        SizeFlagsVertical = SizeFlags.ShrinkCenter;   // one line of titles sits in the middle of the bar, as before
         for (int i = 0; i < _menus.Count; i++)
         {
             int index = i;
@@ -66,6 +70,9 @@ public partial class RvMenuBar : HBoxContainer
 
     /// <summary>The open menu's index, or null.</summary>
     public int? OpenMenu => _state.Open;
+
+    /// <summary>The width every title takes on one line (what the top bar's layout counts for the menus).</summary>
+    public float OneRowWidth => _titles.Sum(t => t.GetCombinedMinimumSize().X);
 
     public IReadOnlyList<RvMenu> Menus => _menus;
 
@@ -454,7 +461,7 @@ public partial class TopBar : PanelContainer
 
     public override void _Notification(int what)
     {
-        if (what is (int)NotificationEnterTree or (int)NotificationParented)
+        if (what is (int)NotificationEnterTree or (int)NotificationParented or (int)NotificationThemeChanged)
             Callable.From(Relayout).CallDeferred();
     }
 
@@ -462,7 +469,16 @@ public partial class TopBar : PanelContainer
     {
         if (Math.Abs(Available - _laidOutFor) > 0.5f)
             Relayout();
+        // the menus' titles wrapping (or unwrapping) changes the bar's height: the frame lays out again
+        float height = GetCombinedMinimumSize().Y;
+        if (Math.Abs(height - _laidOutHeight) > 0.5f)
+        {
+            _laidOutHeight = height;
+            Rearranged?.Invoke();
+        }
     }
+
+    private float _laidOutHeight = -1;
 
     private float _laidOutFor = -1;
     private float? _width;
@@ -474,8 +490,7 @@ public partial class TopBar : PanelContainer
     public void FitTo(float width)
     {
         _width = width;
-        if (Math.Abs(width - _laidOutFor) > 0.5f)
-            Relayout();
+        Relayout();   // measured again each time: the interface size or the menus may have changed at the same width
     }
 
     private float Available => _width ?? GetParentAreaSize().X;
@@ -487,7 +502,7 @@ public partial class TopBar : PanelContainer
         _laidOutFor = available;
         // the centre zone counts only while it shows (in the world); on the login screen the menus and the status share the row
         float centreWidth = Location.Visible ? Back.GetCombinedMinimumSize().X + Home.GetCombinedMinimumSize().X + ReverieTheme.LocationMinWidth + 8 : 0;
-        float leftWidth = _left.GetCombinedMinimumSize().X, rightWidth = _right.GetCombinedMinimumSize().X;
+        float leftWidth = Menus.OneRowWidth, rightWidth = _right.GetCombinedMinimumSize().X;
         bool own = TopBarLayout.LocationOnOwnRow(available - 16, leftWidth, centreWidth, rightWidth);
         bool statusDown = TopBarLayout.StatusOnSecondRow(available - 16, leftWidth, centreWidth, rightWidth);
         if (own != _ownRow || statusDown != _statusDown)
@@ -495,6 +510,10 @@ public partial class TopBar : PanelContainer
             Arrange(own, statusDown);
             Callable.From(() => Rearranged?.Invoke()).CallDeferred();
         }
+        // the menus keep one line while they fit the row they are on; only past that do their titles wrap
+        float leftRoom = statusDown ? available - 16 - TopBarLayout.ZoneGap
+            : own ? available - 16 - rightWidth - 2 * TopBarLayout.ZoneGap : leftWidth;
+        Menus.CustomMinimumSize = new Vector2(Math.Max(0, Math.Min(leftWidth, leftRoom)), 0);
         // the field takes the room the zone has, from its least width (240) to its largest (440)
         float room = statusDown ? available - 16 - rightWidth - TopBarLayout.ZoneGap
             : own ? available - 16 : available - 16 - leftWidth - rightWidth - 2 * TopBarLayout.ZoneGap;
