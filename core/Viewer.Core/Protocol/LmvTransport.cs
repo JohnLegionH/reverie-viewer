@@ -1990,7 +1990,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     {
         const uint Interesting = Viewer.Core.Interaction.ObjectFlagBits.Physics | Viewer.Core.Interaction.ObjectFlagBits.Modify | Viewer.Core.Interaction.ObjectFlagBits.Copy
             | Viewer.Core.Interaction.ObjectFlagBits.YouOwner | Viewer.Core.Interaction.ObjectFlagBits.Scripted | Viewer.Core.Interaction.ObjectFlagBits.HandleTouch
-            | Viewer.Core.Interaction.ObjectFlagBits.TakesMoney | Viewer.Core.Interaction.ObjectFlagBits.InventoryEmpty;
+            | Viewer.Core.Interaction.ObjectFlagBits.TakesMoney | Viewer.Core.Interaction.ObjectFlagBits.InventoryEmpty
+            | Viewer.Core.Interaction.ObjectFlagBits.Move | Viewer.Core.Interaction.ObjectFlagBits.Transfer;
         uint flags = (uint)p.Flags & Interesting;
         bool hasText = !string.IsNullOrEmpty(p.Text);
         // An empty inventory alone is the usual case and says nothing about clicking: such a prim carries no block.
