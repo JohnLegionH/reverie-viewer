@@ -245,6 +245,7 @@ public static class ShellTheme
         theme.SetColor("font_color", "ProgressBar", text);
         theme.SetStylebox("background", "ProgressBar", field);
         theme.SetStylebox("fill", "ProgressBar", Box(t, t.AccentFill, t.AccentFill, 0));
+        ReverieStyle.Add(theme, t);   // the Reverie components' variations, from the same tokens
         return theme;
     }
 
@@ -291,19 +292,79 @@ public static class ShellTheme
     }
 }
 
-/// <summary>The interface fonts, made once from the files carried in the shell assembly (Inter, SIL OFL 1.1).</summary>
+/// <summary>
+/// The interface fonts, made once from the files carried in the shell assembly (Inter, then Noto Sans; both SIL OFL 1.1). For
+/// characters neither has (CJK, Arabic, emoji and other scripts) they fall back to the fonts installed on the system, so the package
+/// stays small.
+/// </summary>
 public static class Fonts
 {
     private static FontFile? _regular, _semiBold;
+    private static Font[]? _system;
+    private static Font[] _regularChain = [];
 
-    public static FontFile? Regular => _regular ??= Make("Inter-Regular");
+    public static FontFile? Regular => _regular ??= Make("Inter-Regular", "NotoSans-Regular", Viewer.Godot.Presentation.KeptCollections.RegularFallbacks);
 
-    public static FontFile? SemiBold => _semiBold ??= Make("Inter-SemiBold");
+    public static FontFile? SemiBold => _semiBold ??= Make("Inter-SemiBold", "NotoSans-Bold", Viewer.Godot.Presentation.KeptCollections.SemiBoldFallbacks);
 
-    private static FontFile? Make(string name)
+    /// <summary>The system font families tried, in order, for scripts the carried fonts do not cover: the usual ones of Windows,
+    /// Linux and macOS.</summary>
+    public static readonly string[] SystemFamilies =
+    [
+        "Microsoft YaHei UI", "Microsoft YaHei", "Yu Gothic UI", "Malgun Gothic", "Microsoft JhengHei UI", "Segoe UI", "Nirmala UI",
+        "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans Arabic", "Noto Sans Devanagari", "Noto Sans Thai", "Noto Sans Hebrew",
+        "PingFang SC", "Hiragino Sans", "Apple SD Gothic Neo", "Geeza Pro", "DejaVu Sans",
+    ];
+
+    public static readonly string[] EmojiFamilies = ["Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji"];
+
+    /// <summary>The system fonts tried after Noto Sans: the script fonts, then the emoji font.</summary>
+    private static Font[] System => _system ??=
+    [
+        new SystemFont { FontNames = SystemFamilies, AllowSystemFallback = true },
+        new SystemFont { FontNames = EmojiFamilies, AllowSystemFallback = true },
+    ];
+
+    /// <summary>Inter, with Noto Sans and the system fonts as its fallbacks. The chain is a kept collection: filled and handed to the
+    /// engine while pinned, never disposed (see KeptCollections).</summary>
+    private static unsafe FontFile? Make(string name, string second, global::Godot.Collections.Array<Font> chain)
     {
         var bytes = UiAssets.Font(name);
-        return bytes.Length == 0 ? null : new FontFile { Data = bytes };
+        if (bytes.Length == 0)
+            return null;
+        var noto = UiAssets.Font(second);
+        var font = new FontFile { Data = bytes };
+        Font[] fallbacks = noto.Length > 0 ? [new FontFile { Data = noto }, .. System] : System;
+        fixed (byte* pin = &Viewer.Godot.Presentation.KeptCollections.Pin(chain))
+        {
+            chain.Clear();
+            foreach (var f in fallbacks)
+                chain.Add(f);
+            font.Fallbacks = chain;
+        }
+        if (chain == Viewer.Godot.Presentation.KeptCollections.RegularFallbacks)
+            _regularChain = fallbacks;
+        return font;
+    }
+
+    /// <summary>Whether some font in the chain (Inter, its fallbacks) has a glyph for every character of <paramref name="text"/>
+    /// that is not a space or a joiner.</summary>
+    public static bool Covers(string text)
+    {
+        var regular = Regular;
+        if (regular is null)
+            return false;
+        var chain = new System.Collections.Generic.List<Font> { regular };
+        chain.AddRange(_regularChain);
+        for (int i = 0; i < text.Length; i++)
+        {
+            int cp = char.IsHighSurrogate(text[i]) && i + 1 < text.Length ? char.ConvertToUtf32(text[i], text[++i]) : text[i];
+            if (char.IsWhiteSpace((char)Math.Min(cp, 0xffff)) || cp is 0x200d or 0xfe0f)
+                continue;
+            if (!chain.Exists(f => f.HasChar((long)cp)))
+                return false;
+        }
+        return true;
     }
 }
 

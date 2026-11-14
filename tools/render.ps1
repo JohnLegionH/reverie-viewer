@@ -595,6 +595,8 @@ function Invoke-UiSceneCases {
     if ($UiSceneOnly) { $scenes = @($scenes | Where-Object { $_ -eq $UiSceneOnly }) }
     foreach ($sc in $scenes) { $plan += ,@($sc, "classic") }
     foreach ($sc in @("login", "inworld", "preferences-graphics")) { if (-not $UiSceneOnly -or $sc -eq $UiSceneOnly) { $plan += ,@($sc, "high-contrast") } }
+    # the Reverie top bar (100 % and 200 %, and with the World menu open) and the component gallery, in the dark and the light variant
+    foreach ($sc in @("reverie-topbar-100", "reverie-topbar-200", "reverie-topbar-menu", "reverie-gallery")) { foreach ($look in @("reverie-dark", "reverie-light")) { if (-not $UiSceneOnly -or $sc -eq $UiSceneOnly) { $plan += ,@($sc, $look) } } }
     foreach ($be in $Backends) {
         foreach ($item in $plan) {
             $sc = $item[0]; $look = $item[1]; $name = "ui_${sc}_${look}_$be"

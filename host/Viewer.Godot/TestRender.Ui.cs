@@ -60,8 +60,10 @@ public partial class TestRender
     /// </summary>
     private async Task<int> UiSceneRun(string scene, string look, bool wrongToken, string? golden)
     {
+        if (Array.IndexOf(ReverieScenes, scene) >= 0)
+            return await ReverieSceneRun(scene, look, golden);   // the Reverie top bar and component gallery (TestRender.Reverie.cs)
         if (Array.IndexOf(UiScenes, scene) < 0)
-            throw new ArgumentException("--tr-ui must be one of " + string.Join(", ", UiScenes));
+            throw new ArgumentException("--tr-ui must be one of " + string.Join(", ", UiScenes) + ", " + string.Join(", ", ReverieScenes));
         var strings = StringTable.English();
         var tokens = ThemePresets.Get(look);
         if (wrongToken)

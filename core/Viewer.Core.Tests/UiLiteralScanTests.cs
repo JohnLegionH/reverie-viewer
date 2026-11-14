@@ -68,7 +68,7 @@ public class UiLiteralScanTests
         {
             string name = Path.GetFileName(f);
             if (name.StartsWith("TestRender", StringComparison.Ordinal) || name.StartsWith("S1Smoke", StringComparison.Ordinal)
-                || name is "ShellTheme.cs")
+                || name is "ShellTheme.cs" or "ReverieStyle.cs")
                 continue;
             yield return f;
         }
