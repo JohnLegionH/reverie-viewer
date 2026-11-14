@@ -294,6 +294,9 @@ public partial class ShellRoot : Control
             Shell.Commands.Execute(command);
     }
 
+    /// <summary>An entry of an add-on dock button's menu chosen (the automation's check chooses one as the pointer does).</summary>
+    public void DockMenuChoose(DockItem item, int index) => AddonDockUsed?.Invoke(item, index);
+
     /// <summary>A dock button's menu (its arrow or a right-click), above the button.</summary>
     private void OpenDockMenu(DockItem item, Vector2 at)
     {

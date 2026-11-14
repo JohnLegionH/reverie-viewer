@@ -120,6 +120,10 @@ public partial class AutomationHost : Node
                 return m.LoginScreenCall(action, Str(call.Body, "login_uri"), name, password, Flag("remember"), Flag("use_saved"), Str(call.Body, "start")) is { } screen
                     ? AutomationReply.Ok(screen) : AutomationReply.Error(409, "no login screen");
             }
+            case "topbar":   // {action: state|hover_all|click|type, index?, text?}: the top bar and the dock as a person meets them (development builds only)
+                return await m.TopBarCall(Str(call.Body, "action") ?? "state", Str(call.Body, "text"), (int)Num(call.Body, "index", 0)) is { } tb ? AutomationReply.Ok(tb) : AutomationReply.Error(409, "no shell");
+            case "dock":   // {id, owner?, menu?}: a dock button clicked, or an entry of its menu chosen (development builds only)
+                return m.DockCall(Str(call.Body, "id") ?? "", Str(call.Body, "owner"), (int)Num(call.Body, "menu", -1)) is { } dk ? AutomationReply.Ok(dk) : AutomationReply.Error(409, "no shell");
             case "menus":   // the top menu open now, the menus on screen, the inventory's item menu and selection
                 return AutomationReply.Ok(m.MenuState());
             case "prefs_layout":   // {page}: Preferences opened on a page; each control's top and bottom against the page's visible height (development builds only)
