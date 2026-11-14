@@ -21,8 +21,9 @@ public partial class Main
     /// person's arrive, to the inventory window: the pointer moved over five closed folders (none may open), a click on one folder's
     /// arrow (it opens), a click on a name (selects, toggles nothing), a double-click on a name (toggles), a right-click on the suitcase
     /// folder (its menu shows, nothing opens or closes), Right and Left on the keyboard, an item dragged over a closed folder and held
-    /// there (it opens after the official delay, not before), then Esc. Offline it binds a made-up inventory; in world it uses the real
-    /// one, reading only (the drag is cancelled before its button is let go, so nothing is moved). Answers flags, counts and times only.
+    /// there for 2 s (it stays closed; the folder shows the drop-target outline and its text, the dragged row the dashed outline), the
+    /// drop (the item moves into the closed folder), then Esc. Offline it binds a made-up inventory; in world it uses the real one and
+    /// moves one item into a closed folder and back again. Answers flags, counts and times only.
     /// </summary>
     private async Task<object> PointerCheck(InventoryPanel panel, bool live)
     {
@@ -39,7 +40,7 @@ public partial class Main
             suitcase = top.FirstOrDefault(f => f.Name == "My Suitcase")?.Id ?? Guid.Empty;
             // folders with contents first: an empty folder that is open has no arrow to close it with
             folders = top.Where(f => f.Id != suitcase).OrderByDescending(f => f.DescendentCount).Select(f => f.Id).Take(5).ToList();
-            dragItem = Guid.Empty;
+            dragItem = Guid.Empty;   // chosen below, from a folder's contents once they have arrived
         }
         else
         {
@@ -143,8 +144,10 @@ public partial class Main
             await Wait(0.5);
             int openedByHover = present.Count(Expanded);
 
-            // 2. a click on a name selects it and toggles nothing
-            Guid first = present[0];
+            // 2. a click on a name selects it and toggles nothing; the folder used for this and for the arrow is one with contents,
+            // because an empty folder that is open has no arrow to close it with
+            Guid first = present.FirstOrDefault(f => model.Folder(f)?.DescendentCount > 0);
+            if (first == Guid.Empty) first = present[0];
             await Click(NameAt((await Shown(first))!));
             bool nameSelects = panel.SelectedItem == first && !Expanded(first);
 
@@ -223,16 +226,27 @@ public partial class Main
             Key(global::Godot.Key.Left); await Wait(0.3);
             bool leftKeyToParent = panel.SelectedItem == model.RootId;
 
-            // 7. a dragged item held over a closed folder opens it after the official delay, not before
-            bool? openBeforeDelay = null, openAfterDelay = null, dragStarted = null, heldAfterPress = null;
-            string? seenMid = null;
+            // 7. an item dragged over a closed folder and held there 2 s: the folder stays closed, shows the drop-target outline and its
+            // text, the dragged row the dashed outline; the drop moves the item into the closed folder
+            bool? openWhileHeld = null, outlineShown = null, sourceDashed = null, dragStarted = null, heldAfterPress = null, droppedIn = null, movedBack = null;
+            string? seenMid = null, dropText = null;
             int dropsMoved = 0;
-            Guid target = present.Count > 2 ? present[2] : present[^1];
-            if (await Shown(target) is null) { }
-            TreeItem? source = dragItem != Guid.Empty ? Row(dragItem) : present.Count > 3 && Row(present[3]) is { } p3 ? p3 : null;
-            if (source is not null && Row(target) is { } tgt)
+            Guid target = present.Where(f => f != first).Skip(1).FirstOrDefault();
+            if (target == Guid.Empty) target = present[^1];
+            Guid home = Guid.Empty;
+            if (live)
             {
-                int opensBefore = tree.DragOpens;
+                // an item from the first folder's contents (its row drawn), never one from the target folder
+                if (await Shown(first) is { } fr && fr.Collapsed) { panel.Activate(first); await Loaded(first); }
+                dragItem = model.ChildItems(first).Select(i => i.Id).FirstOrDefault(id => Row(id) is not null);
+                home = dragItem != Guid.Empty ? model.Item(dragItem)?.ParentId ?? Guid.Empty : Guid.Empty;
+            }
+            else if (dragItem != Guid.Empty)
+                home = model.Item(dragItem)?.ParentId ?? Guid.Empty;
+            if (Row(target) is { Collapsed: false } openTarget) { openTarget.Collapsed = true; await Frames(2); }
+            TreeItem? source = dragItem != Guid.Empty ? await Shown(dragItem) : null;
+            if (source is not null && Row(target) is not null)
+            {
                 var from = NameAt(source);
                 Move(from); await Frames(1);
                 Button(from, MouseButton.Left, true); await Frames(1);
@@ -244,21 +258,44 @@ public partial class Main
                 // the engine places an injected pointer elsewhere while it drags, so the tree is told where the pointer is held
                 tree.HoldDragAt(tree.GetGlobalTransformWithCanvas().AffineInverse() * over);
                 var t0 = Time.GetTicksMsec();
-                while (Time.GetTicksMsec() - t0 < 450) { Move(over + new Vector2((Time.GetTicksMsec() % 2) * 2, 0), leftHeld: true); await Frames(1); }
-                openBeforeDelay = Expanded(target);
-                seenMid = tree.DragSeen.ToString();
-                while (Time.GetTicksMsec() - t0 < 1000) { Move(over + new Vector2((Time.GetTicksMsec() % 2) * 2, 0), leftHeld: true); await Frames(1); }
+                bool everOpen = false;
+                while (Time.GetTicksMsec() - t0 < 2000)
+                {
+                    Move(over + new Vector2((Time.GetTicksMsec() % 2) * 2, 0), leftHeld: true);
+                    await Frames(1);
+                    everOpen |= Expanded(target) || Row(target) is { Collapsed: false };
+                }
                 await Frames(2);
-                openAfterDelay = Expanded(target) && tree.DragOpens > opensBefore;
+                openWhileHeld = everOpen || Expanded(target);
+                outlineShown = tree.Cue.Target == target;
+                sourceDashed = tree.Cue.Source == dragItem;
+                dropText = tree.DropText;
+                seenMid = tree.DragSeen.ToString();
                 tree.HoldDragAt(null);
-                GetViewport().GuiCancelDrag();   // the drop is made below as the tree's drop does; on the real inventory nothing is moved
-                var dropAt = Row(target) is { } t2 ? NameAt(t2) : over;
-                Button(dropAt, MouseButton.Left, false);
+                GetViewport().GuiCancelDrag();   // the drop is made below as the tree's drop hands it on
+                Button(over, MouseButton.Left, false);
                 await Wait(0.3);
-                if (!live && dragItem != Guid.Empty)
-                    panel.Drop(dragItem, target);   // the drop, as the tree hands it on
-                await Wait(0.3);
-                dropsMoved = moves.Count;
+                int before = moves.Count;
+                panel.Drop(dragItem, target);   // into the closed folder
+                if (live)
+                {
+                    for (int i = 0; i < 20 && model.Item(dragItem)?.ParentId != target; i++) await Wait(0.25);
+                    droppedIn = model.Item(dragItem)?.ParentId == target && !Expanded(target);
+                    dropsMoved = droppedIn == true ? 1 : 0;
+                }
+                else
+                {
+                    await Wait(0.3);
+                    dropsMoved = moves.Count - before;   // the made-up inventory records the move it was asked for
+                    droppedIn = dropsMoved == 1 && !Expanded(target);
+                }
+                if (live && droppedIn == true && home != Guid.Empty)
+                {
+                    // the test account's inventory is left as it was: the item goes back where it came from
+                    panel.Drop(dragItem, home);
+                    for (int i = 0; i < 20 && model.Item(dragItem)?.ParentId != home; i++) await Wait(0.25);
+                    movedBack = model.Item(dragItem)?.ParentId == home;
+                }
             }
 
             // 8. Esc closes the focused window
@@ -275,8 +312,8 @@ public partial class Main
                 double_click_toggles = doubleToggles,
                 suitcase = suitcase != Guid.Empty, right_click_menu = menuShows, right_click_selects = rightSelects, right_click_toggled = rightToggled,
                 key_right_opens = rightKeyOpens, key_left_closes = leftKeyCloses, key_left_to_parent = leftKeyToParent,
-                drag_open_before_delay = openBeforeDelay, drag_open_after_delay = openAfterDelay, drag_opens = tree.DragOpens,
-                drag_started = dragStarted, drag_seen = seenMid, target_row = Row(target) is { } tr ? RowRect(tr).ToString() : null, tree_rect = tree.GetGlobalRect().ToString(), held_after_press = heldAfterPress,
+                drag_open_while_held = openWhileHeld, drag_outline_on_target = outlineShown, drag_source_dashed = sourceDashed, drag_text = dropText,
+                drag_started = dragStarted, drag_seen = seenMid, dropped_into_closed_folder = droppedIn, moved_back = movedBack, target_row = Row(target) is { } tr ? RowRect(tr).ToString() : null, tree_rect = tree.GetGlobalRect().ToString(), held_after_press = heldAfterPress,
                 drops_moved = dropsMoved, drag_still_running = GetViewport().GuiIsDragging(),
                 esc_closed_window = closedByEsc,
             };

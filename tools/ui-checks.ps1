@@ -199,10 +199,10 @@ try {
     $pc = Api $v "inventory_view" '{"action":"pointer"}'
     Record "folders_click_only" ($pc.opened_by_hover -eq 0 -and $pc.folders_hovered -ge 5 -and $pc.name_click_selects_without_toggle -and $pc.arrow_click_opens -and $pc.arrow_click_closes -and $pc.double_click_toggles -and
         $pc.right_click_menu -and $pc.right_click_selects -and $pc.right_click_toggled -eq $false -and $pc.key_right_opens -and $pc.key_left_closes -and $pc.key_left_to_parent -and
-        $pc.drag_open_before_delay -eq $false -and $pc.drag_open_after_delay -and $pc.drops_moved -eq 1 -and -not $pc.drag_still_running -and $pc.esc_closed_window) `
+        $pc.drag_open_while_held -eq $false -and $pc.drag_outline_on_target -and $pc.drag_source_dashed -and $pc.drag_text -eq "Drop to move here" -and $pc.dropped_into_closed_folder -and $pc.drops_moved -eq 1 -and -not $pc.drag_still_running -and $pc.esc_closed_window) `
         ("hovered $($pc.folders_hovered) folders, opened by hover $($pc.opened_by_hover); name click selects only $($pc.name_click_selects_without_toggle); arrow opens $($pc.arrow_click_opens) closes $($pc.arrow_click_closes) (x tried [$(@($pc.arrow_x_tried) -join ',')]); " +
          "double-click toggles $($pc.double_click_toggles); right-click on My Suitcase: menu $($pc.right_click_menu), selected $($pc.right_click_selects), toggled $($pc.right_click_toggled); keys Right opens $($pc.key_right_opens), Left closes $($pc.key_left_closes), Left to parent $($pc.key_left_to_parent); " +
-         "drag started $($pc.drag_started) (button held $($pc.held_after_press); seen $($pc.drag_seen); target $($pc.target_row) tree $($pc.tree_rect)), held: open at 0.45 s $($pc.drag_open_before_delay), at 1 s $($pc.drag_open_after_delay), drops moved $($pc.drops_moved), drag left running $($pc.drag_still_running); Esc closed the window $($pc.esc_closed_window) $($pc.refused)")
+         "drag started $($pc.drag_started) (button held $($pc.held_after_press); seen $($pc.drag_seen); target $($pc.target_row) tree $($pc.tree_rect)), held 2 s over a closed folder: opened $($pc.drag_open_while_held), drop-target outline $($pc.drag_outline_on_target), text [$($pc.drag_text)], dragged row dashed $($pc.drag_source_dashed); dropped into the closed folder $($pc.dropped_into_closed_folder), drops moved $($pc.drops_moved), drag left running $($pc.drag_still_running); Esc closed the window $($pc.esc_closed_window) $($pc.refused)")
     # Enter in the password field starts a login: with a name and no password it stops at the missing password
     $before = Api $v "login_screen" '{"action":"state"}'
     [void](Api $v "login_screen" @{ action = "submit"; name = "Test User"; login_uri = "https://grid.example.org:8002/" })
@@ -318,10 +318,10 @@ if ($Live) {
             $pl = Api $v "inventory_view" '{"action":"pointer_live"}'
             Record "folders_click_only_live" ($pl.opened_by_hover -eq 0 -and $pl.folders_hovered -ge 1 -and $pl.name_click_selects_without_toggle -and $pl.arrow_click_opens -and $pl.arrow_click_closes -and
                 ($pl.right_click_menu -or -not $pl.suitcase) -and $pl.right_click_toggled -ne $true -and $pl.key_right_opens -and $pl.key_left_closes -and
-                ($null -eq $pl.drag_open_after_delay -or ($pl.drag_open_before_delay -eq $false -and $pl.drag_open_after_delay)) -and -not $pl.drag_still_running) `
+                $pl.drag_open_while_held -eq $false -and $pl.drag_outline_on_target -and $pl.drag_source_dashed -and $pl.drag_text -eq "Drop to move here" -and $pl.dropped_into_closed_folder -and $pl.moved_back -and -not $pl.drag_still_running) `
                 ("hovered $($pl.folders_hovered) folders, opened by hover $($pl.opened_by_hover); name click selects only $($pl.name_click_selects_without_toggle); arrow opens $($pl.arrow_click_opens) closes $($pl.arrow_click_closes) (a folder holding $($pl.arrow_folder_contents)); double-click toggles $($pl.double_click_toggles); " +
                  "My Suitcase present $($pl.suitcase): right-click menu $($pl.right_click_menu), selected $($pl.right_click_selects), toggled $($pl.right_click_toggled); keys Right $($pl.key_right_opens) Left $($pl.key_left_closes) parent $($pl.key_left_to_parent); " +
-                 "a folder dragged (started $($pl.drag_started)) and held over a closed one: open at 0.45 s $($pl.drag_open_before_delay), at 1 s $($pl.drag_open_after_delay) (cancelled, nothing moved: moves $($pl.drops_moved)); Esc closed $($pl.esc_closed_window) $($pl.refused)")
+                 "an item dragged (started $($pl.drag_started)) and held 2 s over a closed folder: opened $($pl.drag_open_while_held), drop-target outline $($pl.drag_outline_on_target), text [$($pl.drag_text)], dragged row dashed $($pl.drag_source_dashed); dropped into the closed folder $($pl.dropped_into_closed_folder), moved back $($pl.moved_back); Esc closed $($pl.esc_closed_window) $($pl.refused)")
 
             # the main windows opened once each and captured
             $shots = Join-Path $Sandbox "windows"

@@ -44,9 +44,9 @@ public static class InventoryFeature
 /// <summary>
 /// The tree: rows can be dragged and dropped on a folder (or on an item, which means its folder). Folders open and close on a click
 /// only (<see cref="FolderTreeInput"/>): the engine's own unfolding of folders under a drag is off, because it also unfolded them
-/// under a pointer that merely passed over while the engine still thought a drag was going on; instead a closed folder opens when a
-/// dragged item is held over it with the button down for the official delay (<see cref="DragAutoOpen"/>), and a drag whose button
-/// is no longer held is ended. A right press is taken here before the engine sees it, so it selects its row and asks for the menu
+/// under a pointer that merely passed over while the engine still thought a drag was going on. Nothing opens a folder during a drag:
+/// the folder under the pointer gets the drop-target outline and the text "Drop to move here", the dragged row a dashed outline
+/// (<see cref="DragFeedback"/>), and a drop on a closed folder moves the item into it. A drag whose button is no longer held is ended. A right press is taken here before the engine sees it, so it selects its row and asks for the menu
 /// without toggling the folder. Left and Right keys follow the official folder view.
 /// </summary>
 public partial class InventoryTree : Tree
@@ -63,15 +63,22 @@ public partial class InventoryTree : Tree
     /// <summary>Whether a row is a folder (the panel answers from the model; an empty folder has no child rows).</summary>
     public Func<Guid, bool>? IsFolder;
 
-    private readonly DragAutoOpen _dragOpen = new();
+    /// <summary>The text drawn on the drop-target folder.</summary>
+    public string DropText { get; set; } = "";
 
     public InventoryTree()
     {
         EnableDragUnfolding = false;
     }
 
-    /// <summary>Folders opened by a held drag (the automation's count).</summary>
-    public int DragOpens { get; private set; }
+    /// <summary>What the tree marks for the drag going on (the automation reads it).</summary>
+    public DropCue Cue { get; private set; }
+
+    // a cue held in place by a render case (no drag is going on in a still picture); null: from the drag
+    private DropCue? _heldCue;
+
+    /// <summary>Shows a drag's marks without a drag, for a still picture of the window (null: back to the drag's own).</summary>
+    internal void HoldCue(DropCue? cue) { _heldCue = cue; Cue = cue ?? default; QueueRedraw(); }
 
     /// <summary>What the last frame saw of a drag (the automation's figures): dragging, button held, over the tree, a folder under the pointer.</summary>
     public (bool Dragging, bool Held, Vector2? At, bool Folder) DragSeen { get; private set; }
@@ -134,32 +141,86 @@ public partial class InventoryTree : Tree
         var vp = GetViewport();
         bool dragging = vp.GuiIsDragging();
         bool held = Input.IsMouseButtonPressed(MouseButton.Left);
-        if (DragAutoOpen.IsStaleDrag(dragging, held))
+        if (DragFeedback.IsStaleDrag(dragging, held))
         {
             vp.GuiCancelDrag();   // a drag the engine never ended: hovering must not drag or open anything
             dragging = false;
         }
-        Guid under = Guid.Empty;
-        bool closed = false;
+        Guid under = Guid.Empty, dragged = Guid.Empty;
         Vector2? pointer = _dragAt ?? (GetGlobalRect().HasPoint(GetGlobalMousePosition()) ? GetLocalMousePosition() : null);
-        if (dragging && IsVisibleInTree() && pointer is { } at)
+        if (dragging)
         {
-            var item = GetItemAtPosition(at);
-            if (item is not null && item.GetFirstChild() is not null)
-            {
-                under = IdOf(item);
-                closed = item.Collapsed;
-            }
+            var data = vp.GuiGetDragData();
+            if (data.VariantType == Variant.Type.String && Guid.TryParse(data.AsString(), out var g))
+                dragged = g;
         }
+        if (dragging && IsVisibleInTree() && pointer is { } at)
+            under = FolderRowAt(at);
         DragSeen = (dragging, held, pointer, under != Guid.Empty);
-        var open = _dragOpen.Step(under, closed, dragging, held, (long)Time.GetTicksMsec());
-        if (open == Guid.Empty)
+        if (_heldCue is not null)
             return;
-        var row = pointer is { } now ? GetItemAtPosition(now) : null;
-        if (row is not null && IdOf(row) == open)
+        bool canDrop = dragged != Guid.Empty && under != Guid.Empty && (CanDropOn?.Invoke(dragged, under) ?? false);
+        var cue = DragFeedback.During(dragged, under, canDrop, dragging, held);
+        if (cue != Cue)
         {
-            row.Collapsed = false;   // raises the collapse signal, which opens it in the view model too
-            DragOpens++;
+            Cue = cue;
+            QueueRedraw();
+        }
+    }
+
+    // the folder a drop at this place goes into: the folder row under it, or the folder of the item row under it
+    private Guid FolderRowAt(Vector2 at)
+    {
+        var item = GetItemAtPosition(at);
+        var id = IdOf(item);
+        if (id == Guid.Empty)
+            return Guid.Empty;
+        if (IsFolder?.Invoke(id) ?? item!.GetFirstChild() is not null)
+            return id;
+        var parent = item!.GetParent();
+        return parent is not null && parent != GetRoot() ? IdOf(parent) : Guid.Empty;
+    }
+
+    private TreeItem? RowOf(Guid id)
+    {
+        for (var item = GetRoot(); item is not null; item = item.GetNextVisible())
+            if (IdOf(item) == id)
+                return item;
+        return null;
+    }
+
+    // a row's rectangle across the whole tree, in the tree's own coordinates; null when it is not drawn (scrolled away, or in a closed folder)
+    private Rect2? RowArea(Guid id)
+    {
+        if (id == Guid.Empty || RowOf(id) is not { } item)
+            return null;
+        var r = GetItemAreaRect(item, -1);
+        if (r.Size.Y <= 0)
+            return null;
+        return new Rect2(new Vector2(1, r.Position.Y), new Vector2(Size.X - 2, r.Size.Y));
+    }
+
+    public override void _Draw()
+    {
+        // drawn over the rows: the drop target's outline and its text, and a dashed outline on the dragged row (the spec's drag look)
+        var accent = GetThemeColor("font_selected_color", "Tree");
+        if (RowArea(Cue.Source) is { } src)
+        {
+            var a = src.Position; var b = src.End;
+            DrawDashedLine(a, new Vector2(b.X, a.Y), accent, 1.5f, 4f);
+            DrawDashedLine(new Vector2(b.X, a.Y), b, accent, 1.5f, 4f);
+            DrawDashedLine(b, new Vector2(a.X, b.Y), accent, 1.5f, 4f);
+            DrawDashedLine(new Vector2(a.X, b.Y), a, accent, 1.5f, 4f);
+        }
+        if (RowArea(Cue.Target) is { } dst)
+        {
+            DrawRect(dst, accent, filled: false, width: 2f);
+            var font = GetThemeFont("font", "Tree");
+            int size = GetThemeFontSize("font_size", "Tree");
+            string text = DropText.Length > 0 ? DropText : DragFeedback.TextKey;
+            float w = font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X;
+            float y = dst.Position.Y + (dst.Size.Y + font.GetAscent(size) - font.GetDescent(size)) / 2;
+            DrawString(font, new Vector2(dst.End.X - w - 8, y), text, HorizontalAlignment.Left, -1, size, accent);
         }
     }
 
@@ -282,6 +343,7 @@ public partial class InventoryPanel : VBoxContainer
             SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.All,
         };
         TreeView.AccessibilityName = strings.Get("inventory.tree");
+        TreeView.DropText = strings.Get(DragFeedback.TextKey);
         TreeView.ItemCollapsed += OnItemCollapsed;
         TreeView.ItemSelected += OnItemSelected;
         TreeView.ItemEdited += OnItemEdited;

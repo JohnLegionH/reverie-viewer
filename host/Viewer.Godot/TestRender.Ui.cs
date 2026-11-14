@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using Viewer.Core.Actions;
@@ -18,6 +19,28 @@ public partial class TestRender
 {
     /// <summary>The clock text every interface picture shows, so pictures taken hours apart match.</summary>
     private const string TestClockText = "12:00 PM";
+
+    /// <summary>
+    /// The inventory scene's content: a small made-up inventory with an item being dragged over a closed folder, so the picture shows
+    /// the drag look (the drop-target outline with its text on the folder, the dashed outline on the dragged row). The marks are held in
+    /// place, because a still picture has no drag going on.
+    /// </summary>
+    private static void ExampleInventoryDrag(InventoryPanel panel)
+    {
+        Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        Guid owner = G(1), root = G(2), libraryOwner = G(3), libraryRoot = G(4), note = G(20);
+        var model = new Viewer.Core.Inventory.InventoryModel((_, _) => { });
+        Viewer.Core.Inventory.InventoryFolderData F(Guid id, string name, Viewer.Core.Inventory.FolderKind kind = Viewer.Core.Inventory.FolderKind.None) =>
+            new(id, id == root ? Guid.Empty : root, name, kind, 1, id == root ? -1 : 1);
+        var tops = new[] { F(G(10), "Clothing"), F(G(11), "Landmarks"), F(G(12), "Notecards"), F(G(13), "Objects") };
+        model.Apply(new Viewer.Core.Inventory.InventorySkeletonReceived(owner, root, libraryOwner, libraryRoot,
+            new[] { F(root, "My Inventory", Viewer.Core.Inventory.FolderKind.Root) }.Concat(tops).ToArray(),
+            new[] { new Viewer.Core.Inventory.InventoryFolderData(libraryRoot, Guid.Empty, "Library", Viewer.Core.Inventory.FolderKind.Root, 1, 0) }));
+        model.Apply(new Viewer.Core.Inventory.InventoryFolderFetched(root, true, 2, tops.Length + 1, tops,
+            new[] { new Viewer.Core.Inventory.InventoryItemData(note, root, "Welcome note", Viewer.Core.Inventory.ItemKind.Notecard, 7, 7, 0, null) }));
+        panel.Bind(model, _ => new ActionResult(ActionStatus.Sent));
+        panel.TreeView.HoldCue(new Viewer.Shell.Inventory.DropCue(note, G(13)));
+    }
 
     /// <summary>The picture size of the interface scenes.</summary>
     private const int UiWidth = 960, UiHeight = 600;
@@ -78,7 +101,9 @@ public partial class TestRender
             default:
                 var chat = ChatFeature.Install(shell, settings);
                 PeopleFeature.Install(shell, settings, chat.Conversations);
-                InventoryFeature.Install(shell);
+                var inventoryPanel = InventoryFeature.Install(shell);
+                if (scene == "inventory")
+                    ExampleInventoryDrag(inventoryPanel);
                 OutfitFeature.Install(shell);
                 var appearancePanel = AppearanceFeature.Install(shell, redrawGapMs: 0);
                 if (scene.StartsWith("appearance", StringComparison.Ordinal))

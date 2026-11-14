@@ -198,7 +198,7 @@ public partial class Main : Node
         var startSettings = UserSettings(settingsDir);   // read once; chat and later features take their settings from it
         var strings = OS.GetCmdlineUserArgs().Contains("--pseudo-loc") ? StringTable.Pseudo() : StringTable.ForSetting(startSettings.GetText(Settings.UiLanguageKey));
         _strings = strings;
-        GetWindow().Title = BrandText.WindowTitle(strings);   // the viewer's name only, as the official viewer's window
+        GetWindow().Title = BrandText.WindowTitle();   // the viewer's name only, as the official viewer's window
         if (RestartForBackend(startSettings))
             return;   // started again with the backend that was chosen; this copy quits
         var decision = StartupCheck.Run(Log);

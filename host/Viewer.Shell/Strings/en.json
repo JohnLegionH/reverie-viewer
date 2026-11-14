@@ -358,6 +358,7 @@
   "toolbar.inventory": "Inventory",
   "inventory.title": "Inventory",
   "inventory.tree": "Inventory folders and items",
+  "inventory.drop.here": "Drop to move here",
   "inventory.search.label": "Search inventory",
   "inventory.search.hint": "Search by name",
   "inventory.sort.label": "Sort order",

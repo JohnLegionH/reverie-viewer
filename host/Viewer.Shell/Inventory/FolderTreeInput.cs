@@ -47,58 +47,30 @@ public static class FolderTreeInput
     };
 }
 
+/// <summary>What a drag going on over the inventory tree shows: the row being dragged (drawn with a dashed outline), and the
+/// folder it would move into (drawn with the drop-target outline and the text "Drop to move here"). Guid.Empty where there is none.</summary>
+public readonly record struct DropCue(Guid Source, Guid Target);
+
 /// <summary>
-/// Opens a closed folder that a dragged item is held over, after the official viewer's FolderAutoOpenDelay (0.75 s in its
-/// settings.xml; indra/llui/llfolderviewitem.cpp opens the folder under a drag once its timer passes that). Only a real drag counts:
-/// the drag is going on and its mouse button is still held. A drag the engine still thinks is going on after the button was let go
-/// is stale: it opens nothing and is to be ended, so a pointer passing over folders never opens them.
+/// The inventory tree's look during a drag. A folder never opens because something is dragged over it, however long it is held there
+/// (the official viewer opens one after FolderAutoOpenDelay; this viewer does not): the folder under the pointer is only marked as the
+/// drop target, and a drop on it moves the item in whether the folder is open or closed. Only a real drag counts: the drag is going on
+/// and its mouse button is still held. A drag the engine still thinks is going on after the button was let go is stale and is ended.
 /// </summary>
-public sealed class DragAutoOpen
+public static class DragFeedback
 {
-    public const double OfficialDelaySeconds = 0.75;
+    /// <summary>The string table's key for the text shown on the drop-target folder.</summary>
+    public const string TextKey = "inventory.drop.here";
 
-    private Guid _over;
-    private long _since;
-    private bool _fired;
-
-    public DragAutoOpen(double delaySeconds = OfficialDelaySeconds) => DelayMs = (long)Math.Round(Math.Max(0, delaySeconds) * 1000);
-
-    public long DelayMs { get; }
-
-    /// <summary>One look at what is under the pointer; returns the folder to open now, else Guid.Empty.</summary>
-    public Guid Step(Guid folderUnderPointer, bool folderClosed, bool dragging, bool buttonHeld, long nowMs)
+    /// <summary>What to mark: the dragged row, and the folder under the pointer when the item may move into it.</summary>
+    public static DropCue During(Guid dragged, Guid folderUnderPointer, bool canDrop, bool dragging, bool buttonHeld)
     {
-        if (!dragging || !buttonHeld || folderUnderPointer == Guid.Empty)
-        {
-            _over = Guid.Empty;
-            _fired = false;
-            return Guid.Empty;
-        }
-        if (folderUnderPointer != _over)
-        {
-            _over = folderUnderPointer;
-            _since = nowMs;
-            _fired = false;
-        }
-        if (_fired || !folderClosed || nowMs - _since < DelayMs)
-            return Guid.Empty;
-        _fired = true;
-        return _over;
+        if (!dragging || !buttonHeld || dragged == Guid.Empty)
+            return default;
+        bool target = canDrop && folderUnderPointer != Guid.Empty && folderUnderPointer != dragged;
+        return new DropCue(dragged, target ? folderUnderPointer : Guid.Empty);
     }
 
     /// <summary>The engine thinks a drag is going on but no button is held: it was never ended and is to be cancelled.</summary>
     public static bool IsStaleDrag(bool dragging, bool buttonHeld) => dragging && !buttonHeld;
-}
-
-/// <summary>What a drag going on over the inventory tree shows: the row being dragged, and the folder it would move into.</summary>
-public readonly record struct DropCue(Guid Source, Guid Target);
-
-/// <summary>The inventory tree's look during a drag.</summary>
-public static class DragFeedback
-{
-    public const string TextKey = "";
-
-    public static DropCue During(Guid dragged, Guid folderUnderPointer, bool canDrop, bool dragging, bool buttonHeld) => default;
-
-    public static bool IsStaleDrag(bool dragging, bool buttonHeld) => false;
 }

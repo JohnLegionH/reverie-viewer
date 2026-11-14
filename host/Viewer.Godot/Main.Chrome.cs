@@ -33,7 +33,7 @@ public partial class Main
     private void ApplyBranding(GridBranding branding)
     {
         _shell?.SetBrand(branding.Name);
-        if (_strings is not null) GetWindow().Title = BrandText.WindowTitle(_strings);
+        GetWindow().Title = BrandText.WindowTitle();
         _loginScreen?.ApplyBranding(branding);
         _gridAccent = branding.Accent;
         _preferences?.SetGridAccent(branding.Accent);
