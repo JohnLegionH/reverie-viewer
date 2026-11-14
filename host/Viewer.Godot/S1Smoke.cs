@@ -320,12 +320,21 @@ public partial class S1Smoke : Node
                 problems.Add("Noto Sans is not attached to the interface font");
             if (!chain.HasChar(0x0915))
                 problems.Add("a Devanagari letter has no font in the interface font's chain");
+            static float Line(Font font, int size, string text)
+            {
+                var line = new TextLine();
+                line.AddString(text, font, size);
+                return line.GetSize().Y;
+            }
             foreach (int size in new[] { 11, 12, 13, 14 })
             {
                 float want = inter.GetHeight(size), got = chain.GetHeight(size);
-                heights[size.ToString(System.Globalization.CultureInfo.InvariantCulture)] = new[] { want, got };
+                float latinWant = Line(inter, size, "Reverie Ag"), latinGot = Line(chain, size, "Reverie Ag"), mixedGot = Line(chain, size, "Reverie क");
+                heights[size.ToString(System.Globalization.CultureInfo.InvariantCulture)] = new[] { want, got, latinWant, latinGot, mixedGot };
                 if (Math.Abs(got - want) > 0.5f)
-                    problems.Add($"at {size} px a line is {got} high, Inter's is {want}");
+                    problems.Add($"at {size} px the font is {got} high, Inter's is {want}");
+                if (Math.Abs(latinGot - latinWant) > 0.5f || Math.Abs(mixedGot - latinWant) > 0.5f)
+                    problems.Add($"at {size} px a line is {latinGot} high ({mixedGot} with Devanagari), Inter's is {latinWant}");
             }
         }
         _result["font"] = new Dictionary<string, object?> { ["pass"] = problems.Count == 0, ["problems"] = problems, ["heights"] = heights };
