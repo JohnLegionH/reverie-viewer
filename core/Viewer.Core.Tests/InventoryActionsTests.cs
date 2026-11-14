@@ -307,6 +307,21 @@ public class InventoryActionsTests
     }
 
     [Fact]
+    public void A_drag_carries_the_whole_selection_when_the_dragged_row_is_in_it_and_only_that_row_otherwise()
+    {
+        Guid a = Guid.Parse("3f0a4c2e-7b1d-4e69-8a52-c0d1e2f3a4b5"), b = Guid.Parse("4a1b5d3f-8c2e-4f7a-9b63-d1e2f3a4b5c6"), c = Guid.Parse("5b2c6e4a-9d3f-4a8b-8c74-e2f3a4b5c6d7");
+        Assert.Equal(new[] { a, b, c }, InventoryDragSet.For(b, new[] { a, b, c }));
+        Assert.Equal(new[] { c }, InventoryDragSet.For(c, new[] { a, b }));
+        Assert.Equal(new[] { a }, InventoryDragSet.For(a, Array.Empty<Guid>()));
+        Assert.Equal(new[] { a, b }, InventoryDragSet.For(a, new[] { a, b, a }));
+        Assert.Empty(InventoryDragSet.For(Guid.Empty, new[] { a }));
+        Assert.Equal(new[] { a, b, c }, InventoryDragSet.Decode(InventoryDragSet.Encode(new[] { a, b, c })));
+        Assert.Equal(new[] { a }, InventoryDragSet.Decode(a.ToString()));   // a single id, as a drag from before carried it
+        Assert.Empty(InventoryDragSet.Decode("not an id"));
+        Assert.Empty(InventoryDragSet.Decode(null));
+    }
+
+    [Fact]
     public void A_folder_answer_that_left_before_the_move_does_not_put_the_item_back()
     {
         var r = new Rig();

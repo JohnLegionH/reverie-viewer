@@ -6,6 +6,16 @@ using Viewer.Core.Inventory;
 
 namespace Viewer.Shell.Inventory;
 
+/// <summary>What a drag in the inventory tree carries.</summary>
+public static class InventoryDragSet
+{
+    public static IReadOnlyList<Guid> For(Guid dragged, IReadOnlyList<Guid> selected) => Array.Empty<Guid>();
+
+    public static string Encode(IReadOnlyList<Guid> ids) => "";
+
+    public static IReadOnlyList<Guid> Decode(string? text) => Array.Empty<Guid>();
+}
+
 /// <summary>What became of a request to change the inventory: refused here (nothing submitted), or submitted to the pipeline.</summary>
 /// <param name="Code">The refusal's code (a string-table suffix) when refused; the pipeline's code otherwise (may be null).</param>
 public sealed record InventoryActionResult(bool Submitted, string? Code, ActionResult? Pipeline);
@@ -14,8 +24,8 @@ public sealed record InventoryActionResult(bool Submitted, string? Code, ActionR
 /// The folder actions of the inventory window: new folder, rename, move (drag and drop) and move to Trash. Each is checked
 /// against the rules the official viewer applies before it is offered (system folders are never renamed, moved or trashed;
 /// nothing goes into or out of the Library; a folder does not go into itself or its own contents; Lost And Found and Stock
-/// folders take no drops; Favorites takes landmarks only), then submitted through the action pipeline, then the affected folders
-/// are read again so the grid's answer settles what they hold. Nothing here purges or empties the Trash.
+/// folders take no drops; Favorites takes landmarks only), then submitted through the action pipeline. A move is shown at once
+/// and not read back, as the official viewer does; a new folder or a rename reads its folder again so the grid's answer settles it. Nothing here purges or empties the Trash.
 /// </summary>
 public sealed class InventoryActions
 {
@@ -152,14 +162,15 @@ public sealed class InventoryActions
     {
         if (WhyNotMove(id, newParent) is { } why)
             return Refused(why);
-        if (_model.Folder(id) is { } f)
-            return Run(new InventoryFolderMoveIntent(id, newParent), f.ParentId, newParent);
-        var item = _model.Item(id)!;
-        return Run(new InventoryMoveIntent(id, newParent), item.ParentId, newParent);
+        return _model.Folder(id) is not null
+            ? RunMove(new InventoryFolderMoveIntent(id, newParent), id, newParent)
+            : RunMove(new InventoryMoveIntent(id, newParent), id, newParent);
     }
 
-    /// <summary>Moves several items or folders into one folder.</summary>
-    public IReadOnlyList<InventoryActionResult> MoveMany(IReadOnlyList<Guid> ids, Guid newParent) => Array.Empty<InventoryActionResult>();
+    /// <summary>Moves several items or folders into one folder: each is checked and sent on its own, as the official viewer
+    /// sends one move per item, so one the rules refuse stays where it is and the others still move.</summary>
+    public IReadOnlyList<InventoryActionResult> MoveMany(IReadOnlyList<Guid> ids, Guid newParent) =>
+        ids.Distinct().Select(id => Move(id, newParent)).ToList();
 
     /// <summary>Moves to the Trash folder (it never purges). Asks for the user's confirmation first: <paramref name="confirmed"/>.</summary>
     public InventoryActionResult Trash(Guid id, bool confirmed)
@@ -169,10 +180,21 @@ public sealed class InventoryActions
         if (!confirmed)
             return Refused("inventory.not_confirmed");
         var trash = _model.FolderOfKind(FolderKind.Trash);
-        if (_model.Folder(id) is { } f)
-            return Run(new InventoryFolderTrashIntent(id, trash, true), f.ParentId, trash);
-        var item = _model.Item(id)!;
-        return Run(new InventoryTrashIntent(id, trash, true), item.ParentId, trash);
+        return _model.Folder(id) is not null
+            ? RunMove(new InventoryFolderTrashIntent(id, trash, true), id, trash)
+            : RunMove(new InventoryTrashIntent(id, trash, true), id, trash);
+    }
+
+    /// <summary>Submits a move (a drop or a move to Trash); when it was sent (or may have been), the move is shown at once and
+    /// neither folder is read again, as the official viewer does (LLInventoryModel::changeItemParent). A read straight after
+    /// the move can be answered before the grid has applied it, and would put the item back on screen.</summary>
+    private InventoryActionResult RunMove(ActionIntent intent, Guid id, Guid newParent)
+    {
+        var result = _submit(intent);
+        bool sent = result.Status is ActionStatus.Sent or ActionStatus.OutcomeUnknown;
+        if (sent)
+            _model.MoveLocally(id, newParent);
+        return new InventoryActionResult(sent, result.Code ?? (result.Issues is { Count: > 0 } issues ? issues[0].Code : null), result);
     }
 
     /// <summary>Submits one intent; when it was sent (or may have been), the folders it touches are read again.</summary>
