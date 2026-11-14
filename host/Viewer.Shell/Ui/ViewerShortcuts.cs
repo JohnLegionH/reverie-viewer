@@ -7,7 +7,8 @@ namespace Viewer.Shell;
 /// The official viewer's keyboard shortcuts (menu_viewer.xml, behaviour reference only) for the menu entries this viewer has. A menu entry
 /// added without a shortcut of its own takes its official one from here, so the menu shows it beside the entry and the menu bar runs the
 /// entry when it is pressed. Shortcuts whose feature is not built are listed in <see cref="NotBuilt"/>, so the gap is written down.
-/// The sky shortcuts (control+shift+O, Y, T, N, Z), Upload image (control+U) and Create (control+4) are wired where those features are.
+/// The sky shortcuts (control+shift+O, Y, T, N, Z), Upload image (control+U), Build (control+B), the Focus, Move, Edit and Create tools
+/// (control+1 to control+4), Link (control+L) and Unlink (control+shift+L) are wired where those features are.
 /// </summary>
 public static class ViewerShortcuts
 {
@@ -35,9 +36,7 @@ public static class ViewerShortcuts
         ("control|K", "Camera controls"),
         ("control|shift|S", "Snapshot"),
         ("control|grave", "Snapshot to disk"),
-        ("control|B", "Build"),
-        ("control|1", "Focus tool"), ("control|2", "Move tool"), ("control|3", "Edit tool"), ("control|5", "Land tool"),
-        ("control|L", "Places, and Link in the Build menu"), ("control|shift|L", "Unlink"),
+        ("control|5", "Land tool"),
         ("control|shift|I", "New inventory window"),
         ("control|alt|shift|N", "Beacons"), ("control|alt|shift|P", "Property lines"),
         ("control|period", "Select next part"), ("control|comma", "Select previous part"),

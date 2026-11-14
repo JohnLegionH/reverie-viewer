@@ -66,7 +66,7 @@ public class ShortcutAndMenuToggleTests
         Assert.Contains("control|f", notBuilt);           // Search
         Assert.Contains("control|k", notBuilt);           // Camera controls
         Assert.Contains("control|shift|s", notBuilt);     // Snapshot
-        Assert.Contains("control|b", notBuilt);           // Build
+        Assert.Contains("control|5", notBuilt);           // Land tool (Build, control+B, is built)
         Assert.Empty(notBuilt.Intersect(ViewerShortcuts.ByEntry.Values.Select(s => s.ToLowerInvariant())));
         Assert.All(ViewerShortcuts.NotBuilt, n => Assert.False(string.IsNullOrWhiteSpace(n.Feature)));
     }

@@ -29,7 +29,21 @@ public static class BuildMenu
     /// build mode the ticks show; <paramref name="hasSelection"/> enables Link and Unlink.</summary>
     public static void InstallEditing(MenuModel menus, Func<bool> inWorld, Func<Viewer.Shell.Build.EditController?> edit, Func<bool> hasSelection)
     {
+        if (!menus.Menus.Any(m => m.Id == MenuId))
+            menus.AddMenu(MenuId, "menu.build");
+        bool Tool(Viewer.Shell.Build.BuildTool t) => edit() is { BuildMode: true } e && e.Tool == t;
+        bool Selected() => inWorld() && hasSelection();
+        menus.AddEntry(MenuId, new MenuEntry(ToggleId, "menu.build.toggle", ToggleCommand, inWorld, ToggleOrder, () => edit()?.BuildMode ?? false, Shortcut: "control|B"));
+        menus.AddEntry(MenuId, new MenuEntry(FocusId, "menu.build.tool.focus", FocusCommand, inWorld, CreateOrder - 3, () => Tool(Viewer.Shell.Build.BuildTool.Focus), Shortcut: "control|1"));
+        menus.AddEntry(MenuId, new MenuEntry(MoveId, "menu.build.tool.move", MoveCommand, inWorld, CreateOrder - 2, () => Tool(Viewer.Shell.Build.BuildTool.Move), Shortcut: "control|2"));
+        menus.AddEntry(MenuId, new MenuEntry(EditId, "menu.build.tool.edit", EditCommand, inWorld, CreateOrder - 1, () => Tool(Viewer.Shell.Build.BuildTool.Edit), Shortcut: "control|3"));
+        menus.AddEntry(MenuId, new MenuEntry(EditLinkedId, "menu.build.edit_linked", EditLinkedCommand, inWorld, EditLinkedOrder, () => edit()?.EditLinked ?? false));
+        menus.AddEntry(MenuId, new MenuEntry(LinkId, "menu.build.link", LinkCommand, Selected, LinkOrder, Shortcut: "control|L"));
+        menus.AddEntry(MenuId, new MenuEntry(UnlinkId, "menu.build.unlink", UnlinkCommand, Selected, LinkOrder + 1, Shortcut: "control|shift|L"));
     }
+
+    /// <summary>The places of the edit entries: Build first, Edit Linked Parts and Link after the tools.</summary>
+    public const int ToggleOrder = 10, EditLinkedOrder = 30, LinkOrder = 40;
 
     /// <summary>Adds the Build menu and its entries; <paramref name="inWorld"/> enables them while the agent is in a region.</summary>
     public static void Install(MenuModel menus, Func<bool> inWorld)
