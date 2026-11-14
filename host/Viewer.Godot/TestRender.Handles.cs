@@ -16,7 +16,7 @@ namespace Viewer.Godot;
 /// --tr-handles=move|rotate|scale|grid: the edit tools' handles round a grey 1 x 2 x 0.5 m box, drawn by <see cref="HandleOverlay"/> from
 /// <see cref="Manipulator"/>'s lines as the viewer draws them: Move (arrows and plane handles, the +x arrow lit as under the pointer), Rotate (the
 /// three rings, the z ring lit), Stretch (the box with its corner and face boxes, the top north-east corner lit) and the grid (the Move handles
-/// while the +x arrow is dragged, with the 0.5 m grid 4 m each way). Checks: the lit handle shows (yellow pixels), the +x arrow's tip lies where its
+/// while the +x arrow is dragged, with the 0.5 m grid 2 m each way). Checks: the lit handle shows (yellow pixels), the +x arrow's tip lies where its
 /// 50-pixel rule puts it on screen, and with the camera twice as far the arrow is still that many pixels long (a fixed size on screen); against the
 /// golden when one is given. --tr-alter=nohandles draws the box alone: the negative control, which must fail.
 /// </summary>
@@ -60,7 +60,7 @@ public partial class TestRender
             {
                 lines.AddRange(Manipulator.Lines(manip, centre, NQuaternion.Identity, box, view, lit));
                 if (mode == "grid")
-                    lines.AddRange(Manipulator.GridLines(centre, NVector3.Zero, NQuaternion.Identity, 0.5f, 4f, 0.7f));
+                    lines.AddRange(Manipulator.GridLines(centre, NVector3.Zero, NQuaternion.Identity, 0.5f, 2f, 0.7f));
             }
             overlay.Show(lines, rig.Camera.GlobalPosition, rig.Camera.Fov, size.Y);
             // the +x arrow's length on screen, from the centre to its tip at 1.2 arrow lengths
