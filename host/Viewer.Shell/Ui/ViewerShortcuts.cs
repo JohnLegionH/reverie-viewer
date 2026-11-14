@@ -41,7 +41,6 @@ public static class ViewerShortcuts
         ("control|alt|shift|N", "Beacons"), ("control|alt|shift|P", "Property lines"),
         ("control|period", "Select next part"), ("control|comma", "Select previous part"),
         ("H", "Focus on selection"), ("shift|H", "Zoom to selection"),
-        ("G", "Snap to grid"), ("shift|X", "Snap object to grid"), ("shift|G", "Use selection for grid"), ("control|shift|B", "Grid options"),
         ("control|alt|R", "Rebake textures"), ("control|shift|2", "Scene load statistics"),
         ("control|D", "Duplicate"),
         ("control|Z", "Undo"), ("control|Y", "Redo"),

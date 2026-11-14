@@ -141,7 +141,7 @@
 #     powershell -NoProfile -File <repo>\tools\render.ps1 [-Propose] [-Measure] [-Residency] [-UploadBench] [-ShowPaths]
 # =====================================================================================
 [CmdletBinding()]
-param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "")
+param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$HandlesOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "")
 
 $ErrorActionPreference = "Stop"
 # The full render set is slow and takes the machine for a long time, so it never starts by accident: it needs -All. With no section
@@ -675,6 +675,34 @@ function Invoke-FloaterDragCases {
             Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $(@($c.steps).Count) steps$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
         }
     }
+}
+
+function Invoke-HandleCases {
+    # the edit tools' handles and grid round a box (--tr-handles=MODE), each against its golden on Vulkan: Move (arrows and plane handles), Rotate
+    # (rings), Stretch (corner and face boxes) and the grid while a Move arrow is dragged. Every case also checks that the lit handle shows and that
+    # the arrow keeps its length on screen with the camera twice as far. The negative control draws the box without its handles and MUST fail.
+    $be = "vulkan"
+    foreach ($mode in @("move", "rotate", "scale", "grid")) {
+        $golden = Join-Path $repo "fixtures\build\golden-handles-$mode-$be.png"
+        if (-not (Test-Path -LiteralPath $golden)) {
+            $r = Invoke-Render $be "proposal-handles-$mode-$be" "--tr-handles=$mode"
+            if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
+                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
+                Copy-Item -LiteralPath (Join-Path $out "proposal-handles-$mode-$be.png") -Destination $golden
+                Add-Case "handles_${mode}_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
+            } else { Add-Case "handles_${mode}_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+            continue
+        }
+        $r = Invoke-Render $be "handles-$mode-$be" "`"--tr-golden=$golden`" --tr-handles=$mode"
+        $h = $r.Json.handles
+        $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be -and $h
+        Add-Case "handles_${mode}_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary); lit pixels $($h.lit_pixels), arrow $($h.arrow_px_at_8m) px at 8 m and $($h.arrow_px_at_16m) px at 16 m$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
+    }
+    $golden = Join-Path $repo "fixtures\build\golden-handles-move-$be.png"
+    $n = Invoke-Render $be "handles-none-$be" "`"--tr-golden=$golden`" --tr-handles=move --tr-alter=nohandles"
+    if ($n.Exit -eq 1 -and $n.Json -and $n.Json.backend.driver -eq $be -and $n.Json.handles.lit_pixels -lt 20) {
+        Add-Case "handles_negative_$be" "PASS" "the box without its handles was rejected: $($n.Json.failures -join ' | ')" $n.Seconds
+    } else { Add-Case "handles_negative_$be" "FAIL" "the box without its handles was not rejected (exit $($n.Exit))" $n.Seconds }
 }
 
 function Invoke-ProportionsCases {
@@ -1475,6 +1503,11 @@ if ($ProportionsOnly) {   # -ProportionsOnly: just the picture-proportion cases 
     Write-JUnit
     exit 0
 }
+if ($HandlesOnly) {   # -HandlesOnly: just the edit tools' handle and grid cases (to propose or check their goldens)
+    Invoke-HandleCases
+    Write-JUnit
+    exit 0
+}
 if ($UiChromeOnly) {   # -UiChromeOnly: just the interface-size cases (to propose or check their goldens)
     Invoke-UiChromeCases
     Invoke-FloaterDragCases
@@ -2117,6 +2150,7 @@ Invoke-LoginScreenCases
 Invoke-UiSceneCases
 Invoke-UiChromeCases
 Invoke-FloaterDragCases
+Invoke-HandleCases
 Invoke-ProportionsCases
 
 # the sculpt zoo on both backends (the official sampler), and its negative control.

@@ -40,7 +40,22 @@ public static class BuildMenu
         menus.AddEntry(MenuId, new MenuEntry(EditLinkedId, "menu.build.edit_linked", EditLinkedCommand, inWorld, EditLinkedOrder, () => edit()?.EditLinked ?? false));
         menus.AddEntry(MenuId, new MenuEntry(LinkId, "menu.build.link", LinkCommand, Selected, LinkOrder, Shortcut: "control|L"));
         menus.AddEntry(MenuId, new MenuEntry(UnlinkId, "menu.build.unlink", UnlinkCommand, Selected, LinkOrder + 1, Shortcut: "control|shift|L"));
+        // Options: the grid's entries (menu_viewer.xml's Options list); they work in build mode, so G and Shift+X type as letters elsewhere
+        bool Building() => inWorld() && edit() is { BuildMode: true };
+        bool BuildingWithSelection() => Building() && hasSelection();
+        menus.AddSubmenu(MenuId, OptionsId, "menu.build.options", OptionsOrder);
+        menus.AddSubEntry(OptionsId, new MenuEntry(GridSnapId, "menu.build.grid.snap", GridSnapCommand, Building, 10, () => edit()?.SnapEnabled ?? false, Shortcut: "G"));
+        menus.AddSubEntry(OptionsId, new MenuEntry(GridSnapXYId, "menu.build.grid.snap_xy", GridSnapXYCommand, BuildingWithSelection, 20, Shortcut: "shift|X"));
+        menus.AddSubEntry(OptionsId, new MenuEntry(GridUseSelectionId, "menu.build.grid.use_selection", GridUseSelectionCommand, BuildingWithSelection, 30, Shortcut: "shift|G"));
+        menus.AddSubEntry(OptionsId, new MenuEntry(GridOptionsId, "menu.build.grid.options", GridOptionsCommand, inWorld, 40, Shortcut: "control|shift|B"));
     }
+
+    public const string OptionsId = "build.options", GridSnapId = "build.grid.snap", GridSnapXYId = "build.grid.snap_xy", GridUseSelectionId = "build.grid.use_selection",
+        GridOptionsId = "build.grid.options";
+    public const string GridSnapCommand = "build.grid.snap", GridSnapXYCommand = "build.grid.snap_xy", GridUseSelectionCommand = "build.grid.use_selection",
+        GridOptionsCommand = "build.grid.options";
+    /// <summary>Options stands after Link and Unlink, before Upload.</summary>
+    public const int OptionsOrder = 800;
 
     /// <summary>The places of the edit entries: Build first, Edit Linked Parts and Link after the tools.</summary>
     public const int ToggleOrder = 10, EditLinkedOrder = 30, LinkOrder = 40;

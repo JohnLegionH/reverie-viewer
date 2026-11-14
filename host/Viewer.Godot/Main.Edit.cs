@@ -16,8 +16,9 @@ namespace Viewer.Godot;
 
 /// <summary>
 /// Build mode in the world: the Build window, the Build menu's edit entries and shortcuts, clicks and drag-select with the Edit and Move
-/// tools, the Move tool's drag with its Shift copy, Esc leaving build mode, and the automation's edit command. What is selected and what
-/// each change sends is <see cref="EditController"/>'s; this side only feeds it the pointer and draws its state.
+/// tools (a press on the selection's handles drags them instead, see Main.Handles.cs), Esc leaving build mode, the grid's keys and Grid Options,
+/// and the automation's edit command. What is selected and what each change sends is <see cref="EditController"/>'s; this side only feeds it
+/// the pointer and draws its state.
 /// </summary>
 public partial class Main
 {
@@ -25,36 +26,12 @@ public partial class Main
     private EditPanel? _editPanel;
     private EditDrag? _editDrag;
 
-    /// <summary>A press with the Edit or Move tool, until it is released.</summary>
+    /// <summary>A press with the Edit or Move tool off the handles, until it is released: a click selects, a drag draws a selection box (pressing
+    /// on an object and dragging does not move it: with the official tools only the handles move the selection).</summary>
     private sealed class EditDrag
     {
         public Vector2 From;
-        public bool Moved, Copied, Shift, OnObject;
-        public System.Numerics.Vector3 GrabPoint, StartPosition;
-        public uint Object;
-        public System.Numerics.Vector3? Target;
-        public ulong CopiedAt, LastSent;
-    }
-
-    /// <summary>A move held back until the copy a Shift-drag asked for has appeared where the original was: the region may handle the
-    /// copy after a move sent at the same moment, and the copy would then appear at the new place.</summary>
-    private (uint Object, System.Numerics.Vector3 From, System.Numerics.Vector3 To, ulong Since)? _heldMove;
-
-    /// <summary>Whether a copy of the dragged object stands where it started (another own object at that place).</summary>
-    private bool CopyArrived(uint original, System.Numerics.Vector3 at) =>
-        _interactFor?.World.Snapshot().Objects.Values.Any(o => o.ParentLocalId == 0 && o.Id.LocalId != original
-            && ((o.Interaction?.Flags ?? 0) & Viewer.Core.Interaction.ObjectFlagBits.YouOwner) != 0
-            && System.Numerics.Vector3.Distance(o.Position, at) < 0.01f) ?? false;
-
-    /// <summary>Sends a held move once its copy has arrived, or after two seconds.</summary>
-    private void FlushHeldMove()
-    {
-        if (_heldMove is not { } h || _edit is not { } e)
-            return;
-        if (!CopyArrived(h.Object, h.From) && Time.GetTicksMsec() - h.Since < 2000)
-            return;
-        _heldMove = null;
-        e.SetPosition(h.To);
+        public bool Moved, Shift;
     }
 
     /// <summary>A new session's edit controller; the window and the menu entries are made once and outlive a session.</summary>
@@ -73,7 +50,7 @@ public partial class Main
         _editPanel.ToolChosen += ChooseTool;
         _shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), _editPanel);
         var timer = new global::Godot.Timer { Name = "edit_refresh", WaitTime = 0.25, Autostart = true };
-        timer.Timeout += () => { FlushHeldMove(); if (_editPanel.IsVisibleInTree()) _editPanel.Refresh(); };
+        timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) _editPanel.Refresh(); };
         _editPanel.AddChild(timer);
         shell.Floaters.Closed += id => { if (id == EditPanel.FloaterId && _edit is { BuildMode: true } e) e.CloseBuild(); };
         shell.Commands.Register(BuildMenu.ToggleCommand, ToggleBuild);
@@ -86,6 +63,12 @@ public partial class Main
         // the Create entry (Ctrl+4) is the Create tool of build mode, and its click places the box as before
         shell.Commands.Register(BuildMenu.CreateCommand, () => ChooseTool(BuildTool.Create));
         BuildMenu.InstallEditing(shell.Menus, InWorld, () => _edit, () => _edit?.Selection.Count > 0);
+        _gridPanel = new GridPanel(shell.Strings, () => _edit);
+        _shell.AddFloater(new FloaterSpec(GridPanel.FloaterId, "grid.title", new UiSize(300, 360), new UiSize(260, 300)), _gridPanel);
+        shell.Commands.Register(BuildMenu.GridSnapCommand, () => _edit?.ToggleSnap());
+        shell.Commands.Register(BuildMenu.GridSnapXYCommand, () => _edit?.SnapSelectionXY());
+        shell.Commands.Register(BuildMenu.GridUseSelectionCommand, () => _edit?.UseSelectionForGrid());
+        shell.Commands.Register(BuildMenu.GridOptionsCommand, OpenGridOptions);
     }
 
     private void ToggleBuild()
@@ -128,6 +111,7 @@ public partial class Main
         _edit?.CloseBuild();
         _interact?.CancelCreate();
         _editDrag = null;
+        _handleDrag = null;
         if (_shell is { } sh && sh.Shell.Floaters.IsOpen(EditPanel.FloaterId))
             sh.Shell.Floaters.Close(EditPanel.FloaterId);
     }
@@ -142,87 +126,50 @@ public partial class Main
             case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape }:
                 LeaveBuild();
                 return true;
+            case InputEventKey k when GridKey(e, k):
+                return true;
             case InputEventMouseButton { ButtonIndex: MouseButton.Left } b when e.Tool is BuildTool.Edit or BuildTool.Move:
                 if (b.Pressed)
-                    EditPress(e, b.Position, b.ShiftPressed);
+                {
+                    if (!HandlePress(e, b.Position, b.ShiftPressed))
+                        EditPress(e, b.Position, b.ShiftPressed);
+                }
+                else if (_handleDrag is not null)
+                    HandleRelease(e);
                 else
                     EditRelease(e, b.Position);
+                return true;
+            case InputEventMouseMotion m when _handleDrag is not null:
+                HandleMotion(e, m.Position);
                 return true;
             case InputEventMouseMotion m when _editDrag is { } d:
                 EditMotion(e, d, m.Position);
                 return true;
+            case InputEventMouseMotion m when e.Tool is BuildTool.Edit or BuildTool.Move:
+                _handleHot = HandleAt(e, m.Position);   // the handle under the pointer is lit
+                return false;
         }
         return false;
     }
 
     private void EditPress(EditController e, Vector2 at, bool shift)
     {
-        var pick = PickAt(at);
-        var d = new EditDrag { From = at, Shift = shift };
-        if (pick.Kind == Viewer.Core.Interaction.PickKind.Object && pick.Hit is { } hit && _interactFor?.World.Object(hit.Id) is { } prim)
-        {
-            uint id = e.EditLinked ? prim.Id.LocalId : RootLocal(prim);
-            // pressing on a selected object with Shift starts a copy-drag; otherwise the press selects as a click does
-            if (!(shift && e.Selection.Contains(id) && e.Tool == BuildTool.Move))
-                e.Click(pick, shift);
-            if (e.Object(id) is { } o)
-            {
-                d.OnObject = true;
-                d.Object = id;
-                d.GrabPoint = pick.Point;
-                d.StartPosition = o.Position;
-            }
-        }
-        _editDrag = d;
+        e.Click(PickAt(at), shift);
+        _editDrag = new EditDrag { From = at, Shift = shift };
     }
 
-    private void EditMotion(EditController e, EditDrag d, Vector2 at)
+    private static void EditMotion(EditController e, EditDrag d, Vector2 at)
     {
-        if (!d.Moved && (at - d.From).Length() <= 2f)
-            return;   // the official drag starts past a two-pixel slop
-        d.Moved = true;
-        if (!d.OnObject || e.Tool != BuildTool.Move || !e.Access(d.Object).CanPlace)
-            return;
-        if (d.Shift && !d.Copied && (d.Copied = e.CopyInPlace()))   // the copy stays where it is; the original moves on with the drag
-            d.CopiedAt = Time.GetTicksMsec();
-        // the object follows the pointer across the horizontal plane through the point it was grabbed at
-        var origin = Region(_camera!.ProjectRayOrigin(at));
-        var dir = Region(_camera.ProjectRayNormal(at));
-        if (MathF.Abs(dir.Z) < 1e-4f)
-            return;
-        float t = (d.GrabPoint.Z - origin.Z) / dir.Z;
-        if (t <= 0)
-            return;
-        var hit = origin + dir * t;
-        var target = d.StartPosition + new System.Numerics.Vector3(hit.X - d.GrabPoint.X, hit.Y - d.GrabPoint.Y, 0);
-        if (e.SnapEnabled)
-            target = new System.Numerics.Vector3(Snap.ToGrid(target.X, 0, e.GridUnit, 1), Snap.ToGrid(target.Y, 0, e.GridUnit, 1), target.Z);
-        d.Target = target;
-        // the object follows the drag about ten times a second, once any copy has appeared where it started
-        ulong now = Time.GetTicksMsec();
-        if (now - d.LastSent >= 100 && (!d.Copied || CopyArrived(d.Object, d.StartPosition)))
-        {
-            d.LastSent = now;
-            e.SetPosition(target);
-        }
+        if (!d.Moved && (at - d.From).Length() > 2f)
+            d.Moved = true;   // the official drag starts past a two-pixel slop
     }
 
     private void EditRelease(EditController e, Vector2 at)
     {
         var d = _editDrag;
         _editDrag = null;
-        if (d is null || !d.Moved)
-            return;
-        if (d.OnObject && d.Target is { } target)
-        {
-            if (d.Copied && !CopyArrived(d.Object, d.StartPosition))
-                _heldMove = (d.Object, d.StartPosition, target, d.CopiedAt);
-            else
-                e.SetPosition(target);
-            return;
-        }
-        if (!d.OnObject && e.Tool == BuildTool.Edit)
-            BoxSelect(e, d.From, at, d.Shift);
+        if (d is { Moved: true })
+            BoxSelect(e, d.From, at, d.Shift);   // a drag draws a selection box (lltoolselectrect.cpp)
     }
 
     /// <summary>Drag-select: every object whose centre is inside the dragged box on screen.</summary>
@@ -274,7 +221,8 @@ public partial class Main
     /// place, size, rotation and shape; toggle (Ctrl+B); tool (text: focus, move, edit, create); click (the point x, y, z on screen; expect "shift"
     /// adds); select (text: local ids, comma-separated); linked (text: on or off); position, size, rotation (x, y, z); shape (text: key=value pairs:
     /// type, hollow, twist_begin, twist_end, path_begin, path_end, taper_x, taper_y); name (text); flags (text: physical,temporary,phantom present
-    /// or not); locked (text: on or off); link; unlink; drag (Move tool: from the primary object to the point x, y, z; expect "shift" copies).</summary>
+    /// or not); locked (text: on or off); link; unlink; handle (text: the handle, see <see cref="HandleCall"/>; expect "shift" copies); manip (text: move,
+    /// rotate, scale); snap (text: on or off); snap_xy; use_selection_grid; grid (text: world, local or reference); grid_options (opens it).</summary>
     public object? EditCall(string action, float x, float y, float z, string? text, string? expect)
     {
         if (_edit is not { } e || _interactFor is not { } s || _camera is null || _editPanel is null)
@@ -338,18 +286,17 @@ public partial class Main
             }
             case "link": done = e.Link() ?? "sent"; break;
             case "unlink": done = e.Unlink(); break;
-            case "drag" when e.Object() is { } o && Screen(o.Position) is { } from && Screen(p with { Z = o.Position.Z }) is { } to:
-            {
-                // the Move tool's drag, from the object's centre to the point at the object's height, in steps as a hand would
-                if (e.Tool != BuildTool.Move) ChooseTool(BuildTool.Move);
-                EditPress(e, from, shift);
-                for (int i = 1; i <= 8; i++)
-                    if (_editDrag is { } dr) EditMotion(e, dr, from.Lerp(to, i / 8f));
-                var target = _editDrag?.Target;
-                EditRelease(e, to);
-                done = new { copied = target is not null && shift, target = target is { } t ? new[] { t.X, t.Y, t.Z } : null };
+            case "handle": done = HandleCall(e, text, x, y, z, shift); break;
+            case "manip":
+                if (Enum.TryParse<ManipMode>(text, true, out var manip)) e.Manip = manip;
                 break;
-            }
+            case "snap": e.SnapEnabled = text == "on"; break;
+            case "snap_xy": done = e.SnapSelectionXY(); break;
+            case "use_selection_grid": e.UseSelectionForGrid(); break;
+            case "grid":
+                if (Enum.TryParse<GridMode>(text, true, out var grid)) e.Grid = grid;
+                break;
+            case "grid_options": OpenGridOptions(); done = _shell?.Shell.Floaters.IsOpen(GridPanel.FloaterId); break;
         }
         _editPanel.Refresh();
         var prim = e.Object();
@@ -360,6 +307,10 @@ public partial class Main
             done,
             build_mode = e.BuildMode,
             tool = e.Tool.ToString().ToLowerInvariant(),
+            manip = e.Manip.ToString().ToLowerInvariant(),
+            snap = e.SnapEnabled,
+            grid = new { mode = e.Grid.ToString().ToLowerInvariant(), origin = new[] { e.GridOrigin.X, e.GridOrigin.Y, e.GridOrigin.Z }, unit = e.GridUnit },
+            handles_drawn = _handles?.Visible ?? false,
             edit_linked = e.EditLinked,
             window_open = _shell?.Shell.Floaters.IsOpen(EditPanel.FloaterId) ?? false,
             placing = _interact?.Placing ?? false,

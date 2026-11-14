@@ -156,6 +156,7 @@ public partial class Main
         if (_stage is not null && _camera is not null)
         {
             UpdateOutline(ic, sess.World);
+            UpdateHandles();
             UpdateHoverText(sess.World);
         }
         if (!_interactUi.Menu.IsOpen && ic.Menu != MenuKind.None)

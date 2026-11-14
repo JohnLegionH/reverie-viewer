@@ -411,6 +411,8 @@ public partial class TestRender : Node
             return await LoginScreenRun(loginTable, Arg(args, "--tr-golden="));   // the login screen against its golden (TestRender.LoginScreen.cs)
         if (Arg(args, "--tr-ui=") is { } uiScene)
             return await UiSceneRun(uiScene, Arg(args, "--tr-theme=") ?? ThemePresets.Classic, Arg(args, "--tr-alter=") == "wrongtoken", Arg(args, "--tr-golden="));   // one interface scene against its golden (TestRender.Ui.cs)
+        if (Arg(args, "--tr-handles=") is { } handles)
+            return await HandlesRun(handles, Arg(args, "--tr-golden="), Arg(args, "--tr-alter="));   // the edit tools' handles and grid against their goldens (TestRender.Handles.cs)
         if (Arg(args, "--tr-uichrome=") is { } uiChrome)
             return await UiChromeRun(uiChrome, Arg(args, "--tr-golden="));   // the in-world frame at an interface size in a window size (TestRender.UiChrome.cs)
         if (Arg(args, "--tr-floaterdrag=") is { } floaterDrag)

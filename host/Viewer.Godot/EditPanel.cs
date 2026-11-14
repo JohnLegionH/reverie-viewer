@@ -25,6 +25,8 @@ public partial class EditPanel : VBoxContainer
     private readonly StringTable _s;
     private readonly Func<EditController?> _edit;
     private readonly Dictionary<BuildTool, Button> _tools = new();
+    private readonly Dictionary<ManipMode, CheckBox> _manips = new();
+    private readonly HBoxContainer _manipRow;
     private readonly CheckBox _linked, _snap, _both, _stretchTex;
     private readonly Label _status;
     public Button Link { get; }
@@ -62,6 +64,19 @@ public partial class EditPanel : VBoxContainer
             _tools[tool] = b;
         }
         AddChild(tools);
+
+        // Move, Rotate or Stretch: which handles the Edit and Move tools show (floater_tools.xml's radio group; Ctrl and Ctrl+Shift switch while held)
+        _manipRow = new HBoxContainer { Name = "manip" };
+        var manipGroup = new ButtonGroup();
+        foreach (var (mode, key) in new[] { (ManipMode.Move, "edit.manip.move"), (ManipMode.Rotate, "edit.manip.rotate"), (ManipMode.Scale, "edit.manip.scale") })
+        {
+            var b = new CheckBox { Name = "manip_" + mode.ToString().ToLowerInvariant(), Text = strings.Get(key), ButtonGroup = manipGroup };
+            b.AccessibilityName = b.Text;
+            b.Pressed += () => { if (_edit() is { } e) e.Manip = mode; };
+            _manipRow.AddChild(b);
+            _manips[mode] = b;
+        }
+        AddChild(_manipRow);
 
         var ticks = new HFlowContainer { Name = "ticks" };
         _linked = Tick(ticks, "linked", "edit.linked", on => { if (_edit() is { } e) e.EditLinked = on; });
@@ -305,6 +320,9 @@ public partial class EditPanel : VBoxContainer
         {
             foreach (var (tool, b) in _tools)
                 b.SetPressedNoSignal(e is { BuildMode: true } && e.Tool == tool);
+            foreach (var (mode, b) in _manips)
+                b.SetPressedNoSignal((e?.Manip ?? ManipMode.Move) == mode);
+            _manipRow.Visible = e is { Tool: BuildTool.Edit or BuildTool.Move };
             _linked.SetPressedNoSignal(e?.EditLinked ?? false);
             _snap.SetPressedNoSignal(e?.SnapEnabled ?? true);
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
