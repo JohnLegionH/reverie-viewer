@@ -519,6 +519,13 @@ public partial class TopBar : PanelContainer
             : own ? available - 16 : available - 16 - leftWidth - rightWidth - 2 * TopBarLayout.ZoneGap;
         room -= Back.GetCombinedMinimumSize().X + Home.GetCombinedMinimumSize().X + 8;
         Location.CustomMinimumSize = new Vector2(Math.Clamp(room, ReverieTheme.LocationMinWidth, ReverieTheme.LocationMaxWidth), ReverieTheme.LocationHeight);
+        // what the rows really need, measured now: a row still wider than the bar gives the location field less room (never below
+        // half its least width), then the menus' titles wrap, so nothing is ever cut off
+        float inner = available - 16;
+        if (_second.Visible && _second.GetCombinedMinimumSize().X - inner is var over2 and > 0.5f)
+            Location.CustomMinimumSize = new Vector2(Math.Max(ReverieTheme.LocationMinWidth / 2, Location.CustomMinimumSize.X - over2), ReverieTheme.LocationHeight);
+        if (_first.GetCombinedMinimumSize().X - inner is var over1 and > 0.5f)
+            Menus.CustomMinimumSize = new Vector2(Math.Max(0, Menus.CustomMinimumSize.X - over1), 0);
     }
 
     private void Arrange(bool ownRow, bool statusDown)
