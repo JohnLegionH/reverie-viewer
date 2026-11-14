@@ -111,6 +111,7 @@ public class ReverieThemeTests
         var r = ReverieTheme.Tokens(ReverieVariant.Dark);
         var t = ReverieTheme.ToThemeTokens(r);
         Assert.Equal(r["surface.base"], t.Bar);
+        Assert.Equal(r["surface.base"] with { A = ReverieTheme.FloatingOpacity }, t.Panel);   // floating windows: the base at 95 %, so the window opacity settings apply
         Assert.Equal(r["surface.raised"], t.Input);
         Assert.Equal(r["text.primary"], t.Text);
         Assert.Equal(r["text.secondary"], t.TextSecondary);
