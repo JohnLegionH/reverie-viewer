@@ -150,6 +150,13 @@ public partial class Main
                 if (enabled) panel.Upload.EmitSignal(BaseButton.SignalName.Pressed);
                 return new { pressed = enabled, texts = panel.Texts() };
             }
+            case "take_back":
+            {
+                // text: the local ids to take back, comma-separated; each own root is taken once, with no pick
+                var ids = (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(t => uint.TryParse(t, out var v) ? v : 0u).Where(v => v != 0).ToArray();
+                return new { taken = ic.TakeBack(ids).ToArray() };
+            }
             case "press_upload":
             {
                 var panel = text == "bulk" ? build.Bulk : build.Image;

@@ -81,6 +81,7 @@ $clock = [System.Diagnostics.Stopwatch]::StartNew()
 function Note([string]$what) { Write-Output ("{0,7:N1} {1}" -f $clock.Elapsed.TotalSeconds, $what) }
 function Api([string]$command, [hashtable]$b) { Parse (Invoke-Raw $port $command $token ($b | ConvertTo-Json -Compress)).Body }
 function Build([hashtable]$b) { Api "build" $b }
+. (Join-Path $PSScriptRoot "live-takeback.ps1")
 function Wait-Until([scriptblock]$test, [int]$seconds) {
     $until = (Get-Date).AddSeconds($seconds)
     do { $r = & $test; if ($r) { return $r }; Start-Sleep -Milliseconds 500 } while ((Get-Date) -lt $until)
@@ -231,6 +232,7 @@ if ($o) {
         # only the objects a run left: each taken back
         foreach ($id in $TakeIds) {
             $present = Wait-Until { $b = Build @{ action = "state" }; @($b.own_objects | Where-Object { $_.id -eq $id }) | Select-Object -First 1 } 20
+            if ($present) { Add-Rezzed ([uint32]$present.local) }
             $t = if ($present) { Take-Back $id } else { @{ taken = $false; present = $false } }
             $report.steps["take_" + $id] = $t
             Check "take back $id" ([bool]$t.taken) ("present {0}, enabled {1}, chosen {2}, gone {3}" -f [bool]$present, $t.take_enabled, $t.chosen, $t.gone)
@@ -261,6 +263,7 @@ if ($o) {
         if ($item) {
             $rezA = Build @{ action = "rez"; id = [string]$item; x = $spot.x; y = $spot.y; z = $spot.z }
             $obj = Wait-Until { $b = Build @{ action = "state" }; @($b.own_objects | Where-Object { $beforeObj -notcontains $_.id }) | Select-Object -First 1 } 30
+            if ($obj) { Add-Rezzed ([uint32]$obj.local) }
         }
         if ($obj) {
             $prim = Wait-Until { $b = Build @{ action = "state" }; $pp = @($b.own_prims | Where-Object { $_.id -eq $obj.id }) | Select-Object -First 1; if ($pp -and @($pp.faces)[0] -ne $blank[0]) { $pp } } 15
@@ -300,6 +303,10 @@ if ($o) {
 }
 else { Note "not in the world within 150 s" }
 $report.checks = $checks
+# everything the run rezzed and did not already take or delete goes back to the inventory by id, proven by re-reading the region
+$tb = Invoke-TakeBack -Seconds 30; $report.take_back = $tb
+Note ("take back: rezzed {0}, sent {1}, remaining {2}" -f @($tb.rezzed).Count, @($tb.sent).Count, @($tb.remaining).Count)
+if (-not $tb.ok) { $checks.Add([ordered]@{ name = "everything the run rezzed is gone from the region"; pass = $false; detail = "remaining " + (@($tb.remaining) -join ",") }) }
 $logout = Invoke-Raw $port "session" $token '{"action":"logout"}'
 $afterLogout = Parse $logout.Body
 Note "logout: $($logout.Status) ended=$($afterLogout.ended)"

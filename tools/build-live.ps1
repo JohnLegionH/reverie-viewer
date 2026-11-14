@@ -80,6 +80,7 @@ function Note([string]$what) { Write-Output ("{0,7:N1} {1}" -f $clock.Elapsed.To
 function Api([string]$command, [hashtable]$b) { Parse (Invoke-Raw $port $command $token ($b | ConvertTo-Json -Compress)).Body }
 function Build([hashtable]$b) { Api "build" $b }
 # polls a script block until it returns something true, at most $seconds; answers the last result
+. (Join-Path $PSScriptRoot "live-takeback.ps1")
 function Wait-Until([scriptblock]$test, [int]$seconds) {
     $until = (Get-Date).AddSeconds($seconds)
     do { $r = & $test; if ($r) { return $r }; Start-Sleep -Milliseconds 500 } while ((Get-Date) -lt $until)
@@ -165,6 +166,7 @@ if ($o) {
         $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
         $made = Build @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z }
         $box = Wait-Until { $b = Build @{ action = "state" }; @($b.own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
+        if ($box) { Add-Rezzed ([uint32]$box.local) }
         $report.steps.create = @{ answer = $made; object = $box }
         $sizeOk = $box -and [math]::Abs([double]$box.sx - 0.5) -lt 0.01 -and [math]::Abs([double]$box.sz - 0.5) -lt 0.01
         Check "3 create: a 0.5 m box of the avatar's own appears" ([bool]$made.placed -and [bool]$box -and $sizeOk -and (@($made.sounds) -match "ObjectCreate").Count -ge 1) ("placed {0} on {1}, new object {2}, size {3}x{4}x{5}, sounds {6}" -f $made.placed, $made.pick, [bool]$box, $box.sx, $box.sy, $box.sz, (@($made.sounds) -join ","))
@@ -192,6 +194,7 @@ if ($o) {
             $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
             $rez = Build @{ action = "rez"; id = [string]$item; x = $spot.x; y = $spot.y; z = $spot.z }
             $box2 = Wait-Until { $b = Build @{ action = "state" }; @($b.own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
+            if ($box2) { Add-Rezzed ([uint32]$box2.local) }
             $report.steps.rez = @{ answer = $rez; object = $box2 }
         }
         Check "5 rez from inventory: the object is back in the world" ([bool]$box2 -and (@($rez.sounds) -match "ObjectRezIn").Count -ge 1) ("rezzed {0}, new object {1}, sounds {2}" -f $rez.rezzed, [bool]$box2, (@($rez.sounds) -join ","))
@@ -220,6 +223,10 @@ if ($o) {
 }
 else { Note "not in the world within 150 s" }
 $report.checks = $checks
+# everything the run rezzed and did not already take or delete goes back to the inventory by id, proven by re-reading the region
+$tb = Invoke-TakeBack -Seconds 30; $report.take_back = $tb
+Note ("take back: rezzed {0}, sent {1}, remaining {2}" -f @($tb.rezzed).Count, @($tb.sent).Count, @($tb.remaining).Count)
+if (-not $tb.ok) { $checks.Add([ordered]@{ name = "everything the run rezzed is gone from the region"; pass = $false; detail = "remaining " + (@($tb.remaining) -join ",") }) }
 $logout = Invoke-Raw $port "session" $token '{"action":"logout"}'
 $afterLogout = Parse $logout.Body
 Note "logout: $($logout.Status) ended=$($afterLogout.ended)"

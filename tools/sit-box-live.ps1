@@ -6,7 +6,9 @@
 # test avatar in, makes a 0.5 m box on the ground in front of it (Build, Create), points the camera at the box from behind and above
 # the avatar, right-clicks the centre of the box's top face and chooses Sit Here, waits for the avatar.sit line and reads it, takes a
 # picture from the side, stands up (the Stand button), and then, without pressing Escape, walks with the Up arrow and flies with
-# Page Up through the engine's own key path: both must reach the avatar. Takes the box back into the inventory and logs out.
+# Page Up through the engine's own key path: both must reach the avatar. Takes the box back into the inventory by its id (no pick),
+# re-reads the region to prove it is gone, and logs out. -TakeBackLeftoverBoxes also takes back every plain 0.5 m box of the
+# avatar's own that an earlier run left in the region.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\sit-box-live.ps1 -Sandbox <new folder> -ShotsDir <existing folder>
 #     -Credentials <accounts file> -Account <alias> -GridInfoUrl <get_grid_info URL> -Start <start location> [-Exe <development export>]
@@ -25,7 +27,8 @@ param(
     [Parameter(Mandatory)][string]$Start,
     [string]$Exe = "",
     [string]$Label = "sit-box",
-    [int]$StartSeconds = 60
+    [int]$StartSeconds = 60,
+    [switch]$TakeBackLeftoverBoxes
 )
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "claim-guard.ps1")
@@ -78,6 +81,7 @@ function Build([hashtable]$b) { Api "build" $b }
 function World([hashtable]$b) { Api "world_sounds" $b }
 function Shot([string]$name) { [void](Invoke-Raw $script:port "screenshot" $script:token (@{ dir = $ShotsDir; name = $name } | ConvertTo-Json -Compress)) }
 function Flat($a, $b) { [math]::Sqrt([math]::Pow($a[0] - $b[0], 2) + [math]::Pow($a[1] - $b[1], 2)) }
+. (Join-Path $PSScriptRoot "live-takeback.ps1")
 function Wait-Until([scriptblock]$cond, [int]$seconds) { $end = (Get-Date).AddSeconds($seconds); while ((Get-Date) -lt $end) { $r = & $cond; if ($r) { return $r }; Start-Sleep -Milliseconds 500 }; return $null }
 
 New-Item -ItemType Directory -Force -Path $Sandbox | Out-Null
@@ -112,6 +116,7 @@ $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id }
 $made = Build @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z }
 $box = Wait-Until { $b = Build @{ action = "state" }; @($b.own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
 $report.box = $box
+if ($box) { Add-Rezzed ([uint32]$box.local) }
 Check "1 a 0.5 m box is made in front of the avatar" ([bool]$made.placed -and [bool]$box -and [math]::Abs([double]$box.sz - 0.5) -lt 0.01) ("placed {0}, box {1}" -f $made.placed, ($box | ConvertTo-Json -Compress))
 if (-not $box) { [void](Invoke-Raw $script:port "session" $script:token '{"action":"logout"}'); [void](Invoke-Raw $script:port "quit" $script:token); exit 1 }
 $bx = [double]$box.x; $by = [double]$box.y; $bz = [double]$box.z
@@ -174,20 +179,14 @@ Check "6 Page Up flies, no Escape pressed" ([bool]$o.self.flying) ("flying {0}" 
 $f = @(Get-ChildItem -LiteralPath $Sandbox -Recurse -Filter "viewer.log" -ErrorAction SilentlyContinue) | Select-Object -First 1
 if ($f) { $report.arrow_lines = @(Select-String -LiteralPath $f.FullName -Pattern "input.arrow" -SimpleMatch | ForEach-Object { $_.Line }) }
 
-# ---- 6. the box back to the inventory, log out ----
-# every 0.5 m box of the avatar's own (this run's, and any an earlier run left) is taken back, the camera on each in turn
-$taken = 0; $own = @(@((Build @{ action = "state" }).own_objects) | Where-Object { [math]::Abs([double]$_.sz - 0.5) -lt 0.01 -and [math]::Abs([double]$_.sx - 0.5) -lt 0.01 })
-foreach ($ob in $own) {
-    [void](Interact @{ action = "aim"; x = [double]$ob.x; y = [double]$ob.y; z = [double]$ob.z; distance = 2.5 }); Start-Sleep -Milliseconds 1200
-    $tk = Interact @{ action = "rightclick"; x = [double]$ob.x; y = [double]$ob.y; z = [double]$ob.z + 0.25 }
-    if ($tk.pick.local -eq $ob.local -and @($tk.entries | Where-Object { $_.Id -eq "take" -and $_.Enabled }).Count -gt 0) {
-        [void](Interact @{ action = "choose"; entry = "take" })
-        if (Wait-Until { $b = Build @{ action = "state" }; if (@($b.own_objects | Where-Object { $_.id -eq $ob.id }).Count -eq 0) { $b } } 20) { $taken++ }
-    } else { [void](Interact @{ action = "choose"; entry = "" }) }
+# ---- 6. everything the run rezzed back to the inventory, by id, proven by re-reading the region; log out ----
+if ($TakeBackLeftoverBoxes) {
+    @((Build @{ action = "state" }).own_objects) | Where-Object { [math]::Abs([double]$_.sz - 0.5) -lt 0.01 -and [math]::Abs([double]$_.sx - 0.5) -lt 0.01 -and [math]::Abs([double]$_.sy - 0.5) -lt 0.01 } |
+        ForEach-Object { Add-Rezzed ([uint32]$_.local) }
 }
-[void](Interact @{ action = "aim"; distance = 0 })
-$report.boxes_taken = "$taken of $($own.Count)"
-Note "own boxes taken back: $taken of $($own.Count)"
+$tb = Invoke-TakeBack -Seconds 30
+$report.take_back = $tb
+Check "7 everything the run rezzed is taken back (re-read)" ([bool]$tb.ok) ("rezzed {0}, sent {1}, remaining {2}" -f @($tb.rezzed).Count, @($tb.sent).Count, @($tb.remaining).Count)
 $logout = Invoke-Raw $script:port "session" $script:token '{"action":"logout"}'
 $after = Parse $logout.Body
 Note "logout: $($logout.Status) ended=$($after.ended)"

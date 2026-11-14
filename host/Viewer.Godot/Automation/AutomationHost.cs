@@ -333,11 +333,11 @@ public partial class AutomationHost : Node
                 return m.InteractCall(action, target, Num(call.Body, "x", 128), Num(call.Body, "y", 128), Num(call.Body, "z", 30), Str(call.Body, "entry"), Str(call.Body, "expect"), Num(call.Body, "distance", 0)) is { } done
                     ? AutomationReply.Ok(done) : AutomationReply.Error(409, "no session");
             }
-            case "build":   // {action: state|create|rez|upload_image|upload_bulk|press_upload|upload_model|upload_bulk_models|press_model_upload, x?, y?, z?, id?, text?, expect?}: the Build menu's tools (answers ids, counts, sizes and states; a name only through expect; for the model windows expect carries their settings)
+            case "build":   // {action: state|create|rez|upload_image|upload_bulk|press_upload|upload_model|upload_bulk_models|press_model_upload|take_back, x?, y?, z?, id?, text?, expect?}: the Build menu's tools (answers ids, counts, sizes and states; a name only through expect; for the model windows expect carries their settings)
             {
                 string action = Str(call.Body, "action") ?? "state";
-                if (action is not ("state" or "create" or "rez" or "upload_image" or "upload_bulk" or "press_upload" or "upload_model" or "upload_bulk_models" or "press_model_upload"))
-                    return AutomationReply.Error(400, "action must be state, create, rez, upload_image, upload_bulk, press_upload, upload_model, upload_bulk_models or press_model_upload");
+                if (action is not ("state" or "create" or "rez" or "upload_image" or "upload_bulk" or "press_upload" or "upload_model" or "upload_bulk_models" or "press_model_upload" or "take_back"))
+                    return AutomationReply.Error(400, "action must be state, create, rez, upload_image, upload_bulk, press_upload, upload_model, upload_bulk_models, press_model_upload or take_back");
                 return m.BuildCall(action, Guid.TryParse(Str(call.Body, "id"), out var bid) ? bid : Guid.Empty, Num(call.Body, "x", 128), Num(call.Body, "y", 128), Num(call.Body, "z", 30),
                     Str(call.Body, "text"), Str(call.Body, "expect")) is { } built ? AutomationReply.Ok(built) : AutomationReply.Error(409, "no session");
             }

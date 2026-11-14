@@ -307,7 +307,22 @@ public sealed class InteractionController
 
     /// <summary>Takes back into the inventory each of the objects named by local id that the agent may take (the menu's rule), by its root, once
     /// per root and with no pick: the live checks use it to take back everything a run rezzed. Returns the roots whose take was sent.</summary>
-    public IReadOnlyList<uint> TakeBack(IEnumerable<uint> localIds) => [];
+    public IReadOnlyList<uint> TakeBack(IEnumerable<uint> localIds)
+    {
+        var wanted = localIds.ToHashSet();
+        var roots = new List<uint>();
+        foreach (var o in _world.Snapshot().Objects.Values.Where(o => wanted.Contains(o.Id.LocalId)).OrderBy(o => o.Id.LocalId))
+        {
+            var root = Root(o);
+            if (roots.Contains(root.Id.LocalId) || root.AttachmentPoint is not null)
+                continue;
+            if (!Viewer.Core.Building.BuildRules.CanTake(root.Interaction?.Flags ?? 0, false, SittingOn(root)))
+                continue;
+            if (_submit(new TakeIntent(root.Id.LocalId, false)).Status == ActionStatus.Sent)
+                roots.Add(root.Id.LocalId);
+        }
+        return roots;
+    }
 
     private bool SittingOn(ObjectState root)
     {
