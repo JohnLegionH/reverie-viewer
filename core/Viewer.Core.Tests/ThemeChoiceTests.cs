@@ -16,6 +16,9 @@ namespace Viewer.Core.Tests;
 /// </summary>
 public class ThemeChoiceTests
 {
+    // the Classic preset, which these tests are about (the default choice is the Reverie dark variant)
+    private static readonly ThemeChoice Classic = ThemeChoice.Default with { Preset = ThemePresets.Classic };
+
     private sealed class MemoryStore(string? text = null) : ISettingsStore
     {
         public string? Text = text;
@@ -26,13 +29,13 @@ public class ThemeChoiceTests
     // ---------------- resolving ----------------
 
     [Fact]
-    public void The_default_choice_is_the_classic_preset_unchanged_at_a_hundred_percent()
+    public void The_default_choice_is_the_reverie_dark_variant_unchanged_at_a_hundred_percent()
     {
         var choice = ThemeChoice.Default;
-        Assert.Equal("classic", choice.Preset);
+        Assert.Equal(ReverieTheme.DarkId, choice.Preset);
         Assert.Equal(100, choice.ScalePercent);
         Assert.False(choice.UseGridAccent);
-        Assert.Equal(ThemePresets.Get("classic"), ThemeResolver.Resolve(choice, null));
+        Assert.Equal(ThemePresets.Get(ReverieTheme.DarkId), ThemeResolver.Resolve(choice, null));
     }
 
     [Theory]
@@ -41,20 +44,20 @@ public class ThemeChoiceTests
     [InlineData("power-user")]
     [InlineData("high-contrast")]
     public void Each_preset_resolves_to_its_own_tokens(string id) =>
-        Assert.Equal(ThemePresets.Get(id), ThemeResolver.Resolve(ThemeChoice.Default with { Preset = id }, null));
+        Assert.Equal(ThemePresets.Get(id), ThemeResolver.Resolve(Classic with { Preset = id }, null));
 
     [Fact]
     public void A_picked_accent_replaces_the_accent_and_the_fill_follows_the_rule()
     {
-        var t = ThemeResolver.Resolve(ThemeChoice.Default with { Accent = H("#4c9aff") }, null);
+        var t = ThemeResolver.Resolve(Classic with { Accent = H("#4c9aff") }, null);
         Assert.Equal(H("#2b6fd6"), t.AccentFill);   // the same accent as the preset: its own fill stays
-        var teal = ThemeResolver.Resolve(ThemeChoice.Default with { Accent = H("#2dd4bf") }, null);
+        var teal = ThemeResolver.Resolve(Classic with { Accent = H("#2dd4bf") }, null);
         Assert.Equal(H("#2dd4bf"), teal.Accent);
         Assert.Equal(H("#2dd4bf"), teal.AccentFill);          // light accent: its own fill, dark text
         Assert.Equal(H("#111111"), teal.AccentFillText);
-        var rose = ThemeResolver.Resolve(ThemeChoice.Default with { Accent = H("#f472b6") }, null);
+        var rose = ThemeResolver.Resolve(Classic with { Accent = H("#f472b6") }, null);
         Assert.Equal(H("#111111"), rose.AccentFillText);
-        var violet = ThemeResolver.Resolve(ThemeChoice.Default with { Accent = H("#5a3fd0") }, null);
+        var violet = ThemeResolver.Resolve(Classic with { Accent = H("#5a3fd0") }, null);
         Assert.Equal(H("#5a3fd0"), violet.AccentFill);
         Assert.Equal(H("#ffffff"), violet.AccentFillText);
     }
@@ -63,7 +66,7 @@ public class ThemeChoiceTests
     public void Changed_panel_bar_and_text_colours_replace_those_and_nothing_else()
     {
         var baseTokens = ThemePresets.Get("classic");
-        var t = ThemeResolver.Resolve(ThemeChoice.Default with
+        var t = ThemeResolver.Resolve(Classic with
         {
             Panel = H("#102030"), Bar = H("#203040"), Text = H("#f0f0f0"), TextSecondary = H("#c0c0c0"),
         }, null);
@@ -78,11 +81,11 @@ public class ThemeChoiceTests
     public void The_grid_accent_wins_when_asked_for_and_present_and_is_ignored_otherwise()
     {
         var grid = H("#2dd4bf");
-        var asked = ThemeChoice.Default with { UseGridAccent = true, Accent = H("#f59e0b") };
+        var asked = Classic with { UseGridAccent = true, Accent = H("#f59e0b") };
         Assert.Equal(grid, ThemeResolver.Resolve(asked, grid).Accent);
         Assert.Equal(H("#f59e0b"), ThemeResolver.Resolve(asked, null).Accent);                                   // the grid has none
         Assert.Equal(H("#f59e0b"), ThemeResolver.Resolve(asked with { UseGridAccent = false }, grid).Accent);   // not asked for
-        Assert.Equal(H("#4c9aff"), ThemeResolver.Resolve(ThemeChoice.Default with { UseGridAccent = true }, null).Accent);
+        Assert.Equal(H("#4c9aff"), ThemeResolver.Resolve(Classic with { UseGridAccent = true }, null).Accent);
     }
 
     [Fact]
@@ -105,7 +108,7 @@ public class ThemeChoiceTests
     [InlineData("high-contrast")]
     public void A_theme_exported_and_imported_again_gives_the_same_look(string id)
     {
-        var shown = ThemeResolver.Resolve(ThemeChoice.Default with { Preset = id, Accent = H("#c084fc"), Panel = H("#112233") }, null);
+        var shown = ThemeResolver.Resolve(Classic with { Preset = id, Accent = H("#c084fc"), Panel = H("#112233") }, null);
         var file = ThemePack.Write("exported", "Exported", shown);
         var choice = ThemeChoice.Import(file, out var error);
         Assert.Null(error);
@@ -136,7 +139,7 @@ public class ThemeChoiceTests
         Assert.NotNull(read);
         Assert.Equal(original with { ImportedPack = null }, read with { ImportedPack = null });
         Assert.Equal(pack, read.ImportedPack);
-        Assert.Equal(ThemeChoice.Default, ThemeChoice.FromJson(ThemeChoice.Default.ToJson()));
+        Assert.Equal(Classic, ThemeChoice.FromJson(Classic.ToJson()));
     }
 
     [Theory]
@@ -163,8 +166,8 @@ public class ThemeChoiceTests
     {
         var store = new MemoryStore("""{ "chat_timestamps": false }""");
         var s = new SettingsService(store);
-        ThemeStore.Save(s, "alice", ThemeChoice.Default with { Preset = "high-contrast" });
-        ThemeStore.Save(s, "bob", ThemeChoice.Default with { Preset = "classic-light", ScalePercent = 125 });
+        ThemeStore.Save(s, "alice", Classic with { Preset = "high-contrast" });
+        ThemeStore.Save(s, "bob", Classic with { Preset = "classic-light", ScalePercent = 125 });
         var again = new SettingsService(store);   // read back from the stored text
         Assert.Equal("high-contrast", ThemeStore.Load(again, "alice").Preset);
         Assert.Equal("classic-light", ThemeStore.Load(again, "bob").Preset);
@@ -177,10 +180,10 @@ public class ThemeChoiceTests
     {
         var s = new SettingsService(new MemoryStore());
         Assert.Equal(ThemeChoice.Default, ThemeStore.Load(s, null));
-        ThemeStore.Save(s, "alice", ThemeChoice.Default with { Preset = "power-user" });
+        ThemeStore.Save(s, "alice", Classic with { Preset = "power-user" });
         Assert.Equal("power-user", ThemeStore.Load(s, null).Preset);
         Assert.Equal("power-user", ThemeStore.Load(s, "carol").Preset);
-        ThemeStore.Save(s, "bob", ThemeChoice.Default with { Preset = "classic-light" });
+        ThemeStore.Save(s, "bob", Classic with { Preset = "classic-light" });
         Assert.Equal("power-user", ThemeStore.Load(s, "alice").Preset);   // her own is still hers
         Assert.Equal("classic-light", ThemeStore.Load(s, null).Preset);
     }
@@ -190,8 +193,8 @@ public class ThemeChoiceTests
     {
         var store = new MemoryStore();
         var s = new SettingsService(store);
-        ThemeStore.Save(s, "Alice Resident", ThemeChoice.Default with { Preset = "power-user" });
-        ThemeStore.Save(s, "we\"ird\\name\n", ThemeChoice.Default with { Preset = "classic-light" });
+        ThemeStore.Save(s, "Alice Resident", Classic with { Preset = "power-user" });
+        ThemeStore.Save(s, "we\"ird\\name\n", Classic with { Preset = "classic-light" });
         Assert.Equal("power-user", ThemeStore.Load(s, "alice resident").Preset);
         Assert.NotNull(JsonNode.Parse(store.Text!));
         Assert.Equal("classic-light", ThemeStore.Load(new SettingsService(store), "we\"ird\\name\n").Preset);
@@ -253,7 +256,7 @@ public class ThemeChoiceTests
     [Fact]
     public void The_grid_accent_and_a_picked_accent_are_judged_on_the_bar_and_on_the_button()
     {
-        var dim = ThemeResolver.Resolve(ThemeChoice.Default with { Accent = H("#3a3f46") }, null);   // nearly the bar's own colour
+        var dim = ThemeResolver.Resolve(Classic with { Accent = H("#3a3f46") }, null);   // nearly the bar's own colour
         var rows = Readability.Check(dim);
         Assert.False(rows[2].Readable);
         Assert.True(rows[3].Readable);   // the fill rule keeps button text readable whatever the accent

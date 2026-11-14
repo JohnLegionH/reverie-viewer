@@ -14,6 +14,9 @@ namespace Viewer.Core.Tests;
 /// </summary>
 public class InterfacePreferencesTests
 {
+    // the Classic preset, which these tests are about (the default choice is the Reverie dark variant)
+    private static readonly ThemeChoice Classic = ThemeChoice.Default with { Preset = ThemePresets.Classic };
+
     private sealed class MemoryStore(string? text = null, bool fail = false) : ISettingsStore
     {
         public string? Text = text;
@@ -21,7 +24,7 @@ public class InterfacePreferencesTests
         public bool Write(string text) { if (fail) return false; Text = text; return true; }
     }
 
-    private static InterfacePreferences Page(ThemeChoice? saved = null, UiColour? grid = null) => new(saved ?? ThemeChoice.Default, grid);
+    private static InterfacePreferences Page(ThemeChoice? saved = null, UiColour? grid = null) => new(saved ?? Classic, grid);
 
     [Fact]
     public void A_new_page_shows_the_saved_choice_unchanged()
@@ -91,18 +94,18 @@ public class InterfacePreferencesTests
         p.SetScale(125);
         p.SetUseGridAccent(true);
         p.SelectPreset("classic-light");
-        Assert.Equal(ThemeChoice.Default with { Preset = "classic-light", ScalePercent = 125, UseGridAccent = true }, p.Working);
+        Assert.Equal(Classic with { Preset = "classic-light", ScalePercent = 125, UseGridAccent = true }, p.Working);
     }
 
     [Fact]
     public void Reset_to_preset_drops_colour_changes_and_the_grid_accent_and_keeps_the_preset_and_scale()
     {
-        var p = Page(ThemeChoice.Default with { Preset = "power-user", ScalePercent = 175 });
+        var p = Page(Classic with { Preset = "power-user", ScalePercent = 175 });
         p.SetAccent(H("#2dd4bf"));
         p.SetText(H("#ffffff"));
         p.SetUseGridAccent(true);
         p.ResetToPreset();
-        Assert.Equal(ThemeChoice.Default with { Preset = "power-user", ScalePercent = 175 }, p.Working);
+        Assert.Equal(Classic with { Preset = "power-user", ScalePercent = 175 }, p.Working);
     }
 
     [Fact]
@@ -133,13 +136,13 @@ public class InterfacePreferencesTests
         var again = ThemeStore.Load(new SettingsService(store), "alice");
         Assert.Equal("high-contrast", again.Preset);
         Assert.Equal(130, again.ScalePercent);
-        Assert.Equal("classic", ThemeStore.Load(new SettingsService(new MemoryStore()), "bob").Preset);
+        Assert.Equal(ReverieTheme.DarkId, ThemeStore.Load(new SettingsService(new MemoryStore()), "bob").Preset);
     }
 
     [Fact]
     public void Cancel_drops_every_unsaved_change_and_restores_the_saved_look()
     {
-        var p = Page(ThemeChoice.Default with { Preset = "power-user" });
+        var p = Page(Classic with { Preset = "power-user" });
         int raised = 0;
         p.SetAccent(H("#f472b6"));
         p.SelectPreset("classic-light");
@@ -147,7 +150,7 @@ public class InterfacePreferencesTests
         p.Changed += () => raised++;
         p.Cancel();
         Assert.Equal(1, raised);
-        Assert.Equal(ThemeChoice.Default with { Preset = "power-user" }, p.Working);
+        Assert.Equal(Classic with { Preset = "power-user" }, p.Working);
         Assert.Equal(ThemePresets.Get("power-user"), p.Tokens);
         Assert.False(p.IsChanged);
         p.Cancel();

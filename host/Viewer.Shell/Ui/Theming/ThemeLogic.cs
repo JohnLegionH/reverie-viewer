@@ -188,7 +188,11 @@ public static class ThemePresets
 
     /// <summary>The preset's tokens; the Classic ones for an id that is not a preset.</summary>
     public static ThemeTokens Get(string id) =>
-        (Packs.Value.TryGetValue(id, out var pack) ? pack : Packs.Value[Classic]).Tokens!;
+        ReverieTheme.VariantOf(id) is { } variant ? ReverieTheme.ToThemeTokens(ReverieTheme.Tokens(variant))
+        : (Packs.Value.TryGetValue(id, out var pack) ? pack : Packs.Value[Classic]).Tokens!;
+
+    /// <summary>Whether the id names a theme this viewer has built in: a preset pack or a Reverie variant.</summary>
+    public static bool Known(string id) => Array.IndexOf(AllIds, id) >= 0 || ReverieTheme.VariantOf(id) is not null;
 
     public static string NameOf(string id) => Packs.Value.TryGetValue(id, out var pack) ? pack.Name! : id;
 
@@ -219,7 +223,7 @@ public sealed record ThemeChoice(
     /// <summary>The preset name that stands for a theme file the person imported.</summary>
     public const string ImportedPreset = "imported";
 
-    public static ThemeChoice Default => new(ThemePresets.Classic, null, null, null, null, null, 100, false, null);
+    public static ThemeChoice Default => new(ReverieTheme.DarkId, null, null, null, null, null, 100, false, null);
 
     public string ToJson()
     {
@@ -246,7 +250,7 @@ public sealed record ThemeChoice(
         if (o?["preset"] is not JsonValue pv || !pv.TryGetValue(out string? preset) || preset is null)
             return null;
         string? pack = o["pack"] is JsonValue kv && kv.TryGetValue(out string? p) ? p : null;
-        if (preset == ImportedPreset ? pack is null || ThemePack.Parse(pack).Error is not null : Array.IndexOf(ThemePresets.Ids.ToArray(), preset) < 0)
+        if (preset == ImportedPreset ? pack is null || ThemePack.Parse(pack).Error is not null : !ThemePresets.Known(preset))
             return null;
         bool ok = true;
         UiColour? Read(string key)
@@ -287,7 +291,9 @@ public static class ThemeResolver
             ? imported
             : ThemePresets.Get(choice.Preset);
         var accent = (choice.UseGridAccent ? gridAccent : null) ?? choice.Accent;
-        if (accent is { } a && a.Quantized() != t.Accent)
+        if (ReverieTheme.VariantOf(choice.Preset) is { } variant)
+            t = ReverieTheme.ToThemeTokens(ReverieTheme.Tokens(variant, accent));   // the Reverie rule for text on the accent
+        else if (accent is { } a && a.Quantized() != t.Accent)
         {
             var (fill, fillText) = AccentFill.Derive(a.Quantized());
             t = t with { Accent = a.Quantized(), AccentFill = fill, AccentFillText = fillText };

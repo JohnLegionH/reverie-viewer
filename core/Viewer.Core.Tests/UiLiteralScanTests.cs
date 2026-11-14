@@ -81,7 +81,7 @@ public class UiLiteralScanTests
         {
             var rel = Path.GetRelativePath(shell, f).Split(Path.DirectorySeparatorChar);
             if (rel.Any(p => p is "bin" or "obj")) continue;
-            if (rel.Length >= 3 && rel[0] == "Ui" && rel[1] == "Theming") continue;   // the token code
+            if (rel.Length >= 3 && rel[0] == "Ui" && rel[1] is "Theming" or "Reverie" && rel[^1] is not "TopBarModels.cs") continue;   // the token code
             if (f.EndsWith("Zoo.cs", StringComparison.Ordinal)) continue;              // test scenes: world content, not interface
             yield return f;
         }

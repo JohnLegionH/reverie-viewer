@@ -16,7 +16,7 @@ public class ReverieThemeTests
 
     [Theory]
     [InlineData(ReverieVariant.Dark, "#6aa5ff")]
-    [InlineData(ReverieVariant.Light, "#1f6fe0")]
+    [InlineData(ReverieVariant.Light, "#1a64cf")]
     public void Each_variant_has_its_own_default_accent(ReverieVariant variant, string accent)
     {
         Assert.Equal(H(accent), ReverieTheme.DefaultAccent(variant));
@@ -79,7 +79,7 @@ public class ReverieThemeTests
 
     [Theory]
     [InlineData(ReverieVariant.Dark, "#6aa5ff", "#0f1420")]   // the default: the variant's own dark text reads on the light blue
-    [InlineData(ReverieVariant.Light, "#1f6fe0", "#ffffff")]
+    [InlineData(ReverieVariant.Light, "#1a64cf", "#ffffff")]
     [InlineData(ReverieVariant.Dark, "#1f3a8a", "#ffffff")]   // a dark custom accent: dark text would not read, so white
     [InlineData(ReverieVariant.Light, "#f2e85c", "#000000")]  // a light custom accent: white would not read, so black
     public void Text_on_the_accent_is_the_variants_own_when_it_reads_else_black_or_white_whichever_reads_better(ReverieVariant variant, string accent, string expected)

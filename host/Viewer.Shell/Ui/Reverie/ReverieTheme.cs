@@ -47,23 +47,94 @@ public static class ReverieTheme
 {
     public const string DarkId = "reverie-dark", LightId = "reverie-light";
 
-    /// <summary>The accent presets offered beside "Custom...": blue, green, amber and pink.</summary>
-    public static IReadOnlyList<(string Key, UiColour Colour)> AccentPresets { get; } = [];
+    private static UiColour H(string hex) => ThemePack.ParseColour(hex)!.Value;
 
-    /// <summary>The variant's default accent.</summary>
-    public static UiColour DefaultAccent(ReverieVariant variant) => default;
+    private static readonly IReadOnlyDictionary<string, UiColour> Dark = new Dictionary<string, UiColour>
+    {
+        ["surface.base"] = H("#1e2128"), ["surface.sunken"] = H("#1a1d23"), ["surface.raised"] = H("#272b33"),
+        ["surface.card"] = H("#23262d"), ["surface.selected"] = H("#343944"), ["surface.selected.strong"] = H("#434956"),
+        ["border.default"] = H("#3a404c"), ["border.control"] = H("#434956"), ["border.strong"] = H("#8b93a3"),
+        ["text.primary"] = H("#eef0f4"), ["text.strong"] = H("#ffffff"), ["text.secondary"] = H("#d3d8e0"),
+        ["text.muted"] = H("#b4bbc7"), ["text.on-accent"] = H("#0f1420"), ["status.ok"] = H("#5fe08a"),
+        ["warn.surface"] = H("#2a2618"), ["warn.border"] = H("#6b5a2e"), ["warn.text"] = H("#f6dfa4"),
+    };
+
+    // the light variant was specified without warning or status colours: these are its own, darker counterparts of the dark ones
+    private static readonly IReadOnlyDictionary<string, UiColour> Light = new Dictionary<string, UiColour>
+    {
+        ["surface.base"] = H("#f4f5f7"), ["surface.sunken"] = H("#e9ebef"), ["surface.raised"] = H("#ffffff"),
+        ["surface.card"] = H("#ffffff"), ["surface.selected"] = H("#dde1e8"), ["surface.selected.strong"] = H("#c9ced8"),
+        ["border.default"] = H("#d5d9e1"), ["border.control"] = H("#b9c0cc"), ["border.strong"] = H("#6b7384"),
+        ["text.primary"] = H("#1b1e24"), ["text.strong"] = H("#000000"), ["text.secondary"] = H("#3d4450"),
+        ["text.muted"] = H("#4f5766"), ["text.on-accent"] = H("#ffffff"), ["status.ok"] = H("#1f8a4c"),
+        ["warn.surface"] = H("#fbf1d6"), ["warn.border"] = H("#c9a54a"), ["warn.text"] = H("#5a4200"),
+    };
+
+    /// <summary>The accent presets offered beside "Custom...": blue, green, amber and pink.</summary>
+    public static IReadOnlyList<(string Key, UiColour Colour)> AccentPresets { get; } =
+        [("blue", H("#6aa5ff")), ("green", H("#5fe08a")), ("amber", H("#f2b85c")), ("pink", H("#f08fb0"))];
+
+    /// <summary>The variant's default accent (the light variant's is darker, so accent text and fills keep 4.5:1 on its surfaces: #1a64cf reads 5.1:1 on its bar).</summary>
+    public static UiColour DefaultAccent(ReverieVariant variant) => variant == ReverieVariant.Light ? H("#1a64cf") : H("#6aa5ff");
 
     /// <summary>The tokens of a variant with an accent (null: the variant's default accent).</summary>
-    public static ReverieTokens Tokens(ReverieVariant variant, UiColour? accent = null) =>
-        new(variant, new Dictionary<string, UiColour>(), default, default);
+    public static ReverieTokens Tokens(ReverieVariant variant, UiColour? accent = null)
+    {
+        var a = (accent ?? DefaultAccent(variant)).Opaque().Quantized();
+        return new ReverieTokens(variant, variant == ReverieVariant.Light ? Light : Dark, a, OnAccentFor(variant, a));
+    }
 
     /// <summary>The text colour for an accent fill: the variant's own text.on-accent when it reads at 4.5:1 or better on the
     /// accent, else black or white, whichever reads better.</summary>
-    public static UiColour OnAccentFor(ReverieVariant variant, UiColour accent) => default;
+    public static UiColour OnAccentFor(ReverieVariant variant, UiColour accent)
+    {
+        var own = (variant == ReverieVariant.Light ? Light : Dark)["text.on-accent"];
+        if (UiColour.Contrast(own, accent) >= Readability.MinimumRatio)
+            return own;
+        UiColour black = new(0f, 0f, 0f), white = new(1f, 1f, 1f);
+        return UiColour.Contrast(black, accent) >= UiColour.Contrast(white, accent) ? black : white;
+    }
 
-    /// <summary>Every text-on-surface pair the interface draws, as token names: text, surface.</summary>
-    public static IReadOnlyList<(string Text, string Surface)> TextPairs { get; } = [];
+    private static readonly string[] TextTokens = ["text.primary", "text.strong", "text.secondary", "text.muted"];
 
-    /// <summary>The tokens in the shape the engine theme builder reads.</summary>
-    public static ThemeTokens ToThemeTokens(ReverieTokens tokens) => ThemePresets.Get(ThemePresets.Classic);
+    private static readonly string[] Surfaces =
+        ["surface.base", "surface.sunken", "surface.raised", "surface.card", "surface.selected", "surface.selected.strong"];
+
+    /// <summary>Every text-on-surface pair the interface draws, as token names: text, surface. Every text colour on every surface,
+    /// warning text on its card, text on an accent fill, and the accent drawn as text on the bar.</summary>
+    public static IReadOnlyList<(string Text, string Surface)> TextPairs { get; } =
+        [.. TextTokens.SelectMany(t => Surfaces.Select(s => (t, s))), ("warn.text", "warn.surface"), ("text.on-accent", "accent"), ("accent", "surface.base")];
+
+    /// <summary>Type sizes (logical pixels at 100 %): window titles, body, menu titles, status, small, caption, dock names, overlines.</summary>
+    public const float TypeTitle = 14, TypeBody = 13.5f, TypeMenu = 13.5f, TypeStatus = 13, TypeSmall = 12.5f, TypeCaption = 12, TypeDock = 11, TypeOverline = 11.5f;
+
+    /// <summary>Corner radii: window, dock, dock button, card, segmented track, control.</summary>
+    public const int RadiusWindow = 14, RadiusDock = 20, RadiusDockButton = 14, RadiusCard = 12, RadiusTrack = 10, RadiusControl = 8;
+
+    /// <summary>The floating shadow: offset down, blur, and black at this opacity.</summary>
+    public const int ShadowOffsetY = 8, ShadowBlur = 24;
+    public const float ShadowOpacity = 0.35f, FloatingOpacity = 0.95f;
+
+    /// <summary>Sizes: the top bar, a menu title, the location field, a top-bar icon button, a window title bar and its buttons,
+    /// a list row (in a sidebar), a chip, a button, a segment, the switch and its knob.</summary>
+    public const float TopBarHeight = 38, MenuTitleHeight = 28, MenuTitlePadding = 12, LocationHeight = 26, LocationMaxWidth = 440,
+        LocationMinWidth = 240, IconButton = 28, IconSmall = 16, TitleBarHeight = 42, TitleButton = 30, ListRow = 32, SidebarRow = 34,
+        ChipHeight = 28, ButtonHeight = 36, SegmentHeight = 28, SwitchWidth = 42, SwitchHeight = 24, SwitchKnob = 18;
+
+    /// <summary>The tokens in the shape the engine theme builder reads; colours the design does not name keep the Classic values.</summary>
+    public static ThemeTokens ToThemeTokens(ReverieTokens r)
+    {
+        var classic = ThemePresets.Get(ThemePresets.Classic);
+        return classic with
+        {
+            Panel = r["surface.base"], Bar = r["surface.base"], Input = r["surface.raised"], Border = r["border.control"],
+            Text = r["text.primary"], TextSecondary = r["text.secondary"], Accent = r.Accent, AccentFill = r.Accent,
+            AccentFillText = r.OnAccent, Warning = r["warn.border"], WarningText = r["warn.text"], Success = r["status.ok"],
+            ChatAgent = r["text.primary"], ChatTyping = r["text.muted"], Radius = RadiusControl, BorderWidth = 1,
+            FontBody = 13, FontCaption = 12, FontTitle = 14,
+        };
+    }
+
+    /// <summary>The variant a preset id stands for, or null when it is no Reverie preset.</summary>
+    public static ReverieVariant? VariantOf(string? id) => id switch { DarkId => ReverieVariant.Dark, LightId => ReverieVariant.Light, _ => null };
 }
