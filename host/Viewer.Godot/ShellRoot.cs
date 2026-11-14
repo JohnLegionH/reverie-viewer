@@ -88,6 +88,7 @@ public partial class ShellRoot : Control
 
         TopBar = new TopBar(_strings, TopMenus());
         TopBar.ShowPlace(false);
+        TopBar.Rearranged += () => { if (IsInsideTree()) ApplyLayout(); };
         AddChild(TopBar);
         // feature code adds its menus and entries when it is ready, after the frame is drawn: draw them again then
         shell.Menus.Changed += RebuildMenus;
@@ -468,6 +469,7 @@ public partial class ShellRoot : Control
         // the window's size in interface units (the engine has already divided the pixels by the scale), and the height each bar's
         // content needs: a bar taller than its design height would draw over its neighbour or past the window's edge
         var size = GetViewportRect().Size;
+        TopBar.FitTo(size.X);   // the narrow-window rule works on the window's width in interface units
         var needs = new BarHeights(TopBar.GetCombinedMinimumSize().Y, 0, Chat.GetCombinedMinimumSize().Y, 0);
         var regions = Shell.Layout(new UiSize(size.X, size.Y), needs);
         MainArea = new Rect2(regions.Main.X, regions.Main.Y, regions.Main.W, regions.Main.H);

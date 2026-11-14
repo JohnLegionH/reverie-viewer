@@ -433,6 +433,7 @@ public partial class TopBar : PanelContainer
         Back.Visible = inWorld;
         Home.Visible = inWorld;
         Location.Visible = inWorld;
+        _laidOutFor = -1;   // the centre zone's width changed: lay the zones out again
     }
 
     public void SetTime(string text) => _time.Text = text;
@@ -459,24 +460,41 @@ public partial class TopBar : PanelContainer
 
     public override void _Process(double delta)
     {
-        float width = GetParentAreaSize().X;
-        if (Math.Abs(width - _laidOutFor) > 0.5f)
+        if (Math.Abs(Available - _laidOutFor) > 0.5f)
             Relayout();
     }
 
     private float _laidOutFor = -1;
+    private float? _width;
 
-    /// <summary>Lays the zones out for the width the bar has in its parent (not its own size, which its content would widen).</summary>
+    /// <summary>Raised (deferred) when the zones moved to or from the second row, so the frame can give the bar its new height.</summary>
+    public event Action? Rearranged;
+
+    /// <summary>The width the frame gives the bar (in interface units); without it, the width of the bar's parent.</summary>
+    public void FitTo(float width)
+    {
+        _width = width;
+        if (Math.Abs(width - _laidOutFor) > 0.5f)
+            Relayout();
+    }
+
+    private float Available => _width ?? GetParentAreaSize().X;
+
+    /// <summary>Lays the zones out for the width the bar is given (not its own size, which its content would widen).</summary>
     private void Relayout()
     {
-        float available = GetParentAreaSize().X;
+        float available = Available;
         _laidOutFor = available;
-        float centreWidth = Back.GetCombinedMinimumSize().X + Home.GetCombinedMinimumSize().X + ReverieTheme.LocationMinWidth + 8;
+        // the centre zone counts only while it shows (in the world); on the login screen the menus and the status share the row
+        float centreWidth = Location.Visible ? Back.GetCombinedMinimumSize().X + Home.GetCombinedMinimumSize().X + ReverieTheme.LocationMinWidth + 8 : 0;
         float leftWidth = _left.GetCombinedMinimumSize().X, rightWidth = _right.GetCombinedMinimumSize().X;
         bool own = TopBarLayout.LocationOnOwnRow(available - 16, leftWidth, centreWidth, rightWidth);
         bool statusDown = TopBarLayout.StatusOnSecondRow(available - 16, leftWidth, centreWidth, rightWidth);
         if (own != _ownRow || statusDown != _statusDown)
+        {
             Arrange(own, statusDown);
+            Callable.From(() => Rearranged?.Invoke()).CallDeferred();
+        }
         // the field takes the room the zone has, from its least width (240) to its largest (440)
         float room = statusDown ? available - 16 - rightWidth - TopBarLayout.ZoneGap
             : own ? available - 16 : available - 16 - leftWidth - rightWidth - 2 * TopBarLayout.ZoneGap;
