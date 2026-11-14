@@ -88,7 +88,7 @@ public partial class Main
     /// <summary>The inventory window's view (development builds only): the sort shown, a sort chosen as a click on the sort list does
     /// (so it is kept as the user's choice is), and an offline check of a hypergrid suitcase folder opened and closed with its arrow while
     /// the grid's answer for it arrives again and again. The window is made if no login has made it yet. Answers counts and flags only.</summary>
-    public async Task<object?> InventoryViewCall(string action, string? sort)
+    public async Task<object?> InventoryViewCall(string action, string? sort, string? item = null, string? folder = null)
     {
         if (_shell is null)
             return null;
@@ -113,6 +113,10 @@ public partial class Main
                 if (_inventoryFor is null)
                     return new { refused = "not_in_world" };
                 return await PointerCheck(panel, live: true);
+            case "move_pick" or "move_drop" or "move_where":
+                if (_inventoryFor is null || panel.Model is not { } moving)
+                    return new { refused = "not_in_world" };
+                return await MoveLiveCall(panel, moving, action[5..], item, folder);
             case "toggle_live":
                 if (_inventoryFor is null || panel.Model is not { } live)
                     return new { refused = "not_in_world" };

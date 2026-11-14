@@ -90,8 +90,44 @@ public partial class InventoryTree : Tree
     /// <summary>The place over the tree a drag going on is held at, for the automation's check (local coordinates; null: the system cursor).</summary>
     internal void HoldDragAt(Vector2? at) => _dragAt = at;
 
+    /// <summary>Rows added to the selection with Ctrl+click, besides the selected row (the engine's own multi-select does not
+    /// report a selection made from code, which the panel and its checks rely on, so the tree stays in single mode).</summary>
+    public HashSet<Guid> Added { get; } = new();
+
+    /// <summary>Marks the added rows again (after the tree was drawn again).</summary>
+    public void MarkAdded()
+    {
+        var shade = ShellTheme.C(UiTheme.Tokens.Accent) with { A = 0.28f };
+        for (var item = GetRoot(); item is not null; item = item.GetNextInTree())
+        {
+            if (Added.Contains(IdOf(item)))
+                item.SetCustomBgColor(0, shade);
+            else
+                item.ClearCustomBgColor(0);
+        }
+    }
+
     public override void _GuiInput(InputEvent e)
     {
+        if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true, DoubleClick: false } lp)
+        {
+            var row = GetItemAtPosition(lp.Position);
+            var rowId = IdOf(row);
+            if (lp.CtrlPressed && rowId != Guid.Empty && GetSelected() is { } current && IdOf(current) != rowId)
+            {
+                // Ctrl+click: the row joins the set (or leaves it), the selected row stays
+                if (!Added.Remove(rowId))
+                    Added.Add(rowId);
+                MarkAdded();
+                AcceptEvent();
+                return;
+            }
+            if (!lp.CtrlPressed && Added.Count > 0 && rowId != Guid.Empty && !Added.Contains(rowId) && (GetSelected() is not { } sel || IdOf(sel) != rowId))
+            {
+                Added.Clear();   // a plain click on a row outside the set starts the selection again
+                MarkAdded();
+            }
+        }
         switch (e)
         {
             case InputEventMouseButton { ButtonIndex: MouseButton.Right } mb:
@@ -102,9 +138,7 @@ public partial class InventoryTree : Tree
                 var id = IdOf(item);
                 if (id == Guid.Empty || FolderTreeInput.Press(RowButton.Right, RowPart.Name, IsFolder?.Invoke(id) ?? false, mb.DoubleClick) != TreeAction.SelectAndMenu)
                     return;
-                if (!item!.IsSelected(0))
-                    DeselectAll();   // a right press on a row outside the selection makes it the only one
-                item.Select(0);
+                item!.Select(0);
                 MenuRequested?.Invoke(id);
                 return;
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true, DoubleClick: true } dc:
@@ -232,12 +266,13 @@ public partial class InventoryTree : Tree
 
     public static Guid IdOf(TreeItem? item) => item is not null && item.GetMetadata(0).VariantType == Variant.Type.String && Guid.TryParse(item.GetMetadata(0).AsString(), out var g) ? g : Guid.Empty;
 
-    /// <summary>The ids of the selected rows, in tree order.</summary>
+    /// <summary>The ids of the selected rows: the selected row and the rows Ctrl+click added, in tree order.</summary>
     public List<Guid> SelectedIds()
     {
+        var selected = IdOf(GetSelected());
         var ids = new List<Guid>();
-        for (var item = GetNextSelected(null); item is not null; item = GetNextSelected(item))
-            if (IdOf(item) is var id && id != Guid.Empty)
+        for (var item = GetRoot(); item is not null; item = item.GetNextInTree())
+            if (IdOf(item) is var id && id != Guid.Empty && (id == selected || Added.Contains(id)) && !ids.Contains(id))
                 ids.Add(id);
         return ids;
     }
@@ -353,14 +388,13 @@ public partial class InventoryPanel : VBoxContainer
 
         TreeView = new InventoryTree
         {
-            Name = "tree", HideRoot = true, SelectMode = global::Godot.Tree.SelectModeEnum.Multi, DropModeFlags = (int)global::Godot.Tree.DropModeFlagsEnum.OnItem,
+            Name = "tree", HideRoot = true, SelectMode = global::Godot.Tree.SelectModeEnum.Single, DropModeFlags = (int)global::Godot.Tree.DropModeFlagsEnum.OnItem,
             SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.All,
         };
         TreeView.AccessibilityName = strings.Get("inventory.tree");
         TreeView.DropText = strings.Get(DragFeedback.TextKey);
         TreeView.ItemCollapsed += OnItemCollapsed;
         TreeView.ItemSelected += OnItemSelected;
-        TreeView.MultiSelected += (_, _, _) => OnItemSelected();
         TreeView.ItemEdited += OnItemEdited;
         TreeView.MenuRequested += OnRowMenu;
         TreeView.IsFolder = id => _model?.Folder(id) is not null;
@@ -554,8 +588,7 @@ public partial class InventoryPanel : VBoxContainer
                     }
                     if (row.Id == _selected)
                         selected = item;
-                    else if (_selection.Contains(row.Id))
-                        item.Select(0);   // the rest of a multi-row selection survives the redraw
+
                 }
             }
             if (selected is not null)
@@ -567,6 +600,7 @@ public partial class InventoryPanel : VBoxContainer
             }
             else if (!_scrollToSelected)
                 _selected = Guid.Empty;   // a row being revealed keeps its place until its folder has arrived
+            TreeView.MarkAdded();
         }
         finally { _building = false; }
         if (_view is not null)
@@ -677,14 +711,11 @@ public partial class InventoryPanel : VBoxContainer
         _dirty = true;
     }
 
-    private HashSet<Guid> _selection = new();   // every selected row (Ctrl and Shift add rows); _selected is the one with the cursor
-
     private void OnItemSelected()
     {
         if (_building)
             return;
         _selected = InventoryTree.IdOf(TreeView.GetSelected());
-        _selection = TreeView.SelectedIds().ToHashSet();
         CancelConfirm();
         RefreshControls();
     }
@@ -792,6 +823,8 @@ public partial class InventoryPanel : VBoxContainer
         if (_actions is null)
             return;
         var results = _actions.MoveMany(dragged, DropFolder(target));
+        TreeView.Added.Clear();
+        TreeView.MarkAdded();
         // a refusal is what the user needs to hear; otherwise the first result says what happened
         Show(results.FirstOrDefault(r => !r.Submitted) ?? results.FirstOrDefault() ?? new InventoryActionResult(false, null, null));
     }
