@@ -304,7 +304,7 @@ public sealed class AddonDockItem
     /// <summary>Raised to the viewer when the add-on changed the item's state or removed it.</summary>
     public event Action? Changed;
 
-    public void SetOn(bool on) { }
+    public void SetOn(bool on) { _ = Changed; }
 
     public void SetAttention(bool on, int? count = null) { }
 
@@ -313,10 +313,10 @@ public sealed class AddonDockItem
     public void Remove() { }
 
     /// <summary>The viewer: the button was clicked.</summary>
-    public void Click() { }
+    public void Click() { _ = Clicked; }
 
     /// <summary>The viewer: a menu entry was chosen.</summary>
-    public void ChooseMenu(int index) { }
+    public void ChooseMenu(int index) { _ = MenuChosen; }
 }
 
 /// <summary>One restriction an object holds: the object, the behaviour and its option, whether the viewer enforces it, and
