@@ -109,6 +109,14 @@ public class InteractionMathTests
     }
 
     [Fact]
+    public void The_regions_move_and_transfer_flags_are_carried_over_so_edits_and_take_can_read_them()
+    {
+        var i = LmvTransport.ToInteraction(new LM.Primitive { Flags = LM.PrimFlags.ObjectMove | LM.PrimFlags.ObjectTransfer | LM.PrimFlags.ObjectModify })!;
+        Assert.NotNull(i);
+        Assert.Equal(ObjectFlagBits.Move | ObjectFlagBits.Transfer | ObjectFlagBits.Modify, i.Flags);
+    }
+
+    [Fact]
     public void A_prim_with_only_text_still_carries_it()
     {
         var i = LmvTransport.ToInteraction(new LM.Primitive { Text = "hi", TextColor = new LM.Color4(1f, 1f, 1f, 1f) })!;
