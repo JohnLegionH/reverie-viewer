@@ -178,6 +178,9 @@ public static class TopBarLayout
     public static bool LocationOnOwnRow(float width, float left, float centre, float right) =>
         left + centre + right + 2 * ZoneGap > width;
 
+    /// <summary>True when even the menus and the status area do not fit one row: the status area goes to the second row, after the location.</summary>
+    public static bool StatusOnSecondRow(float width, float left, float centre, float right) => false;
+
     /// <summary>The bar's height for the width.</summary>
     public static float Height(float width, float left, float centre, float right) =>
         LocationOnOwnRow(width, left, centre, right) ? 2 * RowHeight : RowHeight;

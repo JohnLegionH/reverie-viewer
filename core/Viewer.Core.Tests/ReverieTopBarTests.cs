@@ -185,6 +185,15 @@ public class ReverieTopBarTests
     }
 
     [Fact]
+    public void When_the_menus_and_the_status_alone_do_not_fit_the_status_goes_to_the_second_row_too()
+    {
+        Assert.False(TopBarLayout.StatusOnSecondRow(1000, 520, 520, 300));   // the location drops, the status stays
+        Assert.True(TopBarLayout.StatusOnSecondRow(640, 520, 300, 300));
+        Assert.True(TopBarLayout.LocationOnOwnRow(640, 520, 300, 300));
+        Assert.Equal(76f, TopBarLayout.Height(640, 520, 300, 300));
+    }
+
+    [Fact]
     public void The_gaps_between_zones_count()
     {
         float exact = 400 + 300 + 200 + 2 * TopBarLayout.ZoneGap;
