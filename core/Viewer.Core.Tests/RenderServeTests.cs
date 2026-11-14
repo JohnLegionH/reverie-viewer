@@ -45,6 +45,11 @@ if ($ArgLine -match '--tr-serve="?([^"\s]+)') {
         if ($env:FAKE_CRASH_TAG -and $tag -eq $env:FAKE_CRASH_TAG) { exit 9 }   # the process ends in the middle of the case
         Add-Content -LiteralPath (Join-Path $dir "cases.txt") -Value ("$tag " + ($lines -join ' | '))
         Write-Case $out $tag
+        if ($env:FAKE_SLOW_DONE) {
+            # the file appears before its exit code is in it, as a plain write may leave it for a moment
+            [System.IO.File]::WriteAllText((Join-Path $dir "$tag.done"), "")
+            Start-Sleep -Milliseconds 400
+        }
         [System.IO.File]::WriteAllText((Join-Path $dir "$tag.done"), "0")
     }
 }
@@ -90,6 +95,7 @@ exit 0
             ["NV_RENDER_ONE_PER_CASE"] = null,
             ["FAKE_LAUNCHES"] = launches,
             ["FAKE_CRASH_TAG"] = null,
+            ["FAKE_SLOW_DONE"] = null,
         };
         if (extraEnv is not null) foreach (var (k, v) in extraEnv) env[k] = v;
         int code; string output;
@@ -161,6 +167,17 @@ exit 0
         var r = Run(new() { ["NV_RENDER_ONE_PER_CASE"] = "1" }, "-EditLookOnly", "-Backends", "vulkan");
         Assert.NotEmpty(r.Launches);
         Assert.DoesNotContain(r.Launches, IsServe);
+    }
+
+    [Fact]
+    public void A_done_file_seen_before_its_exit_code_is_written_is_read_once_the_code_is_there()
+    {
+        var r = Run(new() { ["FAKE_SLOW_DONE"] = "1" }, "-EditLookOnly", "-Backends", "vulkan");
+        Assert.DoesNotContain("null-valued", r.Output);
+        Assert.Contains("Render summary:", r.Output);   // the run got to its end
+        var by = ServedBy(r.OutDir);
+        Assert.True(by.ContainsKey("proposal-avatars-edit-height-vulkan") && by.ContainsKey("avatars-edit-height-negative-vulkan"), "a served case was lost");
+        Assert.Single(r.Launches.Where(IsServe));   // one process served every case: none was taken for dead
     }
 
     [Fact]
