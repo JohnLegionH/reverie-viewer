@@ -80,6 +80,7 @@ public partial class S1Smoke : Node
                 EngineLogCheck();
                 await UiCheck();
                 await ShellCheck();
+                FontCheck();
                 await ChatCheck();
                 await PeopleCheck();
                 await TravelCheck();
@@ -299,6 +300,37 @@ public partial class S1Smoke : Node
         _result["ui"] = ui;
         if (!pass)
             _failures.Add("login screen layout or accessible names (see ui)");
+    }
+
+    // (i-a2) The interface font: Inter with the shipped Noto Sans attached for what Inter lacks, so a machine without the system fonts
+    // still shows that text; a Devanagari letter (in Noto, not in Inter) resolves in the chain; and at each of the spec's type sizes a
+    // line keeps Inter's own height (the engine sizes a line by the tallest font in a chain, so attaching Noto must not raise it).
+    private void FontCheck()
+    {
+        var problems = new List<string>();
+        var heights = new Dictionary<string, object?>();
+        var theme = ShellTheme.Build(UiTheme.Tokens);
+        var chain = theme.DefaultFont;
+        var inter = Fonts.InterRegular;
+        if (chain is null || inter is null)
+            problems.Add("no interface font");
+        else
+        {
+            if (!chain.GetFallbacks().Any(f => f.ResourceName == "NotoSans-Regular" || f.GetFontName().Contains("Noto", StringComparison.Ordinal)))
+                problems.Add("Noto Sans is not attached to the interface font");
+            if (!chain.HasChar(0x0915))
+                problems.Add("a Devanagari letter has no font in the interface font's chain");
+            foreach (int size in new[] { 11, 12, 13, 14 })
+            {
+                float want = inter.GetHeight(size), got = chain.GetHeight(size);
+                heights[size.ToString(System.Globalization.CultureInfo.InvariantCulture)] = new[] { want, got };
+                if (Math.Abs(got - want) > 0.5f)
+                    problems.Add($"at {size} px a line is {got} high, Inter's is {want}");
+            }
+        }
+        _result["font"] = new Dictionary<string, object?> { ["pass"] = problems.Count == 0, ["problems"] = problems, ["heights"] = heights };
+        if (problems.Count > 0)
+            _failures.Add("interface font (see font)");
     }
 
     // (i-b) The window frame holding the login screen, in English and pseudo-localised: the menu bar, the main view and the

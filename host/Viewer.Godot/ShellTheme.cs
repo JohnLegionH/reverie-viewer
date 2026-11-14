@@ -310,6 +310,9 @@ public static class Fonts
     /// <summary>Noto Sans, regular.</summary>
     public static FontFile? Noto => _noto ??= Make("NotoSans-Regular");
 
+    /// <summary>Inter regular on its own, without anything attached (the line height the interface keeps).</summary>
+    public static FontFile? InterRegular => Regular;
+
     private static FontFile? Make(string name)
     {
         var bytes = UiAssets.Font(name);
