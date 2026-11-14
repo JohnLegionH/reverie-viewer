@@ -154,30 +154,33 @@ $seed = Join-Path $appdata "NativeViewer\settings.json"
 $seeded = $false
 if (-not (Test-Path -LiteralPath $seed)) {
     New-Item -ItemType Directory -Force -Path (Join-Path $appdata "NativeViewer") | Out-Null
-    Set-Content -LiteralPath $seed -Value '{"floater_inventory_rect":"40,40,420,520","floater_people_rect":"100,100,520,470"}' -Encoding utf8
+    Set-Content -LiteralPath $seed -Value '{"floater_inventory_rect":"40,40,420,520","floater_about_rect":"100,100,520,470"}' -Encoding utf8
     $seeded = $true
 }
 $v = Start-Viewer "offline"
 if (-not $v) { Record "start" $false "no automation token file within $StartSeconds s"; exit 1 }
 try {
-    # the one-time clean-up of remembered places at the old default size
+    # the one-time clean-up of remembered places at the old default size (once the shell is up and lists its windows)
+    $list = Wait-Until { $w = Api $v "open_window" '{}'; if (@($w.windows).Count -gt 1) { $w } } 60
+    [void](Api $v "inventory_view" '{"action":"state"}')   # the inventory window exists before a login once asked for
     $inv = @((Api $v "windows" '{"action":"open","name":"inventory"}').open | Where-Object { $_.id -eq "inventory" })
-    $ppl = @((Api $v "windows" '{"action":"open","name":"people"}').open | Where-Object { $_.id -eq "people" })
+    $ppl = @((Api $v "windows" '{"action":"open","name":"about"}').open | Where-Object { $_.id -eq "about" })
     Start-Sleep -Milliseconds 800
     $inv = @((Api $v "windows" '{"action":"state"}').open | Where-Object { $_.id -eq "inventory" })
-    $ppl = @((Api $v "windows" '{"action":"state"}').open | Where-Object { $_.id -eq "people" })
+    $ppl = @((Api $v "windows" '{"action":"state"}').open | Where-Object { $_.id -eq "about" })
     $invOk = $inv.Count -eq 1 -and $inv[0].rect[2] -ge 420 -and $inv[0].rect[3] -ge 570
     $pplOk = $ppl.Count -eq 1 -and $ppl[0].rect[0] -eq 100 -and $ppl[0].rect[1] -eq 100 -and $ppl[0].rect[2] -ge 520 -and $ppl[0].rect[3] -ge 470
-    Record "size_cleanup_once" ($seeded -and $invOk -and $pplOk) "seeded $seeded; inventory remembered at the old default 420x520 opened at [$(@($inv | ForEach-Object { $_.rect -join ',' }))]; people remembered at 100,100,520,470 (changed by the person) opened at [$(@($ppl | ForEach-Object { $_.rect -join ',' }))]"
+    Record "size_cleanup_once" ($seeded -and $invOk -and $pplOk) "seeded $seeded; inventory remembered at the old default 420x520 opened at [$(@($inv | ForEach-Object { $_.rect -join ',' }))]; about remembered at 100,100,520,470 (changed by the person) opened at [$(@($ppl | ForEach-Object { $_.rect -join ',' }))]"
     [void](Api $v "windows" '{"action":"close","name":"inventory"}')
-    [void](Api $v "windows" '{"action":"close","name":"people"}')
+    [void](Api $v "windows" '{"action":"close","name":"about"}')
 
     # every window's first opening: at least its first-open size, nothing needing to scroll
-    $ids = @((Api $v "open_window" '{}').ids)
-    if ($ids.Count -eq 0) { $ids = @((Api $v "open_window" '{}').windows) }
+    $ids = @((Api $v "open_window" '{}').windows | Where-Object { $_ })
+    $bounds = (Api $v "windows" '{"action":"state"}').bounds
+    $capW = [Math]::Round($bounds[2] * 0.85); $capH = [Math]::Round($bounds[3] * 0.85)   # a window takes at most 85 % of the view; past that its content scrolls
     $bad = @(); $rows = @()
     foreach ($id in $ids) {
-        if ($id -in @("inventory", "people")) { continue }
+        if ($id -in @("inventory", "about")) { continue }
         $o = Api $v "windows" (@{ action = "open"; name = $id })
         if (-not $o.done) { $rows += "  $id`: did not open offline"; continue }
         Start-Sleep -Milliseconds 700
@@ -185,10 +188,11 @@ try {
         $small = $f.first_open -and ($f.rect[2] + 0.5 -lt [Math]::Min($f.first_open[0], $f.needed[0]) -or $f.rect[3] + 0.5 -lt [Math]::Min($f.first_open[1], $f.needed[1]))
         $row = "  $id`: old [$($f.spec_default -join 'x')] new [$($f.rect[2])x$($f.rect[3])] official [$(if ($f.official) { $f.official -join 'x' } else { 'none' })] first-open [$($f.first_open -join 'x')] content needs [$($f.needed -join 'x')] scrolls $($f.scrolls) problems $(@($f.problems).Count)"
         $rows += $row
-        if ($f.scrolls -or $small) { $bad += $id }
+        $capped = ($f.rect[2] -ge $capW - 1) -or ($f.rect[3] -ge $capH - 1)
+        if (($f.scrolls -and -not $capped) -or $small) { $bad += $id }
         [void](Api $v "windows" (@{ action = "close"; name = $id }))
     }
-    Record "first_open_sizes" ($ids.Count -gt 0 -and $bad.Count -eq 0) "$($ids.Count) windows; too small or needing to scroll: [$($bad -join ', ')]"
+    Record "first_open_sizes" ($ids.Count -gt 0 -and $bad.Count -eq 0) "$($ids.Count) windows, view [$($bounds -join ',')], 85 % cap ${capW}x${capH}; too small, or needing to scroll below the cap: [$($bad -join ', ')]"
     foreach ($r in $rows) { Say $r }
 
     # inventory folders open on a click only (a made-up inventory; real mouse and key events)
@@ -198,7 +202,7 @@ try {
         $pc.drag_open_before_delay -eq $false -and $pc.drag_open_after_delay -and $pc.drops_moved -eq 1 -and -not $pc.drag_still_running -and $pc.esc_closed_window) `
         ("hovered $($pc.folders_hovered) folders, opened by hover $($pc.opened_by_hover); name click selects only $($pc.name_click_selects_without_toggle); arrow opens $($pc.arrow_click_opens) closes $($pc.arrow_click_closes) (x tried [$(@($pc.arrow_x_tried) -join ',')]); " +
          "double-click toggles $($pc.double_click_toggles); right-click on My Suitcase: menu $($pc.right_click_menu), selected $($pc.right_click_selects), toggled $($pc.right_click_toggled); keys Right opens $($pc.key_right_opens), Left closes $($pc.key_left_closes), Left to parent $($pc.key_left_to_parent); " +
-         "drag held: open at 0.45 s $($pc.drag_open_before_delay), at 1 s $($pc.drag_open_after_delay), drops moved $($pc.drops_moved), drag left running $($pc.drag_still_running); Esc closed the window $($pc.esc_closed_window) $($pc.refused)")
+         "drag started $($pc.drag_started) (button held $($pc.held_after_press); seen $($pc.drag_seen); target $($pc.target_row) tree $($pc.tree_rect)), held: open at 0.45 s $($pc.drag_open_before_delay), at 1 s $($pc.drag_open_after_delay), drops moved $($pc.drops_moved), drag left running $($pc.drag_still_running); Esc closed the window $($pc.esc_closed_window) $($pc.refused)")
     # Enter in the password field starts a login: with a name and no password it stops at the missing password
     $before = Api $v "login_screen" '{"action":"state"}'
     [void](Api $v "login_screen" @{ action = "submit"; name = "Test User"; login_uri = "https://grid.example.org:8002/" })
@@ -330,7 +334,8 @@ if ($Live) {
                 $f = Api $v "windows" (@{ action = "fit"; name = $id })
                 [void](Api $v "screenshot" (@{ dir = $shots; name = ("window-" + ($id -replace '[^A-Za-z0-9_-]', '-')) }))
                 $mainRows += "  $id`: at [$($f.rect -join ',')] content needs [$($f.needed -join 'x')] scrolls $($f.scrolls) problems $(@($f.problems).Count)"
-                if ($f.scrolls) { $mainBad += $id }
+                $bl = (Api $v "windows" '{"action":"state"}').bounds
+                if ($f.scrolls -and $f.rect[3] -lt [Math]::Round($bl[3] * 0.85) - 1 -and $f.rect[2] -lt [Math]::Round($bl[2] * 0.85) - 1) { $mainBad += $id }
                 [void](Api $v "windows" (@{ action = "close"; name = $id }))
             }
             Record "main_windows_live" ($mainBad.Count -eq 0 -and $mainRows.Count -gt 0) "needing to scroll: [$($mainBad -join ', ')]; screenshots in $shots"

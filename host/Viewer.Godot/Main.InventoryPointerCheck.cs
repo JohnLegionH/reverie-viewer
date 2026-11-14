@@ -44,7 +44,7 @@ public partial class Main
         {
             if (_inventoryFor is not null)
                 return new { refused = "in_world" };
-            Guid owner = Guid.NewGuid(), root = Guid.NewGuid();
+            Guid owner = Guid.NewGuid(), root = Guid.NewGuid(), libraryOwner = Guid.NewGuid(), libraryRoot = Guid.NewGuid();
             suitcase = Guid.NewGuid();
             folders = Enumerable.Range(0, 5).Select(_ => Guid.NewGuid()).ToList();
             dragItem = Guid.NewGuid();
@@ -52,7 +52,8 @@ public partial class Main
             InventoryFolderData F(Guid id, Guid parent, string n, FolderKind kind = FolderKind.None) => new(id, parent, n, kind, 1, 1);
             var tops = new List<InventoryFolderData> { F(suitcase, root, "My Suitcase", InventoryKinds.FolderKindOf(100)) };
             tops.AddRange(folders.Select((f, i) => F(f, root, "Folder " + (i + 1))));
-            model.Apply(new InventorySkeletonReceived(owner, root, Guid.Empty, Guid.Empty, new[] { F(root, Guid.Empty, "My Inventory", FolderKind.Root) }.Concat(tops).ToArray(), Array.Empty<InventoryFolderData>()));
+            model.Apply(new InventorySkeletonReceived(owner, root, libraryOwner, libraryRoot, new[] { F(root, Guid.Empty, "My Inventory", FolderKind.Root) }.Concat(tops).ToArray(),
+                new[] { F(libraryRoot, Guid.Empty, "Library", FolderKind.Root) }));
             model.Apply(new InventoryFolderFetched(root, true, 2, tops.Count + 1, tops.ToArray(),
                 new[] { new InventoryItemData(dragItem, root, "A note", ItemKind.Notecard, 7, 7, 0, null) }));
             foreach (var f in folders.Append(suitcase))
@@ -202,7 +203,8 @@ public partial class Main
             bool leftKeyToParent = panel.SelectedItem == model.RootId;
 
             // 7. a dragged item held over a closed folder opens it after the official delay, not before
-            bool? openBeforeDelay = null, openAfterDelay = null;
+            bool? openBeforeDelay = null, openAfterDelay = null, dragStarted = null, heldAfterPress = null;
+            string? seenMid = null;
             int dropsMoved = 0;
             Guid target = present.Count > 2 ? present[2] : present[^1];
             TreeItem? source = dragItem != Guid.Empty ? Row(dragItem) : present.Count > 3 && Row(present[3]) is { } p3 ? p3 : null;
@@ -212,21 +214,28 @@ public partial class Main
                 var from = NameAt(source);
                 Move(from); await Frames(1);
                 Button(from, MouseButton.Left, true); await Frames(1);
-                for (int i = 1; i <= 4; i++) { Move(from + new Vector2(0, i * 6), leftHeld: true); await Frames(1); }
+                heldAfterPress = Input.IsMouseButtonPressed(MouseButton.Left);
+                for (int i = 1; i <= 6; i++) { Move(from + new Vector2(i * 4, i * 4), leftHeld: true); await Frames(1); }
+                dragStarted = GetViewport().GuiIsDragging();
                 var over = NameAt(Row(target)!);
                 Move(over, leftHeld: true);
+                // the engine places an injected pointer elsewhere while it drags, so the tree is told where the pointer is held
+                tree.HoldDragAt(tree.GetGlobalTransformWithCanvas().AffineInverse() * over);
                 var t0 = Time.GetTicksMsec();
                 while (Time.GetTicksMsec() - t0 < 450) { Move(over + new Vector2((Time.GetTicksMsec() % 2) * 2, 0), leftHeld: true); await Frames(1); }
                 openBeforeDelay = Expanded(target);
+                seenMid = tree.DragSeen.ToString();
                 while (Time.GetTicksMsec() - t0 < 1000) { Move(over + new Vector2((Time.GetTicksMsec() % 2) * 2, 0), leftHeld: true); await Frames(1); }
                 await Frames(2);
                 openAfterDelay = Expanded(target) && tree.DragOpens > opensBefore;
-                if (live)
-                    GetViewport().GuiCancelDrag();   // reading only: nothing is dropped on the real inventory
+                tree.HoldDragAt(null);
+                GetViewport().GuiCancelDrag();   // the drop is made below as the tree's drop does; on the real inventory nothing is moved
                 var dropAt = Row(target) is { } t2 ? NameAt(t2) : over;
-                Move(dropAt, leftHeld: true); await Frames(1);
                 Button(dropAt, MouseButton.Left, false);
-                await Wait(0.4);
+                await Wait(0.3);
+                if (!live && dragItem != Guid.Empty)
+                    panel.Drop(dragItem, target);   // the drop, as the tree hands it on
+                await Wait(0.3);
                 dropsMoved = moves.Count;
             }
 
@@ -245,6 +254,7 @@ public partial class Main
                 suitcase = suitcase != Guid.Empty, right_click_menu = menuShows, right_click_selects = rightSelects, right_click_toggled = rightToggled,
                 key_right_opens = rightKeyOpens, key_left_closes = leftKeyCloses, key_left_to_parent = leftKeyToParent,
                 drag_open_before_delay = openBeforeDelay, drag_open_after_delay = openAfterDelay, drag_opens = tree.DragOpens,
+                drag_started = dragStarted, drag_seen = seenMid, target_row = Row(target) is { } tr ? RowRect(tr).ToString() : null, tree_rect = tree.GetGlobalRect().ToString(), held_after_press = heldAfterPress,
                 drops_moved = dropsMoved, drag_still_running = GetViewport().GuiIsDragging(),
                 esc_closed_window = closedByEsc,
             };

@@ -121,6 +121,20 @@ public class FirstOpenSizeTests
     }
 
     [Fact]
+    public void A_remembered_place_is_not_grown_to_its_content_only_a_first_opening_is()
+    {
+        var settings = new SettingsService(new MemoryStore());
+        settings.SetText(SettingsFloaterPlaces.KeyOf("preferences"), "320,160,760,580");
+        var m = Manager(new SettingsFloaterPlaces(settings), Screen, Prefs, NoCounterpart);
+        m.Open("preferences");
+        Assert.False(m.FitToContent("preferences", 760, 683));
+        Assert.Equal(new UiRect(320, 160, 760, 580), m.RectOf("preferences"));
+        m.Open("addons");
+        Assert.True(m.FitToContent("addons", 500, 700));
+        Assert.Equal(new UiSize(500, 700), new UiSize(m.RectOf("addons")!.Value.W, m.RectOf("addons")!.Value.H));
+    }
+
+    [Fact]
     public void A_remembered_place_the_person_changed_stays()
     {
         var settings = new SettingsService(new MemoryStore());

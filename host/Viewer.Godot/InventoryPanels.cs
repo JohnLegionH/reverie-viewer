@@ -73,6 +73,15 @@ public partial class InventoryTree : Tree
     /// <summary>Folders opened by a held drag (the automation's count).</summary>
     public int DragOpens { get; private set; }
 
+    /// <summary>What the last frame saw of a drag (the automation's figures): dragging, button held, over the tree, a folder under the pointer.</summary>
+    public (bool Dragging, bool Held, Vector2? At, bool Folder) DragSeen { get; private set; }
+
+    // a pointer place given by the automation's check (its injected pointer is not the system cursor); null: the system cursor
+    private Vector2? _dragAt;
+
+    /// <summary>The place over the tree a drag going on is held at, for the automation's check (local coordinates; null: the system cursor).</summary>
+    internal void HoldDragAt(Vector2? at) => _dragAt = at;
+
     public override void _GuiInput(InputEvent e)
     {
         switch (e)
@@ -132,19 +141,21 @@ public partial class InventoryTree : Tree
         }
         Guid under = Guid.Empty;
         bool closed = false;
-        if (dragging && IsVisibleInTree() && GetGlobalRect().HasPoint(GetGlobalMousePosition()))
+        Vector2? pointer = _dragAt ?? (GetGlobalRect().HasPoint(GetGlobalMousePosition()) ? GetLocalMousePosition() : null);
+        if (dragging && IsVisibleInTree() && pointer is { } at)
         {
-            var item = GetItemAtPosition(GetLocalMousePosition());
+            var item = GetItemAtPosition(at);
             if (item is not null && item.GetFirstChild() is not null)
             {
                 under = IdOf(item);
                 closed = item.Collapsed;
             }
         }
+        DragSeen = (dragging, held, pointer, under != Guid.Empty);
         var open = _dragOpen.Step(under, closed, dragging, held, (long)Time.GetTicksMsec());
         if (open == Guid.Empty)
             return;
-        var row = GetItemAtPosition(GetLocalMousePosition());
+        var row = pointer is { } now ? GetItemAtPosition(now) : null;
         if (row is not null && IdOf(row) == open)
         {
             row.Collapsed = false;   // raises the collapse signal, which opens it in the view model too

@@ -185,6 +185,10 @@ public sealed class FloaterManager
         var wanted = remembered
             ?? new UiRect(_bounds.X + FirstOffset + CascadeStep * _open.Count, _bounds.Y + FirstOffset + CascadeStep * _open.Count, size.W, size.H);
         var rect = Clamp(spec, wanted);
+        if (remembered is null)
+            _firstOpening.Add(id);
+        else
+            _firstOpening.Remove(id);
         _open.Add((id, rect));
         _wanted[id] = rect;
         Changed?.Invoke();
@@ -310,15 +314,19 @@ public sealed class FloaterManager
         return true;
     }
 
+    // windows opened at their first-open size (no remembered place) since they last opened
+    private readonly HashSet<string> _firstOpening = new();
+
     /// <summary>
-    /// Makes an open window at least as large as its content needs, up to <see cref="FirstOpenShare"/> of the main view (never
-    /// smaller than it was); true when that changed it. The shell asks once, when a window opens, so a later drag can make the
-    /// window smaller than its content (which then scrolls).
+    /// Makes a window opened at its first-open size at least as large as its content needs, up to <see cref="FirstOpenShare"/> of
+    /// the main view (never smaller than it was); true when that changed it. A window that opened at a remembered place keeps the
+    /// size the person gave it. The shell asks once, when a window opens, so a later drag can make the window smaller than its
+    /// content (which then scrolls).
     /// </summary>
     public bool FitToContent(string id, float width, float height)
     {
         int at = IndexOf(id);
-        if (at < 0)
+        if (at < 0 || !_firstOpening.Contains(id))
             return false;
         var r = _open[at].Rect;
         float w = Math.Max(r.W, Math.Min(width, MathF.Round(_bounds.W * FirstOpenShare)));

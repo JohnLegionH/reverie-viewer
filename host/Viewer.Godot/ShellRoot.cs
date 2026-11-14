@@ -258,6 +258,7 @@ public partial class ShellRoot : Control
     /// <summary>Whether a text field has the keyboard is read once a frame: the engine says nothing when a field loses focus.</summary>
     public override void _Process(double delta)
     {
+        FitOpenedWindows();
         var owner = GetViewport().GuiGetFocusOwner();
         Shell.Focus.SetTextEntryActive(owner is LineEdit { Editable: true } or TextEdit { Editable: true });
         if ((_clockAge += delta) >= 1)
@@ -626,6 +627,29 @@ public partial class ShellRoot : Control
 
     private readonly HashSet<string> _fitted = new();
 
+    // windows opened this run that are measured for their content a few frames after they first show: on the first frame wrapped
+    // text has no width yet and asks for far more height than it will take
+    private readonly Dictionary<string, ulong> _fitDue = new();
+    private const ulong FitAfterFrames = 3;
+
+    private void FitOpenedWindows()
+    {
+        if (_fitDue.Count == 0)
+            return;
+        ulong now = Engine.GetProcessFrames();
+        foreach (var (id, due) in _fitDue.ToArray())
+        {
+            if (now < due)
+                continue;
+            _fitDue.Remove(id);
+            if (Shell.Floaters.IsOpen(id) && _frames.TryGetValue(id, out var frame))
+            {
+                var need = frame.NeededSize();
+                Shell.Floaters.FitToContent(id, need.X, need.Y);
+            }
+        }
+    }
+
     /// <summary>Puts every frame where the manager says it is, shows the open ones, and stacks them in its order. The manager's
     /// rectangle is the one truth for a window's place and size, so what is drawn is what a drag changed.</summary>
     private void SyncFloaters()
@@ -640,14 +664,10 @@ public partial class ShellRoot : Control
         {
             var f = _frames[open[i].Id];
             f.ThemeTypeVariation = open[i].Focused ? UiTheme.WindowPanelActive : UiTheme.WindowPanel;   // the focused window has its own opacity
-            // a window opens big enough for its content when the main view has room (once); where it has not, or after a drag
-            // made it smaller, the content scrolls
+            // a window opens big enough for its content when the main view has room (once, measured once it has laid out); where it
+            // has not, or after a drag made it smaller, the content scrolls
             if (_fitted.Add(open[i].Id))
-            {
-                var need = f.NeededSize();
-                if (Shell.Floaters.FitToContent(open[i].Id, need.X, need.Y))
-                    return;   // the change already ran this method again with the new rectangle
-            }
+                _fitDue[open[i].Id] = Engine.GetProcessFrames() + FitAfterFrames;
             f.Position = new Vector2(open[i].Rect.X, open[i].Rect.Y);
             f.Size = new Vector2(open[i].Rect.W, f.Minimized ? FloaterFrame.TitleBarHeight : open[i].Rect.H);
             _floaterLayer.MoveChild(f, i);   // the nearer, the later
