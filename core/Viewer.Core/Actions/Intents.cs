@@ -25,7 +25,7 @@ public enum ActionKind
     InventoryOfferAnswer, AttachWorldObject, DropAttachment,
     RequestContents, CopyContents, BuyObject, RequestPayPrice, PayObject,
     LookRebuild,
-    CreateObject, RezItem, DeleteObject,
+    CreateObject, RezItem, DeleteObject, EditObject,
     NotecardCopyItem,
 }
 

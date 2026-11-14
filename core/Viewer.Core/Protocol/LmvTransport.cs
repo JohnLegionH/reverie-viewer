@@ -688,7 +688,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 return ExecuteTrade(command);
             case InventoryOfferAnswerCommand or AttachWorldObjectCommand or DropAttachmentCommand:
                 return ExecuteWire(command);
-            case CreateObjectCommand or RezItemCommand or DeleteObjectCommand:
+            case CreateObjectCommand or RezItemCommand or DeleteObjectCommand or EditObjectCommand:
                 return ExecuteBuild(command);
             case CopyFromNotecardCommand copy:
                 return ExecuteNotecard(copy);
@@ -992,7 +992,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         or ScriptDialogReplyCommand or ScriptPermissionAnswerCommand
         or InventoryOfferAnswerCommand or AttachWorldObjectCommand or DropAttachmentCommand
         or RequestTaskInventoryCommand or CopyTaskContentsCommand or BuyObjectCommand or RequestPayPriceCommand or PayObjectCommand
-        or CreateObjectCommand or RezItemCommand or DeleteObjectCommand or CopyFromNotecardCommand;
+        or CreateObjectCommand or RezItemCommand or DeleteObjectCommand or EditObjectCommand or CopyFromNotecardCommand;
 
     /// <summary>A script dialog as the core's record: the owner is a group when the region gave no first name (the last name is then the group's).</summary>
     internal static ScriptDialogReceived? ToScriptDialog(SimRef? sim, ScriptDialogEventArgs e)

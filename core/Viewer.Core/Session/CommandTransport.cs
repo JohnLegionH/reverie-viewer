@@ -174,3 +174,6 @@ public sealed record RezItemCommand(Guid ItemId, Viewer.Core.Building.Placement 
 
 /// <summary>Delete an object to the agent's Trash (DeRezObject to the trash).</summary>
 public sealed record DeleteObjectCommand(uint LocalId) : TransportCommand;
+
+/// <summary>An edit of objects in the world (name, description, permissions, place, flags, shape, link, unlink, duplicate): the intent itself.</summary>
+public sealed record EditObjectCommand(Viewer.Core.Actions.ActionIntent Edit) : TransportCommand;
