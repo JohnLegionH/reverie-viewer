@@ -216,6 +216,30 @@ public class EditControllerTests
     }
 
     [Fact]
+    public void The_Build_menu_gains_Build_the_tools_Edit_linked_Link_and_Unlink_with_their_official_shortcuts()
+    {
+        var r = new Rig();
+        var menus = new Viewer.Shell.MenuModel();
+        bool inWorld = true, selected = false;
+        Viewer.Shell.BuildMenu.Install(menus, () => inWorld);
+        Viewer.Shell.BuildMenu.InstallEditing(menus, () => inWorld, () => r.C, () => selected);
+        var build = menus.Menus.Single(m => m.Id == "build");
+        Assert.Equal(["build.toggle", "build.tool.focus", "build.tool.move", "build.tool.edit", "build.create", "build.edit_linked", "build.link", "build.unlink", "build.upload"],
+            build.Entries.Select(e => e.Id));
+        Assert.Equal(["control|B", "control|1", "control|2", "control|3", "control|4", null, "control|L", "control|shift|L", null], build.Entries.Select(e => e.Shortcut));
+        Assert.All(build.Entries, e => Assert.True(Viewer.Shell.StringTable.English().Has(e.LabelKey), e.LabelKey));
+        var toggle = build.Entries[0];
+        Assert.False(toggle.Checked!());
+        r.C.ToggleBuild();
+        Assert.True(toggle.Checked!());
+        Assert.False(build.Entries.Single(e => e.Id == "build.link").IsEnabled);
+        selected = true;
+        Assert.True(build.Entries.Single(e => e.Id == "build.link").IsEnabled);
+        Assert.Same(menus.ForShortcut("control|b"), toggle);
+        Assert.DoesNotContain(Viewer.Shell.ViewerShortcuts.NotBuilt, n => n.Shortcut is "control|B" or "control|1" or "control|2" or "control|3" or "control|L" or "control|shift|L");
+    }
+
+    [Fact]
     public void Unlink_sends_every_prim_of_the_selected_linksets()
     {
         var r = new Rig();
