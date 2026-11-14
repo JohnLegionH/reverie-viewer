@@ -322,7 +322,7 @@ public sealed class FloaterManager
 
     /// <summary>
     /// Makes a window opened at its first-open size at least as large as its content needs, up to <see cref="FirstOpenShare"/> of
-    /// the main view (never smaller than it was); true when that changed it. A window that opened at a remembered place keeps the
+    /// the main view's height and up to the whole view's width (never smaller than it was); true when that changed it. A window that opened at a remembered place keeps the
     /// size the person gave it. The shell asks once, when a window opens, so a later drag can make the window smaller than its
     /// content (which then scrolls).
     /// </summary>
@@ -332,7 +332,9 @@ public sealed class FloaterManager
         if (at < 0 || !_firstOpening.Contains(id))
             return false;
         var r = _open[at].Rect;
-        float w = Math.Max(r.W, Math.Min(width, MathF.Round(_bounds.W * FirstOpenShare)));
+        // a row of controls cannot scroll sideways, so content wider than the share takes its own width, up to the whole view (the
+        // clamp below moves the window left to keep it inside); taller content stops at the share and scrolls
+        float w = Math.Max(r.W, width > MathF.Round(_bounds.W * FirstOpenShare) ? width : Math.Min(width, MathF.Round(_bounds.W * FirstOpenShare)));
         float h = Math.Max(r.H, Math.Min(height, MathF.Round(_bounds.H * FirstOpenShare)));
         var fitted = Clamp(_specs[id], r with { W = w, H = h });
         if (fitted == r)
