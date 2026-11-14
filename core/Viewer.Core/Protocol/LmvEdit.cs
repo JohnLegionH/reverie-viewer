@@ -26,7 +26,7 @@ internal static class LmvEdit
     public static ObjectDeselectPacket Deselect(UUID agent, UUID session, IReadOnlyList<uint> locals) => new()
     {
         AgentData = { AgentID = agent, SessionID = session },
-        ObjectData = [],
+        ObjectData = [.. locals.Select(l => new ObjectDeselectPacket.ObjectDataBlock { ObjectLocalID = l })],
     };
 
     public static ObjectNamePacket ObjectName(UUID agent, UUID session, uint local, string name) => new()

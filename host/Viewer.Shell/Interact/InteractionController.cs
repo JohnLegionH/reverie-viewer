@@ -112,7 +112,19 @@ public sealed class InteractionController
     }
 
     public HoverCursor Cursor { get; private set; }
-    public ObjectId? Selected { get; private set; }
+    /// <summary>The right-click selection. When it moves to another object or goes, the region is told (ObjectDeselect), as the official
+    /// viewer's selection manager does, so a selected physical object does not stay held still.</summary>
+    public ObjectId? Selected
+    {
+        get => _selected;
+        private set
+        {
+            if (_selected is { } old && old != value)
+                _submit(new DeselectObjectsIntent([old.LocalId]));
+            _selected = value;
+        }
+    }
+    private ObjectId? _selected;
     public MenuKind Menu { get; private set; }
     public IReadOnlyList<ContextEntry> Entries { get; private set; } = [];
     public ObjectPropertiesReceived? Properties { get; private set; }

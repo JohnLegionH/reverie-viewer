@@ -60,7 +60,9 @@ public partial class Main
     /// <summary>A new session's edit controller; the window and the menu entries are made once and outlive a session.</summary>
     private void AttachEdit(ViewerSession s, InteractionController ic)
     {
-        _edit = new EditController(s.World, s.Actions.Submit, () => s.EditLimits);
+        // a typed position must lie in a region the viewer knows: the agent's own and its connected neighbours
+        _edit = new EditController(s.World, s.Actions.Submit, () => s.EditLimits,
+            regions: () => s.Worlds.Select(w => new RegionArea(w.Offset.X, w.Offset.Y, w.Region.SizeX, w.Region.SizeY)).ToList());
         _edit.Changed += () => _editPanel?.Refresh();
         _editDrag = null;
         if (_editPanel is not null || _shell is null)
@@ -111,6 +113,13 @@ public partial class Main
         else
             _interact?.CancelCreate();
         _editPanel?.Refresh();
+    }
+
+    /// <summary>Before logging out, both selections are let go on the region (the build tools' and the right-click one).</summary>
+    public void LetGoOfSelections()
+    {
+        _edit?.BeforeLogout();
+        _interact?.Deselect();
     }
 
     /// <summary>Esc or the window's close: build mode ends, Edit linked goes off, the selection clears and the window closes.</summary>

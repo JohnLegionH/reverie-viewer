@@ -503,6 +503,7 @@ public partial class AutomationHost : Node
                 var s = model.Session;
                 if (s is null)
                     return AutomationReply.Error(409, "no session");
+                m.LetGoOfSelections();   // on the main thread (calls are answered from _Process)
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
                 await s.LogoutAsync(cts.Token);
                 return AutomationReply.Ok(m.SessionState());

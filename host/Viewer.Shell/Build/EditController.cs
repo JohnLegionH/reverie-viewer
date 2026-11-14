@@ -25,12 +25,15 @@ public sealed class EditController
     private readonly Func<ActionIntent, ActionResult> _submit;
     private readonly Func<EditLimits> _limits;
     private readonly Func<float, float, float>? _ground;
+    private readonly Func<IReadOnlyList<RegionArea>>? _regions;
     private readonly List<uint> _selection = new();
     private readonly Dictionary<Guid, ObjectPropertiesReceived> _properties = new();
     private bool _editLinked;
 
     /// <param name="ground">The ground's height at a point of the region, when known (a typed height may go down to the ground less half the
     /// object's diagonal).</param>
+    /// <param name="regions">The regions the viewer knows, relative to the agent's own (a typed position must lie in one); the agent's region
+    /// alone when not given.</param>
     public EditController(WorldState world, Func<ActionIntent, ActionResult> submit, Func<EditLimits>? limits = null, Func<float, float, float>? ground = null,
         Func<IReadOnlyList<RegionArea>>? regions = null)
     {
@@ -38,6 +41,7 @@ public sealed class EditController
         _submit = submit;
         _limits = limits ?? (() => EditLimits.Official);
         _ground = ground;
+        _regions = regions;
     }
 
     public event Action? Changed;
@@ -57,9 +61,18 @@ public sealed class EditController
             _editLinked = value;
             if (!value)
             {
+                // the parts go and their roots are selected (llselectmgr.cpp promoteSelectionToRoot)
                 var roots = _selection.Select(RootOf).Where(r => r != 0).Distinct().ToList();
+                var before = _selection.ToList();
+                SendDeselect(before.Except(roots));
                 _selection.Clear();
-                _selection.AddRange(roots);
+                foreach (var r in roots)
+                {
+                    if (before.Contains(r))
+                        _selection.Add(r);
+                    else
+                        Add(r);
+                }
             }
             Changed?.Invoke();
         }
@@ -101,6 +114,7 @@ public sealed class EditController
     {
         BuildMode = false;
         _editLinked = false;
+        SendDeselect(_selection);
         _selection.Clear();
         Changed?.Invoke();
     }
@@ -130,11 +144,14 @@ public sealed class EditController
         uint id = _editLinked ? prim.Id.LocalId : RootOf(prim.Id.LocalId);
         if (shift)
         {
-            if (!_selection.Remove(id))
+            if (_selection.Remove(id))
+                SendDeselect([id]);
+            else
                 Add(id);
         }
         else
         {
+            SendDeselect(_selection.Where(s => s != id));
             _selection.Clear();
             Add(id);
         }
@@ -145,9 +162,14 @@ public sealed class EditController
     /// <summary>A drag-select: the objects inside the box (their roots, or the parts with Edit linked); Shift adds to the selection.</summary>
     public void SelectMany(IEnumerable<uint> locals, bool shift)
     {
+        var chosen = locals.ToList();
         if (!shift)
+        {
+            var kept = chosen.Select(l => _editLinked ? l : RootOf(l)).ToHashSet();
+            SendDeselect(_selection.Where(s => !kept.Contains(s)));
             _selection.Clear();
-        foreach (var l in locals)
+        }
+        foreach (var l in chosen)
         {
             uint id = _editLinked ? l : RootOf(l);
             if (id != 0 && !_selection.Contains(id))
@@ -156,12 +178,25 @@ public sealed class EditController
         Changed?.Invoke();
     }
 
-    public void BeforeLogout() { }
+    /// <summary>Logging out: the selection is let go on the region first (llappviewer.cpp's logout deselects everything).</summary>
+    public void BeforeLogout() => Deselect();
 
+    /// <summary>Nothing stays selected, and the region is told (a selected physical object is held still until it is deselected).</summary>
     public void Deselect()
     {
+        if (_selection.Count == 0)
+            return;
+        SendDeselect(_selection);
         _selection.Clear();
         Changed?.Invoke();
+    }
+
+    /// <summary>One ObjectDeselect for the objects given (llselectmgr.cpp deselectAll and deselectObjectOnly).</summary>
+    private void SendDeselect(IEnumerable<uint> locals)
+    {
+        var ids = locals.Where(l => l != 0).Distinct().ToArray();
+        if (ids.Length > 0)
+            _submit(new DeselectObjectsIntent(ids));
     }
 
     private void Add(uint id)
@@ -186,6 +221,12 @@ public sealed class EditController
 
     public void Receive(TransportEvent e)
     {
+        // a teleport lets the selection go before the agent leaves (llagent.cpp teleportCore resets the view, which deselects)
+        if (e is TeleportProgressed { Phase: TeleportPhase.Started or TeleportPhase.Local })
+        {
+            Deselect();
+            return;
+        }
         if (e is ObjectPropertiesReceived p)
         {
             _properties[p.ObjectId] = p;
@@ -215,7 +256,8 @@ public sealed class EditController
     {
         if (Placeable() is not { } id || Find(id) is not { } o)
             return false;
-        var p = ClampPosition(o, position);
+        if (TypedPosition(o, position) is not { } p)
+            return false;   // outside every region the viewer knows: the window shows the object's own place again
         return Send(new UpdateObjectIntent(id, p, null, null, Linkset(o)));
     }
 
@@ -303,13 +345,16 @@ public sealed class EditController
     /// <summary>A root moves its linkset; a part chosen with Edit linked moves alone.</summary>
     private static bool Linkset(ObjectState o) => o.ParentLocalId == 0;
 
-    private Vector3 ClampPosition(ObjectState o, Vector3 p)
+    private Vector3? TypedPosition(ObjectState o, Vector3 p)
     {
         if (o.ParentLocalId != 0)
-            return p;   // a part's place is relative to its root
+            return float.IsFinite(p.X) && float.IsFinite(p.Y) && float.IsFinite(p.Z) ? p : null;   // a part's place is relative to its root
         var region = _world.Region;
         float w = region?.SizeX ?? 256, h = region?.SizeY ?? 256;
-        float ground = _ground?.Invoke(Math.Clamp(p.X, 0, w), Math.Clamp(p.Y, 0, h)) ?? float.NegativeInfinity;
-        return EditNumbers.ClampPosition(p, w, h, ground, o.Scale.Length() / 2f, _limits());
+        var regions = _regions?.Invoke() is { Count: > 0 } known ? known : [new RegionArea(0, 0, w, h)];
+        // the ground is known for the agent's own region; a neighbour's height is held only to the limits
+        bool inOwn = p.X >= 0 && p.X < w && p.Y >= 0 && p.Y < h;
+        float ground = inOwn ? _ground?.Invoke(p.X, p.Y) ?? float.NegativeInfinity : float.NegativeInfinity;
+        return EditNumbers.TypedPosition(p, regions, ground, o.Scale.Length() / 2f, _limits());
     }
 }

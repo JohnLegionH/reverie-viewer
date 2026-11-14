@@ -171,14 +171,19 @@ public static class EditNumbers
         return new Vector3(x * deg, y * deg, z * deg);
     }
 
-    /// <summary>A position typed in: x and y inside the region, z from the ground less half the object's diagonal up to the limit.</summary>
-    public static Vector3 ClampPosition(Vector3 p, float regionWidth, float regionHeight, float ground, float halfDiagonal, EditLimits limits)
+    /// <summary>A root's position typed in, in the agent's region's frame: sent only when x and y lie inside a region the viewer knows (its
+    /// own, or a connected neighbour; the far edges belong to the next region), so the region never has to drop the object; null otherwise,
+    /// and nothing is sent. z goes from the ground less half the object's diagonal up to the height limit. Behaviour reference:
+    /// llpanelobject.cpp sendPosition with llworld.cpp positionRegionValidGlobal and llviewerregion.cpp pointInRegionGlobal.</summary>
+    public static Vector3? TypedPosition(Vector3 p, IReadOnlyList<RegionArea> regions, float ground, float halfDiagonal, EditLimits limits)
     {
+        if (!float.IsFinite(p.X) || !float.IsFinite(p.Y) || !float.IsFinite(p.Z))
+            return null;
+        if (!regions.Any(r => p.X >= r.X && p.X < r.X + r.Width && p.Y >= r.Y && p.Y < r.Y + r.Depth))
+            return null;
         float low = MathF.Min(MathF.Max(ground - halfDiagonal, limits.MinHeight), limits.MaxHeight);
-        return new Vector3(Math.Clamp(p.X, 0, regionWidth), Math.Clamp(p.Y, 0, regionHeight), Math.Clamp(p.Z, low, limits.MaxHeight));
+        return p with { Z = Math.Clamp(p.Z, low, limits.MaxHeight) };
     }
-
-    public static Vector3? TypedPosition(Vector3 p, IReadOnlyList<RegionArea> regions, float ground, float halfDiagonal, EditLimits limits) => null;
 
     /// <summary>A size typed in: each axis held to the limits (the physical limits for a physical object).</summary>
     public static Vector3 ClampScale(Vector3 s, bool physical, EditLimits limits)

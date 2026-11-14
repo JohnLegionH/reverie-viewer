@@ -28,6 +28,7 @@ internal sealed partial class LmvTransport
             SetObjectShapeIntent s => LmvEdit.Shape(self.AgentID, self.SessionID, s.LocalId, s.Shape),
             LinkObjectsIntent k => LmvEdit.Link(self.AgentID, self.SessionID, k.OrderedRoots),
             DelinkObjectsIntent k => LmvEdit.Delink(self.AgentID, self.SessionID, k.LocalIds),
+            DeselectObjectsIntent d => LmvEdit.Deselect(self.AgentID, self.SessionID, d.LocalIds),
             DuplicateObjectsIntent c => LmvEdit.Duplicate(self.AgentID, self.SessionID, self.ActiveGroup, c.Roots, c.Offset, c.Flags),
             _ => null,
         };
