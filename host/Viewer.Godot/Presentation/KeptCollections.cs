@@ -42,10 +42,6 @@ internal static class KeptCollections
 
     private static SurfaceDictionary? _handover;
 
-    /// <summary>The interface fonts' fallback chains (<c>Fonts</c> in ShellTheme.cs), one for the regular face and one for the
-    /// semibold: made once, kept for the process, filled and handed to the engine while pinned.</summary>
-    public static readonly global::Godot.Collections.Array<global::Godot.Font> RegularFallbacks = new(), SemiBoldFallbacks = new();
-
     /// <summary>Every surface's handover (<c>PrimLayer.HandOver</c>): mesh LODs, prims, sculpts, terrain, water.</summary>
     public static SurfaceDictionary Handover
     {

@@ -231,14 +231,13 @@ public static class ReverieStyle
 
     private static readonly Dictionary<(Color, Color, float, int), ImageTexture> Knobs = new();
 
-    /// <summary>A round knob of the given size (times the interface size, so it stays sharp), with a thin edge.</summary>
+    /// <summary>A round knob of the given size, with a thin edge.</summary>
     public static ImageTexture Knob(Color fill, Color edge, float size)
     {
-        int scale = UiTheme.ScalePercent;
-        var key = (fill, edge, size, scale);
+        var key = (fill, edge, size, 100);
         if (Knobs.TryGetValue(key, out var have))
             return have;
-        int px = Math.Max(4, (int)MathF.Round(size * scale / 100f));
+        int px = Math.Max(4, (int)MathF.Round(size));   // drawn at its own size in interface units (a slider draws its knob unscaled)
         var image = Image.CreateEmpty(px, px, false, Image.Format.Rgba8);
         float rad = px / 2f;
         for (int y = 0; y < px; y++)

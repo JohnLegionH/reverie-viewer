@@ -12,6 +12,13 @@ namespace Viewer.Godot;
 /// them with their theme's text colour. Main thread only.</summary>
 public static class ReverieIcons
 {
+    /// <summary>A picture of an icon at <paramref name="px"/> interface units, whatever the interface size (the texture itself is sharp at it).</summary>
+    public static TextureRect Picture(string name, float px = ReverieTheme.IconSmall) => new()
+    {
+        Texture = Get(name, px), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+        CustomMinimumSize = new Vector2(px, px), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore,
+    };
+
     private static readonly Dictionary<(string Name, int Px, int Scale), ImageTexture?> Cache = new();
 
     public static Texture2D? Get(string name, float px = ReverieTheme.IconSmall)
@@ -105,6 +112,9 @@ public partial class RvSwitch : Control
 
     private bool _disabled;
 
+    /// <summary>Draws the focus ring without the keyboard (the gallery shows the state this way).</summary>
+    public bool ShowsFocus { get; set; }
+
     public override void _GuiInput(InputEvent e)
     {
         if (_disabled)
@@ -134,7 +144,7 @@ public partial class RvSwitch : Control
         DrawStyleBox(track, new Rect2(at, size));
         var centre = at + new Vector2(_on ? size.X - r : r, r);
         DrawCircle(centre, knob - (_on ? 0 : 2), _on ? GetThemeColor("knob_on", s) : GetThemeColor("knob_off", s), true, -1, true);
-        if (HasFocus())
+        if (HasFocus() || ShowsFocus)
         {
             var ring = new StyleBoxFlat { DrawCenter = false, BorderColor = GetThemeColor("focus", s), AntiAliasing = true };
             ring.SetBorderWidthAll(2);
@@ -222,7 +232,7 @@ public partial class RvCard : PanelContainer
         {
             var row = new HBoxContainer();
             if (warning)
-                row.AddChild(new TextureRect { Texture = ReverieIcons.Get(LucideIcons.Warning), StretchMode = TextureRect.StretchModeEnum.KeepCentered, SelfModulate = GetThemeColor("font_color", ReverieStyle.WarnText) });
+                row.AddChild(ReverieIcons.Picture(LucideIcons.Warning));
             row.AddChild(new Label { Text = heading, ThemeTypeVariation = warning ? ReverieStyle.WarnText : ReverieStyle.CardHeading });
             Body.AddChild(row);
         }
@@ -232,7 +242,7 @@ public partial class RvCard : PanelContainer
 
     public override void _Notification(int what)
     {
-        if (what == (int)NotificationThemeChanged)
+        if (what is (int)NotificationThemeChanged or (int)NotificationEnterTree)
             foreach (var n in FindChildren("*", "TextureRect", true, false))
                 ((TextureRect)n).SelfModulate = GetThemeColor("font_color", ReverieStyle.WarnText);
     }
@@ -249,16 +259,18 @@ public partial class RvListRow : Button
     {
         Text = label;
         AccessibilityName = label;
+        _icon = icon;
         Icon = icon is null ? null : ReverieIcons.Get(icon);
         Alignment = HorizontalAlignment.Left;
         CustomMinimumSize = new Vector2(0, sidebar ? ReverieTheme.SidebarRow : ReverieTheme.ListRow);
         ThemeTypeVariation = ReverieStyle.ListRow;
         IsOpen = open;
-        _trailing = new Label { Text = trailing ?? "", ThemeTypeVariation = ReverieStyle.Muted, MouseFilter = MouseFilterEnum.Ignore };
-        _trailing.SetAnchorsPreset(LayoutPreset.RightWide);
-        _trailing.OffsetLeft = -80;
+        _trailing = new Label { Text = trailing ?? "", ThemeTypeVariation = ReverieStyle.Muted, MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        _trailing.AnchorLeft = _trailing.AnchorRight = 1;
+        _trailing.AnchorTop = 0;
+        _trailing.AnchorBottom = 1;
+        _trailing.OffsetLeft = -64;
         _trailing.OffsetRight = -10;
-        _trailing.HorizontalAlignment = HorizontalAlignment.Right;
         AddChild(_trailing);
         if (open is not null)
             Pressed += () => IsOpen = !IsOpen;
@@ -268,10 +280,11 @@ public partial class RvListRow : Button
     public bool? IsOpen
     {
         get => _open;
-        set { _open = value; if (value is { } o) Text = (o ? "▾  " : "▸  ") + AccessibilityName; }
+        set { _open = value; if (value is { } o) Icon = ReverieIcons.Get(o ? LucideIcons.Down : LucideIcons.Submenu); else Icon = _icon is null ? null : ReverieIcons.Get(_icon); }
     }
 
     private bool? _open;
+    private readonly string? _icon;
 
     public bool Selected
     {
@@ -317,7 +330,7 @@ public partial class RvStatusChip : HBoxContainer
         FocusMode = FocusModeEnum.None;
         AddThemeConstantOverride("separation", 6);
         if (icon is not null)
-            _mark = new TextureRect { Texture = ReverieIcons.Get(icon), StretchMode = TextureRect.StretchModeEnum.KeepCentered, MouseFilter = MouseFilterEnum.Ignore, SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            _mark = ReverieIcons.Picture(icon);
         else
             _mark = new Dot { CustomMinimumSize = new Vector2(8, 8), SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_mark);
@@ -340,7 +353,7 @@ public partial class RvStatusChip : HBoxContainer
 
     public override void _Notification(int what)
     {
-        if (what == (int)NotificationThemeChanged && _mark is TextureRect t)
+        if (what is (int)NotificationThemeChanged or (int)NotificationEnterTree && _mark is TextureRect t)
             t.SelfModulate = GetThemeColor("font_color", ReverieStyle.Status);
     }
 

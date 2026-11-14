@@ -73,6 +73,7 @@ public partial class TestRender
         var shell = new ShellRoot(new ShellController(strings, () => { })) { FixedClockText = TestClockText };
         rig.Viewport.AddChild(shell);
         var settings = new SettingsService(null);
+        ThemeStore.Save(settings, "render", ThemeChoice.Default with { Preset = ThemePresets.Classic });   // the stored look the pictures were made with (the Classic preset)
         settings.Set(Settings.DrawDistance, 1024);   // the pictures keep a distance of 1,024 (no level has it: Custom), whatever the default level is
 
         // a stand-in for the 3D view: a sky-to-ground blend, so the bars and windows are seen over a scene

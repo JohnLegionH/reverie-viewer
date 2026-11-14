@@ -30,9 +30,10 @@ public partial class TestRender
         var strings = StringTable.English();
         bool gallery = scene == "reverie-gallery";
         int pct = scene == "reverie-topbar-200" ? 200 : 100;
-        var size = gallery ? new Vector2I(1280, 800) : new Vector2I(UiWidth, UiHeight);
+        var size = gallery ? new Vector2I(1280, 800) : new Vector2I(1280, 400);
         UiTheme.Apply(ThemePresets.Get(look), pct);
         var rig = MakeRig(size);
+        rig.Viewport.GuiEmbedSubwindows = true;   // the dropdowns are drawn inside the picture
         rig.Viewport.Size2DOverride = new Vector2I(size.X * 100 / pct, size.Y * 100 / pct);
         rig.Viewport.Size2DOverrideStretch = true;
         var root = new Control { Name = "reverie_root", Theme = ShellTheme.Build(UiTheme.Tokens) };
@@ -50,9 +51,10 @@ public partial class TestRender
             root.AddChild(g);
             await Frames(3);
             g.ForceStates();
-            if (!Fonts.Covers(OtherScripts))
-                problems.Add("a CJK, Hangul, Arabic or emoji character has no glyph in the font chain (it would draw as a box)");
-            _result["glyphs"] = new { text = OtherScripts, covered = Fonts.Covers(OtherScripts) };
+            int missing = MissingGlyphs(OtherScripts);
+            if (missing != 0)
+                problems.Add($"{missing} CJK, Hangul, Arabic or emoji characters have no font on this system (they draw as boxes)");
+            _result["glyphs"] = new { text = OtherScripts, missing };
         }
         else
         {
@@ -63,7 +65,7 @@ public partial class TestRender
             if (scene == "reverie-topbar-menu")
                 bar.Menus.ClickTitle(3);   // World
             await Frames(3);
-            // the narrow-window rule: at 200 % the 960-pixel picture is 480 interface units wide, too narrow for one row
+            // the narrow-window rule: at 200 % the 1280-pixel picture is 640 interface units wide, too narrow for one row; at 100 % it fits
             bool shouldWrap = pct == 200;
             if (bar.LocationOnOwnRow != shouldWrap)
                 problems.Add($"location row: on its own row {bar.LocationOnOwnRow}, expected {shouldWrap}");
@@ -79,6 +81,23 @@ public partial class TestRender
         root.QueueFree();
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         return _failures.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>How many characters of <paramref name="text"/> (not spaces) shape with no font: the engine draws those as boxes.
+    /// The interface font with the engine's system fallback is asked, as every label asks it.</summary>
+    private static int MissingGlyphs(string text)
+    {
+        var font = Fonts.Regular;
+        if (font is null)
+            return text.Length;
+        var line = new TextLine();
+        line.AddString(text, font, 16);
+        var ts = TextServerManager.GetPrimaryInterface();
+        int missing = 0;
+        foreach (var glyph in ts.ShapedTextGetGlyphs(line.GetRid()))
+            if (!((Rid)glyph["font_rid"]).IsValid && (long)glyph["index"] > 32)
+                missing++;
+        return missing;
     }
 
     /// <summary>The menus of the top bar in the render cases: the app menu and the official top-level menus with example entries.</summary>
@@ -190,7 +209,7 @@ public partial class ComponentGallery : MarginContainer
         States(left, "Menu title", s => new Button { Text = s == "pressed" ? "Open" : Cap(s), ThemeTypeVariation = s == "pressed" ? ReverieStyle.MenuTitleOpen : ReverieStyle.MenuTitle, CustomMinimumSize = new Vector2(0, ReverieTheme.MenuTitleHeight) });
         States(left, "Chip", s => new RvChip(Cap(s)));
         States(left, "Icon button", s => new RvIconButton(LucideIcons.Home, Cap(s)));
-        States(left, "List row", s => new RvListRow(Cap(s), LucideIcons.Folder, "12", s == "normal" ? false : null) { Selected = s == "pressed", CustomMinimumSize = new Vector2(120, ReverieTheme.ListRow) });
+        States(left, "List row", s => new RvListRow(Cap(s), LucideIcons.Folder, "12", s == "normal" ? false : null) { Selected = s == "pressed", CustomMinimumSize = new Vector2(124, ReverieTheme.ListRow) });
 
         var toggles = Row(left, "Switch");
         foreach (var (on, state) in new[] { (true, "normal"), (false, "normal"), (true, "focus"), (false, "disabled") })
@@ -266,9 +285,10 @@ public partial class ComponentGallery : MarginContainer
                     var box = control is Button fb ? fb.GetThemeStylebox("focus") : ReverieStyle.FocusRing(ReverieStyle.TokensFor(UiTheme.Tokens), (int)(ReverieTheme.SwitchHeight / 2));
                     ring.AddThemeStyleboxOverride("panel", box);
                     ring.SetAnchorsPreset(LayoutPreset.FullRect);
-                    if (control is RvSwitch)
-                        ring.Size = new Vector2(ReverieTheme.SwitchWidth, ReverieTheme.SwitchHeight);
-                    control.AddChild(ring);
+                    if (control is RvSwitch sw)
+                        sw.ShowsFocus = true;
+                    else
+                        control.AddChild(ring);
                     break;
                 case "edit" when control is RvLocationField f:
                     f.BeginEdit();
@@ -276,10 +296,10 @@ public partial class ComponentGallery : MarginContainer
                     break;
             }
         }
-        // an example dropdown with icons, shortcut text, a separator, a check mark and a submenu arrow, open at the lower right
+        // an example dropdown with icons, shortcut text, separators, a check mark and a submenu arrow, open at the lower right
         var popup = new PopupMenu { ThemeTypeVariation = ReverieStyle.Popup };
         AddChild(popup);
         RvMenuBar.Fill(popup, TestRender.ExampleMenus(_strings)[3].Entries());
-        popup.Popup(new Rect2I(1000, 520, 0, 0));
+        popup.Popup(new Rect2I(860, 560, 0, 0));
     }
 }

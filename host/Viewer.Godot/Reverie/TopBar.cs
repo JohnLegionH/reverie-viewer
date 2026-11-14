@@ -332,7 +332,7 @@ public partial class TopBar : PanelContainer
     private readonly HBoxContainer _first, _second, _left, _centre, _right;
     private readonly Control _gapA, _gapB;
     private readonly Label _time, _balance;
-    private bool _ownRow;
+    private bool _ownRow, _statusDown;
 
     public RvMenuBar Menus { get; }
     public RvLocationField Location { get; }
@@ -384,9 +384,11 @@ public partial class TopBar : PanelContainer
 
         _gapA = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(TopBarLayout.ZoneGap, 0) };
         _gapB = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(TopBarLayout.ZoneGap, 0) };
-        Arrange(false);
-        Resized += Relayout;
+        Arrange(false, false);
     }
+
+    /// <summary>Whether the status area moved to the second row too.</summary>
+    public bool StatusOnSecondRow => _statusDown;
 
     /// <summary>Whether the location zone is on its own row now.</summary>
     public bool LocationOnOwnRow => _ownRow;
@@ -416,31 +418,61 @@ public partial class TopBar : PanelContainer
         Connection.DotColour = connected ? "ok" : "muted";
     }
 
+    public override void _Notification(int what)
+    {
+        if (what is (int)NotificationEnterTree or (int)NotificationParented)
+            Callable.From(Relayout).CallDeferred();
+    }
+
+    public override void _Process(double delta)
+    {
+        float width = GetParentAreaSize().X;
+        if (Math.Abs(width - _laidOutFor) > 0.5f)
+            Relayout();
+    }
+
+    private float _laidOutFor = -1;
+
+    /// <summary>Lays the zones out for the width the bar has in its parent (not its own size, which its content would widen).</summary>
     private void Relayout()
     {
+        float available = GetParentAreaSize().X;
+        _laidOutFor = available;
         float centreWidth = Back.GetCombinedMinimumSize().X + Home.GetCombinedMinimumSize().X + ReverieTheme.LocationMinWidth + 8;
-        bool own = TopBarLayout.LocationOnOwnRow(Size.X - 16, _left.GetCombinedMinimumSize().X, centreWidth, _right.GetCombinedMinimumSize().X);
-        if (own != _ownRow)
-            Arrange(own);
+        float leftWidth = _left.GetCombinedMinimumSize().X, rightWidth = _right.GetCombinedMinimumSize().X;
+        bool own = TopBarLayout.LocationOnOwnRow(available - 16, leftWidth, centreWidth, rightWidth);
+        bool statusDown = TopBarLayout.StatusOnSecondRow(available - 16, leftWidth, centreWidth, rightWidth);
+        if (own != _ownRow || statusDown != _statusDown)
+            Arrange(own, statusDown);
         // the field takes the room the zone has, from its least width (240) to its largest (440)
-        float room = own ? Size.X - 16 : Size.X - 16 - _left.GetCombinedMinimumSize().X - _right.GetCombinedMinimumSize().X - 2 * TopBarLayout.ZoneGap;
+        float room = statusDown ? available - 16 - rightWidth - TopBarLayout.ZoneGap
+            : own ? available - 16 : available - 16 - leftWidth - rightWidth - 2 * TopBarLayout.ZoneGap;
         room -= Back.GetCombinedMinimumSize().X + Home.GetCombinedMinimumSize().X + 8;
         Location.CustomMinimumSize = new Vector2(Math.Clamp(room, ReverieTheme.LocationMinWidth, ReverieTheme.LocationMaxWidth), ReverieTheme.LocationHeight);
     }
 
-    private void Arrange(bool ownRow)
+    private void Arrange(bool ownRow, bool statusDown)
     {
         _ownRow = ownRow;
+        _statusDown = statusDown;
         foreach (var c in new Control[] { _left, _gapA, _centre, _gapB, _right })
             c.GetParent()?.RemoveChild(c);
         _first.AddChild(_left);
         _first.AddChild(_gapA);
         if (!ownRow)
             _first.AddChild(_centre);
-        _first.AddChild(_gapB);
-        _first.AddChild(_right);
+        if (!statusDown)
+        {
+            _first.AddChild(_gapB);
+            _first.AddChild(_right);
+        }
         if (ownRow)
             _second.AddChild(_centre);
+        if (statusDown)
+        {
+            _second.AddChild(_gapB);
+            _second.AddChild(_right);   // even the menus and the status do not fit one row: the status follows the location
+        }
         _second.Visible = ownRow;
         _centre.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
     }
