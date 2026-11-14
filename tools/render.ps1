@@ -1062,8 +1062,9 @@ foreach ($be in $Backends) {
 }
 
 Write-Output "Render stage (exported build)"
-if (-not (Test-Path -LiteralPath $exe)) {
-    Add-Case "all" "SKIP" "no exported build at $exe (run tools\s1.ps1 first)" 0
+. (Join-Path $PSScriptRoot "test-launch.ps1")
+if (-not (Test-Path -LiteralPath $exe) -or -not (Test-ExportComplete (Split-Path -Parent $exe))) {
+    Add-Case "all" "SKIP" "no complete exported build at $exe (the data folder with Viewer.Godot.dll must be beside it; run tools\s1.ps1 first)" 0
     Write-JUnit
     exit 0
 }

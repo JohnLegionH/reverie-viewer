@@ -39,6 +39,15 @@ function Copy-LinkedTree([string]$Source, [string]$Target) {
     }
 }
 
+# Whether the exported build in $ExeDir is whole: a data_* folder beside the executable with the host assembly (Viewer.Godot.dll)
+# in it. Without them the .NET host cannot start and shows a dialog on the desktop instead, so such a build is never launched.
+function Test-ExportComplete([string]$ExeDir) {
+    foreach ($d in @(Get-ChildItem -LiteralPath $ExeDir -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "data_*" })) {
+        if (Test-Path -LiteralPath (Join-Path $d.FullName "Viewer.Godot.dll")) { return $true }
+    }
+    return $false
+}
+
 # Makes (or finds) the launch folder for the build in $ExeDir under $Root and returns its path. The build's folder is not
 # written. Returns $null when the links cannot be made (another volume, say): the caller then opens the window as it is.
 function New-TestLaunchFolder([string]$ExeDir, [string]$Root) {

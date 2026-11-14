@@ -105,6 +105,9 @@ if (-not (Test-Path -LiteralPath $Exe)) { Write-Output "GODOT: executable not fo
 $exeBase = [System.IO.Path]::GetFileNameWithoutExtension($Exe) -replace '([._])console$', ''
 $exeDir = Split-Path -Parent $Exe
 $exportedBuild = Test-Path -LiteralPath (Join-Path $exeDir "$exeBase.pck")
+# an export whose data folder or host assembly is missing (a failed .NET publish) is never started: the .NET host would show a
+# dialog on the desktop instead of running; the run counts as one whose executable is missing
+if ($exportedBuild -and -not (Test-ExportComplete $exeDir)) { Write-Output "GODOT: incomplete export (no data_* folder with Viewer.Godot.dll beside $Exe): not started"; exit 127 }
 if ($exportedBuild) { $AppDataDir = Get-RunAppDataDir $AppDataDir $exeDir $DiagDir }
 New-Item -ItemType Directory -Force -Path $AppDataDir, $DiagDir | Out-Null
 
