@@ -13,24 +13,55 @@ namespace Viewer.Core.Tests;
 
 /// <summary>
 /// The location bar says where the agent is as the official viewer's does (its location string, indra/newview/llagentui.cpp
-/// buildLocationString): the parcel's name, then the region and the agent's position, "Parcel, Region (x, y, z)"; a parcel with
-/// no name leaves it out. The position is rounded to the half metre and, while the agent moves, to every second or fourth metre.
+/// buildLocationString, in each of its formats): a parcel with a name gives "Parcel, Region", one without the region alone; the bar
+/// uses the official bar's default format, without coordinates (lllocationinputctrl.cpp, NavBarShowCoordinates). The position, where a
+/// format shows it, is rounded to the half metre and, while the agent moves, to every second or fourth metre.
 /// The parcel comes from the region's agent-parcel updates (llviewerparcelmgr.cpp processParcelProperties).
 /// </summary>
 public class LocationBarTests
 {
-    [Fact]
-    public void A_named_parcel_comes_first_then_the_region_and_the_rounded_position()
+    private static readonly Vector3 Spot = new(128.4f, 64.5f, 25.2f);
+
+    // every format of the official buildLocationString, for a parcel with a name and one without
+    [Theory]
+    [InlineData(LocationFormat.Landmark, "Example Parcel", "Example Parcel")]
+    [InlineData(LocationFormat.Normal, "Example Parcel", "Example Parcel, Example Region")]
+    [InlineData(LocationFormat.NormalCoords, "Example Parcel", "Example Parcel (128, 65, 25)")]
+    [InlineData(LocationFormat.NoCoords, "Example Parcel", "Example Parcel, Example Region - General")]
+    [InlineData(LocationFormat.NoMaturity, "Example Parcel", "Example Parcel, Example Region (128, 65, 25)")]
+    [InlineData(LocationFormat.Full, "Example Parcel", "Example Parcel, Example Region (128, 65, 25) - General")]
+    [InlineData(LocationFormat.Landmark, "", "Example Region")]
+    [InlineData(LocationFormat.Normal, "", "Example Region")]
+    [InlineData(LocationFormat.NormalCoords, "", "Example Region (128, 65, 25)")]
+    [InlineData(LocationFormat.NoCoords, "", "Example Region - General")]
+    [InlineData(LocationFormat.NoMaturity, "", "Example Region (128, 65, 25)")]
+    [InlineData(LocationFormat.Full, "", "Example Region (128, 65, 25) - General")]
+    public void Each_format_lays_the_text_out_as_the_official_location_string(LocationFormat format, string parcel, string expected)
     {
-        Assert.Equal("Example Parcel, Example Region (128, 65, 25)", LocationText.Build("Example Region", "Example Parcel", new Vector3(128.4f, 64.5f, 25.2f), 0));
+        Assert.Equal(expected, LocationText.Build(format, "Example Region", parcel, Spot, 0, "General"));
     }
 
     [Fact]
-    public void A_parcel_without_a_name_leaves_it_out()
+    public void A_parcel_named_like_its_region_shows_both_names_as_the_official_viewer_does()
     {
-        Assert.Equal("Example Region (128, 65, 25)", LocationText.Build("Example Region", "", new Vector3(128.4f, 64.5f, 25.2f), 0));
-        Assert.Equal("Example Region (128, 65, 25)", LocationText.Build("Example Region", null, new Vector3(128.4f, 64.5f, 25.2f), 0));
-        Assert.Equal("Example Region (128, 65, 25)", LocationText.Build("Example Region", "   ", new Vector3(128.4f, 64.5f, 25.2f), 0));
+        Assert.Equal("Example, Example", LocationText.Build(LocationFormat.NoCoords, "Example", "Example", Spot, 0, null));
+    }
+
+    [Fact]
+    public void A_region_with_no_maturity_text_leaves_the_dash_out()
+    {
+        Assert.Equal("Example Parcel, Example Region", LocationText.Build(LocationFormat.NoCoords, "Example Region", "Example Parcel", Spot, 0, null));
+        Assert.Equal("Example Region (128, 65, 25)", LocationText.Build(LocationFormat.Full, "Example Region", "  ", Spot, 0, ""));
+    }
+
+    [Fact]
+    public void The_location_bar_uses_the_official_bars_default_format_without_coordinates()
+    {
+        // lllocationinputctrl.cpp: NavBarShowCoordinates (false by default in settings.xml) picks FULL, otherwise NO_COORDS
+        Assert.Equal(LocationFormat.NoCoords, LocationText.BarFormat(showCoordinates: false));
+        Assert.Equal(LocationFormat.Full, LocationText.BarFormat(showCoordinates: true));
+        string chrome = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "Main.Chrome.cs"));
+        Assert.Contains("LocationText.Build(LocationText.BarFormat(showCoordinates: false)", chrome);
     }
 
     [Theory]
@@ -41,13 +72,13 @@ public class LocationBarTests
     [InlineData(7f, 128, 132)]    // running or flying: every fourth metre
     public void While_the_agent_moves_the_position_is_rounded_to_every_second_or_fourth_metre(float speed, int expectedX, int expectedY)
     {
-        Assert.Equal($"Example Region ({expectedX}, {expectedY}, 20)", LocationText.Build("Example Region", null, new Vector3(130.6f, 132.6f, 19.7f), speed));
+        Assert.Equal($"Example Region ({expectedX}, {expectedY}, 20)", LocationText.Build(LocationFormat.NoMaturity, "Example Region", null, new Vector3(130.6f, 132.6f, 19.7f), speed));
     }
 
     [Fact]
     public void Without_a_region_there_is_no_text()
     {
-        Assert.Equal("", LocationText.Build(null, "Example Parcel", new Vector3(1, 2, 3), 0));
+        Assert.Equal("", LocationText.Build(LocationFormat.Full, null, "Example Parcel", new Vector3(1, 2, 3), 0));
     }
 
     [Theory]

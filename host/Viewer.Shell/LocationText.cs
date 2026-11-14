@@ -11,8 +11,15 @@ namespace Viewer.Shell;
 /// rounded to the nearest metre and, while the agent moves, to every second metre (faster than a walk's lower bound of 1.5 m/s) or
 /// every fourth (faster than 6 m/s), so the numbers do not flicker.
 /// </summary>
+public enum LocationFormat { Landmark, Normal, NormalCoords, NoCoords, NoMaturity, Full }
+
 public static class LocationText
 {
+    public static string Build(LocationFormat format, string? region, string? parcel, Vector3 position, float speed, string? access = null) => "";
+
+    public static LocationFormat BarFormat(bool showCoordinates) => default;
+
+
     private const float WalkSpeed = 1.5f, FlySpeed = 6f;
 
     public static string Build(string? region, string? parcel, Vector3 position, float speed)

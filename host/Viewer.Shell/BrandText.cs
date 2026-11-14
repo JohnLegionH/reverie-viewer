@@ -12,4 +12,6 @@ public static class BrandText
 
     /// <summary>The window title: the same text as the menu bar's.</summary>
     public static string WindowTitle(string? gridName, StringTable strings) => For(gridName, strings);
+
+    public static string WindowTitle(StringTable strings) => "";
 }

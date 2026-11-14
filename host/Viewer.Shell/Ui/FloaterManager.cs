@@ -20,6 +20,8 @@ public interface IFloaterPlaces
     void Set(string id, UiRect rect);
     /// <summary>Writes the places changed since the last call where they are kept between runs (nothing for places kept in memory).</summary>
     void Flush() { }
+    /// <summary>True the first time it is asked for a window (stub).</summary>
+    bool TakeSizeCheck(string id) => false;
 }
 
 /// <summary>Places kept in the settings file between runs, one text value per window ("x,y,w,h"), as the official viewer keeps each
@@ -102,6 +104,10 @@ public sealed class FloaterManager
     private const float SmallestBounds = 1;
 
     public FloaterManager(IFloaterPlaces? places = null) => _places = places ?? new MemoryFloaterPlaces();
+
+    public const float FirstOpenShare = 0.85f;
+
+    public UiSize FirstOpenSize(FloaterSpec spec) => spec.DefaultSize;
 
     /// <summary>Raised after any change a view must redraw for (open, close, move, resize, focus, bounds).</summary>
     public event Action? Changed;
