@@ -142,6 +142,7 @@ public partial class S1Smoke
             panel.ConfirmYes.EmitSignal(Button.SignalName.Pressed);
             if (!submitted.OfType<InventoryFolderTrashIntent>().Any(t => t.FolderId == mine && t.TrashFolderId == trash && t.Confirmed)) problems.Add("confirming did not move the folder to the Trash");
             if (panel.ConfirmBar.Visible) problems.Add("the confirmation stayed open");
+            if (inv.Folder(mine)?.ParentId != trash) problems.Add("the folder moved to the Trash did not show there at once");
             panel.Drop(note, mine);
             if (!submitted.OfType<InventoryMoveIntent>().Any(m => m.ItemId == note && m.FolderId == mine)) problems.Add("a drop did not submit a move");
             panel.Drop(textures, mine);
@@ -160,6 +161,7 @@ public partial class S1Smoke
             {
                 var big = Enumerable.Range(0, 5000).Select(n => new InventoryItemData(Id(1000 + n), sub, "Item " + n, ItemKind.Object, 6, 6, 0, DateTimeOffset.UtcNow.AddSeconds(-n))).ToList();
                 inv.Apply(new InventoryFolderFetched(sub, true, 2, 5000, new List<InventoryFolderData>(), big));
+                panel.Expand(trash);   // the folder was moved to the Trash above, and shows there
                 panel.Expand(mine);
                 panel.Expand(sub);
                 var sw = Stopwatch.StartNew();

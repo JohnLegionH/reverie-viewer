@@ -6,7 +6,7 @@ namespace Viewer.Addons;
 /// <summary>The add-on interface this assembly describes. A manifest names the version it needs in "interface".</summary>
 public static class AddonInterface
 {
-    public const string Version = "0.4";
+    public const string Version = "0.5";
 }
 
 /// <summary>
@@ -232,6 +232,17 @@ public interface IAddonContext
     /// any other it throws <see cref="AddonPermissionException"/>.</summary>
     void AddQuickControl(AddonControl control);
 
+    // ---- the dock (interface 0.5) ----
+
+    /// <summary>(Interface 0.5.) Puts a button on the viewer's dock: in its Make group after Build, in the order add-ons ask. An add-on
+    /// cannot draw its own controls on the main screen; this is how it gets a place there. <paramref name="label"/> is the name under
+    /// the button (ten characters at most; longer text is cut with an ellipsis); <paramref name="icon"/> is the name of an icon from the
+    /// viewer's set or a single-colour svg the add-on ships (drawn in the current text colour), "plug" when none; <paramref name="menu"/>
+    /// is what the chevron and a right-click show. At most two items per add-on; null when refused (a third item, or an id already in
+    /// use). The items go the moment the add-on is turned off. Needs <see cref="AddonPermissions.Window"/>.</summary>
+    AddonDockItem? AddDockItem(string id, string label, AddonDockKind kind, string? icon = null, string? tooltip = null,
+        IReadOnlyList<AddonDockMenuEntry>? menu = null) => null;
+
     // ---- inventory ----
 
     /// <summary>The user's inventory, read only; null while logged out. Needs <see cref="AddonPermissions.InventoryRead"/>.</summary>
@@ -245,6 +256,69 @@ public interface IAddonContext
     /// <summary>The viewer's restraint enforcement. Needs <see cref="AddonPermissions.Restraints"/>, which only add-ons that come
     /// with the viewer are granted; any other gets <see cref="AddonPermissionException"/>.</summary>
     IAddonRestraints? Restraints => null;
+}
+
+/// <summary>(Interface 0.5.) What a dock item does when clicked: runs something, or turns on and off (with a menu on its chevron).</summary>
+public enum AddonDockKind { Action, Toggle, ToggleWithMenu }
+
+/// <summary>(Interface 0.5.) One entry of a dock item's menu: a label, an optional icon name, an optional check mark, or a separator.</summary>
+public sealed record AddonDockMenuEntry(string Label, string? Icon = null, bool? Checked = null, bool Separator = false);
+
+/// <summary>
+/// (Interface 0.5.) A button an add-on has on the dock. The add-on sets its state (on or off, attention with an optional count, its
+/// menu) or removes it; the viewer says when it was clicked and which menu entry was chosen. Made by the viewer only
+/// (<see cref="IAddonContext.AddDockItem"/>).
+/// </summary>
+public sealed class AddonDockItem
+{
+    private IReadOnlyList<AddonDockMenuEntry> _menu;
+
+    private AddonDockItem(string id, string label, AddonDockKind kind, string? icon, string? tooltip, IReadOnlyList<AddonDockMenuEntry>? menu)
+    {
+        Id = id; Label = label; Kind = kind; Icon = icon; Tooltip = tooltip; _menu = menu?.ToArray() ?? [];
+    }
+
+    /// <summary>Made by the viewer only.</summary>
+    public static AddonDockItem Create(string id, string label, AddonDockKind kind, string? icon, string? tooltip, IReadOnlyList<AddonDockMenuEntry>? menu) =>
+        new(id, label, kind, icon, tooltip, menu);
+
+    public string Id { get; }
+    public string Label { get; }
+    public AddonDockKind Kind { get; }
+    public string? Icon { get; }
+    public string? Tooltip { get; }
+    public bool On { get; private set; }
+    public bool Attention { get; private set; }
+    public int? Count { get; private set; }
+    public IReadOnlyList<AddonDockMenuEntry> Menu => _menu;
+
+    /// <summary>True once the add-on removed it.</summary>
+    public bool Removed { get; private set; }
+
+    /// <summary>Raised to the add-on when the button (its main part) was clicked.</summary>
+    public event Action? Clicked;
+
+    /// <summary>Raised to the add-on when an entry of its menu was chosen: the entry's index.</summary>
+    public event Action<int>? MenuChosen;
+
+    /// <summary>Raised to the viewer when the add-on changed the item's state or removed it.</summary>
+    public event Action? Changed;
+
+    public void SetOn(bool on) { if (!STUB) { On = on; Changed?.Invoke(); } }
+
+    public void SetAttention(bool on, int? count = null) { if (!STUB) { Attention = on; Count = on ? count : null; Changed?.Invoke(); } }
+
+    public void SetMenu(IReadOnlyList<AddonDockMenuEntry> menu) { if (!STUB) { _menu = menu.ToArray(); Changed?.Invoke(); } }
+
+    public void Remove() { if (!STUB) { Removed = true; Changed?.Invoke(); } }
+
+    /// <summary>The viewer: the button was clicked.</summary>
+    public void Click() { if (!STUB) Clicked?.Invoke(); }
+
+    /// <summary>The viewer: a menu entry was chosen.</summary>
+    public void ChooseMenu(int index) { if (!STUB && index >= 0 && index < _menu.Count) MenuChosen?.Invoke(index); }
+
+    private const bool STUB = true;
 }
 
 /// <summary>One restriction an object holds: the object, the behaviour and its option, whether the viewer enforces it, and

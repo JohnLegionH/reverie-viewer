@@ -132,6 +132,59 @@ public class AddonInterface02Tests
         Assert.Equal([dance, null, dance, null], services.Local);
     }
 
+    // ---------------- the dock item call (interface 0.5) ----------------
+
+    [Fact]
+    public void A_dock_item_needs_the_window_grant_and_any_add_on_may_ask_for_one()
+    {
+        Assert.Equal("0.5", AddonInterface.Version);
+        var (_, _, noWindow) = Start(builtIn: true, null, AddonPermissions.ChatSend);
+        Assert.Throws<AddonPermissionException>(() => noWindow.Context!.AddDockItem("a", "A", AddonDockKind.Action));
+        var (host, _, outside) = Start(builtIn: false, null, AddonPermissions.Window);
+        var item = outside.Context!.AddDockItem("a", "Tool", AddonDockKind.Toggle, "plug", "Turns the tool on");
+        Assert.NotNull(item);
+        Assert.Equal(("probe", item!), Assert.Single(host.DockItems));
+        Assert.Equal(("Tool", AddonDockKind.Toggle, "plug", "Turns the tool on"), (item.Label, item.Kind, item.Icon, item.Tooltip));
+    }
+
+    [Fact]
+    public void An_add_on_gets_two_dock_items_at_most_and_they_go_when_it_is_turned_off()
+    {
+        var (host, _, probe) = Start(builtIn: true, null, AddonPermissions.Window);
+        Assert.NotNull(probe.Context!.AddDockItem("a", "A", AddonDockKind.Action));
+        Assert.Null(probe.Context.AddDockItem("a", "Again", AddonDockKind.Action));
+        Assert.NotNull(probe.Context.AddDockItem("b", "B", AddonDockKind.Action));
+        Assert.Null(probe.Context.AddDockItem("c", "C", AddonDockKind.Action));
+        Assert.Equal(["a", "b"], host.DockItems.Select(d => d.Item.Id));
+        host.SetEnabled("probe", false);
+        Assert.Empty(host.DockItems);
+    }
+
+    [Fact]
+    public void The_add_on_sets_a_dock_items_state_and_hears_its_clicks_and_menu_choices()
+    {
+        var (host, _, probe) = Start(builtIn: true, null, AddonPermissions.Window);
+        var item = probe.Context!.AddDockItem("ao", "AO", AddonDockKind.ToggleWithMenu, menu: [new AddonDockMenuEntry("Main", Checked: true), new AddonDockMenuEntry("Edit sets...")]);
+        Assert.NotNull(item);
+        int changes = 0, clicks = 0;
+        var chosen = new List<int>();
+        item!.Changed += () => changes++;
+        item.Clicked += () => clicks++;
+        item.MenuChosen += chosen.Add;
+        item.SetOn(true);
+        item.SetAttention(true, 3);
+        item.SetMenu([new AddonDockMenuEntry("Main"), new AddonDockMenuEntry("Beach", Checked: true), new AddonDockMenuEntry("Edit sets...")]);
+        Assert.Equal((true, true, 3, 3), (item.On, item.Attention, item.Count, item.Menu.Count));
+        item.Click();
+        item.ChooseMenu(1);
+        item.ChooseMenu(7);   // past the end: nothing
+        Assert.Equal((3, 1), (changes, clicks));
+        Assert.Equal([1], chosen);
+        item.Remove();
+        Assert.True(item.Removed);
+        Assert.Empty(host.DockItems);
+    }
+
     [Fact]
     public void Only_an_add_on_that_comes_with_the_viewer_may_put_a_control_in_the_quick_bar()
     {

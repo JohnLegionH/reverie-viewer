@@ -320,7 +320,7 @@ public class AoEditorTests
     }
 
     [Fact]
-    public void The_menu_item_and_a_quick_bar_button_open_the_set_editor_and_the_switch_stays_separate()
+    public void The_menu_item_and_the_dock_buttons_edit_sets_entry_open_the_set_editor_and_there_is_no_separate_AO_strip()
     {
         var r = new Rig();
         int opened = 0;
@@ -328,12 +328,14 @@ public class AoEditorTests
         var item = Assert.Single(r.Host.MenuItems, m => m.AddonId == "ao");
         r.Run(item.Chosen);
         Assert.Equal(1, opened);
-        var quick = r.Host.QuickControls.Where(q => q.AddonId == "ao").Select(q => q.Control).ToArray();
-        Assert.Contains(quick, c => c.Id == "quick_edit");
-        var edit = Assert.IsType<AddonButton>(quick.Single(c => c.Id == "quick_edit"));
-        r.Run(edit.Press);
+        Assert.Contains(r.Host.DockItems, d => d.AddonId == "ao");
+        var dock = r.Host.DockItems.Single(d => d.AddonId == "ao").Item;
+        Assert.Equal(("AO", AddonDockKind.ToggleWithMenu, "person-standing"), (dock.Label, dock.Kind, dock.Icon));
+        Assert.NotEmpty(dock.Menu);
+        Assert.Equal("Edit sets...", dock.Menu[^1].Label);
+        r.Run(() => dock.ChooseMenu(dock.Menu.Count - 1));
         Assert.Equal(2, opened);
-        Assert.Contains(quick, c => c.Id == "quick_use");
+        Assert.DoesNotContain(r.Host.QuickControls, q => q.AddonId == "ao");   // the button is the AO's only place on the main screen
         Assert.Contains("animation", r.Editor.Title, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("set", r.Editor.Title, StringComparison.OrdinalIgnoreCase);
     }
@@ -391,22 +393,26 @@ public class AoEditorTests
     }
 
     [Fact]
-    public void The_switch_and_the_set_picker_sit_in_the_quick_bar()
+    public void The_dock_button_turns_the_AO_on_and_off_and_its_menu_lists_the_sets_with_the_one_in_use_marked()
     {
         var r = new Rig();
         Assert.Equal("editor", r.Editor.Id);
-        var quick = r.Host.QuickControls.Where(q => q.AddonId == "ao").Select(q => q.Control).ToArray();
-        var use = Assert.IsType<AddonToggle>(quick.Single(c => c.Id == "quick_use"));
-        var set = Assert.IsType<AddonChoice>(quick.Single(c => c.Id == "quick_set"));
-        Assert.Equal(["Main"], set.Items);
+        Assert.Contains(r.Host.DockItems, d => d.AddonId == "ao");
+        var dock = r.Host.DockItems.Single(d => d.AddonId == "ao").Item;
+        Assert.Equal(["Main", "", "Edit sets..."], dock.Menu.Select(m => m.Label));
+        Assert.True(dock.Menu[1].Separator);
+        Assert.True(dock.Menu[0].Checked);
+        Assert.False(dock.On);
 
-        r.Run(() => use.Turn(true));
+        r.Run(dock.Click);
         r.Host.Frame();
         Assert.Contains((r.SetStand, true), r.Services.Sent);
+        Assert.True(dock.On);
         var main = (AddonToggle)Assert.Single(r.Host.Windows, w => w.Window.Id == "overrider").Window.Controls.Single(c => c.Id == "use");
         Assert.True(main.On);                                                     // the window's switch follows
-        r.Run(() => use.Turn(false));
+        r.Run(dock.Click);
         Assert.Contains((r.SetStand, false), r.Services.Sent);
+        Assert.False(dock.On);
     }
 
     [Fact]

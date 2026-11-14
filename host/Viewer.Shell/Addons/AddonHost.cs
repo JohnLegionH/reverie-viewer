@@ -148,6 +148,9 @@ public sealed class AddonHost : IActionVeto, IDisposable
     public IReadOnlyList<(string AddonId, AddonControl Control)> QuickControls =>
         _entries.Where(e => e.Context is not null).SelectMany(e => e.Context!.QuickControls.Select(c => (e.Id, c))).ToArray();
 
+    /// <summary>The add-ons' dock items (interface 0.5), in the order the add-ons were turned on, with the add-on each belongs to.</summary>
+    public IReadOnlyList<(string AddonId, AddonDockItem Item)> DockItems => [];
+
     /// <summary>The add-ons' menu items.</summary>
     public IReadOnlyList<(string AddonId, string Label, Action Chosen)> MenuItems =>
         _entries.Where(e => e.Context is not null).SelectMany(e => e.Context!.MenuItems.Select(m => (e.Id, m.Label, m.Chosen))).ToArray();
