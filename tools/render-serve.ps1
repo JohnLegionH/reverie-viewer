@@ -125,6 +125,19 @@ function Start-ServeWorker([string]$driver, [string]$outDir, [scriptblock]$launc
     return $w
 }
 
+# A case's exit code from its done file. The file can be seen for a moment before the code is in it (a worker that writes it in place):
+# it is read again until the code is there, for at most five seconds; a file that stays empty or holds no number counts as exit 2.
+function Read-DoneCode([string]$done) {
+    $until = (Get-Date).AddSeconds(5)
+    while ($true) {
+        $text = Get-Content -Raw -LiteralPath $done -ErrorAction SilentlyContinue
+        $code = 0
+        if ($text -and [int]::TryParse($text.Trim(), [ref]$code)) { return $code }
+        if ((Get-Date) -ge $until) { return 2 }
+        Start-Sleep -Milliseconds 50
+    }
+}
+
 # Runs one case in the worker of its backend. Returns @{ Exit; Json; Seconds; Served = $true; WorkerDied }, or $null when no worker could be had
 # (the caller then runs the case the old way). $launcher: see Start-ServeWorker.
 function Invoke-ServedCase([string]$driver, [string]$tag, [string]$extra, [int]$timeout, [string]$outDir, [scriptblock]$launcher) {
@@ -159,7 +172,7 @@ function Invoke-ServedCase([string]$driver, [string]$tag, [string]$extra, [int]$
     }
     $code = 2
     $died = $false
-    if (Test-Path -LiteralPath $done) { $code = [int](Get-Content -Raw -LiteralPath $done).Trim() }
+    if (Test-Path -LiteralPath $done) { $code = Read-DoneCode $done }
     else {
         $died = $true
         $w.Process.WaitForExit(15000) | Out-Null

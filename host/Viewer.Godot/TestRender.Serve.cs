@@ -162,7 +162,10 @@ public partial class TestRender
                 await Frames(2);
                 VariantDisposal.DrainAll("serve case");
                 served++;
-                File.WriteAllText(Path.Combine(folder, tag + ".done"), caseExit.ToString(CultureInfo.InvariantCulture));
+                // written beside and renamed into place, so the script never sees the file before the exit code is in it
+                string done = Path.Combine(folder, tag + ".done");
+                File.WriteAllText(done + ".tmp", caseExit.ToString(CultureInfo.InvariantCulture));
+                File.Move(done + ".tmp", done, overwrite: true);
             }
             Console.Error.WriteLine($"TEST-RENDER serve: {served} cases run, leaving");
         }
