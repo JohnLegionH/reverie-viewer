@@ -363,7 +363,7 @@ public static class ThemeStore
 
     /// <summary>The scale to draw the interface at: the person's own, else the display's scale.</summary>
     public static int EffectiveScale(SettingsService settings, string? accountKey, ThemeChoice choice, int displayPercent) =>
-        ScaleOwn(settings, accountKey, choice) ? choice.ScalePercent : Math.Clamp(displayPercent, 100, 200);
+        ScaleOwn(settings, accountKey, choice) ? choice.ScalePercent : Math.Clamp(displayPercent, InterfaceSize.MinPercent, InterfaceSize.MaxPercent);
 
     /// <summary>False when the settings file could not be written. <paramref name="scaleOwn"/>, when given, records whether the
     /// scale in the choice is the person's own.</summary>

@@ -25,7 +25,7 @@ public sealed class InterfacePreferences(ThemeChoice saved, UiColour? gridAccent
     public bool ScaleOwn => _scaleOwn;
 
     /// <summary>The scale the interface uses: the person's own, else the display's scale (within the interface's range).</summary>
-    public int EffectiveScale => _scaleOwn ? Working.ScalePercent : Math.Clamp(displayPercent, 100, 200);
+    public int EffectiveScale => _scaleOwn ? Working.ScalePercent : Math.Clamp(displayPercent, InterfaceSize.MinPercent, InterfaceSize.MaxPercent);
 
     private bool _scaleOwn = scaleOwn, _savedScaleOwn = scaleOwn;
 

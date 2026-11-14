@@ -33,7 +33,8 @@ public partial class Main
     private void ApplyBranding(GridBranding branding)
     {
         _shell?.SetBrand(branding.Name);
-        GetWindow().Title = BrandText.WindowTitle();
+        _gridName = branding.Name;
+        UpdateWindowTitle();
         _loginScreen?.ApplyBranding(branding);
         _gridAccent = branding.Accent;
         _preferences?.SetGridAccent(branding.Accent);
@@ -49,15 +50,46 @@ public partial class Main
         _travel.Teleport.ToRegion(parts[0], new System.Numerics.Vector3(Coord(1, 128), Coord(2, 128), Coord(3, 30)));
     }
 
+    private string? _gridName;
+    private SettingsService? _titleSettings;
+    private int _screen = -1;
+
+    /// <summary>The operating system's window title: "Reverie Viewer", and once logged in the avatar's name and the grid's.</summary>
+    private void UpdateWindowTitle()
+    {
+        if (_strings is null)
+            return;
+        string? avatar = _chromeInWorld && Model is { } m ? LoginName.Display(m.FirstName, m.LastName) : null;
+        GetWindow().Title = WindowTitleText.For(_strings, avatar, _gridName);
+    }
+
+    /// <summary>When the window moves to a screen with another display scale the interface follows it, unless the person set a size
+    /// of their own.</summary>
+    private void FollowScreen()
+    {
+        int screen = GetWindow().CurrentScreen;
+        if (screen == _screen)
+            return;
+        bool first = _screen < 0;
+        _screen = screen;
+        if (first || _titleSettings is null)
+            return;
+        var look = ThemeStore.Load(_titleSettings, null);
+        if (!ThemeStore.ScaleOwn(_titleSettings, null, look))
+            UiTheme.Apply(UiTheme.Tokens, DisplayScaleProbe.Reading());
+    }
+
     private void UpdateChrome()
     {
         if (_shell is null)
             return;
         var session = Model?.Session;
         bool inWorld = session is { IsEnded: false } s && s.AgentId != Guid.Empty;
+        FollowScreen();
         if (inWorld != _chromeInWorld)
         {
             _chromeInWorld = inWorld;
+            UpdateWindowTitle();
             _shell.ShowWorldRows(inWorld);
             _shell.SetConnected(inWorld);
         }
