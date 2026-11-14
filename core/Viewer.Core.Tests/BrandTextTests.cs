@@ -30,9 +30,9 @@ public class BrandTextTests
     [Fact]
     public void The_window_title_is_the_viewers_name_only_whatever_the_grid_is_called()
     {
-        // as the official viewer's window title (llappviewer.cpp: APP_NAME, no grid and no debug text)
-        var strings = StringTable.English();
-        Assert.Equal(strings.Get("brand.default"), BrandText.WindowTitle(strings));
+        // as the official viewer's window title (llappviewer.cpp: APP_NAME, no grid and no debug text); the name comes from the
+        // core's identity, the one place the viewer's name is kept
+        Assert.Equal(Viewer.Core.Identity.ViewerIdentity.ShortName, BrandText.WindowTitle());
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class BrandTextTests
         var bad = new List<string>();
         foreach (var file in Directory.EnumerateFiles(host, "*.cs", SearchOption.AllDirectories))
             foreach (var line in File.ReadAllLines(file))
-                if (System.Text.RegularExpressions.Regex.IsMatch(line, @"GetWindow\(\)\.Title\s*=") && !line.Contains("BrandText.WindowTitle(_strings)") && !line.Contains("BrandText.WindowTitle(strings)"))
+                if (System.Text.RegularExpressions.Regex.IsMatch(line, @"GetWindow\(\)\.Title\s*=") && !line.Contains("BrandText.WindowTitle()"))
                     bad.Add(Path.GetFileName(file) + ": " + line.Trim());
         Assert.True(bad.Count == 0, "window titles set to something other than the viewer's name: " + string.Join("; ", bad));
         Assert.False(StringTable.English().Has("sky.title"), "the time of day is not a title text any more");

@@ -89,3 +89,16 @@ public sealed class DragAutoOpen
     /// <summary>The engine thinks a drag is going on but no button is held: it was never ended and is to be cancelled.</summary>
     public static bool IsStaleDrag(bool dragging, bool buttonHeld) => dragging && !buttonHeld;
 }
+
+/// <summary>What a drag going on over the inventory tree shows: the row being dragged, and the folder it would move into.</summary>
+public readonly record struct DropCue(Guid Source, Guid Target);
+
+/// <summary>The inventory tree's look during a drag.</summary>
+public static class DragFeedback
+{
+    public const string TextKey = "";
+
+    public static DropCue During(Guid dragged, Guid folderUnderPointer, bool canDrop, bool dragging, bool buttonHeld) => default;
+
+    public static bool IsStaleDrag(bool dragging, bool buttonHeld) => false;
+}

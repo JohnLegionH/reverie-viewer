@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System.Text.RegularExpressions;
+using Viewer.Shell;
 using Viewer.Shell.Inventory;
 using Xunit;
 
@@ -11,10 +12,10 @@ namespace Viewer.Core.Tests;
 /// Inventory folders open and close on a click only, as the official viewer's folder view does (indra/llui/llfolderviewitem.cpp
 /// LLFolderViewFolder::handleMouseDown and handleDoubleClick, indra/llui/llfolderview.cpp handleKeyHere): a click on the arrow
 /// toggles the folder, a click on the name selects it, a double-click on the name toggles it, a right-click selects the row and
-/// opens its menu without toggling anything; Right opens, Left closes or moves to the parent. The only opening without a click is
-/// while an item is being dragged: a closed folder held under it opens after FolderAutoOpenDelay (0.75 s in the official
-/// settings.xml). A pointer merely passing over a folder, with no drag or with a drag whose button is no longer held, opens
-/// nothing. Pure, runs in parallel.
+/// opens its menu without toggling anything; Right opens, Left closes or moves to the parent. Nothing opens a folder without a
+/// click or a key, not even an item dragged and held over it: the folder under a drag is only marked as the drop target, with the
+/// text "Drop to move here", and the dragged item's own row gets a dashed outline. A drop into a closed folder still moves the item.
+/// Pure, runs in parallel.
 /// </summary>
 public class InventoryFolderClickTests
 {
@@ -73,70 +74,71 @@ public class InventoryFolderClickTests
     }
 
     [Fact]
-    public void The_drag_open_delay_is_the_official_setting()
+    public void An_item_dragged_over_a_folder_marks_that_folder_as_the_drop_target_and_its_own_row_as_the_source()
     {
-        Assert.Equal(0.75, DragAutoOpen.OfficialDelaySeconds);
-        Assert.Equal(750, new DragAutoOpen().DelayMs);
-        Assert.Equal(1200, new DragAutoOpen(1.2).DelayMs);
+        var cue = DragFeedback.During(dragged: A, folderUnderPointer: B, canDrop: true, dragging: true, buttonHeld: true);
+        Assert.Equal(B, cue.Target);
+        Assert.Equal(A, cue.Source);
     }
 
     [Fact]
-    public void Hovering_with_no_drag_opens_nothing_however_long()
+    public void A_folder_the_item_cannot_move_into_is_not_marked_but_the_source_row_still_is()
     {
-        var auto = new DragAutoOpen();
-        for (long t = 0; t <= 5000; t += 100)
-            Assert.Equal(Guid.Empty, auto.Step(A, folderClosed: true, dragging: false, buttonHeld: false, t));
-        Assert.Equal(Guid.Empty, auto.Step(B, folderClosed: true, dragging: false, buttonHeld: true, 6000));
-        Assert.Equal(Guid.Empty, auto.Step(B, folderClosed: true, dragging: false, buttonHeld: true, 9000));
+        var cue = DragFeedback.During(A, B, canDrop: false, dragging: true, buttonHeld: true);
+        Assert.Equal(Guid.Empty, cue.Target);
+        Assert.Equal(A, cue.Source);
+        var self = DragFeedback.During(A, A, canDrop: true, dragging: true, buttonHeld: true);
+        Assert.Equal(Guid.Empty, self.Target);   // a folder is never its own drop target
+        Assert.Equal(A, self.Source);
     }
 
     [Fact]
-    public void A_drag_whose_button_is_no_longer_held_opens_nothing_and_is_ended()
+    public void Without_a_drag_or_with_its_button_let_go_nothing_is_marked()
     {
-        var auto = new DragAutoOpen();
-        for (long t = 0; t <= 5000; t += 100)
-            Assert.Equal(Guid.Empty, auto.Step(A, folderClosed: true, dragging: true, buttonHeld: false, t));
-        Assert.True(DragAutoOpen.IsStaleDrag(dragging: true, buttonHeld: false));
-        Assert.False(DragAutoOpen.IsStaleDrag(dragging: true, buttonHeld: true));
-        Assert.False(DragAutoOpen.IsStaleDrag(dragging: false, buttonHeld: false));
+        Assert.Equal(default, DragFeedback.During(A, B, canDrop: true, dragging: false, buttonHeld: true));
+        Assert.Equal(default, DragFeedback.During(A, B, canDrop: true, dragging: true, buttonHeld: false));
+        Assert.Equal(default, DragFeedback.During(Guid.Empty, B, canDrop: true, dragging: true, buttonHeld: true));
+        var none = DragFeedback.During(A, Guid.Empty, canDrop: true, dragging: true, buttonHeld: true);
+        Assert.Equal(Guid.Empty, none.Target);
+        Assert.Equal(A, none.Source);
     }
 
     [Fact]
-    public void A_dragged_item_held_over_a_closed_folder_opens_it_once_after_the_delay()
+    public void A_drag_whose_button_is_no_longer_held_is_stale_and_ended()
     {
-        var auto = new DragAutoOpen();
-        Assert.Equal(Guid.Empty, auto.Step(A, true, true, true, 1000));
-        Assert.Equal(Guid.Empty, auto.Step(A, true, true, true, 1700));
-        Assert.Equal(A, auto.Step(A, true, true, true, 1750));
-        Assert.Equal(Guid.Empty, auto.Step(A, true, true, true, 1800));   // once
-        Assert.Equal(Guid.Empty, auto.Step(A, false, true, true, 3000));  // it is open now
+        Assert.True(DragFeedback.IsStaleDrag(dragging: true, buttonHeld: false));
+        Assert.False(DragFeedback.IsStaleDrag(dragging: true, buttonHeld: true));
+        Assert.False(DragFeedback.IsStaleDrag(dragging: false, buttonHeld: false));
     }
 
     [Fact]
-    public void Moving_to_another_folder_starts_the_wait_again()
+    public void The_drop_target_text_is_drop_to_move_here()
     {
-        var auto = new DragAutoOpen();
-        Assert.Equal(Guid.Empty, auto.Step(A, true, true, true, 0));
-        Assert.Equal(Guid.Empty, auto.Step(B, true, true, true, 600));
-        Assert.Equal(Guid.Empty, auto.Step(B, true, true, true, 1300));
-        Assert.Equal(B, auto.Step(B, true, true, true, 1350));
+        Assert.Equal("inventory.drop.here", DragFeedback.TextKey);
+        Assert.Equal("Drop to move here", StringTable.English().Get("inventory.drop.here"));
     }
 
     [Fact]
-    public void Leaving_the_folders_or_letting_go_resets_the_wait()
+    public void No_folder_opens_on_a_timer_while_an_item_is_dragged_over_it()
     {
-        var auto = new DragAutoOpen();
-        Assert.Equal(Guid.Empty, auto.Step(A, true, true, true, 0));
-        Assert.Equal(Guid.Empty, auto.Step(Guid.Empty, true, true, true, 500));
-        Assert.Equal(Guid.Empty, auto.Step(A, true, true, true, 600));
-        Assert.Equal(Guid.Empty, auto.Step(A, true, true, true, 1300));
-        Assert.Equal(A, auto.Step(A, true, true, true, 1350));
-        var again = new DragAutoOpen();
-        Assert.Equal(Guid.Empty, again.Step(A, true, true, true, 0));
-        Assert.Equal(Guid.Empty, again.Step(A, true, false, false, 400));
-        Assert.Equal(Guid.Empty, again.Step(A, true, true, true, 500));
-        Assert.Equal(Guid.Empty, again.Step(A, true, true, true, 1200));
-        Assert.Equal(A, again.Step(A, true, true, true, 1250));
+        // the drag-open of the official viewer (FolderAutoOpenDelay) is not used: hovering opens nothing, a drag included
+        Assert.Null(typeof(FolderTreeInput).Assembly.GetType("Viewer.Shell.Inventory.DragAutoOpen"));
+        var process = Regex.Match(Panels, @"public override void _Process\(double delta\)[\s\S]*?\n    \}");
+        Assert.True(process.Success, "the tree looks at the drag every frame");
+        Assert.DoesNotContain("Collapsed = false", process.Value);
+        Assert.DoesNotContain("Collapsed=false", process.Value);
+        Assert.Contains("DragFeedback.During(", process.Value);
+    }
+
+    [Fact]
+    public void The_tree_draws_the_drop_target_outline_with_its_text_and_a_dashed_outline_on_the_dragged_row()
+    {
+        string text = Panels;
+        var draw = Regex.Match(text, @"public override void _Draw\(\)[\s\S]*?\n    \}");
+        Assert.True(draw.Success, "the tree draws the drag cue over its rows");
+        Assert.Contains("DrawRect(", draw.Value);
+        Assert.Contains("DrawDashedLine(", draw.Value);
+        Assert.Contains("DragFeedback.TextKey", text);
     }
 
     private static string Panels => File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "InventoryPanels.cs"));
@@ -148,7 +150,7 @@ public class InventoryFolderClickTests
         Assert.Matches(@"EnableDragUnfolding\s*=\s*false", text);
         Assert.Contains("FolderTreeInput.Press(", text);
         Assert.Contains("FolderTreeInput.Key(", text);
-        Assert.Matches(@"DragAutoOpen\.IsStaleDrag\(", text);
+        Assert.Matches(@"DragFeedback\.IsStaleDrag\(", text);
         Assert.Matches(@"GuiCancelDrag\(\)", text);
     }
 

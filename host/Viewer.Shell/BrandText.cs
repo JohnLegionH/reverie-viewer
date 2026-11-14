@@ -14,4 +14,6 @@ public static class BrandText
     /// APP_NAME); the grid's name stays in the menu bar. The name comes from the string table's one entry for it, so renaming
     /// the viewer is one change.</summary>
     public static string WindowTitle(StringTable strings) => strings.Get("brand.default");
+
+    public static string WindowTitle() => "";
 }
