@@ -507,4 +507,13 @@ public class EditControllerTests
         Assert.Same(snap, menus.ForShortcut("g"));
         Assert.DoesNotContain(Viewer.Shell.ViewerShortcuts.NotBuilt, n => n.Shortcut is "G" or "shift|X" or "shift|G" or "control|shift|B");
     }
+    [Fact]
+    public void The_edit_selection_is_held_selected_on_the_region_until_it_is_deselected()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.Click(r.At(10, 10), false);
+        Assert.Contains(r.Sent, i => i is ObjectPropertiesIntent { LocalId: 1, Hold: true });
+    }
 }

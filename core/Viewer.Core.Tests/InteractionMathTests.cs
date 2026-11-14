@@ -185,4 +185,11 @@ public class InteractionMathTests
         Assert.Equal(ActionStatus.Invalid, r.Pipeline.Submit(new ParcelInfoIntent(-1f, 5f)).Status);
         Assert.Empty(r.Transport.Commands);
     }
+    [Fact]
+    public void A_held_properties_request_reaches_the_transport_as_a_held_selection()
+    {
+        var r = new Rig();
+        r.Pipeline.Submit(new ObjectPropertiesIntent(9, Hold: true));
+        Assert.Equal<TransportCommand>([new RequestObjectPropertiesCommand(9, true)], r.Transport.Commands);
+    }
 }

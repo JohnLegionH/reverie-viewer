@@ -145,7 +145,7 @@ public sealed record ReleaseCommand(uint LocalId, Viewer.Core.Actions.TouchSurfa
 public sealed record SitGroundCommand : TransportCommand;
 
 /// <summary>Select an object so the region sends its properties, then let go of the selection once they arrive.</summary>
-public sealed record RequestObjectPropertiesCommand(uint LocalId) : TransportCommand;
+public sealed record RequestObjectPropertiesCommand(uint LocalId, bool Hold = false) : TransportCommand;
 
 /// <summary>Take an object (or a copy) into the agent's inventory.</summary>
 public sealed record TakeObjectCommand(uint LocalId, bool Copy) : TransportCommand;

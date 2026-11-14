@@ -630,8 +630,9 @@ public sealed record SitGroundIntent : ActionIntent
     internal override TransportCommand? ToCommand() => new SitGroundCommand();
 }
 
-/// <summary>Ask the region for an object's name, description, owner and creator.</summary>
-public sealed record ObjectPropertiesIntent(uint LocalId) : ActionIntent
+/// <summary>Ask the region for an object's name, description, owner and creator. The request selects the object on the region;
+/// <paramref name="Hold"/> keeps it selected (until an ObjectDeselect) instead of letting go once the properties arrive.</summary>
+public sealed record ObjectPropertiesIntent(uint LocalId, bool Hold = false) : ActionIntent
 {
     public override ActionKind Kind => ActionKind.ObjectProperties;
     public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 ? [new("properties.no_object")] : [];

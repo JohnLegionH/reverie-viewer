@@ -523,4 +523,12 @@ public class InteractionControllerTests
         Assert.Equal([1u], Assert.Single(r.Sent.OfType<DeselectObjectsIntent>()).LocalIds);
         Assert.Contains(r.Sent, i => i is ObjectPropertiesIntent { LocalId: 3 });
     }
+    [Fact]
+    public void The_right_click_selection_is_held_selected_on_the_region_until_it_is_deselected()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30));
+        r.C.RightClick(r.Down(10, 10));
+        Assert.Contains(r.Sent, i => i is ObjectPropertiesIntent { LocalId: 1, Hold: true });
+    }
 }
