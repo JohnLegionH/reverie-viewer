@@ -46,6 +46,7 @@ public class ReverieDockTests
     public void The_app_menu_comes_first_with_about_preferences_addons_updates_log_out_and_quit()
     {
         var menus = TopBarMenuMap.Build(Menus(out var commands), commands);
+        Assert.NotEmpty(menus);
         Assert.Equal(TopBarMenuMap.AppMenuId, menus[0].Id);
         Assert.True(menus[0].IsApp);
         Assert.Equal("topbar.app", menus[0].TitleKey);
@@ -72,6 +73,7 @@ public class ReverieDockTests
     public void Every_world_entry_has_an_icon_from_the_vendored_set()
     {
         var menus = TopBarMenuMap.Build(Menus(out var commands), commands);
+        Assert.Contains(menus, m => m.Id == "world");
         foreach (var e in menus.Single(m => m.Id == "world").Entries)
         {
             Assert.NotNull(e.Icon);
@@ -102,6 +104,8 @@ public class ReverieDockTests
     {
         var en = StringTable.English();
         var dock = DockModel.Standard();
+        Assert.NotNull(dock.Item("chat"));
+        Assert.NotNull(dock.Item("notices"));
         Assert.Equal("Chat", dock.Item("chat")!.Shown(en));
         Assert.Equal("Convos", dock.Item("convos")!.Shown(en));
         Assert.Equal("Mini-map", dock.Item("minimap")!.Shown(en));
@@ -109,7 +113,8 @@ public class ReverieDockTests
         dock.SetAttention(dock.Item("notices")!, true, 3);
         Assert.Equal("3 notices", dock.Item("notices")!.Shown(en));
         Assert.True(dock.Item("notices")!.Attention);
-        var ao = dock.AddAddonItem("ao", "use", "AO", DockItemKind.ToggleWithMenu, LucideIcons.Overrider)!;
+        var ao = dock.AddAddonItem("ao", "use", "AO", DockItemKind.ToggleWithMenu, LucideIcons.Overrider);
+        Assert.NotNull(ao);
         Assert.Equal("AO · Off", ao.Shown(en));
         dock.SetOn(ao, true);
         Assert.Equal("AO · On", ao.Shown(en));
@@ -153,7 +158,8 @@ public class ReverieDockTests
     public void An_item_keeps_its_menu_and_state_as_the_addon_sets_them()
     {
         var dock = DockModel.Standard();
-        var item = dock.AddAddonItem("ao", "use", "AO", DockItemKind.ToggleWithMenu, menu: new[] { new DockMenuEntry("Set one", Checked: true) })!;
+        var item = dock.AddAddonItem("ao", "use", "AO", DockItemKind.ToggleWithMenu, menu: new[] { new DockMenuEntry("Set one", Checked: true) });
+        Assert.NotNull(item);
         Assert.Single(item.Menu);
         dock.SetMenu(item, new[] { new DockMenuEntry("Set one"), new DockMenuEntry("", Separator: true), new DockMenuEntry("Edit sets...") });
         Assert.Equal(3, item.Menu.Count);
