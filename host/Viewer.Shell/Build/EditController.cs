@@ -334,19 +334,210 @@ public sealed class EditController
 
     // ---------------- the handles ----------------
 
+    /// <summary>Which handles show: Move, Rotate or Stretch (the Build window's choice; Ctrl held shows Rotate and Ctrl+Shift Stretch).</summary>
+    public ManipMode Manip { get; set; } = ManipMode.Move;
+
+    /// <summary>The grid's frame (the Grid Options' ruler mode): the region's axes by default.</summary>
     public GridMode Grid { get; set; }
+    /// <summary>The grid's origin and turn in Reference mode (set by Use Selection for Grid).</summary>
     public Vector3 GridOrigin { get; set; }
     public Quaternion GridRotation { get; set; } = Quaternion.Identity;
-    public Vector3? Pivot => null;
-    public bool BeginManip() => false;
-    public bool ManipMove(Vector3 delta) => false;
-    public bool ManipRotate(Vector3 axis, float degrees) => false;
-    public bool ManipScaleCorner(float ratio) => false;
-    public bool ManipScaleFace(int axis, int sign, float newSize) => false;
-    public void EndManip() { }
-    public bool SnapSelectionXY() => false;
-    public void UseSelectionForGrid() { }
-    public void ToggleSnap() { }
+    /// <summary>How far the drawn grid reaches each way, in metres (GridDrawSize, 12 by default).</summary>
+    public float GridExtent { get; set; } = 12f;
+    /// <summary>Snapping may go below one grid unit (GridSubUnit, off by default).</summary>
+    public bool GridSubUnits { get; set; }
+    /// <summary>How strongly the grid is drawn (GridOpacity, 0.7 by default).</summary>
+    public float GridOpacity { get; set; } = 0.7f;
+
+    /// <summary>A selected object's pose when a handle drag began, in the region's frame.</summary>
+    private sealed record Start(uint Local, Vector3 Position, Quaternion Rotation, Vector3 Scale, uint Parent, Vector3 ParentPosition, Quaternion ParentRotation);
+    private List<Start>? _manip;
+    private Vector3 _manipPivot;
+
+    /// <summary>The centre of the selection in the region's frame (the middle of the selected objects' places), or null with nothing selected.</summary>
+    public Vector3? Pivot
+    {
+        get
+        {
+            var poses = _selection.Select(WorldOf).Where(p => p is not null).Select(p => p!.Value.Position).ToList();
+            if (poses.Count == 0)
+                return null;
+            var min = poses.Aggregate(Vector3.Min);
+            var max = poses.Aggregate(Vector3.Max);
+            return (min + max) / 2f;
+        }
+    }
+
+    /// <summary>The handles' axes: the grid's turn in Reference mode, the primary object's own turn in Local mode or for Stretch, else the world's.</summary>
+    public Quaternion HandleFrame =>
+        Manip == ManipMode.Scale || Grid == GridMode.Local ? (Primary is { } p && WorldOf(p) is { } w ? w.Rotation : Quaternion.Identity)
+        : Grid == GridMode.Reference ? GridRotation : Quaternion.Identity;
+
+    /// <summary>The box the Stretch handles sit on: the primary object's size for one object, else a box round every selected object.</summary>
+    public Vector3 HandleSize
+    {
+        get
+        {
+            if (_selection.Count == 1 && Primary is { } p && Find(p) is { } o)
+                return o.Scale;
+            var boxes = _selection.Select(l => (Pose: WorldOf(l), O: Find(l))).Where(x => x.Pose is not null && x.O is not null).ToList();
+            if (boxes.Count == 0)
+                return Vector3.One;
+            var min = boxes.Select(b => b.Pose!.Value.Position - b.O!.Scale / 2).Aggregate(Vector3.Min);
+            var max = boxes.Select(b => b.Pose!.Value.Position + b.O!.Scale / 2).Aggregate(Vector3.Max);
+            return max - min;
+        }
+    }
+
+    /// <summary>A handle drag begins: the selected objects' places, turns and sizes are kept, and every step of the drag is measured from them. False
+    /// when nothing selected can be moved.</summary>
+    public bool BeginManip()
+    {
+        var starts = new List<Start>();
+        foreach (var l in _selection)
+        {
+            if (Find(l) is not { } o || WorldOf(l) is not { } w || !Access(l).CanPlace)
+                continue;
+            var (pp, pr) = o.ParentLocalId != 0 && WorldOf(o.ParentLocalId) is { } parent ? parent : (Vector3.Zero, Quaternion.Identity);
+            starts.Add(new Start(l, w.Position, w.Rotation, o.Scale, o.ParentLocalId, pp, pr));
+        }
+        if (starts.Count == 0)
+            return false;
+        _manip = starts;
+        _manipPivot = Pivot ?? starts[0].Position;
+        return true;
+    }
+
+    public void EndManip() => _manip = null;
+
+    /// <summary>A Move handle's drag: every object moves by <paramref name="delta"/> from where it began; with snapping on, the selection's centre
+    /// lands on the grid along the axes being moved (the grid's own axes).</summary>
+    public bool ManipMove(Vector3 delta)
+    {
+        if (_manip is not { } starts)
+            return false;
+        if (SnapEnabled)
+        {
+            var (origin, turn) = GridFrame();
+            var inv = Quaternion.Inverse(turn);
+            var moved = Vector3.Transform(delta, inv);
+            var target = Vector3.Transform(_manipPivot + delta - origin, inv);
+            float sub = GridSubUnits ? 4 : 1;
+            target = new Vector3(
+                MathF.Abs(moved.X) > 1e-6f ? Snap.ToGrid(target.X, 0, GridUnit, sub) : target.X,
+                MathF.Abs(moved.Y) > 1e-6f ? Snap.ToGrid(target.Y, 0, GridUnit, sub) : target.Y,
+                MathF.Abs(moved.Z) > 1e-6f ? Snap.ToGrid(target.Z, 0, GridUnit, sub) : target.Z);
+            delta = origin + Vector3.Transform(target, turn) - _manipPivot;
+        }
+        bool any = false;
+        foreach (var s in starts)
+            any |= SendPose(s, s.Position + delta, null, null);
+        return any;
+    }
+
+    /// <summary>A ring's drag: the selection turns by <paramref name="degrees"/> about <paramref name="axis"/> (the region's frame) round its centre.</summary>
+    public bool ManipRotate(Vector3 axis, float degrees)
+    {
+        if (_manip is not { } starts || axis.LengthSquared() < 1e-12f)
+            return false;
+        var q = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), degrees * MathF.PI / 180f);
+        bool any = false;
+        foreach (var s in starts)
+            any |= SendPose(s, _manipPivot + Vector3.Transform(s.Position - _manipPivot, q), Quaternion.Normalize(q * s.Rotation), null);
+        return any;
+    }
+
+    /// <summary>A corner box's drag: every selected object grows by <paramref name="ratio"/> (held so no size leaves the limits) and, with several,
+    /// they spread from the selection's centre by the same ratio.</summary>
+    public bool ManipScaleCorner(float ratio)
+    {
+        if (_manip is not { } starts || !(ratio > 0))
+            return false;
+        var lim = _limits();
+        foreach (var s in starts)
+        {
+            bool physical = ((Find(s.Local)?.Interaction?.Flags ?? 0) & ObjectFlagBits.Physics) != 0;
+            float min = physical ? lim.MinPhysScale : lim.MinScale, max = physical ? lim.MaxPhysScale : lim.MaxScale;
+            ratio = ScaleHandles.Corner(s.Scale, ratio, min, max).X / s.Scale.X;
+        }
+        bool any = false;
+        foreach (var s in starts.Where(s => Access(s.Local).CanReshape))
+            any |= SendPose(s, starts.Count > 1 ? _manipPivot + (s.Position - _manipPivot) * ratio : s.Position, null, s.Scale * ratio, uniform: starts.Count == 1);
+        return any;
+    }
+
+    /// <summary>A face box's drag on one object: its size along its own <paramref name="axis"/> becomes <paramref name="newSize"/>; with Stretch Both
+    /// Sides off the opposite face stays where it is, with it on the centre stays.</summary>
+    public bool ManipScaleFace(int axis, int sign, float newSize)
+    {
+        if (_manip is not [var s] || !Access(s.Local).CanReshape)
+            return false;
+        var lim = _limits();
+        bool physical = ((Find(s.Local)?.Interaction?.Flags ?? 0) & ObjectFlagBits.Physics) != 0;
+        var (scale, shift) = ScaleHandles.Face(s.Scale, axis, sign, newSize, StretchBothSides,
+            physical ? lim.MinPhysScale : lim.MinScale, physical ? lim.MaxPhysScale : lim.MaxScale);
+        return SendPose(s, s.Position + Vector3.Transform(shift, s.Rotation), null, scale, uniform: StretchBothSides);
+    }
+
+    /// <summary>Shift+X, Snap Object XY to Grid: each selected root's x and y go to the nearest grid point.</summary>
+    public bool SnapSelectionXY()
+    {
+        var (origin, turn) = GridFrame();
+        var inv = Quaternion.Inverse(turn);
+        bool any = false;
+        foreach (var l in _selection.Select(RootOf).Distinct())
+        {
+            if (Find(l) is not { } o || !Access(l).CanPlace)
+                continue;
+            var local = Vector3.Transform(o.Position - origin, inv);
+            local = new Vector3(Snap.ToGrid(local.X, 0, GridUnit, 1), Snap.ToGrid(local.Y, 0, GridUnit, 1), local.Z);
+            any |= Send(new UpdateObjectIntent(l, origin + Vector3.Transform(local, turn), null, null, true));
+        }
+        return any;
+    }
+
+    /// <summary>Shift+G, Use Selection for Grid: the grid takes the primary object's place and turn (Reference mode).</summary>
+    public void UseSelectionForGrid()
+    {
+        if (Primary is not { } p || WorldOf(p) is not { } w)
+            return;
+        GridOrigin = w.Position;
+        GridRotation = w.Rotation;
+        Grid = GridMode.Reference;
+        Changed?.Invoke();
+    }
+
+    /// <summary>G: snapping to the grid on or off.</summary>
+    public void ToggleSnap()
+    {
+        SnapEnabled = !SnapEnabled;
+        Changed?.Invoke();
+    }
+
+    /// <summary>The grid's origin and turn for snapping: the region's, the primary object's own (Local), or the reference taken from a selection.</summary>
+    public (Vector3 Origin, Quaternion Turn) GridFrame() => Grid switch
+    {
+        GridMode.Reference => (GridOrigin, GridRotation),
+        GridMode.Local when Primary is { } p && WorldOf(p) is { } w => (w.Position, w.Rotation),
+        _ => (Vector3.Zero, Quaternion.Identity),
+    };
+
+    /// <summary>Sends an object's new pose in the region's frame: a root as it is, a part in its root's frame (its root does not move).</summary>
+    private bool SendPose(Start s, Vector3 position, Quaternion? rotation, Vector3? scale, bool uniform = false)
+    {
+        if (!float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z))
+            return false;
+        if (s.Parent == 0)
+            return Send(new UpdateObjectIntent(s.Local, position, rotation, scale, true, uniform));
+        var inv = Quaternion.Inverse(s.ParentRotation);
+        var local = Vector3.Transform(position - s.ParentPosition, inv);
+        Quaternion? localTurn = rotation is { } r ? Quaternion.Normalize(inv * r) : null;
+        return Send(new UpdateObjectIntent(s.Local, local, localTurn, scale, false, uniform));
+    }
+
+    /// <summary>A prim's place and turn in the region (a part's comes through its root).</summary>
+    private (Vector3 Position, Quaternion Rotation)? WorldOf(uint local) =>
+        Find(local) is { } o && ObjectPicker.WorldPose(_world, o, out var p, out var r) ? (p, r) : null;
 
     // ---------------- the world ----------------
 
