@@ -36,15 +36,15 @@ public class BrandTextTests
     }
 
     [Fact]
-    public void Every_window_title_the_viewer_sets_is_that_name()
+    public void Every_window_title_the_viewer_sets_comes_from_the_window_title_rule()
     {
         string host = Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot");
         var bad = new List<string>();
         foreach (var file in Directory.EnumerateFiles(host, "*.cs", SearchOption.AllDirectories))
             foreach (var line in File.ReadAllLines(file))
-                if (System.Text.RegularExpressions.Regex.IsMatch(line, @"GetWindow\(\)\.Title\s*=") && !line.Contains("BrandText.WindowTitle()"))
+                if (System.Text.RegularExpressions.Regex.IsMatch(line, @"GetWindow\(\)\.Title\s*=") && !line.Contains("WindowTitleText.For("))
                     bad.Add(Path.GetFileName(file) + ": " + line.Trim());
-        Assert.True(bad.Count == 0, "window titles set to something other than the viewer's name: " + string.Join("; ", bad));
+        Assert.True(bad.Count == 0, "window titles set other than by WindowTitleText.For (the viewer's name, and once logged in the avatar's and the grid's): " + string.Join("; ", bad));
         Assert.False(StringTable.English().Has("sky.title"), "the time of day is not a title text any more");
     }
 
