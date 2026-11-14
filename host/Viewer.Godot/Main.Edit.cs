@@ -33,6 +33,28 @@ public partial class Main
         public System.Numerics.Vector3 GrabPoint, StartPosition;
         public uint Object;
         public System.Numerics.Vector3? Target;
+        public ulong CopiedAt, LastSent;
+    }
+
+    /// <summary>A move held back until the copy a Shift-drag asked for has appeared where the original was: the region may handle the
+    /// copy after a move sent at the same moment, and the copy would then appear at the new place.</summary>
+    private (uint Object, System.Numerics.Vector3 From, System.Numerics.Vector3 To, ulong Since)? _heldMove;
+
+    /// <summary>Whether a copy of the dragged object stands where it started (another own object at that place).</summary>
+    private bool CopyArrived(uint original, System.Numerics.Vector3 at) =>
+        _interactFor?.World.Snapshot().Objects.Values.Any(o => o.ParentLocalId == 0 && o.Id.LocalId != original
+            && ((o.Interaction?.Flags ?? 0) & Viewer.Core.Interaction.ObjectFlagBits.YouOwner) != 0
+            && System.Numerics.Vector3.Distance(o.Position, at) < 0.01f) ?? false;
+
+    /// <summary>Sends a held move once its copy has arrived, or after two seconds.</summary>
+    private void FlushHeldMove()
+    {
+        if (_heldMove is not { } h || _edit is not { } e)
+            return;
+        if (!CopyArrived(h.Object, h.From) && Time.GetTicksMsec() - h.Since < 2000)
+            return;
+        _heldMove = null;
+        e.SetPosition(h.To);
     }
 
     /// <summary>A new session's edit controller; the window and the menu entries are made once and outlive a session.</summary>
@@ -49,7 +71,7 @@ public partial class Main
         _editPanel.ToolChosen += ChooseTool;
         _shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), _editPanel);
         var timer = new global::Godot.Timer { Name = "edit_refresh", WaitTime = 0.25, Autostart = true };
-        timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) _editPanel.Refresh(); };
+        timer.Timeout += () => { FlushHeldMove(); if (_editPanel.IsVisibleInTree()) _editPanel.Refresh(); };
         _editPanel.AddChild(timer);
         shell.Floaters.Closed += id => { if (id == EditPanel.FloaterId && _edit is { BuildMode: true } e) e.CloseBuild(); };
         shell.Commands.Register(BuildMenu.ToggleCommand, ToggleBuild);
@@ -152,8 +174,8 @@ public partial class Main
         d.Moved = true;
         if (!d.OnObject || e.Tool != BuildTool.Move || !e.Access(d.Object).CanPlace)
             return;
-        if (d.Shift && !d.Copied)
-            d.Copied = e.CopyInPlace();   // the copy stays where it is; the original moves on with the drag
+        if (d.Shift && !d.Copied && (d.Copied = e.CopyInPlace()))   // the copy stays where it is; the original moves on with the drag
+            d.CopiedAt = Time.GetTicksMsec();
         // the object follows the pointer across the horizontal plane through the point it was grabbed at
         var origin = Region(_camera!.ProjectRayOrigin(at));
         var dir = Region(_camera.ProjectRayNormal(at));
@@ -167,6 +189,13 @@ public partial class Main
         if (e.SnapEnabled)
             target = new System.Numerics.Vector3(Snap.ToGrid(target.X, 0, e.GridUnit, 1), Snap.ToGrid(target.Y, 0, e.GridUnit, 1), target.Z);
         d.Target = target;
+        // the object follows the drag about ten times a second, once any copy has appeared where it started
+        ulong now = Time.GetTicksMsec();
+        if (now - d.LastSent >= 100 && (!d.Copied || CopyArrived(d.Object, d.StartPosition)))
+        {
+            d.LastSent = now;
+            e.SetPosition(target);
+        }
     }
 
     private void EditRelease(EditController e, Vector2 at)
@@ -177,7 +206,10 @@ public partial class Main
             return;
         if (d.OnObject && d.Target is { } target)
         {
-            e.SetPosition(target);
+            if (d.Copied && !CopyArrived(d.Object, d.StartPosition))
+                _heldMove = (d.Object, d.StartPosition, target, d.CopiedAt);
+            else
+                e.SetPosition(target);
             return;
         }
         if (!d.OnObject && e.Tool == BuildTool.Edit)
