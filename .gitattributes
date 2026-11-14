@@ -1,0 +1,16 @@
+# Vendored native files are kept byte-for-byte as extracted (hashes in native/joltc/PROVENANCE.md).
+*.dll binary
+native/joltc/win-x64/* -text
+*.so binary
+# The interface sounds are generated PCM files, stored as they are.
+*.wav binary
+native/joltc/linux-x64/* -text
+native/joltc/linux-arm64/* -text
+
+# Shell scripts must stay LF or sh cannot run them.
+*.sh text eol=lf
+# Notecard fixtures are protocol files whose text length counts bytes: kept byte-for-byte.
+*.notecard binary
+
+# The vendored avatar data folder is kept byte-for-byte as the upstream viewer has it.
+vendor/second-life-character/** -text

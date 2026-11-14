@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A sample add-on and a template to copy: a menu item that opens a small window with a button, and the button says hello in
+    local chat. Built on its own (it is not part of the viewer's solution):
+
+      dotnet build samples/HelloAddon/HelloAddon.csproj -c Release
+
+    The output folder (bin/Release/net10.0/) then holds HelloAddon.dll and add-on.json: copy those two files into a folder
+    named after the add-on in the Addons folder of the viewer's user folder (see Docs/ADDONS.md).
+
+    Outside this repository, build against the interface assembly that ships with the viewer instead:
+      dotnet build -c Release -p:ViewerAddonsApi=<the viewer's folder>/Viewer.Addons.Api.dll
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>HelloAddon</AssemblyName>
+    <RootNamespace>HelloAddon</RootNamespace>
+    <Version>1.0.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- The interface assembly is the viewer's own at run time, so it is never copied beside the add-on (Private=false). -->
+  <ItemGroup Condition=" '$(ViewerAddonsApi)' != '' ">
+    <Reference Include="Viewer.Addons.Api" HintPath="$(ViewerAddonsApi)" Private="false" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(ViewerAddonsApi)' == '' ">
+    <ProjectReference Include="..\..\core\Viewer.Addons.Api\Viewer.Addons.Api.csproj" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="add-on.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

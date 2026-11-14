@@ -1,0 +1,181 @@
+# Ported files: one row per upstream notice (path, SPDX expression of the file, a line of that notice as the file carries it).
+# LicenceNoticeTests checks that each listed file keeps the line and the SPDX expression.
+path	spdx	notice
+core/Viewer.Baking/AvatarBakeCompositor.Inputs.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/AvatarBakeCompositor.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/AvatarLad.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakeBackend.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakeChannel.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakeComposite.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakeHash.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakeParameterView.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakePixelMath.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakeResourceFiles.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/BakeTimings.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/Contracts.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/Enums.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/FidelityCheck.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/IBakeBackend.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/J2kCodec.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/Raster.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/ResourceImages.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/Tga.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/VisualParamEncoder.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Baking/WearableParser.cs	MPL-2.0	This Source Code Form is subject to the terms of the Mozilla Public
+core/Viewer.Core/Appearance/EditParamCatalog.cs	LGPL-2.1-only	@file llvisualparam.h
+core/Viewer.Core/Appearance/EditParamCatalog.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Appearance/WearableAsset.cs	LGPL-2.1-only	@file llwearable.cpp
+core/Viewer.Core/Appearance/WearableAsset.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Appearance/WearableKinds.cs	LGPL-2.1-only	@file llpaneleditwearable.cpp
+core/Viewer.Core/Appearance/WearableKinds.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/AnimationMix.cs	LGPL-2.1-only	@file llpose.cpp
+core/Viewer.Core/Avatars/AnimationMix.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/AvatarBakeSizing.cs	LGPL-2.1-only	@file llviewerobject.cpp
+core/Viewer.Core/Avatars/AvatarBakeSizing.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/AvatarDefaultMotions.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/AvatarShape.cs	LGPL-2.1-only	@file xform.cpp
+core/Viewer.Core/Avatars/AvatarShape.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/BodyMorph.cs	LGPL-2.1-only	@file llpolymorph.cpp
+core/Viewer.Core/Avatars/BodyMorph.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/ConstraintSolver.cs	LGPL-2.1-only	@file llkeyframemotion.cpp
+core/Viewer.Core/Avatars/ConstraintSolver.cs	LGPL-2.1-only	@file llcriticaldamp.cpp
+core/Viewer.Core/Avatars/ConstraintSolver.cs	LGPL-2.1-only	@file llquaternion.cpp
+core/Viewer.Core/Avatars/ConstraintSolver.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/DefaultMotions.cs	LGPL-2.1-only	@file llkeyframewalkmotion.cpp
+core/Viewer.Core/Avatars/DefaultMotions.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/JointMask.cs	LGPL-2.1-only	@file llmotioncontroller.cpp
+core/Viewer.Core/Avatars/JointMask.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/MorphTarget.cs	LGPL-2.1-only	@file llpolyskeletaldistortion.cpp
+core/Viewer.Core/Avatars/MorphTarget.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/MotionController.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/FaceExpressions.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Avatars/OfficialMath.cs	LGPL-2.1-only	@file llmath.h
+core/Viewer.Core/Avatars/OfficialMath.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Imaging/AlphaMask.cs	LGPL-2.1-only	@file llimagegl.cpp
+core/Viewer.Core/Imaging/AlphaMask.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Meshing/MeshGeometry.cs	LGPL-2.1-only	@file llvolumemgr.cpp
+core/Viewer.Core/Meshing/MeshGeometry.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Meshing/PrimGeometry.cs	BSD-3-Clause	Copyright (c) 2008 Robert Adams
+core/Viewer.Core/Meshing/PrimGeometry.cs	BSD-3-Clause	Copyright (c) 2021-2026, Sjofn LLC. All rights reserved.
+core/Viewer.Core/Meshing/PrimMesher.cs	BSD-3-Clause	Copyright (c) Contributors
+core/Viewer.Core/Meshing/SculptMesher.cs	BSD-3-Clause AND LGPL-2.1-only	Copyright (c) Contributors
+core/Viewer.Core/Meshing/SculptMesher.cs	BSD-3-Clause AND LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/Residency/TextureResidency.cs	LGPL-2.1-only	@file llface.cpp
+core/Viewer.Core/Residency/TextureResidency.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/AutoMask.cs	LGPL-2.1-only	@file llface.cpp
+core/Viewer.Core/World/AutoMask.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	@file class1/deferred/cloudsV.glsl
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	@file class1\deferred\cloudsF.glsl
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	@file llvowlsky.cpp
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	@file lldrawpoolwlsky.cpp
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	Copyright (C) 2005, Linden Research, Inc.
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	@file llsettingsvo.cpp
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	@file llvosky.cpp
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	Copyright (C) 2011, Linden Research, Inc.
+core/Viewer.Core/World/CloudLighting.cs	LGPL-2.1-only	Copyright (C) 2017, Linden Research, Inc.
+core/Viewer.Core/World/Glow.cs	LGPL-2.1-only	@file glowF.glsl
+core/Viewer.Core/World/Glow.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/World/Lights.cs	LGPL-2.1-only	@file pipeline.cpp
+core/Viewer.Core/World/Lights.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/ProjectorPicture.cs	LGPL-2.1-only	@file class1/deferred/deferredUtil.glsl
+core/Viewer.Core/World/ProjectorPicture.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	@file class1/deferred/skyV.glsl
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	@file class1/deferred/skyF.glsl
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	@file class2\windlight\atmosphericsFuncs.glsl
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	@file class3/deferred/softenLightF.glsl
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	@file llvowlsky.cpp
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	@file lldrawpoolwlsky.cpp
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2005, Linden Research, Inc.
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2022, Linden Research, Inc.
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2011, Linden Research, Inc.
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file llreflectionmapmanager.cpp
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file irradianceGenF.glsl
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file class3/deferred/reflectionProbeF.glsl
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file llsettingsvo.cpp
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	Code below is derived from the Khronos GLTF Sample viewer:
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	The same shader credits its Hammersley points as "CC BY 3.0 (Holger Dammertz)", http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html, "with adapted interface";
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	Copyright (C) 2022, Linden Research, Inc.
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	Copyright (C) 2017, Linden Research, Inc.
+core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	@file llvosky.cpp
+core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	@file sunDiscF.glsl
+core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	@file indra_constants.cpp
+core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	Copyright (C) 2005, Linden Research, Inc.
+core/Viewer.Core/World/TerrainComposition.cs	LGPL-2.1-only	@file class1\deferred\terrainF.glsl
+core/Viewer.Core/World/TerrainComposition.cs	LGPL-2.1-only	@file llsurfacepatch.cpp
+core/Viewer.Core/World/TerrainComposition.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/World/TerrainComposition.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/TerrainRamp.cs	LGPL-2.1-only	@file class1\deferred\terrainF.glsl
+core/Viewer.Core/World/TerrainRamp.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2024, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file postDeferredTonemap.glsl
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file llsettingssky.cpp
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file llsettingsvo.cpp
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file pipeline.cpp
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file exposureF.glsl
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file luminanceF.glsl
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2017, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2023, Linden Research, Inc.
+core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	@file llvotree.cpp
+core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/TreeNoise.cs	LGPL-2.1-only	@file noise.h
+core/Viewer.Core/World/TreeNoise.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file waterF.glsl
+core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
+core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file class1/deferred/deferredUtil.glsl
+core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	Copyright (C) 2022, Linden Research, Inc.
+core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/World/WaterWaves.cs	LGPL-2.1-only	@file class1\environment\waterV.glsl
+core/Viewer.Core/World/WaterWaves.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Motion/AgentCamera.cs	LGPL-2.1-only	@file llviewerinput.cpp
+core/Viewer.Motion/AgentCamera.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/AgentControls.cs	LGPL-2.1-only	@file indra_constants.h
+core/Viewer.Motion/AgentControls.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/CameraControls.cs	LGPL-2.1-only	@file llviewerinput.cpp
+core/Viewer.Motion/CameraControls.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/InterpolatedObject.cs	LGPL-2.1-only	@file llworld.cpp
+core/Viewer.Motion/InterpolatedObject.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/KeyBindingTable.cs	LGPL-2.1-only	@file llviewerinput.cpp
+core/Viewer.Motion/KeyBindingTable.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/MouseLook.cs	LGPL-2.1-only	@file llagent.cpp
+core/Viewer.Motion/MouseLook.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/MouseSteering.cs	LGPL-2.1-only	@file lltoolpie.cpp
+core/Viewer.Motion/MouseSteering.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/ObjectMotion.cs	LGPL-2.1-only	@file llcriticaldamp.cpp
+core/Viewer.Motion/ObjectMotion.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/OfficialOwnAvatarReplay.cs	LGPL-2.1-only	@file llcriticaldamp.cpp
+core/Viewer.Motion/OfficialOwnAvatarReplay.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Motion/ScriptControls.cs	LGPL-2.1-only	@file indra_constants.h
+core/Viewer.Motion/ScriptControls.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Overrider/AoEngine.cs	LGPL-2.1-only	@file aoengine.cpp
+core/Viewer.Overrider/AoEngine.cs	LGPL-2.1-only	Copyright (C) 2011, Zi Ree @ Second Life
+core/Viewer.Overrider/AoSet.cs	LGPL-2.1-only	@file aoset.cpp
+core/Viewer.Overrider/AoSet.cs	LGPL-2.1-only	Copyright (C) 2011, Zi Ree @ Second Life
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file waterF.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class1/deferred/cloudsV.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class1\deferred\cloudsF.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class1\environment\waterV.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class1/deferred/deferredUtil.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	Copyright (C) 2022, Linden Research, Inc.
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	Copyright (C) 2005, Linden Research, Inc.
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	@file pipeline.cpp
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	@file class3/deferred/softenLightF.glsl
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	@file class2\windlight\atmosphericsFuncs.glsl
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	@file class3/deferred/reflectionProbeF.glsl
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	Copyright (C) 2022, Linden Research, Inc.
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+host/Viewer.Godot/Presentation/GlowPass.cs	LGPL-2.1-only	@file glowF.glsl
+host/Viewer.Godot/Presentation/GlowPass.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	Copyright (C) 2024, Linden Research, Inc.
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	@file exposureF.glsl
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	@file luminanceF.glsl
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	Copyright (C) 2023, Linden Research, Inc.
+host/Viewer.Godot/Presentation/TerrainView.cs	LGPL-2.1-only	@file class1\deferred\terrainF.glsl
+host/Viewer.Godot/Presentation/TerrainView.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.

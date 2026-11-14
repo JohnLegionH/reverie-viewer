@@ -1,0 +1,340 @@
+{
+  "format": "nv-texzoo-1",
+  "region": [
+    256,
+    256
+  ],
+  "prims": [
+    {
+      "local": 8101,
+      "parent": 0,
+      "name": "wall-above",
+      "pos": [
+        52.1,
+        128,
+        23
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.2,
+        30,
+        6
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.5,
+          0.5,
+          0.5,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000001",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 8102,
+      "parent": 0,
+      "name": "wall-black",
+      "pos": [
+        52.1,
+        120.5,
+        17
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.2,
+        15,
+        6
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0,
+          0,
+          0,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000001",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 8103,
+      "parent": 0,
+      "name": "wall-white",
+      "pos": [
+        52.1,
+        135.5,
+        17
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.2,
+        15,
+        6
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000001",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 8104,
+      "parent": 0,
+      "name": "crossing",
+      "pos": [
+        48,
+        128,
+        20
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.05,
+        8,
+        3
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          1,
+          0,
+          0,
+          0.5
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000001",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 8105,
+      "parent": 0,
+      "name": "under",
+      "pos": [
+        50,
+        128,
+        17
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.05,
+        8,
+        1.6
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0,
+          1,
+          0,
+          0.5
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000001",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    }
+  ],
+  "images": {
+    "4e560009-0000-4000-8000-000000000001": "tex-white-64.j2c"
+  },
+  "meshes": {},
+  "water_height": 20,
+  "day_fraction": 0.3
+}

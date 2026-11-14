@@ -1,0 +1,334 @@
+// Copyright (c) 2026 Legion Builds
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+using System;
+using Godot;
+using Viewer.Shell;
+
+namespace Viewer.Godot;
+
+/// <summary>
+/// The look that is current: the tokens the person's choice gives (plain data, tested without the engine) and the UI scale.
+/// Changing it raises <see cref="Changed"/> so the frame builds its engine theme again and anything drawn by hand draws again,
+/// with no restart. Main thread only.
+/// </summary>
+public static class UiTheme
+{
+    /// <summary>Theme type variations for labels and buttons, defined by <see cref="ShellTheme.Build"/>.</summary>
+    public const string ErrorLabel = "ErrorLabel";
+    public const string MutedLabel = "MutedLabel";
+    public const string AccentLabel = "AccentLabel";
+    public const string TitleLabel = "TitleLabel";
+    public const string CaptionLabel = "CaptionLabel";
+    public const string BrandLabel = "BrandLabel";
+    public const string PrimaryButton = "PrimaryButton";
+    public const string DangerButton = "DangerButton";
+    public const string ToolbarButton = "ToolbarButton";
+    public const string ToolbarButtonActive = "ToolbarButtonActive";
+    public const string BarPanel = "BarPanel";
+    public const string TitleBarPanel = "TitleBarPanel";
+    public const string FlatButton = "FlatButton";
+    public const string WindowPanel = "WindowPanel";
+    public const string WindowPanelActive = "WindowPanelActive";
+    public const string BadgePanel = "BadgePanel";
+    public const string OverlayText = "OverlayText";
+
+    private static ThemeTokens _tokens = ThemePresets.Get(ThemePresets.Classic);
+    private static ThemeSpec? _spec;
+
+    public static ThemeTokens Tokens => _tokens;
+
+    /// <summary>The same values in the shape the chat code reads.</summary>
+    public static ThemeSpec Spec => _spec ??= _tokens.ToSpec();
+
+    /// <summary>The UI scale in percent (75 to 400, the official viewer's range).</summary>
+    public static int ScalePercent { get; private set; } = 100;
+
+    /// <summary>How opaque the window that has the focus is, and how opaque the others are (see <see cref="FloaterOpacity"/>).</summary>
+    public static float ActiveOpacity { get; private set; } = FloaterOpacity.DefaultActive;
+
+    public static float InactiveOpacity { get; private set; } = FloaterOpacity.DefaultInactive;
+
+    public static event Action? Changed;
+
+    /// <summary>Makes the two window opacities current. Nothing is raised when nothing changed.</summary>
+    public static void ApplyOpacity(float active, float inactive)
+    {
+        if (active == ActiveOpacity && inactive == InactiveOpacity)
+            return;
+        ActiveOpacity = active;
+        InactiveOpacity = inactive;
+        Changed?.Invoke();
+    }
+
+    /// <summary>Makes <paramref name="tokens"/> and <paramref name="scalePercent"/> current. Nothing is raised when nothing changed.</summary>
+    public static void Apply(ThemeTokens tokens, int scalePercent)
+    {
+        scalePercent = Math.Clamp(scalePercent, InterfacePreferences.MinScalePercent, InterfacePreferences.MaxScalePercent);
+        if (tokens == _tokens && scalePercent == ScalePercent)
+            return;
+        _tokens = tokens;
+        _spec = null;
+        ScalePercent = scalePercent;
+        Changed?.Invoke();
+    }
+}
+
+/// <summary>
+/// Turns the tokens into the engine theme for the window frame and everything inside it. Every colour, size and radius it
+/// uses is a token; nothing here is a number of its own beyond spacing.
+/// </summary>
+public static class ShellTheme
+{
+    public static Color C(UiColour c) => new(c.R, c.G, c.B, c.A);
+
+    /// <summary>A colour that is the person's own data (a wearable's tint), not interface styling: the three weights are red, green and blue, 0 to 1.</summary>
+    public static Color DataColour(float r, float g, float b) => new(r, g, b);
+
+    public static Theme Build(ThemeTokens t)
+    {
+        var theme = new Theme { DefaultFontSize = t.FontBody };
+        var regular = Fonts.Regular;
+        if (regular is not null)
+            theme.DefaultFont = regular;
+        var text = C(t.Text);
+        var muted = C(t.TextSecondary);
+        var accent = C(t.Accent);
+        var clear = t.Bar with { A = 0f };
+
+        // floating windows and dialogs
+        theme.SetStylebox("panel", "PanelContainer", Box(t, t.Panel, t.Border, 6));
+        theme.SetStylebox("panel", "PopupMenu", Box(t, t.Bar.Opaque(), t.Border, 4));
+        theme.SetStylebox("panel", "PopupPanel", Box(t, t.Bar.Opaque(), t.Border, 4));
+        theme.SetStylebox("hover", "PopupMenu", Box(t, t.Selection, t.Selection, 2, 0));
+        theme.SetColor("font_color", "PopupMenu", text);
+        theme.SetColor("font_hover_color", "PopupMenu", text);
+        theme.SetColor("font_disabled_color", "PopupMenu", muted);
+        theme.SetColor("font_separator_color", "PopupMenu", muted);
+
+        // a floating window: the panel colour with no inner margin, so its title bar runs edge to edge
+        theme.SetTypeVariation(UiTheme.WindowPanel, "PanelContainer");
+        theme.SetStylebox("panel", UiTheme.WindowPanel, Box(t, t.Panel with { A = FloaterOpacity.For(false, UiTheme.ActiveOpacity, UiTheme.InactiveOpacity, t.Panel.A) }, t.Border, 0));
+        theme.SetTypeVariation(UiTheme.WindowPanelActive, "PanelContainer");
+        theme.SetStylebox("panel", UiTheme.WindowPanelActive, Box(t, t.Panel with { A = FloaterOpacity.For(true, UiTheme.ActiveOpacity, UiTheme.InactiveOpacity, t.Panel.A) }, t.Border, 0));
+
+        // the count on a toolbar button (unread notifications)
+        theme.SetTypeVariation(UiTheme.BadgePanel, "PanelContainer");
+        theme.SetStylebox("panel", UiTheme.BadgePanel, Box(t, t.DangerFill, t.DangerFill, 2, 9));
+
+        // text over the 3D view: no box, a thin dark outline so it reads on any scene
+        theme.SetTypeVariation(UiTheme.OverlayText, "RichTextLabel");
+        theme.SetStylebox("normal", UiTheme.OverlayText, new StyleBoxEmpty());
+        theme.SetStylebox("focus", UiTheme.OverlayText, new StyleBoxEmpty());
+        theme.SetColor("default_color", UiTheme.OverlayText, text);
+        theme.SetColor("font_outline_color", UiTheme.OverlayText, C(t.Outline));
+        theme.SetConstant("outline_size", UiTheme.OverlayText, 3);
+        theme.SetColor("font_outline_color", "Label", C(t.Outline));
+
+        // bars: the menu bar, the nav bar, the toolbars and the title bars
+        theme.SetTypeVariation(UiTheme.BarPanel, "PanelContainer");
+        theme.SetStylebox("panel", UiTheme.BarPanel, Box(t, t.Bar.Opaque(), t.Border, 1, 0));
+        theme.SetTypeVariation(UiTheme.TitleBarPanel, "PanelContainer");
+        theme.SetStylebox("panel", UiTheme.TitleBarPanel, Box(t, t.Bar.Opaque(), t.Border, 2, 0));
+
+        // text fields
+        var field = Box(t, t.Input, t.Border, 4);
+        var focus = Box(t, t.Input, t.Accent, 4);
+        foreach (var type in new[] { "LineEdit", "TextEdit" })
+        {
+            theme.SetStylebox("normal", type, field);
+            theme.SetStylebox("focus", type, focus);
+            theme.SetStylebox("read_only", type, field);
+            theme.SetColor("font_color", type, text);
+            theme.SetColor("font_placeholder_color", type, muted);
+            theme.SetColor("caret_color", type, accent);
+            theme.SetColor("selection_color", type, C(t.Selection));
+        }
+        theme.SetStylebox("normal", "RichTextLabel", field);
+        theme.SetStylebox("focus", "RichTextLabel", focus);
+        theme.SetColor("default_color", "RichTextLabel", text);
+
+        // labels
+        theme.SetColor("font_color", "Label", text);
+        Variation(theme, UiTheme.ErrorLabel, "Label", "font_color", C(t.Error));
+        Variation(theme, UiTheme.MutedLabel, "Label", "font_color", muted);
+        Variation(theme, UiTheme.AccentLabel, "Label", "font_color", accent);
+        Variation(theme, UiTheme.BrandLabel, "Label", "font_color", accent);
+        theme.SetTypeVariation(UiTheme.TitleLabel, "Label");
+        theme.SetFontSize("font_size", UiTheme.TitleLabel, t.FontTitle);
+        if (Fonts.SemiBold is { } semibold)
+            theme.SetFont("font", UiTheme.TitleLabel, semibold);
+        theme.SetTypeVariation(UiTheme.CaptionLabel, "Label");
+        theme.SetFontSize("font_size", UiTheme.CaptionLabel, t.FontCaption);
+        theme.SetColor("font_color", UiTheme.CaptionLabel, muted);
+
+        // buttons: an input-coloured face, the accent on hover and focus; a filled accent button for the main action
+        var face = Box(t, t.Input, t.Border, 6);
+        var hover = Box(t, t.Bar.Opaque(), t.Accent, 6);
+        var pressed = Box(t, t.Selection, t.Accent, 6);
+        foreach (var type in new[] { "Button", "OptionButton", "CheckBox", "MenuButton" })
+        {
+            theme.SetStylebox("normal", type, face);
+            theme.SetStylebox("hover", type, hover);
+            theme.SetStylebox("pressed", type, pressed);
+            theme.SetStylebox("focus", type, Box(t, clear, t.Accent, 6));
+            theme.SetStylebox("disabled", type, face);
+            theme.SetColor("font_color", type, text);
+            theme.SetColor("font_hover_color", type, text);
+            theme.SetColor("font_pressed_color", type, text);
+            theme.SetColor("font_focus_color", type, text);
+            theme.SetColor("font_disabled_color", type, muted);
+        }
+        theme.SetTypeVariation(UiTheme.PrimaryButton, "Button");
+        FilledButton(theme, UiTheme.PrimaryButton, t, t.AccentFill, t.AccentFillText);
+        theme.SetTypeVariation(UiTheme.DangerButton, "Button");
+        FilledButton(theme, UiTheme.DangerButton, t, t.DangerFill, t.AccentFillText);
+        theme.SetTypeVariation(UiTheme.FlatButton, "Button");
+        var flat = Box(t, clear, clear, 4);
+        var flatTight = Box(t, clear, clear, 1);   // the toolbar's buttons: an icon over a label in a 40-unit button
+        theme.SetStylebox("normal", UiTheme.FlatButton, flat);
+        theme.SetStylebox("hover", UiTheme.FlatButton, Box(t, t.Selection, t.Selection, 4));
+        theme.SetStylebox("pressed", UiTheme.FlatButton, Box(t, t.Selection, t.Selection, 4));
+        theme.SetStylebox("focus", UiTheme.FlatButton, Box(t, clear, t.Accent, 4));
+        theme.SetTypeVariation(UiTheme.ToolbarButton, "Button");
+        theme.SetStylebox("normal", UiTheme.ToolbarButton, flatTight);
+        theme.SetStylebox("hover", UiTheme.ToolbarButton, Box(t, t.Selection, t.Selection, 1));
+        theme.SetStylebox("pressed", UiTheme.ToolbarButton, Box(t, t.Selection, t.Selection, 1));
+        theme.SetStylebox("focus", UiTheme.ToolbarButton, Box(t, clear, t.Accent, 1));
+        theme.SetConstant("h_separation", UiTheme.ToolbarButton, 0);
+        theme.SetFontSize("font_size", UiTheme.ToolbarButton, t.FontCaption);
+        theme.SetColor("icon_normal_color", UiTheme.ToolbarButton, accent);
+        theme.SetColor("icon_hover_color", UiTheme.ToolbarButton, accent);
+        theme.SetColor("icon_pressed_color", UiTheme.ToolbarButton, accent);
+        theme.SetTypeVariation(UiTheme.ToolbarButtonActive, UiTheme.ToolbarButton);
+        FilledButton(theme, UiTheme.ToolbarButtonActive, t, t.AccentFill, t.AccentFillText);
+        theme.SetFontSize("font_size", UiTheme.ToolbarButtonActive, t.FontCaption);
+        theme.SetColor("icon_normal_color", UiTheme.ToolbarButtonActive, C(t.AccentFillText));
+        theme.SetColor("icon_hover_color", UiTheme.ToolbarButtonActive, C(t.AccentFillText));
+        theme.SetColor("icon_pressed_color", UiTheme.ToolbarButtonActive, C(t.AccentFillText));
+        theme.SetColor("font_color", "MenuBar", text);
+        theme.SetColor("font_hover_color", "MenuBar", accent);
+        theme.SetStylebox("normal", "MenuBar", Box(t, t.Bar.Opaque(), t.Bar.Opaque(), 2, 0));
+        theme.SetStylebox("hover", "MenuBar", Box(t, t.Selection, t.Selection, 2, 0));
+        theme.SetStylebox("pressed", "MenuBar", Box(t, t.Selection, t.Selection, 2, 0));
+
+        // sliders: an input-coloured track filled with the accent up to the grabber
+        theme.SetStylebox("slider", "HSlider", Box(t, t.Input, t.Border, 3));
+        theme.SetStylebox("grabber_area", "HSlider", Box(t, t.AccentFill, t.AccentFill, 3));
+        theme.SetStylebox("grabber_area_highlight", "HSlider", Box(t, t.Accent, t.Accent, 3));
+
+        // lists, trees and tabs
+        theme.SetStylebox("panel", "ItemList", field);
+        theme.SetStylebox("panel", "Tree", field);
+        foreach (var type in new[] { "ItemList", "Tree" })
+        {
+            theme.SetColor("font_color", type, text);
+            theme.SetColor("font_selected_color", type, text);
+            theme.SetStylebox("selected", type, Box(t, t.Selection, t.Selection, 2, 0));
+            theme.SetStylebox("selected_focus", type, Box(t, t.Selection, t.Accent, 2, 0));
+            theme.SetStylebox("cursor", type, Box(t, t.Selection, t.Selection, 2, 0));
+        }
+        theme.SetColor("font_selected_color", "TabContainer", text);
+        theme.SetColor("font_unselected_color", "TabContainer", muted);
+        theme.SetColor("font_hovered_color", "TabContainer", text);
+        theme.SetStylebox("panel", "TabContainer", Box(t, clear, t.Border, 4, 0));
+        theme.SetStylebox("tab_selected", "TabContainer", TabBox(t, t.Accent));
+        theme.SetStylebox("tab_hovered", "TabContainer", TabBox(t, t.Border));
+        theme.SetStylebox("tab_unselected", "TabContainer", TabBox(t, clear));
+        theme.SetStylebox("tab_selected", "TabBar", TabBox(t, t.Accent));
+        theme.SetStylebox("tab_hovered", "TabBar", TabBox(t, t.Border));
+        theme.SetStylebox("tab_unselected", "TabBar", TabBox(t, clear));
+        theme.SetColor("font_selected_color", "TabBar", text);
+        theme.SetColor("font_unselected_color", "TabBar", muted);
+        theme.SetColor("font_hovered_color", "TabBar", text);
+        theme.SetColor("font_color", "CheckBox", text);
+        theme.SetColor("font_color", "ProgressBar", text);
+        theme.SetStylebox("background", "ProgressBar", field);
+        theme.SetStylebox("fill", "ProgressBar", Box(t, t.AccentFill, t.AccentFill, 0));
+        return theme;
+    }
+
+    /// <summary>A panel face: the fill, a border of the theme's width, the theme's corner radius.</summary>
+    public static StyleBoxFlat Box(ThemeTokens t, UiColour fill, UiColour border, int margin, int? radius = null)
+    {
+        var box = new StyleBoxFlat { BgColor = C(fill), BorderColor = C(border) };
+        box.SetBorderWidthAll(t.BorderWidth);
+        box.SetCornerRadiusAll(radius ?? t.Radius);
+        box.SetContentMarginAll(margin);
+        return box;
+    }
+
+    /// <summary>A tab's face: a line of the given colour along the bottom edge only, as the active-tab line.</summary>
+    private static StyleBoxFlat TabBox(ThemeTokens t, UiColour line)
+    {
+        var box = new StyleBoxFlat { BgColor = C(t.Bar with { A = 0f }), BorderColor = C(line) };
+        box.BorderWidthBottom = Math.Max(2, t.BorderWidth);
+        box.SetCornerRadiusAll(0);
+        box.ContentMarginLeft = 10;
+        box.ContentMarginRight = 10;
+        box.ContentMarginTop = 4;
+        box.ContentMarginBottom = 4;
+        return box;
+    }
+
+    private static void Variation(Theme theme, string name, string baseType, string colourName, Color colour)
+    {
+        theme.SetTypeVariation(name, baseType);
+        theme.SetColor(colourName, name, colour);
+    }
+
+    private static void FilledButton(Theme theme, string name, ThemeTokens t, UiColour fill, UiColour fillText)
+    {
+        var face = Box(t, fill, fill, name == UiTheme.ToolbarButtonActive ? 1 : 6);
+        var edge = Box(t, fill, t.Text, name == UiTheme.ToolbarButtonActive ? 1 : 6);
+        theme.SetStylebox("normal", name, face);
+        theme.SetStylebox("hover", name, edge);
+        theme.SetStylebox("pressed", name, edge);
+        theme.SetStylebox("disabled", name, face);
+        theme.SetStylebox("focus", name, Box(t, t.Bar with { A = 0f }, t.Accent, 6));
+        foreach (var colour in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" })
+            theme.SetColor(colour, name, C(fillText));
+    }
+}
+
+/// <summary>The interface fonts, made once from the files carried in the shell assembly (Inter, SIL OFL 1.1).</summary>
+public static class Fonts
+{
+    private static FontFile? _regular, _semiBold;
+
+    public static FontFile? Regular => _regular ??= Make("Inter-Regular");
+
+    public static FontFile? SemiBold => _semiBold ??= Make("Inter-SemiBold");
+
+    private static FontFile? Make(string name)
+    {
+        var bytes = UiAssets.Font(name);
+        return bytes.Length == 0 ? null : new FontFile { Data = bytes };
+    }
+}
+
+/// <summary>
+/// The icons, drawn from their svg text at the size asked for (times the interface size, so they stay sharp when the interface
+/// is scaled up). Drawn white; the buttons tint them with their theme colours. Main thread only.
+/// </summary>
+public static class IconCache
+{
+    private static readonly System.Collections.Generic.Dictionary<(string Name, int Px, int Scale), ImageTexture?> Cache = new();
+
+    public static Texture2D? Get(string name, int px)
+    {
+        var key = (name, px, UiTheme.ScalePercent);
+        if (Cache.TryGetValue(key, out var have))
+            return have;
+        ImageTexture? texture = null;
+        var svg = UiAssets.IconSvg(name, new UiColour(1f, 1f, 1f));
+        if (svg is not null)
+        {
+            var image = new Image();
+            if (image.LoadSvgFromString(svg, px * UiTheme.ScalePercent / 100f / 24f) == Error.Ok)
+                texture = ImageTexture.CreateFromImage(image);
+        }
+        Cache[key] = texture;
+        return texture;
+    }
+}

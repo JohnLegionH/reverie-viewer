@@ -1,0 +1,213 @@
+{
+  "format": "nv-meshzoo-1",
+  "region": [
+    256,
+    256
+  ],
+  "prims": [
+    {
+      "local": 3001,
+      "parent": 0,
+      "name": "mesh-cube-6face",
+      "pos": [
+        97.6,
+        100,
+        25
+      ],
+      "rot": [
+        0,
+        0,
+        0.247404,
+        0.968912
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 5,
+        "SculptId": "4e560006-0000-4000-8000-000000000001"
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0.9,
+          0.3,
+          0.25,
+          1
+        ],
+        [
+          0.3,
+          0.45,
+          0.9,
+          1
+        ],
+        [
+          0.4,
+          0.8,
+          0.35,
+          1
+        ],
+        [
+          0.95,
+          0.65,
+          0.2,
+          1
+        ],
+        [
+          0.6,
+          0.4,
+          0.85,
+          1
+        ],
+        [
+          0.25,
+          0.7,
+          0.75,
+          1
+        ]
+      ]
+    },
+    {
+      "local": 3002,
+      "parent": 0,
+      "name": "mesh-sphere",
+      "pos": [
+        100,
+        100,
+        25
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 5,
+        "SculptId": "4e560006-0000-4000-8000-000000000002"
+      },
+      "colors": [
+        [
+          0.85,
+          0.85,
+          0.3,
+          1
+        ]
+      ]
+    },
+    {
+      "local": 3003,
+      "parent": 0,
+      "name": "mesh-two-face-wave",
+      "pos": [
+        102.4,
+        100,
+        25
+      ],
+      "rot": [
+        0.434966,
+        0,
+        0,
+        0.900447
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 5,
+        "SculptId": "4e560006-0000-4000-8000-000000000003"
+      },
+      "colors": [
+        [
+          0.3,
+          0.75,
+          0.6,
+          1
+        ],
+        null,
+        [
+          0.9,
+          0.45,
+          0.7,
+          0.55
+        ]
+      ]
+    }
+  ],
+  "assets": {
+    "4e560006-0000-4000-8000-000000000001": "mesh-cube-6face.llmesh",
+    "4e560006-0000-4000-8000-000000000002": "mesh-sphere.llmesh",
+    "4e560006-0000-4000-8000-000000000003": "mesh-two-face-wave.llmesh"
+  }
+}

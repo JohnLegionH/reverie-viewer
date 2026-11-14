@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Shell: the host's plain-.NET logic, kept out of Viewer.Godot so it is unit-testable without the
+    engine: the ADR-002 hardware-floor decision, the string table (ADR-020) and its pseudo-localisation, the engine-log
+    route into the redacted core log (ADR-019), and the login screen's model. No Godot type here; Viewer.Godot builds the
+    actual controls and hands engine callbacks to it.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Shell</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Core\Viewer.Core.csproj" />
+    <!-- Same suppression as every other project: the transitive stock joltc must not reach this output. -->
+    <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
+    <!-- Test seams (for example the texture source's decoder fault on partial input) stay internal. -->
+    <InternalsVisibleTo Include="Viewer.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The string table travels inside the assembly: the same table in the tests, the editor and the export. -->
+    <EmbeddedResource Include="Strings\*.json" LogicalName="Viewer.Shell.Strings.%(Filename).json" />
+    <!-- The built-in theme packs, as data. -->
+    <EmbeddedResource Include="Ui\Themes\*.json" LogicalName="Viewer.Shell.Themes.%(Filename).json" />
+    <!-- The interface font and icons (Inter, Tabler Icons; licences in ThirdPartyLicenses). -->
+    <EmbeddedResource Include="Assets\Icons\*.svg" LogicalName="Viewer.Shell.Icons.%(Filename).svg" />
+    <EmbeddedResource Include="Assets\Fonts\*.ttf" LogicalName="Viewer.Shell.Fonts.%(Filename).ttf" />
+    <!-- The interface sounds (made by tools/ui-sounds; this viewer's own generated work). -->
+    <EmbeddedResource Include="Assets\Sounds\*.wav" LogicalName="Viewer.Shell.Sounds.%(Filename).wav" />
+    <!-- The login screen's default background picture (credited in THIRD-PARTY-NOTICES.md). -->
+    <EmbeddedResource Include="Assets\Splash\*.jpg" LogicalName="Viewer.Shell.Splash.%(Filename).jpg" />
+    <!-- The viewer's licence and the third-party notices, shown by the About window's Licences entry. -->
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="Viewer.Shell.Licences.LICENSE.txt" />
+    <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.md" LogicalName="Viewer.Shell.Licences.THIRD-PARTY-NOTICES.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Motion\Viewer.Motion.csproj" />
+    <ProjectReference Include="..\..\core\Viewer.Overrider\Viewer.Overrider.csproj" />
+    <ProjectReference Include="..\..\core\Viewer.Addons.Api\Viewer.Addons.Api.csproj" />
+    <Using Include="Viewer.Motion" />
+  </ItemGroup>
+
+</Project>

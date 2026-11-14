@@ -1,0 +1,2 @@
+<?xml version="1.0" ?>
+<llsd><map><key>version</key><string>1.1</string><key>type</key><string>GLTF 2.0</string><key>data</key><string>{&quot;asset&quot;:{&quot;version&quot;:&quot;2.0&quot;},&quot;images&quot;:[],&quot;textures&quot;:[],&quot;materials&quot;:[{&quot;pbrMetallicRoughness&quot;:{&quot;baseColorFactor&quot;:[0.95,0.8,0.45,1],&quot;metallicFactor&quot;:1,&quot;roughnessFactor&quot;:0.3}}]}</string></map></llsd>

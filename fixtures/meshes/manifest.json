@@ -1,0 +1,16 @@
+{
+  "about": "L4 mesh-zoo fixture and goldens (the test strategy, sections 3.1 and 3.3). Rendered by the exported viewer's --test-render at 640x360 with Stage.MeshCamera (near ~7 m, fov 60: LOD 3; far ~40 m, fov 11: LOD 1), the fixed test environment and light, no MSAA/TAA/FXAA, from the core's world state through the presentation coordinator (RenderingServer). The assets are fetched through SessionAssets from this folder and decoded by the guarded decoder. Tolerance: the terrain goldens' (fixtures/terrain/manifest.json). Goldens are proposed by the render script and approved by a person after viewing.",
+  "fixture": {
+    "file": "mesh-zoo.meshzoo.json",
+    "assets": ["mesh-cube-6face.llmesh", "mesh-sphere.llmesh", "mesh-two-face-wave.llmesh"],
+    "provenance": "assets built with LibreMetaverse 3.1.6's own encoder (MeshZooBuilder); layout by Viewer.Shell.MeshZoo.Make() (MeshZooTests checks the file against it)",
+    "redistribution": "generated in this repo; no third-party content",
+    "negative_control": "--tr-alter=vertex: the cube's high-LOD top-face centre vertex raised 1 m after decoding; must fail the diff"
+  },
+  "goldens": [
+    { "backend": "vulkan", "camera": "near", "file": "golden-mesh-zoo-near-vulkan.png", "status": "approved", "proposed": "NVIDIA GeForce RTX 5060 Ti", "approved_by": "the project maintainer, after viewing" },
+    { "backend": "vulkan", "camera": "far", "file": "golden-mesh-zoo-far-vulkan.png", "status": "approved", "proposed": "NVIDIA GeForce RTX 5060 Ti", "approved_by": "the project maintainer, after viewing" },
+    { "backend": "d3d12", "camera": "near", "file": "golden-mesh-zoo-near-d3d12.png", "status": "approved", "proposed": "NVIDIA GeForce RTX 5060 Ti", "approved_by": "the project maintainer, after viewing" },
+    { "backend": "d3d12", "camera": "far", "file": "golden-mesh-zoo-far-d3d12.png", "status": "approved", "proposed": "NVIDIA GeForce RTX 5060 Ti", "approved_by": "the project maintainer, after viewing" }
+  ]
+}

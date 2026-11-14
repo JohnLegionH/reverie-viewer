@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Addon.Rlv: RLV (the RestrainedLove API) as the built-in add-on filling the "rlv" job, off by default. It reads the
+    owner-say commands of the user's own objects, keeps their restrictions per object and answers their queries; the viewer
+    enforces what it publishes (host/Viewer.Shell/Addons/RlvGate.cs). The viewer ships it in its own add-ons folder
+    (addons/rlv) and loads it in a load context of its own, as any add-on.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Addon.Rlv</RootNamespace>
+    <AssemblyName>Viewer.Addon.Rlv</AssemblyName>
+    <Version>1.0.0</Version>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The interface assembly comes from the viewer at run time: not copied into the add-on's folder. -->
+    <ProjectReference Include="..\..\core\Viewer.Addons.Api\Viewer.Addons.Api.csproj" Private="false" />
+    <None Include="add-on.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

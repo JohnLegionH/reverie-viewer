@@ -1,0 +1,8 @@
+{
+  "format": "nv-scene-1",
+  "_comment": "The synthetic terrain with water at 18 m and our own synthetic environment, at a fixed day fraction.",
+  "terrain": "../terrain/synthetic-512x256.nvterrain.gz",
+  "water_height": 18.0,
+  "environment": "synthetic-environment.llsd.xml",
+  "day_fraction": 0.3
+}

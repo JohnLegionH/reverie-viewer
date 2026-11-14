@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Automation: the automation API v1 (the test strategy, section 2), plain .NET so it is unit-tested without the engine.
+    DEVELOPMENT BUILDS ONLY. The Godot host does NOT reference this project: Viewer.Godot.csproj compiles these source
+    files in only when its configuration is not ExportRelease, so a shipping export has no automation type and no enable
+    path (no reference also keeps every configuration's restore graph, and packages.lock.json, identical).
+    This project exists for the tests.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Automation</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Core\Viewer.Core.csproj" />
+    <!-- Same suppression as every other project: the transitive stock joltc must not reach this output. -->
+    <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Motion\Viewer.Motion.csproj" />
+    <Using Include="Viewer.Motion" />
+  </ItemGroup>
+
+</Project>

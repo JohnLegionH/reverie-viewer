@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Motion: how the user's own avatar is moved and drawn, ported from the Second Life Viewer 7.2.3 sources (see NOTICE.md).
+    The files here are licensed LGPL-2.1 only, with Linden Research's notices kept; nothing else in the repository changes
+    licence. Plain .NET with no references: no Godot type, no LibreMetaverse type, no Viewer.Core type.
+    Brought up to the Second Life Viewer release 26.4 (see NOTICE.md).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Motion</RootNamespace>
+    <AssemblyName>Viewer.Motion</AssemblyName>
+    <Version>0.1.0</Version>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Viewer.Core.Tests" />
+  </ItemGroup>
+
+</Project>

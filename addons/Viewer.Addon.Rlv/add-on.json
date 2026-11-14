@@ -1,0 +1,13 @@
+{
+  "id": "rlv",
+  "name": "RLV",
+  "version": "1.0.0",
+  "author": "Viewer contributors",
+  "licence": "LGPL-2.1-or-later",
+  "interface": "0.4",
+  "job": "rlv",
+  "permissions": ["session", "chat.read", "window", "restraints"],
+  "default_on": false,
+  "switch_at": "next-login",
+  "library": "Viewer.Addon.Rlv.dll"
+}

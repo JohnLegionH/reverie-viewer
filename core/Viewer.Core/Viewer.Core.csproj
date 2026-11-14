@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Core: plain .NET, no Godot (ADR-004, ADR-005). Protocol integration lives only in the
+    Viewer.Core.Protocol namespace; no LibreMetaverse type crosses out of it (ADR-007). Both rules are
+    enforced by ArchitectureTests, which also runs them against Viewer.Core.ArchFixture as a negative
+    control.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Core</RootNamespace>
+    <Version>0.1.0</Version>
+    <AssemblyName>Viewer.Core</AssemblyName>
+    <!-- JoltPhysicsSharp 2.19.x HeightFieldShapeSettings takes float*. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The default cloud noise picture (THIRD-PARTY-NOTICES.md), read by CloudNoise. -->
+    <EmbeddedResource Include="World\Data\cloud-noise.tga" LogicalName="cloud-noise.tga" />
+    <!-- The terrain blend ramp picture (THIRD-PARTY-NOTICES.md), read by TerrainRamp. -->
+    <EmbeddedResource Include="World\Data\terrain-ramp.raw" LogicalName="terrain-ramp.raw" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Viewer.Motion\Viewer.Motion.csproj" />
+    <ProjectReference Include="..\Viewer.Baking\Viewer.Baking.csproj" />
+    <Using Include="Viewer.Motion" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Viewer.Core.Tests" />
+    <InternalsVisibleTo Include="Viewer.Core.LifecycleSmoke" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- No Linden contentFiles in any output (see Directory.Build.props). -->
+    <PackageReference Include="LibreMetaverse" ExcludeAssets="$(NvLibreMetaverseExcludeAssets)" />
+
+    <!-- Direct reference, so the CoreJ2K version in Directory.Packages.props wins over the one LibreMetaverse names. -->
+    <PackageReference Include="CoreJ2K" />
+
+    <!-- Managed Jolt binding, pinned at 2.19.1 for native ABI (see Directory.Packages.props). -->
+    <PackageReference Include="JoltPhysicsSharp" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <!-- Mirrors the grid exactly: its physics add-on project at 1bb1131cfd
+         (OpenSim/Addons, the physics add-on's .csproj).
+         Suppress the STOCK native. JoltPhysicsSharp pulls JoltPhysics.Native 1.0.4 (stock joltc);
+         ExcludeAssets="all" keeps the dependency satisfied for restore but ships NONE of its assets,
+         so the ONLY joltc in the output is the PATCHED build vendored in native/joltc/win-x64 (copied
+         below). tools/assert-joltc.ps1 verifies this on the output.
+         DO NOT change ExcludeAssets to PrivateAssets. Native RESOLUTION depends on this package
+         staying in the dependency graph: its deps.json runtimeTarget maps
+         runtimes/win-x64/native/joltc.dll, and the vendored copy below lands at that path.
+         ExcludeAssets suppresses the stock FILES but keeps the MAPPING; PrivateAssets drops the
+         mapping, the directory falls off the native probe path, and joltc fails to load at FIRST
+         PHYSICS USE, not at startup.
+         VIEWER NOTE (measured): with SDK 10.0.400 the generated deps.json carries NO
+         joltc mapping at all (ours, and the grid's live regionserver bin too), so runtimes/win-x64/native
+         is not on the probe path. The grid's live bin loads the copy in its APPLICATION ROOT. The
+         reference above is kept exactly as the grid's; the vendored joltc is copied to the output root
+         below, where the loader actually looks. -->
+    <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The patched joltc (native/joltc/PROVENANCE.md), at the output root: DllImport "joltc" probes the
+         application directory. Flows to every referencing project's output. -->
+    <None Include="$(MSBuildThisFileDirectory)..\..\native\joltc\win-x64\joltc.dll"
+          Link="joltc.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+
+</Project>

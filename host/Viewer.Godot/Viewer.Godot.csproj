@@ -1,0 +1,116 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+
+  <!--
+    Viewer.Godot: the native host (ADR-005). Godot 4.7.2 .NET (ADR-003), portable editor (see tools\godot.ps1).
+    TargetFramework is set HERE explicitly, not only through Directory.Build.props, because of the reported TFM
+    reset (GH-103545; ADR-004).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>Viewer.Godot</RootNamespace>
+    <!-- The editor runs its own dotnet build/publish: keep the compiler server off, so no compiler process outlives a build. -->
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <!-- Godot collections are pinned under 'fixed' while in use (Presentation/KeptCollections.cs). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- The runtime's garbage collector is told to keep its heap fairly compact. Texture decodes allocate large buffers that die at once; with the default
+       setting the collector leaves that freed memory committed, and a viewer drawing a crowd held several times the memory its live data needed. The
+       setting trades memory for full collections: on a region visit the number of full collections is about 29 at the default, 40 at 3, 65 at 5 and
+       115 at 7, and the total collection pause grows with it (about +5 % at 3, +16 to +29 % at 5, +70 to +85 % at 7, against the default). 3 keeps a region
+       visit's pause close to the default's and still holds back part of a crowd's growth. The value is one of the 0-9 steps of System.GC.ConserveMemory
+       (https://learn.microsoft.com/dotnet/core/runtime-config/garbage-collector#conserve-memory). -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="3" />
+  </ItemGroup>
+
+  <!-- Tiered compilation. A method first runs as unoptimized tier-0 code; by default it is promoted only after 30 calls, and only once a 100 ms timer has run
+       out that restarts whenever more new code is compiled, and hot methods pass through an instrumented profiling tier first. A crowd arriving is a burst of
+       code that has never run, so with the defaults its paths ran unoptimized for the burst's whole length. Counting calls from the first call (no delay) and
+       leaving out the profiling tier puts them on optimized code within the first frames. Measured on a 25-avatar arrival, 2 runs each, slices of the main
+       thread over 4 ms of processor time: 25 and 35 at the defaults, 8 and 8 with both settings; the main thread's processor time over the arrival was 15 % lower. -->
+  <PropertyGroup>
+    <TieredPGO>false</TieredPGO>
+  </PropertyGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.Runtime.TieredCompilation.CallCountingDelayMs" Value="0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Core\Viewer.Core.csproj" />
+    <!-- The host logic (floor check, string table, engine-log route, login model), plain .NET and unit-tested. -->
+    <ProjectReference Include="..\Viewer.Shell\Viewer.Shell.csproj" />
+    <!-- Same suppression as every other project: the transitive stock joltc must not reach this output or the
+         export. See core/Viewer.Core/Viewer.Core.csproj (mirrors the grid's physics add-on project). -->
+    <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <!-- Automation API (the test strategy, section 2.1; a new security-sensitive surface starts safe): DEVELOPMENT BUILDS ONLY. Shipping = the ExportRelease configuration
+       (export-release); development = every other one (the editor's Debug, export-debug's ExportDebug). The API's sources
+       (host/Viewer.Automation, plus Automation/ here) are compiled in only for development builds, and NV_AUTOMATION is
+       defined only then, so a shipping export has no automation type and no enable path. Compiled in as source, not a
+       ProjectReference, so every configuration keeps the same restore graph and lock file. The S-1 stage scans the
+       shipping export's assemblies for it (and the development export's, as the negative control). -->
+  <PropertyGroup Condition=" '$(Configuration)' != 'ExportRelease' ">
+    <DefineConstants>$(DefineConstants);NV_AUTOMATION</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(Configuration)' != 'ExportRelease' ">
+    <Compile Include="..\Viewer.Automation\*.cs" LinkBase="AutomationApi" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(Configuration)' == 'ExportRelease' ">
+    <Compile Remove="Automation\**" />
+  </ItemGroup>
+
+  <!-- Godot.NET.Sdk references GodotSharpEditor only when Configuration is Debug, so the export's
+       ExportRelease restore and a Debug restore disagreed about packages.lock.json. The same package is
+       referenced here for every other configuration with no assets at all (nothing compiled against it, nothing
+       copied to the export), so every configuration restores the same graph. Same version and form as the SDK's
+       own implicit reference (Sdk.targets); it is not in Directory.Packages.props for the same reason as GodotSharp. -->
+  <ItemGroup Condition=" '$(Configuration)' != 'Debug' ">
+    <PackageReference Include="GodotSharpEditor" IsImplicitlyDefined="true" Version="$(PackageVersion_GodotSharp)" ExcludeAssets="all" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- The physics native on Linux. The core library is built for any platform and always brings the Windows joltc.dll; a Linux
+       export (dotnet publish for linux-x64 or linux-arm64, run by the engine's exporter) takes the vendored libjoltc.so for its
+       architecture instead, at the output root where DllImport "joltc" looks, and leaves the Windows file out. Provenance of each
+       file: native/joltc/PROVENANCE.md. -->
+  <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'linux-x64' Or '$(RuntimeIdentifier)' == 'linux-arm64' ">
+    <None Include="..\..\native\joltc\$(RuntimeIdentifier)\libjoltc.so" Link="libjoltc.so" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+  <Target Name="LeaveWindowsJoltcOutOfLinux" AfterTargets="ComputeResolvedFilesToPublishList" Condition=" $(RuntimeIdentifier.StartsWith('linux-')) ">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition=" '%(Filename)%(Extension)' == 'joltc.dll' " />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Motion\Viewer.Motion.csproj" />
+    <ProjectReference Include="..\..\core\Viewer.Overrider\Viewer.Overrider.csproj" />
+    <Using Include="Viewer.Motion" />
+  </ItemGroup>
+
+  <!-- Built-in add-ons. Each is built as its own project and copied, with its manifest and the libraries beside it, into
+       addons/<id>/ next to the viewer's own libraries, in the build output and in the published export alike. The viewer
+       loads each from there in a load context of its own (host/Viewer.Shell/Addons); nothing in the viewer references them. -->
+  <ItemGroup>
+    <BuiltInAddon Include="..\..\addons\Viewer.Addon.Ao\Viewer.Addon.Ao.csproj" AddonId="ao" />
+    <BuiltInAddon Include="..\..\addons\Viewer.Addon.Rlv\Viewer.Addon.Rlv.csproj" AddonId="rlv" />
+  </ItemGroup>
+  <Target Name="NvBuildBuiltInAddons" BeforeTargets="CopyFilesToOutputDirectory">
+    <MSBuild Projects="@(BuiltInAddon)" Targets="Build" Properties="Configuration=$(Configuration);RuntimeIdentifier=">
+      <Output TaskParameter="TargetOutputs" ItemName="NvBuiltInAddonLibrary" />
+    </MSBuild>
+    <ItemGroup>
+      <NvBuiltInAddonFile Include="%(NvBuiltInAddonLibrary.RootDir)%(NvBuiltInAddonLibrary.Directory)*.dll;%(NvBuiltInAddonLibrary.RootDir)%(NvBuiltInAddonLibrary.Directory)add-on.json"
+                          AddonId="%(NvBuiltInAddonLibrary.AddonId)" Exclude="%(NvBuiltInAddonLibrary.RootDir)%(NvBuiltInAddonLibrary.Directory)Viewer.Addons.Api.dll" />
+    </ItemGroup>
+  </Target>
+  <Target Name="NvCopyBuiltInAddons" AfterTargets="CopyFilesToOutputDirectory" DependsOnTargets="NvBuildBuiltInAddons">
+    <Copy SourceFiles="@(NvBuiltInAddonFile)" DestinationFolder="$(OutDir)addons\%(NvBuiltInAddonFile.AddonId)" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="NvPublishBuiltInAddons" AfterTargets="Publish" DependsOnTargets="NvBuildBuiltInAddons">
+    <Copy SourceFiles="@(NvBuiltInAddonFile)" DestinationFolder="$(PublishDir)addons\%(NvBuiltInAddonFile.AddonId)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

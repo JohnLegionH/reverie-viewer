@@ -1,0 +1,601 @@
+{
+  "format": "nv-matzoo-1",
+  "region": [
+    256,
+    256
+  ],
+  "prims": [
+    {
+      "local": 9290,
+      "parent": 0,
+      "name": "floor",
+      "pos": [
+        65,
+        128,
+        29.9
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        30,
+        60,
+        0.2
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.92,
+          0.92,
+          0.92,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 9291,
+      "parent": 0,
+      "name": "wall",
+      "pos": [
+        70.1,
+        128,
+        36
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.2,
+        60,
+        12
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.92,
+          0.92,
+          0.92,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 9300,
+      "parent": 0,
+      "name": "lamp-narrow-sharp",
+      "pos": [
+        64,
+        114,
+        35
+      ],
+      "rot": [
+        0,
+        -0.468424,
+        0,
+        0.883504
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.15,
+          0.15,
+          0.15,
+          1
+        ]
+      ],
+      "light": [
+        1,
+        0.95,
+        0.85,
+        2.5,
+        20,
+        0,
+        0
+      ],
+      "proj": [
+        "4e560007-0000-4000-8000-00000000000a",
+        0.8,
+        8,
+        0
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 9301,
+      "parent": 0,
+      "name": "lamp-narrow-soft",
+      "pos": [
+        64,
+        124,
+        35
+      ],
+      "rot": [
+        0,
+        -0.468424,
+        0,
+        0.883504
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.15,
+          0.15,
+          0.15,
+          1
+        ]
+      ],
+      "light": [
+        1,
+        0.95,
+        0.85,
+        2.5,
+        20,
+        0,
+        0
+      ],
+      "proj": [
+        "4e560007-0000-4000-8000-00000000000a",
+        0.8,
+        1,
+        0
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 9302,
+      "parent": 0,
+      "name": "lamp-wide-sharp",
+      "pos": [
+        64,
+        134,
+        35
+      ],
+      "rot": [
+        0,
+        -0.468424,
+        0,
+        0.883504
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.15,
+          0.15,
+          0.15,
+          1
+        ]
+      ],
+      "light": [
+        1,
+        0.95,
+        0.85,
+        2.5,
+        20,
+        0,
+        0
+      ],
+      "proj": [
+        "4e560007-0000-4000-8000-00000000000a",
+        1.1,
+        8,
+        0
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 9303,
+      "parent": 0,
+      "name": "lamp-wide-ambiance",
+      "pos": [
+        64,
+        144,
+        35
+      ],
+      "rot": [
+        0,
+        -0.468424,
+        0,
+        0.883504
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.15,
+          0.15,
+          0.15,
+          1
+        ]
+      ],
+      "light": [
+        1,
+        0.95,
+        0.85,
+        2.5,
+        20,
+        0,
+        0
+      ],
+      "proj": [
+        "4e560007-0000-4000-8000-00000000000a",
+        1.1,
+        8,
+        0.6
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 9296,
+      "parent": 0,
+      "name": "shadow-block",
+      "pos": [
+        67,
+        124.85,
+        33.6
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.2,
+        0.8,
+        0.8
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          0.3,
+          0.3,
+          0.3,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 9295,
+      "parent": 0,
+      "name": "glow-panel",
+      "pos": [
+        69,
+        134,
+        32.5
+      ],
+      "rot": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.05,
+        1,
+        1
+      ],
+      "shape": {
+        "ProfileCurve": 1,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 16,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 0,
+        "SculptId": "00000000-0000-0000-0000-000000000000"
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560009-0000-4000-8000-000000000030",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          1
+        ]
+      ]
+    }
+  ],
+  "images": {
+    "4e560009-0000-4000-8000-000000000030": "tex-white-64.j2c",
+    "4e560007-0000-4000-8000-00000000000a": "../textures/tex-grid-arrow.j2c"
+  },
+  "materials": {},
+  "meshes": {
+    "4e560006-0000-4000-8000-000000000001": "../meshes/mesh-cube-6face.llmesh",
+    "4e560006-0000-4000-8000-000000000002": "../meshes/mesh-sphere.llmesh",
+    "4e560006-0000-4000-8000-000000000003": "../meshes/mesh-two-face-wave.llmesh"
+  },
+  "render_materials": {},
+  "overrides": {}
+}

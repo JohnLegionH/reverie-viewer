@@ -1,0 +1,34 @@
+# Copyright (c) 2026 Legion Builds
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: Feature request
+description: Suggest something Reverie Viewer should do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like the viewer to do?
+      description: Describe the feature from your side, as someone using the viewer.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does it matter to you?
+      description: What you are trying to do, and what you do today instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: grid
+    attributes:
+      label: Where would you use it?
+      options:
+        - OpenSimulator grids
+        - Second Life
+        - Both
+        - Not grid-specific
+  - type: textarea
+    id: other
+    attributes:
+      label: Other viewers
+      description: If another viewer already does this, how does it look and behave there?

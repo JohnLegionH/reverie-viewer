@@ -1,0 +1,513 @@
+{
+  "format": "nv-sculptzoo-1",
+  "region": [
+    256,
+    256
+  ],
+  "prims": [
+    {
+      "local": 7001,
+      "parent": 0,
+      "name": "sphere",
+      "pos": [
+        100,
+        100,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 1,
+        "SculptId": "4e56007b-0000-4000-8000-000000000001"
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560007-0000-4000-8000-00000000000a",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 7002,
+      "parent": 0,
+      "name": "torus",
+      "pos": [
+        103,
+        100,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 2,
+        "SculptId": "4e56007b-0000-4000-8000-000000000002"
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560007-0000-4000-8000-00000000000a",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 7003,
+      "parent": 0,
+      "name": "plane-colour-only",
+      "pos": [
+        106,
+        100,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 3,
+        "SculptId": "4e56007b-0000-4000-8000-000000000003"
+      },
+      "colors": [
+        [
+          1,
+          0.55,
+          0.2,
+          1
+        ]
+      ]
+    },
+    {
+      "local": 7004,
+      "parent": 0,
+      "name": "cylinder",
+      "pos": [
+        109,
+        100,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 4,
+        "SculptId": "4e56007b-0000-4000-8000-000000000004"
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560007-0000-4000-8000-00000000000a",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 7005,
+      "parent": 0,
+      "name": "sphere-mirrored",
+      "pos": [
+        100,
+        103,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 1,
+        "SculptId": "4e56007b-0000-4000-8000-000000000001",
+        "SculptFlags": 128
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560007-0000-4000-8000-00000000000a",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 7006,
+      "parent": 0,
+      "name": "sphere-inverted",
+      "pos": [
+        103,
+        103,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 1,
+        "SculptId": "4e56007b-0000-4000-8000-000000000001",
+        "SculptFlags": 64
+      },
+      "colors": [
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560007-0000-4000-8000-00000000000a",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 7007,
+      "parent": 0,
+      "name": "long-thin-256x16",
+      "pos": [
+        106,
+        103,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 4,
+        "SculptId": "4e56007b-0000-4000-8000-000000000005"
+      },
+      "colors": [
+        [
+          0.6,
+          0.9,
+          1,
+          1
+        ]
+      ],
+      "tex": [
+        [
+          "4e560007-0000-4000-8000-00000000000a",
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          false,
+          0
+        ]
+      ]
+    },
+    {
+      "local": 7008,
+      "parent": 0,
+      "name": "missing-map",
+      "pos": [
+        109,
+        103,
+        25
+      ],
+      "rot": [
+        0.243625,
+        -0.043075,
+        0.168696,
+        0.954114
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "shape": {
+        "ProfileCurve": 0,
+        "ProfileHole": 0,
+        "ProfileBegin": 0,
+        "ProfileEnd": 1,
+        "ProfileHollow": 0,
+        "PathCurve": 32,
+        "PathBegin": 0,
+        "PathEnd": 1,
+        "PathScaleX": 1,
+        "PathScaleY": 1,
+        "PathShearX": 0,
+        "PathShearY": 0,
+        "PathTwist": 0,
+        "PathTwistBegin": 0,
+        "PathRadiusOffset": 0,
+        "PathTaperX": 0,
+        "PathTaperY": 0,
+        "PathRevolutions": 1,
+        "PathSkew": 0,
+        "SculptType": 2,
+        "SculptId": "4e56007b-0000-4000-8000-0000000000ff"
+      },
+      "colors": [
+        [
+          0.9,
+          0.3,
+          0.8,
+          1
+        ]
+      ]
+    }
+  ],
+  "images": {
+    "4e56007b-0000-4000-8000-000000000001": "zoo/sculpt-sphere.j2c",
+    "4e56007b-0000-4000-8000-000000000002": "zoo/sculpt-torus.j2c",
+    "4e56007b-0000-4000-8000-000000000003": "zoo/sculpt-plane.j2c",
+    "4e56007b-0000-4000-8000-000000000004": "zoo/sculpt-cylinder.j2c",
+    "4e56007b-0000-4000-8000-000000000005": "zoo/sculpt-thin.j2c",
+    "4e560007-0000-4000-8000-00000000000a": "../textures/tex-grid-arrow.j2c"
+  }
+}

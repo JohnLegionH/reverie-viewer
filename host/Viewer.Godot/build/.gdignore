@@ -1,0 +1,1 @@
+# Godot must never scan or import the export output (it once imported and packed LibreMetaverse content from here).

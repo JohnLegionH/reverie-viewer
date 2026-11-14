@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Texture decode probe (console, no Godot). Decodes codestreams that may be hostile in its own
+    process, so a hang or a memory blow-up can be killed without touching the test host: the tests and the fuzz driver
+    run it as a child with a deadline (ChildProcess, DecodeFuzz). Driven by Viewer.Core.Tests; also runnable by hand.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Viewer.Core.DecodeProbe</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Viewer.Core\Viewer.Core.csproj" />
+    <!-- Same suppression as Viewer.Core: the transitive stock native must not reach this output either. -->
+    <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
+  </ItemGroup>
+
+</Project>

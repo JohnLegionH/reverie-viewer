@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "id": "high-contrast",
+  "name": "High contrast",
+  "colors": {
+    "panel": "#000000",
+    "bar": "#000000",
+    "input": "#000000",
+    "border": "#ffffff",
+    "text": "#ffffff",
+    "textSecondary": "#ffffff",
+    "accent": "#ffd400",
+    "accentFill": "#ffd400",
+    "accentFillText": "#111111",
+    "dangerFill": "#ff5a4d",
+    "warning": "#ffd400",
+    "warningText": "#111111",
+    "success": "#7dff8a",
+    "chatOwn": "#8fd0ff",
+    "chatAgent": "#ffffff",
+    "chatObject": "#7dff8a",
+    "chatSystem": "#ffd400",
+    "chatTyping": "#ffffff",
+    "error": "#ff7a70",
+    "outline": "#000000",
+    "scrim": "#00000073"
+  },
+  "metrics": { "radius": 4, "borderWidth": 2, "fontBody": 16, "fontCaption": 13, "fontTitle": 16 }
+}

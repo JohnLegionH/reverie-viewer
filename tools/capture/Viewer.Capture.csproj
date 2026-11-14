@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Capture tool (the test strategy, section 4.1). Logs in through the core (ViewerSession on the LibreMetaverse adapter), records
+    the scrubbed post-adapter event stream to fixtures-local\ (gitignored, never committed: ADR-011), and runs the shared-pool
+    two-session data-pool check. Read-mostly: it never chats, moves, rezzes, touches or sends appearance.
+    The login URI comes from the environment (NV_LOGIN_URI) and passwords are read into memory from the accounts file
+    named on the command line; neither is ever written.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Viewer.Capture</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Core\Viewer.Core.csproj" />
+    <!-- Same suppression as every other project: the transitive stock joltc must not reach this output. -->
+    <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
+  </ItemGroup>
+
+</Project>

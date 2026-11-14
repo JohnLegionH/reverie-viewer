@@ -1,0 +1,6 @@
+{
+  "format": "nv-scene-1",
+  "_comment": "The synthetic terrain with water at 18 m and no environment served: the viewer's default sky, which a time-of-day choice (--tr-sky) moves through its day.",
+  "terrain": "../terrain/synthetic-512x256.nvterrain.gz",
+  "water_height": 18.0
+}

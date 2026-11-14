@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Addon.Ao: the animation overrider as a built-in add-on filling the "ao" job. It hands the engine in
+    Viewer.Overrider (LGPL-2.1 only, ported from the Firestorm viewer; see its NOTICE.md) what add-on interface 0.1 gives it:
+    the inventory read only, the avatar's motion and animations, and its own window and settings. The viewer ships it in
+    its own add-ons folder (addons/ao) and loads it in a load context of its own, as any add-on.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Addon.Ao</RootNamespace>
+    <AssemblyName>Viewer.Addon.Ao</AssemblyName>
+    <Version>1.0.0</Version>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The interface assembly comes from the viewer at run time: not copied into the add-on's folder. -->
+    <ProjectReference Include="..\..\core\Viewer.Addons.Api\Viewer.Addons.Api.csproj" Private="false" />
+    <ProjectReference Include="..\..\core\Viewer.Overrider\Viewer.Overrider.csproj" />
+    <None Include="add-on.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

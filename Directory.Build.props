@@ -1,0 +1,35 @@
+<Project>
+  <!-- Shared build settings for every project in the repo (ADR-004: C# on net10.0). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <!-- LibreMetaverse's package ships Linden viewer data as NuGet contentFiles (linden/**: avatar_lad.xml,
+       avatar_skeleton.xml, .llm meshes, static assets). Nothing uses them, so no output may carry them. Every
+       PackageReference to LibreMetaverse sets ExcludeAssets="$(NvLibreMetaverseExcludeAssets)". The guard
+       (tools\assert-no-linden.ps1, LindenGuardTests, the S-1 linden_guard case) fails if any reach an output.
+       NEGATIVE CONTROL ONLY: -p:NvIncludeLindenContent=true (or the environment variable of that name) switches the
+       exclusion off, to prove the guard fails without it. Never set it for a real build. -->
+  <PropertyGroup>
+    <NvLibreMetaverseExcludeAssets Condition="'$(NvIncludeLindenContent)' != 'true'">contentFiles</NvLibreMetaverseExcludeAssets>
+    <NvLibreMetaverseExcludeAssets Condition="'$(NvIncludeLindenContent)' == 'true'">none</NvLibreMetaverseExcludeAssets>
+  </PropertyGroup>
+
+  <!-- Every restore must produce the same packages.lock.json. The Godot export publishes with
+       -r win-x64, which adds a net10.0/win-x64 target to the restore graph; a plain solution restore or a
+       single-project dotnet test did not, so the lock files flipped with whichever restore ran last. One
+       RuntimeIdentifiers set for every project makes every restore graph carry the same targets. This only
+       shapes restore (the lock file); builds stay RID-neutral. A new export platform adds its RID here. -->
+  <PropertyGroup>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- The core is held to warnings-as-errors; test and fixture projects are not. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Viewer.Core'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

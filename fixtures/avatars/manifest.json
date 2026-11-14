@@ -1,0 +1,59 @@
+{
+  "about": "L4 avatar goldens (the test strategy, sections 3.1 and 3.3), rendered by the exported viewer's --test-render (tools/render.ps1, the avatars cases). Every one is local-only: the avatar body is read in place from a character folder named by NV_CHARACTER_DIR (the official viewer's character files, never committed, copied or shipped), and the baked images are a test account's own server bakes, so the goldens live in fixtures-local/goldens and are never committed; the render stage skips with a reason when the character folder is not set. Goldens are proposed by the render script and approved by a person after viewing; each entry's sha256 is the approved image's.",
+  "goldens": [
+    {
+      "case": "avatars",
+      "backend": "vulkan",
+      "file": "golden-avatars-vulkan.png",
+      "sha256": "488b8786106d8f0ab228171a380b7ee2f97f6f1e8ea8af2ff44cb7888882b7bd",
+      "status": "approved",
+      "proposed": "NVIDIA GeForce RTX 5060 Ti; the default body (default shape, plain skin tone) on a grey floor, facing the camera; left: the skeleton's rest pose; right: the grid's built-in walk halfway through its loop. The unbaked reference",
+      "approved_by": "the project maintainer, after viewing"
+    },
+    {
+      "case": "avatars",
+      "backend": "d3d12",
+      "file": "golden-avatars-d3d12.png",
+      "sha256": "bc05ffd392735c2150a33af9f066cd7f3c16f7645b6d798741335912487a34a5",
+      "status": "approved",
+      "proposed": "NVIDIA GeForce RTX 5060 Ti (as vulkan)",
+      "approved_by": "the project maintainer, after viewing"
+    },
+    {
+      "case": "avatars_baked",
+      "backend": "vulkan",
+      "file": "golden-avatars-baked-vulkan.png",
+      "sha256": "0bc197ad77c99153160d1999bf3bffc00d217a37a63323f6cc64269862e80349",
+      "status": "approved",
+      "proposed": "NVIDIA GeForce RTX 5060 Ti; the same two avatars wearing the test account's own server bakes (head, upper body, lower body, eyes); the hair bake is fetched but not drawn",
+      "approved_by": "the project maintainer, after viewing"
+    },
+    {
+      "case": "avatars_baked",
+      "backend": "d3d12",
+      "file": "golden-avatars-baked-d3d12.png",
+      "sha256": "a409486bd1808aae98921e042c0973cf2b1a9d07224299486969d020cf57e493",
+      "status": "approved",
+      "proposed": "NVIDIA GeForce RTX 5060 Ti (as vulkan)",
+      "approved_by": "the project maintainer, after viewing"
+    },
+    {
+      "case": "avatars_live",
+      "backend": "vulkan",
+      "file": "golden-avatars-live-vulkan.png",
+      "sha256": "fd9c39afbb336de81b250f8aa1d10b7cd0e5d3d3ec409c1f1de341644f9b7b21",
+      "status": "proposed",
+      "proposed": "NVIDIA GeForce RTX 5060 Ti; avatars as the viewer draws them in world from synthetic region updates: the own avatar from behind, standing, wearing its bakes; another avatar walking at 1 m/s; both named; the follow camera orbited 35 degrees",
+      "approved_by": null
+    },
+    {
+      "case": "avatars_live",
+      "backend": "d3d12",
+      "file": "golden-avatars-live-d3d12.png",
+      "sha256": "d4e26d675aecc11d78d8525c314c75f219a59a837e160a4a18380ea7f3e4afd7",
+      "status": "proposed",
+      "proposed": "NVIDIA GeForce RTX 5060 Ti (as vulkan)",
+      "approved_by": null
+    }
+  ]
+}

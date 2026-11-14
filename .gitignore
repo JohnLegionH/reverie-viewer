@@ -1,0 +1,10 @@
+bin/
+obj/
+.godot/
+host/Viewer.Godot/build/*
+!host/Viewer.Godot/build/.gdignore
+*.user
+tools/test-results/
+fixtures-local/
+CLAUDE.local.md
+.claude/

@@ -1,0 +1,10 @@
+{
+  "id": "hello-sample",
+  "name": "Hello Sample",
+  "version": "1.0.0",
+  "author": "Viewer contributors",
+  "licence": "0BSD",
+  "interface": "0.1",
+  "permissions": ["window", "chat.send"],
+  "library": "HelloAddon.dll"
+}

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Addons.Api: add-on interface 0.1, the one assembly an add-on compiles against. Plain .NET with no references:
+    no Godot type, no LibreMetaverse type, no Viewer.Core type, so an add-on depends on nothing else of the viewer.
+    The viewer shares this assembly with every add-on it loads; an add-on does not ship its own copy (it may, and the
+    viewer's copy is used anyway). See Docs/ADDONS.md.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Addons</RootNamespace>
+    <AssemblyName>Viewer.Addons.Api</AssemblyName>
+    <Version>0.1.0</Version>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

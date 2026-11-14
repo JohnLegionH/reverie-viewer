@@ -1,0 +1,101 @@
+; Engine configuration file. Viewer.Godot. Setting names checked against the Godot 4.7 ProjectSettings
+; class reference.
+
+config_version=5
+
+[application]
+
+config/name="Reverie"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+; The engine's user data folder, where its shader cache and pipeline cache are written (see [rendering] below), is named after the product in the
+; shipping export: %APPDATA%\ReverieViewer, beside the viewer's own settings, instead of %APPDATA%\Godot\app_userdata\<project name>. Godot 4.7.2 has
+; no setting for the cache path itself, and this folder is under the roaming profile, not the local one. Development exports keep the default.
+; Setting names from the 4.7.2 class reference: application/config/use_custom_user_dir, application/config/custom_user_dir_name.
+config/use_custom_user_dir.shipping=true
+config/custom_user_dir_name.shipping="ReverieViewer"
+; Shipping exports (the "shipping" custom feature of export preset 0) do not echo engine stdout (the banner,
+; engine prints). Setting name from the 4.7.2 class reference (--doctool): application/run/disable_stdout.
+; NOT application/run/disable_stderr: measured, it also silences custom loggers, so engine errors would no longer
+; reach the redacted log (ADR-019; S-1's engine-log check fails with it on). The raw stderr echo of engine errors stays
+; until a way to drop Godot's built-in StdLogger alone exists (an open decision). Development builds keep both.
+run/disable_stdout.shipping=true
+
+[debug]
+
+file_logging/enable_file_logging.pc=false
+
+[display]
+
+; Linux: the native Wayland display server first; when it cannot start (no Wayland session), the engine falls back to X11 on its own.
+; Setting name and values as the 4.7.2 engine registers them: display/display_server/driver.linuxbsd (default, x11, wayland, headless).
+display_server/driver.linuxbsd="wayland"
+
+[dotnet]
+
+project/assembly_name="Viewer.Godot"
+
+[shader_globals]
+
+; The official classic lighting's constants for the sky in force (SkyLighting.Classic), read by the avatar shaders (FaceShader.ClassicGlobals);
+; the environment layer sets them whenever it applies a sky. classic_on is 0 until it does, and under a sky that takes the tone-mapped path.
+classic_amb={
+"type": "vec3",
+"value": Vector3(0.3, 0.3, 0.3)
+}
+classic_sun={
+"type": "vec3",
+"value": Vector3(0.7, 0.7, 0.7)
+}
+classic_sun_lin={
+"type": "vec3",
+"value": Vector3(0.5, 0.5, 0.5)
+}
+classic_l0={
+"type": "vec3",
+"value": Vector3(0.3, 0.3, 0.3)
+}
+classic_on={
+"type": "float",
+"value": 0.0
+}
+probe_irr={
+"type": "sampler2D",
+"value": ""
+}
+probe_ambiance={
+"type": "float",
+"value": 0.0
+}
+probe_sun={
+"type": "vec3",
+"value": Vector3(0.0, 0.0, 0.0)
+}
+
+[physics]
+
+3d/physics_engine="Dummy"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+rendering_device/driver.windows="vulkan"
+rendering_device/fallback_to_opengl3=false
+rendering_device/fallback_to_vulkan=false
+rendering_device/fallback_to_d3d12=false
+gl_compatibility/fallback_to_angle=false
+gl_compatibility/fallback_to_native=false
+gl_compatibility/fallback_to_gles=false
+; The engine's on-disk caches (setting names from the 4.7.2 class reference): compiled shader code and the graphics driver's pipeline cache, both
+; kept in the user data folder between sessions. A second start then loads the shaders and pipelines the warm-up needs instead of compiling them.
+; On in the shipping export only (the "shipping" custom feature); development exports and test renders keep them off (test renders through the
+; launch folder's override.cfg, tools/test-launch.ps1), so their timings do not depend on what an earlier run left behind.
+shader_compiler/shader_cache/enabled=false
+shader_compiler/shader_cache/enabled.shipping=true
+rendering_device/pipeline_cache/enable=false
+rendering_device/pipeline_cache/enable.shipping=true
+; Per-instance shader parameters (obj_scale, water_clip, skin_row, avatar_row) live in the engine's shared parameter buffer, 16 slots per
+; instance. The default of 65536 slots holds 4096 instances; a busier view makes the engine log errors every frame. 1048576 slots hold
+; 65536 instances, more than a full region of objects, for about 16 MiB of video memory. (Setting rendering/limits/global_shader_variables/
+; buffer_size; the engine's message names it: "Increase buffer size in Project Settings".)
+limits/global_shader_variables/buffer_size=1048576

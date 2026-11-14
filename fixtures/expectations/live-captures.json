@@ -1,0 +1,35 @@
+{
+    "_comment":  "Derived expectations of the local-only live captures (fixtures-local\\, never committed: ADR-011). Counts, completeness and state hashes only; checked by LiveCaptureReplayTests when the captures are present.",
+    "region-a":  {
+                  "Objects":  242,
+                  "Avatars":  2,
+                  "Attachments":  5,
+                  "AttachmentsBound":  5,
+                  "PendingAttachmentsUnbound":  0,
+                  "TerrainPatches":  256,
+                  "TerrainExpected":  256,
+                  "TerrainComplete":  true,
+                  "RegionSizeX":  256,
+                  "RegionSizeY":  256,
+                  "Appearances":  2,
+                  "AppearanceMode":  "Server",
+                  "StructuralHash":  "106AEECB52CFE68808CAFF5A18EBCBBD",
+                  "FullHash":  "4F2EAA40060984BA368ADEC7415D434F"
+              },
+    "region-b":  {
+                "Objects":  1,
+                "Avatars":  1,
+                "Attachments":  0,
+                "AttachmentsBound":  0,
+                "PendingAttachmentsUnbound":  0,
+                "TerrainPatches":  4096,
+                "TerrainExpected":  4096,
+                "TerrainComplete":  true,
+                "RegionSizeX":  1024,
+                "RegionSizeY":  1024,
+                "Appearances":  1,
+                "AppearanceMode":  "Server",
+                "StructuralHash":  "7009E895FFEC2028A0105562F41D3252",
+                "FullHash":  "247CE2BC425BA7875F678CBBB78FFB62"
+            }
+}

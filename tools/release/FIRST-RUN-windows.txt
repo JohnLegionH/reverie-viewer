@@ -1,0 +1,39 @@
+# Copyright (c) 2026 Legion Builds
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Template: tools/package.ps1 drops these lines and fills in the {FIELDS}.
+{NAME} {VERSION} (early preview) for Windows (x86_64)
+=====================================
+
+REQUIREMENTS
+- Windows 10 or 11, 64-bit (x86_64).
+- A graphics card and driver with Vulkan 1.3 or Direct3D 12 (feature level 12_0).
+  Older cards are refused at start with a message saying why. There is no OpenGL mode.
+- Nothing else needs installing: the .NET runtime the viewer uses is inside this folder.
+
+HOW TO START IT
+1. Unpack the whole zip into a folder of its own and keep the files together.
+2. Double-click Reverie.exe.
+   This build is not signed, so Windows may show "Windows protected your PC". Click "More info", then
+   "Run anyway". Windows asks this once for each new version.
+3. Enter the grid's login address, your name and your password on the login screen.
+To see what the viewer logs while it runs, start Reverie.console.exe instead.
+
+SETTINGS AND LOGS
+- Settings:  %APPDATA%\{DATA_NAME}
+- Cache:     %LOCALAPPDATA%\{DATA_NAME}\Cache
+- Logs:      %LOCALAPPDATA%\{DATA_NAME}\Logs
+The viewer writes nothing into the folder it runs from.
+
+HOW TO REPORT A PROBLEM
+This is an early preview, supported on a best-effort basis. Report problems on the issues page,
+https://github.com/JohnLegionH/reverie-viewer/issues
+Include:
+- what you did and what happened instead,
+- the package name ({PACKAGE}),
+- your Windows version and your graphics card,
+- the newest log file from the Logs folder above.
+Before you send a log, read it. Logs leave out passwords, but they name the grid and the regions you visited.
+
+LICENCE
+LICENSE is this viewer's licence. THIRD-PARTY-NOTICES.md and the ThirdPartyLicenses folder hold the notices of
+the components it is built from. The avatar data folder (character) has its own NOTICE.txt.

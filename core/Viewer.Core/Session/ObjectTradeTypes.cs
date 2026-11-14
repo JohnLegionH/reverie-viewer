@@ -1,0 +1,33 @@
+// Copyright (c) 2026 Legion Builds
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+namespace Viewer.Core.Session;
+
+/// <summary>One item inside an object (its task inventory). The masks use the protocol's permission bits; the owner is the object's owner.</summary>
+public sealed record TaskItem(Guid ItemId, string Name, int AssetType, int InvType, Guid OwnerId, uint OwnerMask, uint EveryoneMask);
+
+/// <summary>The region's answer to a contents request: the items inside the object, or nothing when the request failed or timed out.</summary>
+public sealed record TaskInventoryReceived(Guid ObjectId, IReadOnlyList<TaskItem> Items, bool Ok = true) : TransportEvent;
+
+/// <summary>The contents of an object were copied into a new inventory folder (its id is the one the viewer made).</summary>
+public sealed record ContentsCopied(Guid ObjectId, Guid FolderId, int ItemCount, bool Wear) : TransportEvent;
+
+/// <summary>The region answered a pay-price request: the price an object asks by default and its quick-pay buttons (protocol values:
+/// -1 means "the payer types the amount", -2 means "no default").</summary>
+public sealed record PayPriceReceived(Guid ObjectId, int DefaultPrice, IReadOnlyList<int> ButtonPrices) : TransportEvent;
+
+/// <summary>Ask for the items inside an object (the task inventory request and its transfer, or the capability where the region has it).</summary>
+public sealed record RequestTaskInventoryCommand(uint LocalId, Guid ObjectId) : TransportCommand;
+
+/// <summary>Copy the given items of an object into a new folder named <paramref name="FolderName"/>, made under <paramref name="Wear"/>'s parent:
+/// the clothing folder when the items are to be worn, otherwise the inventory root.</summary>
+public sealed record CopyTaskContentsCommand(uint LocalId, Guid ObjectId, string FolderName, bool Wear, IReadOnlyList<Guid> ItemIds) : TransportCommand;
+
+/// <summary>Buy an object: its sale type (1 original, 2 copy, 3 contents) and the price the viewer showed (the region cancels the sale if it differs).</summary>
+public sealed record BuyObjectCommand(uint LocalId, byte SaleType, int Price) : TransportCommand;
+
+/// <summary>Ask what an object charges when paid.</summary>
+public sealed record RequestPayPriceCommand(uint LocalId, Guid ObjectId) : TransportCommand;
+
+/// <summary>Pay an object.</summary>
+public sealed record PayObjectCommand(Guid ObjectId, int Amount, string ObjectName) : TransportCommand;

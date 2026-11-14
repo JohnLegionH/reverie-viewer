@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Viewer.Overrider: the animation overrider, an optional feature kept apart from the core. It reads the animation sets a
+    user keeps in the inventory as the Firestorm viewer stores them and plays them as Firestorm's overrider does; it is
+    ported from the Firestorm viewer sources (see NOTICE.md). The files here are licensed LGPL-2.1 only, with the source's
+    notices kept; nothing else in the repository changes licence. Plain .NET with no references: no Godot type, no
+    LibreMetaverse type, no Viewer.Core type. The host gives it the inventory and the agent through two small interfaces.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Overrider</RootNamespace>
+    <AssemblyName>Viewer.Overrider</AssemblyName>
+    <Version>0.1.0</Version>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Viewer.Core.Tests" />
+  </ItemGroup>
+
+</Project>

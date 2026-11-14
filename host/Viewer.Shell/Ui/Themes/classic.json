@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "id": "classic",
+  "name": "Classic",
+  "colors": {
+    "panel": "#202226e6",
+    "bar": "#2a2d33",
+    "input": "#262a30",
+    "border": "#3a3f46",
+    "text": "#e6e6e6",
+    "textSecondary": "#aeb4bc",
+    "accent": "#4c9aff",
+    "accentFill": "#2b6fd6",
+    "accentFillText": "#ffffff",
+    "dangerFill": "#c0392b",
+    "warning": "#f0b24a",
+    "warningText": "#111111",
+    "success": "#53b97b",
+    "chatOwn": "#9ddbff",
+    "chatAgent": "#e6e6e6",
+    "chatObject": "#a8eb9e",
+    "chatSystem": "#ffd673",
+    "chatTyping": "#aeb4bc",
+    "error": "#ff8c85",
+    "outline": "#000000cc",
+    "scrim": "#00000073"
+  },
+  "metrics": { "radius": 4, "borderWidth": 1, "fontBody": 13, "fontCaption": 11, "fontTitle": 13 }
+}

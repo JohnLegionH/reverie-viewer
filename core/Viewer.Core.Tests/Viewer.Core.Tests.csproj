@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Viewer.Core.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="JunitXml.TestLogger" />
+    <PackageReference Include="Mono.Cecil" />
+    <!-- Same suppression as Viewer.Core: the transitive stock native must not reach the test output.
+         The joltc guard test proves it. -->
+    <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The placement of a test run's window; tools\godot.ps1 compiles the same file, so the tests check what the scripts use. -->
+    <Compile Include="..\..\tools\TestWindowPlacement.cs" Link="TestWindowPlacement.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Viewer.Core\Viewer.Core.csproj" />
+    <!-- The host logic (floor, string table, engine-log route, login model) is plain .NET and tested here. -->
+    <ProjectReference Include="..\..\host\Viewer.Shell\Viewer.Shell.csproj" />
+    <!-- The automation API (development builds only; see host/Viewer.Automation). -->
+    <ProjectReference Include="..\..\host\Viewer.Automation\Viewer.Automation.csproj" />
+    <!-- Built first, never loaded: the architecture rules read the fixture from its own output, and the
+         lifecycle smoke runs as a child process from its own output. -->
+    <ProjectReference Include="..\Viewer.Core.ArchFixture\Viewer.Core.ArchFixture.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Viewer.Core.LifecycleSmoke\Viewer.Core.LifecycleSmoke.csproj" ReferenceOutputAssembly="false" />
+    <!-- Possibly hostile texture decodes run in this child, never in the test host. -->
+    <ProjectReference Include="..\Viewer.Core.DecodeProbe\Viewer.Core.DecodeProbe.csproj" ReferenceOutputAssembly="false" />
+    <!-- The capture tool's lmv-log-probe runs as a child process (stdout/stderr scanned). -->
+    <ProjectReference Include="..\..\tools\capture\Viewer.Capture.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="RepoRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))" />
+    <AssemblyMetadata Include="CoreOutputDir" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Viewer.Core\bin\$(Configuration)\$(TargetFramework)'))" />
+    <AssemblyMetadata Include="ArchFixtureDir" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Viewer.Core.ArchFixture\bin\$(Configuration)\$(TargetFramework)'))" />
+    <AssemblyMetadata Include="GodotBuildDir" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\host\Viewer.Godot\build'))" />
+    <AssemblyMetadata Include="CaptureToolDir" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\tools\capture\bin\$(Configuration)\$(TargetFramework)'))" />
+    <AssemblyMetadata Include="LifecycleSmokeDir" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Viewer.Core.LifecycleSmoke\bin\$(Configuration)\$(TargetFramework)'))" />
+    <AssemblyMetadata Include="DecodeProbeDir" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Viewer.Core.DecodeProbe\bin\$(Configuration)\$(TargetFramework)'))" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Viewer.Motion\Viewer.Motion.csproj" />
+    <ProjectReference Include="..\..\core\Viewer.Overrider\Viewer.Overrider.csproj" />
+    <!-- The interface sound generator: it compiles the shell's own synthesizer files, so the tests use the shell's types and only build
+         the generator (its types would otherwise be there twice). -->
+    <ProjectReference Include="..\..\tools\ui-sounds\UiSoundGen.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\addons\Viewer.Addon.Ao\Viewer.Addon.Ao.csproj" />
+    <ProjectReference Include="..\..\addons\Viewer.Addon.Rlv\Viewer.Addon.Rlv.csproj" />
+    <None Include="..\..\addons\Viewer.Addon.Ao\add-on.json" Link="addons-ao\add-on.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The sample add-on is built on its own for users; the tests build it too, to load it as an outside add-on. -->
+    <ProjectReference Include="..\..\samples\HelloAddon\HelloAddon.csproj" ReferenceOutputAssembly="false" />
+    <Using Include="Viewer.Motion" />
+  </ItemGroup>
+
+</Project>

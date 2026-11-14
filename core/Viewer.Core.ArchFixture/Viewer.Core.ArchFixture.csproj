@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PERMANENT NEGATIVE CONTROL for ArchitectureTests. It deliberately breaks BOTH core rules:
+      1. it references GodotSharp and exposes a Godot type;
+      2. it uses a LibreMetaverse type outside any *.Protocol namespace.
+    The architecture rules run against it and MUST report both violations. Never referenced by product code.
+    A third rule (ADR-015): it calls the transport's command side without going through the action pipeline.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Viewer.Core.ArchFixture</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Viewer.Core\Viewer.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GodotSharp" />
+    <!-- No Linden contentFiles in any output (see Directory.Build.props). -->
+    <PackageReference Include="LibreMetaverse" ExcludeAssets="$(NvLibreMetaverseExcludeAssets)" />
+  </ItemGroup>
+
+</Project>

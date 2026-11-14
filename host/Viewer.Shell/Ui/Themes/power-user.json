@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "id": "power-user",
+  "name": "Power user",
+  "colors": {
+    "panel": "#1b1c1fe6",
+    "bar": "#232428",
+    "input": "#202125",
+    "border": "#34363b",
+    "text": "#e8e8e8",
+    "textSecondary": "#a9adb3",
+    "accent": "#f59e0b",
+    "accentFill": "#f59e0b",
+    "accentFillText": "#111111",
+    "dangerFill": "#c0392b",
+    "warning": "#f0b24a",
+    "warningText": "#111111",
+    "success": "#53b97b",
+    "chatOwn": "#9ddbff",
+    "chatAgent": "#e8e8e8",
+    "chatObject": "#a8eb9e",
+    "chatSystem": "#ffd673",
+    "chatTyping": "#a9adb3",
+    "error": "#ff8c85",
+    "outline": "#000000cc",
+    "scrim": "#00000073"
+  },
+  "metrics": { "radius": 4, "borderWidth": 1, "fontBody": 13, "fontCaption": 11, "fontTitle": 13 }
+}

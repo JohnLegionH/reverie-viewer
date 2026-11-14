@@ -1,0 +1,70 @@
+# Copyright (c) 2026 Legion Builds
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: Bug report
+description: Something in Reverie Viewer does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem. Support is best effort. For a security problem, do not use this form:
+        see SECURITY.md and report it privately.
+  - type: input
+    id: version
+    attributes:
+      label: Viewer version
+      description: Shown on the login screen and in the About window (for example "Reverie Viewer 0.1.0").
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: For example "Windows 11 23H2" or "Ubuntu 26.04, GNOME on Wayland".
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card and driver version
+      description: For example "NVIDIA RTX 3060, driver 580.10".
+    validations:
+      required: true
+  - type: dropdown
+    id: grid
+    attributes:
+      label: Grid type
+      options:
+        - OpenSimulator grid
+        - Second Life
+        - Other or not sure
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did, one step per line, and what happened instead of what you expected.
+      placeholder: |
+        1. Log in to ...
+        2. Open ...
+        3. ...
+        Expected: ...
+        What happened: ...
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        Attach the newest log file, or paste the relevant part. It is in:
+        - Windows: %LOCALAPPDATA%\ReverieViewer\Logs
+        - Linux: ~/.local/state/ReverieViewer/logs
+        Read it before you share it: logs leave out passwords, but they name the grid and the regions you visited.
+      render: text
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Screenshots, how often it happens, whether another viewer shows the same thing.
