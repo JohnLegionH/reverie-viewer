@@ -518,6 +518,7 @@ public sealed class InteractionController
         if (entry.Id is "drop" || (entry.Id == "delete" && entry.Children is not null))
             return false;   // the question's header: only its confirm entry drops or deletes
         var kind = Menu;
+        _menuChoiceKeepsSelection = kind == MenuKind.Object && entryId is "inspect" or "open" or "buy" or "pay";
         if (kind == MenuKind.Object && _selfPart.Contains(entryId))
             kind = MenuKind.Self;   // an own avatar entry in an own worn object's menu
         switch (kind)
@@ -631,14 +632,29 @@ public sealed class InteractionController
     }
 
     /// <summary>Closes the right-click menu (the view calls it after drawing the choice, or when the user clicks away).</summary>
+    /// <summary>
+    /// Closes the menu. The object a right-click selected stays selected only while its menu is open, as in the official viewer (the
+    /// menu holder lets go of its selection when the menus hide, llviewermenu.cpp, and a selection nothing holds is then cleared,
+    /// llviewerwindow.cpp): after Sit Here, Touch or a menu closed with no choice the highlight goes. A choice that opened a window
+    /// about the object (Inspect, Open, Buy, Pay) keeps it for that window.
+    /// </summary>
     public void CloseMenu()
     {
         if (Menu == MenuKind.None)
             return;
+        bool release = Menu == MenuKind.Object && !_menuChoiceKeepsSelection;
+        _menuChoiceKeepsSelection = false;
         Menu = MenuKind.None;
         Entries = [];
+        if (release)
+        {
+            Selected = null;
+            Properties = null;
+        }
         Changed?.Invoke();
     }
+
+    private bool _menuChoiceKeepsSelection;   // the object menu's choice opened a window about the selected object
 
     /// <summary>Sit on the ground where the avatar stands (what the land menu's Sit Here sends).</summary>
     public void SitOnGround() => _submit(new SitGroundIntent());
