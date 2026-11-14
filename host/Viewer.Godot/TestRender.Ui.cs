@@ -50,8 +50,32 @@ public partial class TestRender
     [
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
-        "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal",
+        "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
     ];
+
+    /// <summary>The Build window with an example box selected: the Edit tool, the Object tab with its place, size, rotation and a hollowed,
+    /// twisted box's shape fields, on an in-memory world with no session or grid.</summary>
+    private static void ExampleBuild(ShellRoot shell, StringTable strings)
+    {
+        static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        var world = new Viewer.Core.World.WorldState(new Viewer.Core.Diagnostics.CoreLog(new DiscardSink(), "render"));
+        var sim = new Viewer.Core.Session.SimRef(256000UL << 32 | 256000UL, "Example");
+        world.BeginRegion(sim, new Viewer.Core.Session.RegionInfo("Example", 1000, 1000, 256, 256, false));
+        const uint own = Viewer.Core.Interaction.ObjectFlagBits.YouOwner | Viewer.Core.Interaction.ObjectFlagBits.Modify | Viewer.Core.Interaction.ObjectFlagBits.Move
+            | Viewer.Core.Interaction.ObjectFlagBits.Copy | Viewer.Core.Interaction.ObjectFlagBits.Transfer;
+        var shape = Viewer.Core.Meshing.PrimShape.Box with { ProfileHollow = 0.5, PathTwist = 0.5 };
+        world.ApplyObject(sim, new Viewer.Core.World.PrimData(1, G(31), 0, 0, new System.Numerics.Vector3(128.5f, 64.25f, 22.1f),
+            Viewer.Core.Building.EditNumbers.FromEulerDegrees(new System.Numerics.Vector3(0, 0, 30)), new System.Numerics.Vector3(10f, 10f, 0.2f), Interaction: new Viewer.Core.World.PrimInteraction(0, own), Shape: shape));
+        var edit = new Viewer.Shell.Build.EditController(world, _ => new ActionResult(ActionStatus.Sent));
+        edit.SelectTool(Viewer.Shell.Build.BuildTool.Edit);
+        edit.SelectMany([1], shift: false);
+        edit.Receive(new Viewer.Core.Session.ObjectPropertiesReceived(G(31), "Floor", "Plank floor", G(32), G(32), Guid.Empty, null,
+            0x7fffffff, 0, 1u << 19 | 1u << 15 | 1u << 13, 0, false));
+        var panel = new EditPanel(strings, () => edit);
+        shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
+        panel.Tabs.CurrentTab = 1;
+        panel.Refresh();
+    }
 
     /// <summary>
     /// --tr-ui=SCENE [--tr-theme=PRESET] [--tr-alter=wrongtoken]: one interface scene drawn as the viewer draws it, in a look, against
@@ -115,6 +139,8 @@ public partial class TestRender
                 NotificationFeature.Install(shell);
                 InteractFeature.Install(shell);
                 PersonalLightingFeature.Install(shell, new Viewer.Core.World.PersonalLighting(), () => null);
+                if (scene == "build")
+                    ExampleBuild(shell, strings);
                 var prefs = PreferencesFeature.Install(shell, settings, () => 0, () => false);
                 if (scene.StartsWith("preferences", StringComparison.Ordinal))
                     prefs.ShowCategory(scene == "preferences" ? "interface" : scene["preferences-".Length..]);   // "preferences" is the Interface page
@@ -133,6 +159,7 @@ public partial class TestRender
                     "inspect" => InteractFeature.InspectId,
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
+                    "build" => EditPanel.FloaterId,
                     _ => PreferencesFeature.FloaterId,
                 };
                 break;
