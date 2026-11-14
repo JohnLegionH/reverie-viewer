@@ -32,7 +32,16 @@ public static class TopBarMenuMap
         ("app.quit", "menu.app.quit", "app.quit", LucideIcons.Close),
     ];
 
-    public static IReadOnlyList<TopMenuView> Build(MenuModel menus, ShellCommands commands) => Array.Empty<TopMenuView>();
+    public static IReadOnlyList<TopMenuView> Build(MenuModel menus, ShellCommands commands)
+    {
+        var list = new List<TopMenuView>
+        {
+            new(AppMenuId, "topbar.app", true, AppEntries.Select(a => new TopMenuEntryView(a.Id, a.LabelKey, a.CommandId, a.Icon, null, commands.Has(a.CommandId), null, null)).ToArray()),
+        };
+        foreach (var def in menus.Menus)
+            list.Add(new TopMenuView(def.Id, def.LabelKey, false, def.Entries.Select(e => View(e, commands)).ToArray()));
+        return list;
+    }
 
     private static TopMenuEntryView View(MenuEntry e, ShellCommands commands) =>
         e.Children is { } kids
@@ -50,7 +59,16 @@ public static class TopBarMenuMap
     };
 
     /// <summary>The icon for a menu entry: its own, else one by the menu it is in (World entries all have one), else none.</summary>
-    public static string? IconFor(string entryId) => null;
+    public static string? IconFor(string entryId)
+    {
+        if (Icons.TryGetValue(entryId, out var icon))
+            return icon;
+        if (entryId.StartsWith("world.", StringComparison.Ordinal))
+            return LucideIcons.Grid;
+        if (entryId.StartsWith("build.", StringComparison.Ordinal))
+            return LucideIcons.Build;
+        return null;
+    }
 }
 
 /// <summary>What a dock button does when clicked: runs something, turns on or off, or turns on or off with a menu on its chevron.</summary>
@@ -89,7 +107,15 @@ public sealed class DockItem
     public IReadOnlyList<DockMenuEntry> Menu { get; internal set; } = Array.Empty<DockMenuEntry>();
 
     /// <summary>The name under the button: a toggle reads "&lt;name&gt; · On" or "· Off"; Notices with a count reads "&lt;n&gt; notices".</summary>
-    public string Shown(StringTable strings) => "";
+    public string Shown(StringTable strings)
+    {
+        string name = Owner is null ? strings.Get(Label) : Label;
+        if (Kind is DockItemKind.Toggle or DockItemKind.ToggleWithMenu)
+            return strings.Get(On ? "dock.on" : "dock.off", name);
+        if (Attention && AttentionCount is int n && n > 0)
+            return Id == "notices" && Owner is null ? strings.Get("dock.notices.count", n) : strings.Get("dock.count", name, n);
+        return name;
+    }
 }
 
 /// <summary>
@@ -108,33 +134,92 @@ public sealed class DockModel
     /// <summary>Raised after an item came, went, or changed its state.</summary>
     public event Action? Changed;
 
-    public static DockModel Standard() => new();
+    public static DockModel Standard()
+    {
+        var d = new DockModel();
+        void Add(string id, string key, string icon, string group, string command, string floater) =>
+            d._items.Add(new DockItem(id, key, icon, DockItemKind.Action, group, command, floater));
+        Add("chat", "dock.chat", LucideIcons.Chat, "talk", "floater.chat", "chat.nearby");
+        Add("convos", "dock.convos", LucideIcons.Conversations, "talk", "floater.conversations", "chat.conversations");
+        Add("people", "dock.people", LucideIcons.People, "talk", "floater.people", "people");
+        Add("teleport", "dock.teleport", LucideIcons.Teleport, "world", "floater.teleport", "teleport");
+        Add("map", "dock.map", LucideIcons.Map, "world", "floater.map", "world_map");
+        Add("minimap", "dock.minimap", LucideIcons.MiniMap, "world", "floater.minimap", "minimap");
+        Add("inventory", "dock.inventory", LucideIcons.Inventory, "me", "floater.inventory", "inventory");
+        Add("outfits", "dock.outfits", LucideIcons.Outfits, "me", "floater.outfits", "outfits");
+        Add("appearance", "dock.appearance", LucideIcons.Appearance, "me", "floater.appearance", "appearance");
+        Add("build", "dock.build", LucideIcons.Build, "make", "build.create", "build");
+        Add("notices", "dock.notices", LucideIcons.Notices, "alerts", "floater.notifications", "notifications");
+        return d;
+    }
 
     /// <summary>The groups in order, each with its items in order (an empty group is left out).</summary>
-    public IReadOnlyList<(string Group, IReadOnlyList<DockItem> Items)> Groups => Array.Empty<(string, IReadOnlyList<DockItem>)>();
+    public IReadOnlyList<(string Group, IReadOnlyList<DockItem> Items)> Groups =>
+        GroupOrder.Select(g => (g, (IReadOnlyList<DockItem>)_items.Where(i => i.Group == g).ToList())).Where(x => x.Item2.Count > 0).ToList();
 
     public IReadOnlyList<DockItem> Items => _items;
 
-    public DockItem? Item(string id, string? owner = null) => null;
+    public DockItem? Item(string id, string? owner = null) => _items.FirstOrDefault(i => i.Id == id && i.Owner == owner);
 
     /// <summary>An add-on's item, in Make after Build and after the items asked for before it; null when refused (the add-on already has
     /// two, or one with that id).</summary>
     public DockItem? AddAddonItem(string owner, string id, string label, DockItemKind kind, string? icon = null, string? tooltip = null,
-        IReadOnlyList<DockMenuEntry>? menu = null) => null;
+        IReadOnlyList<DockMenuEntry>? menu = null)
+    {
+        if (string.IsNullOrEmpty(owner) || string.IsNullOrEmpty(id) || Item(id, owner) is not null || _items.Count(i => i.Owner == owner) >= ItemsPerAddon)
+            return null;
+        string shownIcon = icon is { } given && (LucideIcons.All.Contains(given) || given.TrimStart().StartsWith("<svg", StringComparison.Ordinal)) ? given : LucideIcons.AddOn;
+        var item = new DockItem(id, CutLabel(label ?? ""), shownIcon, kind, "make", owner: owner, tooltip: tooltip) { Menu = menu?.ToArray() ?? Array.Empty<DockMenuEntry>() };
+        int after = _items.FindLastIndex(i => i.Group == "make");
+        _items.Insert(after + 1, item);
+        Raise();
+        return item;
+    }
 
-    public bool RemoveAddonItem(string owner, string id) => false;
+    public bool RemoveAddonItem(string owner, string id)
+    {
+        var item = Item(id, owner);
+        if (item is null || owner is null)
+            return false;
+        _items.Remove(item);
+        Raise();
+        return true;
+    }
 
     /// <summary>Every item of an add-on goes at once (it was turned off). How many went.</summary>
-    public int RemoveAddon(string owner) => 0;
+    public int RemoveAddon(string owner)
+    {
+        int n = _items.RemoveAll(i => i.Owner == owner && owner is not null);
+        if (n > 0)
+            Raise();
+        return n;
+    }
 
-    public void SetOn(DockItem item, bool on) { }
+    public void SetOn(DockItem item, bool on)
+    {
+        if (item.On == on)
+            return;
+        item.On = on;
+        Raise();
+    }
 
-    public void SetAttention(DockItem item, bool attention, int? count = null) { }
+    public void SetAttention(DockItem item, bool attention, int? count = null)
+    {
+        if (item.Attention == attention && item.AttentionCount == count)
+            return;
+        item.Attention = attention;
+        item.AttentionCount = attention ? count : null;
+        Raise();
+    }
 
-    public void SetMenu(DockItem item, IReadOnlyList<DockMenuEntry> menu) { }
+    public void SetMenu(DockItem item, IReadOnlyList<DockMenuEntry> menu)
+    {
+        item.Menu = menu.ToArray();
+        Raise();
+    }
 
     /// <summary>A name cut to ten characters, the last one an ellipsis when it was longer.</summary>
-    public static string CutLabel(string label) => label;
+    public static string CutLabel(string label) => label.Length <= LabelMax ? label : label[..(LabelMax - 1)] + "…";
 
     private void Raise() => Changed?.Invoke();
 }
@@ -148,5 +233,9 @@ public static class ContextSlot
 {
     public const double BackSeconds = 60;
 
-    public static ContextSlotKind Pick(bool sitting, bool flying, double secondsSinceTeleport, bool hasPrevious) => ContextSlotKind.None;
+    public static ContextSlotKind Pick(bool sitting, bool flying, double secondsSinceTeleport, bool hasPrevious) =>
+        sitting ? ContextSlotKind.StandUp
+        : flying ? ContextSlotKind.StopFlying
+        : hasPrevious && secondsSinceTeleport >= 0 && secondsSinceTeleport < BackSeconds ? ContextSlotKind.BackTo
+        : ContextSlotKind.None;
 }
