@@ -114,6 +114,10 @@ internal static class LmvEdit
         ObjectData = locals.Select(l => new ObjectDelinkPacket.ObjectDataBlock { ObjectLocalID = l }).ToArray(),
     };
 
+    public static UndoPacket Undo(UUID agent, UUID session, UUID group, IReadOnlyList<Guid> objects) => new() { AgentData = { }, ObjectData = [] };
+
+    public static RedoPacket Redo(UUID agent, UUID session, UUID group, IReadOnlyList<Guid> objects) => new() { AgentData = { }, ObjectData = [] };
+
     public static ObjectDuplicatePacket Duplicate(UUID agent, UUID session, UUID group, IReadOnlyList<uint> roots, System.Numerics.Vector3 offset, uint flags) => new()
     {
         AgentData = { AgentID = agent, SessionID = session, GroupID = group },

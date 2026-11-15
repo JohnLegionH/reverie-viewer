@@ -102,6 +102,22 @@ public sealed record DeselectObjectsIntent(IReadOnlyList<uint> LocalIds) : Actio
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
 
+/// <summary>Undo the region's last change to each object given (the Build menu's Undo, Ctrl+Z): the region keeps the changes and steps back.</summary>
+public sealed record UndoObjectsIntent(IReadOnlyList<Guid> ObjectIds) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => ObjectIds.Count == 0 || ObjectIds.Any(i => i == Guid.Empty) ? [new ActionIssue("edit.no_object")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Redo a change the region undid on each object given (the Build menu's Redo, Ctrl+Y).</summary>
+public sealed record RedoObjectsIntent(IReadOnlyList<Guid> ObjectIds) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => ObjectIds.Count == 0 || ObjectIds.Any(i => i == Guid.Empty) ? [new ActionIssue("edit.no_object")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
 /// <summary>Copy objects in place (the Move tool's Shift-drag): with no flags the copy stays where it is and the original stays selected.</summary>
 public sealed record DuplicateObjectsIntent(IReadOnlyList<uint> Roots, Vector3 Offset, uint Flags = 0) : ActionIntent
 {

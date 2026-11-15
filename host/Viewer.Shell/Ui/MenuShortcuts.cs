@@ -48,6 +48,9 @@ public static class MenuShortcuts
             .Select(x => (x.Entry, x.Chord!))
             .ToArray();
 
+    /// <summary>Whether a text field that holds the keyboard takes this chord itself (its own Undo and Redo) before the menus.</summary>
+    public static bool TextFieldFirst(KeyChord chord) => false;
+
     /// <summary>The entry a chord runs now, or null: none has it, it is disabled, or a text field takes it.</summary>
     public static TopMenuEntryView? Route(IReadOnlyList<TopMenuView> menus, KeyChord chord, bool textEntry)
     {

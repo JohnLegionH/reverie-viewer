@@ -116,7 +116,7 @@ public class MenuShortcutRouteTests
         foreach (var (entry, chord) in MenuShortcuts.All(rig.View).Where(s => s.Entry.Enabled))
         {
             var routed = MenuShortcuts.Route(rig.View, chord, textEntry: true);
-            if (chord.Modified)
+            if (chord.Modified && !MenuShortcuts.TextFieldFirst(chord))   // Ctrl+Z and Ctrl+Y stay with the field: its own undo and redo
                 Assert.Equal(entry.Id, routed?.Id);
             else
                 Assert.Null(routed);

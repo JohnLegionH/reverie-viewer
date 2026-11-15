@@ -479,6 +479,21 @@ public sealed class EditController
         return SendPose(s, s.Position + Vector3.Transform(shift, s.Rotation), null, scale, uniform: StretchBothSides);
     }
 
+    /// <summary>Whether the left button belongs to build mode's tools (no click-steering of the avatar).</summary>
+    public bool OwnsLeftButton => false;
+
+    /// <summary>Whether Undo can be sent for the selection.</summary>
+    public bool CanUndo => false;
+
+    /// <summary>Whether Redo can be sent for the selection.</summary>
+    public bool CanRedo => false;
+
+    /// <summary>Undo (Ctrl+Z) on the selection.</summary>
+    public bool Undo() => false;
+
+    /// <summary>Redo (Ctrl+Y) on the selection.</summary>
+    public bool Redo() => false;
+
     /// <summary>Shift+X, Snap Object XY to Grid: each selected root's x and y go to the nearest grid point.</summary>
     public bool SnapSelectionXY()
     {

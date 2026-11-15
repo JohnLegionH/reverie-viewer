@@ -50,6 +50,8 @@ public static class BuildMenu
         menus.AddSubEntry(OptionsId, new MenuEntry(GridOptionsId, "menu.build.grid.options", GridOptionsCommand, inWorld, 40, Shortcut: "control|shift|B"));
     }
 
+    public const string UndoId = "build.undo", RedoId = "build.redo", UndoCommand = "build.undo", RedoCommand = "build.redo";
+
     public const string OptionsId = "build.options", GridSnapId = "build.grid.snap", GridSnapXYId = "build.grid.snap_xy", GridUseSelectionId = "build.grid.use_selection",
         GridOptionsId = "build.grid.options";
     public const string GridSnapCommand = "build.grid.snap", GridSnapXYCommand = "build.grid.snap_xy", GridUseSelectionCommand = "build.grid.use_selection",
