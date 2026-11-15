@@ -166,7 +166,7 @@ public sealed class EditTextureTab
             _texture.Text = f is { } face ? NameOf(face.TextureId) : "";
             if (f is { } shown)
             {
-                _colour.Color = new Color(shown.Colour.R, shown.Colour.G, shown.Colour.B);
+                _colour.Color = ShellTheme.DataColour(shown.Colour.R, shown.Colour.G, shown.Colour.B);   // the face's own colour, not a theme colour
                 Set(_transparency, Math.Round((1 - shown.Colour.A) * 100));
                 Set(_glow, shown.Glow);
                 _fullbright.SetPressedNoSignal(shown.Fullbright);
