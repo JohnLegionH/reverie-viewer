@@ -455,7 +455,17 @@ public partial class S1Smoke : Node
             if (e.CommandId.Length > 0 && !model.Commands.Has(e.CommandId))
             {
                 string c = e.CommandId;
-                model.Commands.Register(c, c == BuildMenu.ToggleCommand ? () => { ran.Add(c); edit.ToggleBuild(); } : () => ran.Add(c));
+                // the entries with a check mark do what the viewer's commands do to the edit controller, so the mark can be checked
+                Action act = c switch
+                {
+                    BuildMenu.ToggleCommand => edit.ToggleBuild,
+                    BuildMenu.GridSnapCommand => edit.ToggleSnap,
+                    BuildMenu.FocusCommand => () => edit.SelectTool(Viewer.Shell.Build.BuildTool.Focus),
+                    BuildMenu.MoveCommand => () => edit.SelectTool(Viewer.Shell.Build.BuildTool.Move),
+                    BuildMenu.EditCommand => () => edit.SelectTool(Viewer.Shell.Build.BuildTool.Edit),
+                    _ => () => { },
+                };
+                model.Commands.Register(c, () => { ran.Add(c); act(); });
             }
         var panels = InteractFeature.Install(shell);
         AddChild(shell);
@@ -497,8 +507,11 @@ public partial class S1Smoke : Node
                     if (world.Keys.Count > 0) problems.Add($"{entry.Id}: the key also reached the world");
                     if (checkedBefore is { } was)
                     {
-                        if (FindView(View(), entry.Id)?.Checked != !was) problems.Add($"{entry.Id}: its check mark did not change");
-                        await PressChord(chord);   // back as it was
+                        // a tool is one of a group: its key marks it; Build and Snap turn on and off
+                        bool tool = entry.CommandId is BuildMenu.FocusCommand or BuildMenu.MoveCommand or BuildMenu.EditCommand;
+                        if (FindView(View(), entry.Id)?.Checked != (tool || !was)) problems.Add($"{entry.Id}: its check mark shows {FindView(View(), entry.Id)?.Checked} after its key (was {was})");
+                        if (!tool)
+                            await PressChord(chord);   // back as it was
                     }
                 }
                 else
