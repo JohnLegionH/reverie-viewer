@@ -5,7 +5,9 @@
 // PowerShell 5.1 builds it with Add-Type, so it sticks to C# 5) and linked into the unit tests, so the placement
 // the scripts use is the placement the tests check.
 //
-// A test window is a quarter of the area of the monitor it is placed on (half the width, half the height of that
+// Every window a check opens (a test run's, or an automation run of the exported viewer) is placed off every monitor: at the
+// usual drawing size, beyond the right edge of all of them (OffScreen). Only when asked for (NV_TEST_WINDOW_ONSCREEN=1) does it go
+// in a corner instead, as follows. A corner window is a quarter of the area of the monitor it is placed on (half the width, half the height of that
 // monitor's work area, the screen minus the taskbar), in the bottom-right corner of it. The monitor is the one that
 // holds the window the person at the machine is working in (the foreground window) when the run starts, so the test
 // window opens on the screen that person is looking at. The picture is not made smaller: the engine keeps drawing
@@ -75,21 +77,39 @@ namespace NvTools
         /// </summary>
         public static TestWindowKind KindFor(string argLine, bool fullSize)
         {
-            if (argLine == null) argLine = "";
-            if (!Regex.IsMatch(argLine, "--test-render|--s1-") || Regex.IsMatch(argLine, "--headless")) return TestWindowKind.Untouched;
-            return fullSize ? TestWindowKind.Untouched : TestWindowKind.Corner;
+            return KindFor(argLine, fullSize, false, false);
         }
 
-        /// <summary>Which window a run gets (stub).</summary>
+        /// <summary>
+        /// Which window a run gets. A run that opens no window (<c>--headless</c>) and a run asked for the usual full-size window
+        /// (<paramref name="fullSize"/>) are untouched. Every other run of the test harness (<c>--test-render</c>, <c>--s1-*</c>) and
+        /// every start of the exported viewer (<paramref name="exportedViewer"/>: the automation runs of the live checks and the
+        /// smoke) opens off every monitor, so nothing a check starts covers or interrupts the person at the machine;
+        /// <paramref name="onScreen"/> (NV_TEST_WINDOW_ONSCREEN=1) puts it in the corner of the monitor in use instead, to watch it.
+        /// </summary>
         public static TestWindowKind KindFor(string argLine, bool fullSize, bool exportedViewer, bool onScreen)
         {
-            return KindFor(argLine, fullSize);
+            if (argLine == null) argLine = "";
+            if (Regex.IsMatch(argLine, "--headless")) return TestWindowKind.Untouched;
+            if (!exportedViewer && !Regex.IsMatch(argLine, "--test-render|--s1-")) return TestWindowKind.Untouched;
+            if (fullSize) return TestWindowKind.Untouched;
+            return onScreen ? TestWindowKind.Corner : TestWindowKind.OffScreen;
         }
 
-        /// <summary>A window off every monitor (stub).</summary>
+        /// <summary>The gap left between the right edge of the monitors and an off-screen window.</summary>
+        public const int OffScreenGap = 256;
+
+        /// <summary>
+        /// A <paramref name="width"/> x <paramref name="height"/> window beyond the right edge of every monitor in <paramref name="screens"/>
+        /// (their full bounds), level with the highest of them: it meets none of them, so nobody sees it. The engine draws into it as into
+        /// any window; the picture is read from the engine, not from the screen.
+        /// </summary>
         public static PixelRect OffScreen(PixelRect[] screens, int width, int height)
         {
-            return new PixelRect(0, 0, 0, 0);
+            if (screens == null || screens.Length == 0) throw new ArgumentException("at least one monitor is needed", "screens");
+            int right = int.MinValue, top = int.MaxValue;
+            foreach (PixelRect s in screens) { right = Math.Max(right, s.Right); top = Math.Min(top, s.Y); }
+            return new PixelRect(right + OffScreenGap, top, Math.Max(1, width), Math.Max(1, height));
         }
 
         /// <summary>

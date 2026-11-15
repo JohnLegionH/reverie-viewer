@@ -111,28 +111,32 @@ if ($exportedBuild -and -not (Test-ExportComplete $exeDir)) { Write-Output "GODO
 if ($exportedBuild) { $AppDataDir = Get-RunAppDataDir $AppDataDir $exeDir $DiagDir }
 New-Item -ItemType Directory -Force -Path $AppDataDir, $DiagDir | Out-Null
 
-# --- test window: in the corner, no focus ---------------------------------------------------------------------------
-# Only runs of the test harness (a window is opened, so not --headless) are placed; the editor, the export and a
-# normally started viewer are untouched. Which window a run gets (a quarter of the usual area, or for a measuring run
-# the usual size) is TestWindowPlacement.KindFor's decision. The placement itself is tools\TestWindowPlacement.cs, which
+# --- test window: off every monitor, no focus -----------------------------------------------------------------------
+# Runs of the test harness and starts of the exported viewer (the live checks' and the smoke's automation runs) that open
+# a window are placed; the editor and headless runs are untouched. Every placed window opens beyond the right edge of all
+# the monitors, at the usual drawing size, without focus and at the bottom of the stacking order, so nothing a check starts
+# covers or interrupts the person at the machine. NV_TEST_WINDOW_ONSCREEN=1 puts it in the bottom-right corner of the
+# monitor in use instead (a quarter of its area), to watch a run. Which window a run gets is TestWindowPlacement.KindFor's decision. The placement itself is tools\TestWindowPlacement.cs, which
 # the unit tests link, so the numbers used here are the numbers tested. The engine is told the window's size and
 # position (--resolution, --position), and the test harness is told the full size it keeps drawing at
 # (--nv-test-window=), so it scales the picture down for display when the window is smaller than that, and sets the
 # window to not take focus (host\Viewer.Godot\TestWindow.cs).
 $fullWindow = $FullSizeWindow -or ($env:NV_TEST_WINDOW_FULL -eq "1")
 $measuring = $MeasureRun -or ($env:NV_TEST_WINDOW_MEASURE -eq "1")
+$onScreen = $env:NV_TEST_WINDOW_ONSCREEN -eq "1"
 $kind = $null
+$offX = 0; $offY = 0
 $windowPlaced = $false
 # The placement and crash-watch decisions live in one file, which the unit tests link too.
 $policyLoaded = $false
-if ($ArgLine -match '--test-render|--s1-' -or $PlaceWindow) {
+if ($ArgLine -match '--test-render|--s1-' -or $PlaceWindow -or $exportedBuild) {
     try { Add-Type -Path (Join-Path $PSScriptRoot "TestWindowPlacement.cs"); $policyLoaded = $true } catch { Write-Output "GODOT: placement/crash-watch policy not loaded ($($_.Exception.Message))" }
 }
 if ($policyLoaded -and $ArgLine -notmatch '--headless') {
     try {
         Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class NvDpi { [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; } [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r); [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h); }'
         [void][NvDpi]::SetProcessDPIAware()   # physical pixels, as the engine's window uses
-        $kind = [NvTools.TestWindowPlacement]::KindFor($(if ($PlaceWindow) { "$ArgLine --s1-window" } else { $ArgLine }), [bool]$fullWindow)
+        $kind = [NvTools.TestWindowPlacement]::KindFor($(if ($PlaceWindow) { "$ArgLine --s1-window" } else { $ArgLine }), [bool]$fullWindow, [bool]$exportedBuild, [bool]$onScreen)
     } catch {
         $kind = $null
         Write-Output "GODOT: test window not placed ($($_.Exception.Message)); opening at the usual size"
@@ -161,9 +165,16 @@ if ($kind -and $kind -ne [NvTools.TestWindowKind]::Untouched) {
             $monitor = [NvTools.TestWindowPlacement]::MonitorOf($bounds, (New-Object NvTools.PixelRect $fgRect.Left, $fgRect.Top, ($fgRect.Right - $fgRect.Left), ($fgRect.Bottom - $fgRect.Top)), $primary)
         }
         if ($env:NV_TEST_WINDOW_MONITOR -match '^\d+$') { $monitor = [int]$env:NV_TEST_WINDOW_MONITOR }
-        $win = [NvTools.TestWindowPlacement]::Place($areas, $monitor)
+        if ($kind -eq [NvTools.TestWindowKind]::OffScreen) {
+            $win = [NvTools.TestWindowPlacement]::OffScreen($bounds, [NvTools.TestWindowPlacement]::BaseWidth, [NvTools.TestWindowPlacement]::BaseHeight)
+            $offX = $win.X; $offY = $win.Y
+        } else {
+            $win = [NvTools.TestWindowPlacement]::Place($areas, $monitor)
+        }
         $windowPlaced = $true
-        $ArgLine = "$([NvTools.TestWindowPlacement]::EngineArguments($win, $bounds)) $ArgLine --nv-test-window=$([NvTools.TestWindowPlacement]::BaseWidth)x$([NvTools.TestWindowPlacement]::BaseHeight)"
+        # the window argument is the viewer's own, so it goes after the engine's "--" separator (a plain start may have none yet)
+        $sep = if ($ArgLine -match '(^|\s)--(\s|$)') { "" } else { " --" }
+        $ArgLine = "$([NvTools.TestWindowPlacement]::EngineArguments($win, $bounds)) $ArgLine$sep --nv-test-window=$([NvTools.TestWindowPlacement]::BaseWidth)x$([NvTools.TestWindowPlacement]::BaseHeight)"
         # The window is created before any viewer code runs, so the no-focus flag has to be in the project settings
         # the engine reads at start. An exported build reads override.cfg from its own folder, and the build's folder is
         # never written: the run starts from a launch folder of hard links to the build's files with the override.cfg in
@@ -391,6 +402,7 @@ function Save-Dump {
 
 $snapshotted = $false
 $windowBottomed = $false
+$windowSeenOff = $false
 $lastWindowPoll = [DateTime]::MinValue
 if ($windowPlaced) {
     Add-Type -TypeDefinition @"
@@ -405,7 +417,33 @@ public static class NvZOrder
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr h, out Rect r);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromRect(ref Rect r, uint flags);
+    [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
     private const uint SwpNoSize = 1, SwpNoMove = 2, SwpNoActivate = 0x10, SwpNoOwnerZOrder = 0x200;
+    /// <summary>Moves every visible top-level window of the given processes that meets a monitor to (x, y), off every monitor, at the
+    /// bottom of the stacking order and without activating it (the engine keeps a new window partly on a monitor whatever position it is
+    /// given). Returns how many such windows the processes have, -1 when none is up yet.</summary>
+    public static int MoveOff(int[] pids, int x, int y)
+    {
+        var mine = new HashSet<uint>();
+        foreach (int id in pids) mine.Add((uint)id);
+        int n = -1;
+        EnumWindows((h, l) =>
+        {
+            uint pid; GetWindowThreadProcessId(h, out pid);
+            if (mine.Contains(pid) && IsWindowVisible(h) && !IsIconic(h))
+            {
+                if (n < 0) n = 0;
+                n++;
+                Rect r;
+                if (GetWindowRect(h, out r) && MonitorFromRect(ref r, 0) != IntPtr.Zero)   // MONITOR_DEFAULTTONULL: null when it meets no monitor
+                    SetWindowPos(h, (IntPtr)1, x, y, 0, 0, SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+            }
+            return true;
+        }, IntPtr.Zero);
+        return n;
+    }
     /// <summary>Sends every visible top-level window of the given processes to the bottom of the stacking order without activating it; returns how many.</summary>
     public static int SendToBottom(int[] pids)
     {
@@ -471,19 +509,24 @@ while (-not $p.HasExited) {
     }
     # A placed test window is a new top-level window, which Windows puts above everything else when it opens. As soon as the
     # run's process has a window, it is sent to the bottom of the stacking order without being activated (the no-focus setting
-    # keeps it from taking focus). Only windows of this run's own process tree are touched. The viewer keeps it there afterwards
-    # (host\Viewer.Godot\TestWindow.cs), so this polls only until the window has been found once, and for at most a minute.
-    if ($windowPlaced -and -not $windowBottomed -and ((Get-Date) - $started).TotalSeconds -lt 60 -and ((Get-Date) - $lastWindowPoll).TotalMilliseconds -ge 200) {
+    # keeps it from taking focus). Only windows of this run's own process tree are touched. An off-screen window is also moved
+    # off every monitor (the engine keeps a new window partly on one whatever position it was given), and checked again every
+    # 2 s until the run ends. A corner window is kept at the bottom by the viewer (host\Viewer.Godot\TestWindow.cs), so for it
+    # this polls only until the window has been found once, and for at most a minute.
+    if ($windowPlaced -and -not $windowBottomed -and (((Get-Date) - $started).TotalSeconds -lt 60 -or $windowSeenOff) -and ((Get-Date) - $lastWindowPoll).TotalMilliseconds -ge $(if ($windowSeenOff) { 2000 } else { 100 })) {
         $lastWindowPoll = Get-Date
         try {
             $ids = New-Object System.Collections.Generic.List[int]
             $ids.Add($p.Id)
             $procs = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
             for ($i = 0; $i -lt $ids.Count; $i++) { foreach ($c in $procs) { if ([int]$c.ParentProcessId -eq $ids[$i]) { $ids.Add([int]$c.ProcessId) } } }
-            if ([NvZOrder]::SendToBottom($ids.ToArray()) -gt 0) { $windowBottomed = $true }
+            if ($kind -eq [NvTools.TestWindowKind]::OffScreen) {
+                # moved off every monitor as soon as it is up, and checked again every 2 s for the whole run, in case the program moves it back
+                if ([NvZOrder]::MoveOff($ids.ToArray(), $offX, $offY) -gt 0) { $windowSeenOff = $true }
+            } elseif ([NvZOrder]::SendToBottom($ids.ToArray()) -gt 0) { $windowBottomed = $true }
         } catch { $windowBottomed = $true; Write-Output "GODOT: could not send the test window to the bottom ($($_.Exception.Message))" }
     }
-    Start-Sleep -Milliseconds $(if ($windowPlaced -and -not $windowBottomed) { 100 } else { 500 })
+    Start-Sleep -Milliseconds $(if ($windowPlaced -and -not $windowBottomed -and -not $windowSeenOff) { 50 } else { 500 })
 }
 
 # Exited. Give the pipes a moment to reach EOF; if a child still holds them, record it (and do not block forever).
