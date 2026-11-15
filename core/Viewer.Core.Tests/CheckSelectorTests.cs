@@ -112,6 +112,21 @@ public class CheckSelectorTests
         Assert.False(CheckSelector.Picks(s, "avatars_baked_d3d12"));   // avatar cases run on Vulkan only
     }
 
+    [Theory]
+    [InlineData("shared-env-vulkan")]
+    [InlineData("proposal-shared-env-vulkan")]
+    [InlineData("sky-midday-vulkan")]
+    [InlineData("glow-light-sun-vulkan")]
+    public void The_cases_are_found_by_their_picture_tags_too_which_render_ps1_filters_on(string tag)
+    {
+        // render.ps1 -OnlyCases matches the picture's tag (hyphens, and proposal- before a golden exists), not the case's name
+        var s = Select("fixtures/environment/shared-dusk-thick.llsd.xml");
+        Assert.True(CheckSelector.Picks(s, tag), tag);
+        Assert.Matches(s.CasesByBackend["vulkan"], tag);
+        Assert.False(CheckSelector.Picks(s, "ui-inworld-classic-vulkan"));
+        Assert.True(CheckSelector.Picks(Select("host/Viewer.Godot/Reverie/TopBar.cs"), "uichrome-100-1152x648-d3d12"));
+    }
+
     [Fact]
     public void Every_area_the_map_names_exists_and_every_pattern_compiles()
     {
