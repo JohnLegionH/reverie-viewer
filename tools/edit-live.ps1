@@ -117,7 +117,7 @@ function Press([string]$k, [bool]$ctrl = $false, [bool]$shift = $false) {
     [void](In @{ kind = "key"; key = $k; down = $true; shift = $shift; alt = $false; ctrl = $ctrl })
     [void](In @{ kind = "key"; key = $k; down = $false; shift = $shift; alt = $false; ctrl = $ctrl })
 }
-function EditUntil([scriptblock]$cond) { $r = Wait-Until { $s = Edit @{ action = "state" }; if ($s -and (& $cond $s)) { $s } } 5; if ($r) { $r } else { Edit @{ action = "state" } } }
+function EditUntil([scriptblock]$test) { $r = Wait-Until { $s = Edit @{ action = "state" }; if ($s -and (& $test $s)) { $s } } 5; if ($r) { $r } else { Edit @{ action = "state" } } }
 function NoFocus() { [void](In @{ kind = "release_focus" }) }
 
 # ---- 0. from a fresh login, before any menu has been opened: Ctrl+I opens the inventory ----
