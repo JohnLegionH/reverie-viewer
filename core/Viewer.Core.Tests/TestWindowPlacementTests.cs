@@ -207,7 +207,7 @@ public class TestWindowPlacementTests
         Assert.Contains("[switch]$MeasureRun", script);
         Assert.Contains("NV_TEST_WINDOW_FULL", script);
         Assert.Contains("[switch]$PlaceWindow", script);   // a plain start the harness places like a test window (tools/login-proof.ps1)
-        Assert.Contains("[NvTools.TestWindowPlacement]::KindFor($(if ($PlaceWindow) { \"$ArgLine --s1-window\" } else { $ArgLine }), [bool]$fullWindow)", script);
+        Assert.Contains("[NvTools.TestWindowPlacement]::KindFor($(if ($PlaceWindow) { \"$ArgLine --s1-window\" } else { $ArgLine }), [bool]$fullWindow, [bool]$exportedBuild, [bool]$onScreen)", script);
         Assert.Contains("[NvTools.TestWindowPlacement]::MonitorOf($bounds,", script);
         Assert.Contains("[NvTools.TestWindowPlacement]::Place($areas, $monitor)", script);
         Assert.Contains("GetForegroundWindow", script);
@@ -246,9 +246,9 @@ public class TestWindowPlacementTests
 
     // Which runs get a placed window: the table of KindFor.
     [Theory]
-    [InlineData("--rendering-driver vulkan -- --test-render --tr-tag=golden", false, TestWindowKind.Corner)]            // a render check
-    [InlineData("--rendering-driver vulkan -- --s1-smoke", false, TestWindowKind.Corner)]                              // an S-1 run
-    [InlineData("--rendering-driver d3d12 -- --test-render --tr-path-seconds=30 --tr-return", false, TestWindowKind.Corner)]   // a measuring run: the same window
+    [InlineData("--rendering-driver vulkan -- --test-render --tr-tag=golden", false, TestWindowKind.OffScreen)]            // a render check
+    [InlineData("--rendering-driver vulkan -- --s1-smoke", false, TestWindowKind.OffScreen)]                              // an S-1 run
+    [InlineData("--rendering-driver d3d12 -- --test-render --tr-path-seconds=30 --tr-return", false, TestWindowKind.OffScreen)]   // a measuring run: the same window
     [InlineData("--rendering-driver vulkan -- --test-render --tr-tag=golden", true, TestWindowKind.Untouched)]          // the full-size switch: the usual window
     [InlineData("--headless --editor --path X --build-solutions --quit", false, TestWindowKind.Untouched)]              // no window is opened
     [InlineData("--headless -- --test-render --tr-tag=x", false, TestWindowKind.Untouched)]
@@ -257,6 +257,63 @@ public class TestWindowPlacementTests
     public void Each_kind_of_run_gets_its_own_window(string argLine, bool fullSize, TestWindowKind expected)
     {
         Assert.Equal(expected, TestWindowPlacement.KindFor(argLine, fullSize));
+    }
+
+    // Every window a check opens is off every monitor: test runs, and starts of the exported viewer that open a window
+    // (the automation runs of the live checks and the stock smoke). The corner window is kept only when asked for.
+    [Theory]
+    [InlineData("--rendering-driver vulkan -- --test-render --tr-tag=golden", false, false, false, TestWindowKind.OffScreen)]
+    [InlineData("--rendering-driver d3d12 -- --s1-smoke", false, true, false, TestWindowKind.OffScreen)]
+    [InlineData("--rendering-driver vulkan -- --automation", false, true, false, TestWindowKind.OffScreen)]        // a live check's or the stock smoke's viewer
+    [InlineData("--rendering-driver vulkan -- --automation", false, false, false, TestWindowKind.Untouched)]       // the editor's own program: not a viewer window
+    [InlineData("--rendering-driver vulkan -- --test-render --tr-tag=golden", false, true, true, TestWindowKind.Corner)]   // NV_TEST_WINDOW_ONSCREEN=1
+    [InlineData("--rendering-driver vulkan -- --automation", false, true, true, TestWindowKind.Corner)]
+    [InlineData("--rendering-driver vulkan -- --automation", true, true, false, TestWindowKind.Untouched)]        // the full-size switch
+    [InlineData("--headless -- --s1-smoke", false, true, false, TestWindowKind.Untouched)]                        // no window is opened
+    [InlineData("--headless --editor --path X --build-solutions --quit", false, false, false, TestWindowKind.Untouched)]
+    public void Every_window_a_check_opens_is_off_screen_unless_asked_otherwise(string argLine, bool fullSize, bool exportedViewer, bool onScreen, TestWindowKind expected)
+    {
+        Assert.Equal(expected, TestWindowPlacement.KindFor(argLine, fullSize, exportedViewer, onScreen));
+    }
+
+    public static IEnumerable<object[]> Layouts()
+    {
+        yield return new object[] { new[] { Area(0, 0, 1920, 1080) } };
+        yield return new object[] { new[] { Area(0, 0, 3840, 2160), Area(-3840, 0, 3840, 2160), Area(3840, 360, 2560, 1440) } };
+        yield return new object[] { new[] { Area(0, 0, 1920, 1080), Area(-1280, -300, 1280, 1024), Area(1920, 200, 1600, 900) } };
+        yield return new object[] { new[] { Area(0, 0, 2560, 1440), Area(0, -1080, 1920, 1080) } };   // one above the primary
+    }
+
+    [Theory]
+    [MemberData(nameof(Layouts))]
+    public void The_off_screen_window_has_the_drawing_size_and_meets_no_monitor(PixelRect[] screens)
+    {
+        var w = TestWindowPlacement.OffScreen(screens, TestWindowPlacement.BaseWidth, TestWindowPlacement.BaseHeight);
+        Assert.Equal(1152, w.Width);
+        Assert.Equal(648, w.Height);
+        foreach (var s in screens) Assert.Equal(0L, s.OverlapArea(w));
+        int rightmost = screens.Max(s => s.Right);
+        Assert.True(w.X >= rightmost, $"{w} starts at or beyond the right edge of every monitor ({rightmost})");
+    }
+
+    [Fact]
+    public void The_off_screen_window_is_given_to_the_engine_counted_from_the_monitors_origin()
+    {
+        var screens = new[] { Area(0, 0, 3840, 2160), Area(-3840, 0, 3840, 2160) };
+        var w = TestWindowPlacement.OffScreen(screens, 1152, 648);
+        Assert.Matches(@"^--resolution 1152x648 --position \d+,\d+$", TestWindowPlacement.EngineArguments(w, screens));
+        Assert.True(w.X - TestWindowPlacement.Origin(screens).X >= 7680);
+    }
+
+    [Fact]
+    public void The_launcher_opens_the_window_off_screen_and_moves_it_off_any_monitor_the_engine_put_it_on()
+    {
+        string script = File.ReadAllText(Path.Combine(RepoRoot(), "tools", "godot.ps1"));
+        Assert.Contains("[NvTools.TestWindowPlacement]::OffScreen($bounds, [NvTools.TestWindowPlacement]::BaseWidth, [NvTools.TestWindowPlacement]::BaseHeight)", script);
+        Assert.Contains("NV_TEST_WINDOW_ONSCREEN", script);
+        // the engine keeps a new window partly on a monitor whatever position it is given, so the launcher moves it off once it is up
+        Assert.Contains("[NvZOrder]::MoveOff($ids.ToArray(), $offX, $offY", script);
+        Assert.Contains("SwpNoActivate = 0x10", script);
     }
 
     [Fact]

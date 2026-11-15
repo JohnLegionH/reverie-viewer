@@ -55,8 +55,11 @@ namespace NvTools
     {
         /// <summary>Not placed: the editor, the export, a headless run, a normal start, or a run asked for the usual full-size window.</summary>
         Untouched,
-        /// <summary>A quarter of the monitor's area in its bottom-right corner, without focus and at the bottom of the stacking order.</summary>
+        /// <summary>A quarter of the monitor's area in its bottom-right corner, without focus and at the bottom of the stacking order
+        /// (only when asked for: NV_TEST_WINDOW_ONSCREEN=1).</summary>
         Corner,
+        /// <summary>The usual drawing size, placed beyond the right edge of every monitor, without focus and at the bottom of the stacking order.</summary>
+        OffScreen,
     }
 
     public static class TestWindowPlacement
@@ -75,6 +78,18 @@ namespace NvTools
             if (argLine == null) argLine = "";
             if (!Regex.IsMatch(argLine, "--test-render|--s1-") || Regex.IsMatch(argLine, "--headless")) return TestWindowKind.Untouched;
             return fullSize ? TestWindowKind.Untouched : TestWindowKind.Corner;
+        }
+
+        /// <summary>Which window a run gets (stub).</summary>
+        public static TestWindowKind KindFor(string argLine, bool fullSize, bool exportedViewer, bool onScreen)
+        {
+            return KindFor(argLine, fullSize);
+        }
+
+        /// <summary>A window off every monitor (stub).</summary>
+        public static PixelRect OffScreen(PixelRect[] screens, int width, int height)
+        {
+            return new PixelRect(0, 0, 0, 0);
         }
 
         /// <summary>
