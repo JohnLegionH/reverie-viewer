@@ -92,6 +92,37 @@ public class LaunchFolderTests : IDisposable
         Assert.Equal(4, new FileInfo(Path.Combine(launch, "Reverie.pck")).Length);
     }
 
+    // An off-screen test window opens minimised (the engine keeps a new window partly on a monitor whatever position it is
+    // given); a quiet normal start (S-1's shipping-start checks) opens minimised with nothing else changed; the corner window
+    // and the default keep the settings they had. Each kind has its own folder.
+    [Theory]
+    [InlineData("offscreen", true, true, true)]
+    [InlineData("quiet", true, false, false)]
+    [InlineData("test", false, true, true)]
+    public void Each_kind_of_launch_folder_has_its_own_settings(string kind, bool minimised, bool noFocus, bool cachesOff)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        string build = MakeBuild(), diag = Path.Combine(_dir, "diag");
+        Directory.CreateDirectory(diag);
+        string launch = RunFunctions($"New-TestLaunchFolder '{build}' '{diag}' '{kind}'");
+        string overrides = File.ReadAllText(Path.Combine(launch, "override.cfg"));
+        Assert.Equal(minimised, overrides.Contains("window/size/mode=1"));
+        Assert.Equal(noFocus, overrides.Contains("window/size/no_focus=true"));
+        Assert.Equal(cachesOff, overrides.Contains("rendering_device/pipeline_cache/enable=false"));
+        Assert.Equal(launch, RunFunctions($"New-TestLaunchFolder '{build}' '{diag}' '{kind}'"));
+    }
+
+    [Fact]
+    public void The_kinds_of_launch_folder_never_share_a_folder()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        string build = MakeBuild(), diag = Path.Combine(_dir, "diag");
+        Directory.CreateDirectory(diag);
+        var folders = new[] { "offscreen", "quiet", "test" }.Select(k => RunFunctions($"New-TestLaunchFolder '{build}' '{diag}' '{k}'")).ToList();
+        Assert.Equal(3, folders.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(folders[2], RunFunctions($"New-TestLaunchFolder '{build}' '{diag}'"));   // the default is the test kind
+    }
+
     [Fact]
     public void A_launch_folder_holds_no_junction_or_symbolic_link_and_its_data_files_are_hard_links()
     {

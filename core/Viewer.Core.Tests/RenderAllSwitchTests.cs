@@ -68,7 +68,7 @@ public sealed class RenderAllSwitchTests
     {
         var r = Run(TimeSpan.FromSeconds(60));
         Assert.False(r.TimedOut, "the script kept running with no section switch");
-        Assert.Equal(0, r.ExitCode);
+        Assert.Equal(2, r.ExitCode);   // nothing was rendered: never a silent pass
         Assert.Contains("-All", r.Output);
         Assert.Contains("-AvatarsOnly", r.Output);
         Assert.Contains("-GlowOnly", r.Output);
@@ -84,7 +84,7 @@ public sealed class RenderAllSwitchTests
         string[] args = option == "-DiagDir" ? ["-DiagDir", Path.Combine(TestTemp.NewFolder("render-all-diag"), "diag")] : [option];
         var r = Run(TimeSpan.FromSeconds(60), args);
         Assert.False(r.TimedOut, "the script kept running with no section switch");
-        Assert.Equal(0, r.ExitCode);
+        Assert.Equal(2, r.ExitCode);   // nothing was rendered: never a silent pass
         Assert.Contains("-All", r.Output);
         Assert.Empty(r.Launches);
     }
@@ -94,9 +94,28 @@ public sealed class RenderAllSwitchTests
     {
         var r = Run(TimeSpan.FromSeconds(60), "-Backends", "vulkan");
         Assert.False(r.TimedOut, "the script kept running with no section switch");
-        Assert.Equal(0, r.ExitCode);
+        Assert.Equal(2, r.ExitCode);   // nothing was rendered: never a silent pass
         Assert.Contains("-All", r.Output);
         Assert.Empty(r.Launches);
+    }
+
+    [Fact]
+    public void OnlyCases_alone_is_not_a_section_and_fails_rendering_nothing()
+    {
+        var r = Run(TimeSpan.FromSeconds(60), "-OnlyCases", "ui_", "-Backends", "vulkan");
+        Assert.False(r.TimedOut);
+        Assert.Equal(2, r.ExitCode);
+        Assert.Empty(r.Launches);
+    }
+
+    [Fact]
+    public void A_section_whose_filter_picks_no_case_fails_because_it_rendered_none()
+    {
+        var r = Run(TimeSpan.FromMinutes(3), "-AvatarsOnly", "-Backends", "vulkan", "-OnlyCases", "no-case-has-this-tag");
+        Assert.False(r.TimedOut);
+        Assert.Empty(r.Launches);
+        Assert.Equal(3, r.ExitCode);
+        Assert.Contains("RENDERED NO CASE", r.Output);
     }
 
     [Fact]

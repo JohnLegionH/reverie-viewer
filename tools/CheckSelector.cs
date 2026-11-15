@@ -155,6 +155,8 @@ namespace NvTools
         /// ends in its backend, _vulkan or -d3d12, sometimes with one more word after it; one without, such as refuse_opengl3, runs with the
         /// full set only).
         /// </summary>
+        public static List<string> RenderLines(CheckSelection selection) { return new List<string>(); }
+
         public static bool Picks(CheckSelection selection, string caseTag)
         {
             if (selection == null || string.IsNullOrEmpty(caseTag)) return false;

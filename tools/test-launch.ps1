@@ -50,7 +50,7 @@ function Test-ExportComplete([string]$ExeDir) {
 
 # Makes (or finds) the launch folder for the build in $ExeDir under $Root and returns its path. The build's folder is not
 # written. Returns $null when the links cannot be made (another volume, say): the caller then opens the window as it is.
-function New-TestLaunchFolder([string]$ExeDir, [string]$Root) {
+function New-TestLaunchFolder([string]$ExeDir, [string]$Root, [string]$Kind = "test") {
     $key = Get-TestLaunchKey $ExeDir
     $folder = Join-Path $Root "launch-$key"
     if (Test-Path -LiteralPath (Join-Path $folder "launch.complete")) { return $folder }

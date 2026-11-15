@@ -30,6 +30,48 @@ public class CheckSelectorTests
         Assert.False(CheckSelector.Picks(s, "ui_build_classic_vulkan"));
     }
 
+    // Every change to viewer code runs the stock smoke: any file the map places outside none, whatever its area says.
+    [Theory]
+    [InlineData("host/Viewer.Godot/Reverie/TopBar.cs")]
+    [InlineData("host/Viewer.Shell/TerrainPatch.cs")]
+    [InlineData("core/Viewer.Core/Meshing/Extrude.cs")]
+    public void Any_file_placed_outside_none_runs_the_stock_smoke(string file)
+    {
+        var s = Select(file);
+        Assert.Empty(s.Unplaced);
+        Assert.DoesNotContain("none", s.FileAreas[file]);
+        Assert.True(s.Smoke, file);
+    }
+
+    [Fact]
+    public void A_none_file_beside_a_placed_one_still_runs_the_smoke_and_none_alone_does_not()
+    {
+        Assert.True(Select("README.md", "host/Viewer.Shell/TerrainPatch.cs").Smoke);
+        Assert.False(Select("README.md", "Docs/ARCHITECTURE.md").Smoke);
+    }
+
+    // The lines the selector prints are run as printed: render.ps1 renders nothing without a section, so a narrow
+    // selection is the full set filtered by its cases (-All -OnlyCases), one backend per line.
+    [Fact]
+    public void The_render_lines_name_a_section_so_they_run_as_printed()
+    {
+        var narrow = Select("host/Viewer.Godot/Reverie/TopBar.cs");
+        var lines = CheckSelector.RenderLines(narrow);
+        Assert.Equal(2, lines.Count);
+        Assert.All(lines, l => Assert.Matches(@"^render\.ps1 -All -OnlyCases '[^']+' -Backends (vulkan|d3d12)$", l));
+        Assert.Contains(lines, l => l.EndsWith("-Backends vulkan"));
+        Assert.Contains(lines, l => l.EndsWith("-Backends d3d12"));
+        Assert.Equal(new[] { "render.ps1 -All" }, CheckSelector.RenderLines(Select("tools/render.ps1")));
+        Assert.Equal(new[] { "none" }, CheckSelector.RenderLines(Select("README.md")));
+    }
+
+    [Fact]
+    public void The_script_prints_the_selectors_own_render_lines()
+    {
+        string script = File.ReadAllText(Path.Combine(RepoRoot(), "tools", "select-checks.ps1"));
+        Assert.Contains("[NvTools.CheckSelector]::RenderLines($s)", script);
+    }
+
     [Fact]
     public void A_file_it_cannot_place_selects_the_full_set_and_is_named()
     {
@@ -60,7 +102,7 @@ public class CheckSelectorTests
     {
         var s = Select("host/Viewer.Godot/Reverie/TopBar.cs");
         Assert.False(s.Full);
-        Assert.False(s.Smoke);
+        Assert.True(s.Smoke);   // placed outside none: viewer code, so the stock smoke runs
         Assert.True(CheckSelector.Picks(s, "ui_reverie-topbar-100_reverie-dark_vulkan"));
         Assert.True(CheckSelector.Picks(s, "ui_reverie-topbar-100_reverie-dark_d3d12"));
         Assert.True(CheckSelector.Picks(s, "loginscreen_d3d12"));

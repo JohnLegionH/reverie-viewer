@@ -62,6 +62,8 @@ namespace NvTools
         Corner,
         /// <summary>The usual drawing size, placed beyond the right edge of every monitor, without focus and at the bottom of the stacking order.</summary>
         OffScreen,
+        /// <summary>A normal start asked to open minimised (S-1's shipping-start checks): it stays minimised, off every monitor.</summary>
+        Quiet,
     }
 
     public static class TestWindowPlacement
@@ -97,6 +99,10 @@ namespace NvTools
             if (fullSize) return TestWindowKind.Untouched;
             return onScreen ? TestWindowKind.Corner : TestWindowKind.OffScreen;
         }
+
+        public static string OffScreenArgument(PixelRect window) { return ""; }
+
+        public static string LaunchKind(TestWindowKind kind) { return ""; }
 
         /// <summary>The gap left between the right edge of the monitors and an off-screen window.</summary>
         public const int OffScreenGap = 256;

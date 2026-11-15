@@ -270,7 +270,8 @@ public class TestWindowPlacementTests
     [InlineData("--rendering-driver vulkan -- --automation", false, true, true, TestWindowKind.Corner)]
     [InlineData("--rendering-driver vulkan -- --automation", true, true, false, TestWindowKind.Untouched)]        // the full-size switch
     [InlineData("--headless -- --s1-smoke", false, true, false, TestWindowKind.Untouched)]                        // no window is opened
-    [InlineData("--rendering-driver vulkan --minimized --quit-after 60", false, true, false, TestWindowKind.Untouched)]   // a normal start, minimised: S-1's shipping-start checks
+    [InlineData("--rendering-driver vulkan --minimized --quit-after 60", false, true, false, TestWindowKind.Quiet)]   // a normal start, minimised: S-1's shipping-start checks open minimised and off every monitor
+    [InlineData("--rendering-driver vulkan --minimized --quit-after 60", false, false, false, TestWindowKind.Untouched)]  // the editor's own program: not a viewer window
     [InlineData("--headless --editor --path X --build-solutions --quit", false, false, false, TestWindowKind.Untouched)]
     public void Every_window_a_check_opens_is_off_screen_unless_asked_otherwise(string argLine, bool fullSize, bool exportedViewer, bool onScreen, TestWindowKind expected)
     {
@@ -315,6 +316,58 @@ public class TestWindowPlacementTests
         // the engine keeps a new window partly on a monitor whatever position it is given, so the launcher moves it off once it is up
         Assert.Contains("[NvZOrder]::MoveOff([NvZOrder]::Tree($p.Id), $offX, $offY)", script);   // the run's own process tree, looked up fast
         Assert.Contains("SwpNoActivate = 0x10", script);
+    }
+
+    // The engine keeps a new window at least a third on a monitor whatever position it is given, so a window that is to be
+    // off every monitor opens minimised (the launch folder's override.cfg) and is brought back, transparent and without being
+    // activated, straight to its place off every monitor. The viewer is told that place in desktop pixels.
+    [Theory]
+    [MemberData(nameof(Layouts))]
+    public void The_viewer_is_told_the_off_screen_place_in_desktop_pixels(PixelRect[] screens)
+    {
+        var w = TestWindowPlacement.OffScreen(screens, TestWindowPlacement.BaseWidth, TestWindowPlacement.BaseHeight);
+        Assert.Equal("--nv-test-window-at=" + w.X + "," + w.Y, TestWindowPlacement.OffScreenArgument(w));
+    }
+
+    [Theory]
+    [InlineData(TestWindowKind.OffScreen, "offscreen")]
+    [InlineData(TestWindowKind.Quiet, "quiet")]
+    [InlineData(TestWindowKind.Corner, "test")]
+    public void Each_placed_kind_starts_from_its_own_kind_of_launch_folder(TestWindowKind kind, string launchKind)
+    {
+        Assert.Equal(launchKind, TestWindowPlacement.LaunchKind(kind));
+    }
+
+    [Fact]
+    public void The_launcher_opens_off_screen_windows_minimised_and_brings_them_back_transparent_and_unactivated()
+    {
+        string script = File.ReadAllText(Path.Combine(RepoRoot(), "tools", "godot.ps1"));
+        Assert.Contains("New-TestLaunchFolder $exeDir $DiagDir ([NvTools.TestWindowPlacement]::LaunchKind($kind))", script);
+        Assert.Contains("[NvTools.TestWindowPlacement]::OffScreenArgument($win)", script);
+        Assert.Contains("[NvZOrder]::PlaceOff([NvZOrder]::Tree($p.Id), $offX, $offY, -not $windowSeenOff)", script);   // the first time only: a check may minimise it on purpose later
+        Assert.Contains("SetLayeredWindowAttributes", script);   // transparent while it is brought back, so it is never seen where the system first puts it
+        Assert.Contains("WsExNoActivate = 0x08000000", script);   // never made the active window, whatever window the person closes or minimises
+        Assert.DoesNotContain("SetWindowPlacement", script);      // the system moves a placement that is off every monitor back onto one
+        // an exported build already in a launch folder (S-1's planted override) starts as it is, from its own override.cfg
+        Assert.Contains("launch.complete", script);
+    }
+
+    [Fact]
+    public void The_viewer_brings_a_minimised_test_window_back_off_screen_transparent_and_unactivated()
+    {
+        string code = File.ReadAllText(Path.Combine(RepoRoot(), "host", "Viewer.Godot", "TestWindow.cs"));
+        Assert.Contains("public const string AtArgument = \"--nv-test-window-at=\";", code);
+        Assert.Contains("SetLayeredWindowAttributes", code);
+        Assert.Contains("RestoreOffScreen(", code);
+        Assert.Contains("SwShowMinNoActivate = 7", code);   // a stray no-focus setting on a start that opened minimised: shown minimised, not activated
+        Assert.DoesNotContain("SetWindowPlacement", code);
+    }
+
+    [Fact]
+    public void S1s_planted_override_starts_minimised_too()
+    {
+        string s1 = File.ReadAllText(Path.Combine(RepoRoot(), "tools", "s1.ps1"));
+        Assert.Contains("$planted = New-TestLaunchFolder $build $diagRoot \"offscreen\"", s1);
     }
 
     [Fact]
