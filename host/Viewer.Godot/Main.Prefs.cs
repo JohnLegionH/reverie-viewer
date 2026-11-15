@@ -418,6 +418,7 @@ public partial class Main
     }
 
     private Vector2 _injectedAt;
+    private bool _injectedLeftDown;
 
     /// <summary>The input command (development builds only): sends a key or a mouse event through the engine's own input path, the way the
     /// operating system's arrives (the panels first, then the world), with the modifier keys held, and reports what the controls did: the
@@ -449,11 +450,14 @@ public partial class Main
                 var index = button switch { "left" => MouseButton.Left, "right" => MouseButton.Right, "middle" => MouseButton.Middle, _ => MouseButton.None };
                 if (index == MouseButton.None)
                 {
-                    var mask = (MouseButtonMask)(_steer.Pressed ? 1 : 0);
+                    var mask = (MouseButtonMask)(_injectedLeftDown ? 1 : 0);   // the buttons held, as the operating system's motion event carries them
                     global::Godot.Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at, Relative = at - _injectedAt, ButtonMask = mask, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt });
                 }
                 else
+                {
+                    if (index == MouseButton.Left) _injectedLeftDown = down;
                     global::Godot.Input.ParseInputEvent(new InputEventMouseButton { Position = at, GlobalPosition = at, ButtonIndex = index, Pressed = down, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt, ButtonMask = down ? (MouseButtonMask)1 : 0 });
+                }
                 _injectedAt = at;
                 break;
             }

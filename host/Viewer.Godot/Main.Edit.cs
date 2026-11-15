@@ -69,6 +69,8 @@ public partial class Main
         shell.Commands.Register(BuildMenu.GridSnapXYCommand, () => _edit?.SnapSelectionXY());
         shell.Commands.Register(BuildMenu.GridUseSelectionCommand, () => _edit?.UseSelectionForGrid());
         shell.Commands.Register(BuildMenu.GridOptionsCommand, OpenGridOptions);
+        shell.Commands.Register(BuildMenu.UndoCommand, () => _edit?.Undo());
+        shell.Commands.Register(BuildMenu.RedoCommand, () => _edit?.Redo());
     }
 
     private void ToggleBuild()
@@ -217,6 +219,15 @@ public partial class Main
         }
     }
 
+    /// <summary>The Grid Options window's own close button (its frame's), for the automation to click.</summary>
+    private Control? GridCloseButton()
+    {
+        for (Node? n = _gridPanel; n is not null; n = n.GetParent())
+            if (n.FindChild("close", true, false) is Control c && c.IsVisibleInTree() && c is BaseButton)
+                return c;
+        return null;
+    }
+
     /// <summary>The automation's edit command. state: build mode, the tool, the selection, the access, the window's texts and the primary object's
     /// place, size, rotation and shape; toggle (Ctrl+B); tool (text: focus, move, edit, create); click (the point x, y, z on screen; expect "shift"
     /// adds); select (text: local ids, comma-separated); linked (text: on or off); position, size, rotation (x, y, z); shape (text: key=value pairs:
@@ -287,6 +298,8 @@ public partial class Main
             case "link": done = e.Link() ?? "sent"; break;
             case "unlink": done = e.Unlink(); break;
             case "handle": done = HandleCall(e, text, x, y, z, shift); break;
+            case "handle_points": done = HandlePoints(e, text, x, y, z); break;
+            case "undo": done = e.Undo(); break;
             case "manip":
                 if (Enum.TryParse<ManipMode>(text, true, out var manip)) e.Manip = manip;
                 break;
@@ -314,6 +327,11 @@ public partial class Main
             edit_linked = e.EditLinked,
             window_open = _shell?.Shell.Floaters.IsOpen(EditPanel.FloaterId) ?? false,
             grid_window_open = _shell?.Shell.Floaters.IsOpen(GridPanel.FloaterId) ?? false,
+            dragging = _handleDrag is not null,
+            can_undo = e.CanUndo, can_redo = e.CanRedo,
+            grid_unit_field = _gridPanel?.FindChild("unit", true, false) is SpinBox sb && sb.IsVisibleInTree() ? new[] { sb.GetLineEdit().GetGlobalRect().GetCenter().X, sb.GetLineEdit().GetGlobalRect().GetCenter().Y } : null,
+            grid_close = GridCloseButton() is { } gc ? new[] { gc.GetGlobalRect().GetCenter().X, gc.GetGlobalRect().GetCenter().Y } : null,
+            focus = GetViewport().GuiGetFocusOwner()?.Name.ToString(),
             placing = _interact?.Placing ?? false,
             selection = e.Selection.ToArray(),
             primary = prim is null ? null : new

@@ -269,7 +269,13 @@ public partial class Main
     /// <summary>The automation's handle drag, through the same pointer path as a hand: <paramref name="what"/> names the handle (axis:x+, axis:z-,
     /// plane:z, ring:z, corner:N, face:x+); for an arrow or a plane handle (x, y, z) is how far to move, for a ring x is the angle in degrees (the
     /// pointer stays inside the snap ring unless y is 1), for a corner x is the ratio and for a face x is the new size. Shift copies.</summary>
-    private object? HandleCall(EditController e, string? what, float x, float y, float z, bool shift)
+    private object? HandleCall(EditController e, string? what, float x, float y, float z, bool shift) => HandleCall(e, what, x, y, z, shift, drag: true);
+
+    /// <summary>Where a handle drag would press and let go, in view pixels, without dragging: the automation then drives the pointer itself
+    /// through the engine's input, as a hand does.</summary>
+    private object? HandlePoints(EditController e, string? what, float x, float y, float z) => HandleCall(e, what, x, y, z, false, drag: false);
+
+    private object? HandleCall(EditController e, string? what, float x, float y, float z, bool shift, bool drag)
     {
         if (string.IsNullOrEmpty(what) || _camera is null)
             return new { error = "no handle" };
@@ -337,6 +343,8 @@ public partial class Main
             if (ProjectRegion(from) is not { } a || ProjectRegion(to) is not { } b)
                 return new { error = "off screen" };
             var hit = HandleAt(e, a);
+            if (!drag)
+                return new { from = new[] { a.X, a.Y }, to = new[] { b.X, b.Y }, centre = ProjectRegion(centre) is { } c ? new[] { c.X, c.Y } : null, hit = hit.Kind.ToString().ToLowerInvariant() };
             if (!HandlePress(e, a, shift))
                 return new { error = "the press missed the handle", hit = hit.Kind.ToString() };
             var handle = _handleDrag!.Handle;
