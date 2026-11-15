@@ -374,6 +374,19 @@ public class TestWindowPlacementTests
     }
 
     [Fact]
+    public void A_window_that_opens_minimised_is_not_brought_back_by_the_remembered_window()
+    {
+        // the remembered window maximises a first run; on a start that opened minimised (S-1's quiet starts) that would bring the
+        // window onto a monitor and make it the active one, so such a start leaves the window as it opened
+        string code = File.ReadAllText(Path.Combine(RepoRoot(), "host", "Viewer.Godot", "Main.Prefs.cs"));
+        int start = code.IndexOf("private void StartWindowMemory(", StringComparison.Ordinal);
+        Assert.True(start > 0);
+        int guard = code.IndexOf("GetWindow().Mode == Window.ModeEnum.Minimized", start, StringComparison.Ordinal);
+        int maximise = code.IndexOf("window.Mode = Window.ModeEnum.Maximized", start, StringComparison.Ordinal);
+        Assert.True(guard > start && guard < maximise, "StartWindowMemory returns for a window that opened minimised before it maximises anything");
+    }
+
+    [Fact]
     public void S1s_planted_override_starts_minimised_too()
     {
         string s1 = File.ReadAllText(Path.Combine(RepoRoot(), "tools", "s1.ps1"));

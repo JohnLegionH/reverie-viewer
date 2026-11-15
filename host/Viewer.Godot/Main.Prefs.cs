@@ -50,6 +50,8 @@ public partial class Main
     {
         if (!_interactive || DisplayChosenOnCommandLine() || !WindowModeIsWindowed(settings))
             return;
+        if (GetWindow().Mode == Window.ModeEnum.Minimized)
+            return;   // a start that opened minimised stays so: maximising it would put it on a monitor and make it the active window
         var window = GetWindow();
         var screens = new List<WindowRect>();
         for (int i = 0; i < DisplayServer.GetScreenCount(); i++)
