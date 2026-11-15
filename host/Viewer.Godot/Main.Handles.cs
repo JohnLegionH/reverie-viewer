@@ -25,6 +25,8 @@ public partial class Main
     private Presentation.HandleOverlay? _handles;
     private BuildHandle _handleHot = BuildHandle.None;
     private HandleDragState? _handleDrag;
+    /// <summary>Where the handles were last drawn (the automation reads it).</summary>
+    private NVector3? _handlesDrawnAt;
 
     /// <summary>A handle being dragged, from the press until the release.</summary>
     private sealed class HandleDragState
@@ -64,7 +66,8 @@ public partial class Main
         centre = default;
         frame = NQuaternion.Identity;
         size = NVector3.One;
-        if (!e.BuildMode || e.Tool is not (BuildTool.Edit or BuildTool.Move) || e.Pivot is not { } pivot || _interactFor is not { } s)
+        // Select Face shows no handles (the official face tool has none)
+        if (!e.BuildMode || e.SelectFaces || e.Tool is not (BuildTool.Edit or BuildTool.Move) || e.Pivot is not { } pivot || _interactFor is not { } s)
             return false;
         if (!e.Selection.Any(l => e.Access(l).CanPlace))
             return false;
@@ -104,6 +107,7 @@ public partial class Main
                     size = mode == ManipMode.Scale ? e.ManipSize ?? e.HandleSize : d.Size;
                 }
                 var view = HandleViewNow();
+                _handlesDrawnAt = centre;
                 lines.AddRange(Manipulator.Lines(mode, centre, frame, size, view, _handleDrag?.Handle ?? _handleHot));
                 if (_handleDrag is { Mode: ManipMode.Move } && e.SnapEnabled)
                 {

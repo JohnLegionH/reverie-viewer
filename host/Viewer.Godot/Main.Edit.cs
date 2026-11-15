@@ -46,7 +46,7 @@ public partial class Main
             return;
         var shell = _shell.Shell;
         bool InWorld() => _interactFor is { IsEnded: false } && _interact is not null;
-        _editPanel = new EditPanel(shell.Strings, () => _edit);
+        _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory);
         _editPanel.ToolChosen += ChooseTool;
         _shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), _editPanel);
         var timer = new global::Godot.Timer { Name = "edit_refresh", WaitTime = 0.25, Autostart = true };
@@ -310,6 +310,20 @@ public partial class Main
                 if (Enum.TryParse<GridMode>(text, true, out var grid)) e.Grid = grid;
                 break;
             case "grid_options": OpenGridOptions(); done = _shell?.Shell.Floaters.IsOpen(GridPanel.FloaterId); break;
+            // where things are on screen, for the live check's own pointer and keys: a control of the Build window by name (scrolled into
+            // view first; "tab:texture" for a tab), and a point of the world
+            case "control": _editPanel.ScrollTo(text ?? ""); done = _editPanel.ControlPoint(text ?? ""); break;
+            case "screen": done = Screen(p) is { } sp ? new[] { sp.X, sp.Y } : null; break;
+            case "picker": done = _editPanel.TextureTab.Picker is { Visible: true } pk ? pk.Names : null; break;
+            case "picker_row":
+                if (_editPanel.TextureTab.Picker is { Visible: true } pr && int.TryParse(text, out int row) && row >= 0 && row < pr.List.ItemCount)
+                {
+                    pr.List.EnsureCurrentIsVisible();
+                    var rect = pr.List.GetItemRect(row);
+                    var at = pr.List.GetGlobalRect().Position + rect.Position + rect.Size / 2 + new Vector2(pr.Position.X, pr.Position.Y);
+                    done = new[] { at.X, at.Y };
+                }
+                break;
         }
         _editPanel.Refresh();
         var prim = e.Object();
@@ -334,6 +348,22 @@ public partial class Main
             focus = GetViewport().GuiGetFocusOwner()?.Name.ToString(),
             placing = _interact?.Placing ?? false,
             selection = e.Selection.ToArray(),
+            select_faces = e.SelectFaces,
+            faces = e.SelectedFaces.Select(f => new
+            {
+                local = f.Local, face = f.Face,
+                settings = s.World.Snapshot().Objects.Values.FirstOrDefault(o => o.Id.LocalId == f.Local) is { } fo && FaceRules.Settings(fo, f.Face) is var st
+                    ? new { texture = st.TextureId, repeats = new[] { st.RepeatU, st.RepeatV }, offset = new[] { st.OffsetU, st.OffsetV }, rotation = st.Rotation,
+                        planar = st.TexGen == Viewer.Core.World.TexGen.Planar, material = fo.Materials?[f.Face].RenderMaterialId ?? Guid.Empty }
+                    : null,
+            }).ToArray(),
+            handles_centre = _handlesDrawnAt is { } hc && (_handles?.Visible ?? false) ? new[] { hc.X, hc.Y, hc.Z } : null,
+            face = e.FaceShown() is { } fs ? new
+            {
+                texture = fs.TextureId, colour = new[] { fs.Colour.R, fs.Colour.G, fs.Colour.B, fs.Colour.A }, glow = fs.Glow, fullbright = fs.Fullbright,
+                planar = fs.TexGen == Viewer.Core.World.TexGen.Planar, repeats = new[] { fs.RepeatU, fs.RepeatV }, offset = new[] { fs.OffsetU, fs.OffsetV }, rotation = fs.Rotation,
+                material = e.ShownMaterial,
+            } : null,
             primary = prim is null ? null : new
             {
                 local = prim.Id.LocalId, id = prim.FullId, parent = prim.ParentLocalId,

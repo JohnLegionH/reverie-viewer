@@ -46,7 +46,13 @@ public partial class EditPanel : VBoxContainer
     private bool _filling;
     public string? LastRefusal { get; private set; }
 
-    public EditPanel(StringTable strings, Func<EditController?> edit)
+    private readonly EditTextureTab _textureTab;
+    private CheckBox _faceMode = null!;
+    private readonly Dictionary<ObjectClip, Button> _pasteButtons = new();
+
+    public EditTextureTab TextureTab => _textureTab;
+
+    public EditPanel(StringTable strings, Func<EditController?> edit, Func<Viewer.Core.Inventory.InventoryModel?>? inventory = null)
     {
         _s = strings;
         _edit = edit;
@@ -75,7 +81,13 @@ public partial class EditPanel : VBoxContainer
             b.Pressed += () => { if (_edit() is { } e) e.Manip = mode; };
             _manipRow.AddChild(b);
             _manips[mode] = b;
+            b.Pressed += () => { if (_edit() is { } e) e.SelectFaces = false; };
         }
+        // Select Face: the official radio choice beside Position, Rotate and Stretch (floater_tools.xml radio_select_face)
+        _faceMode = new CheckBox { Name = "manip_face", Text = strings.Get("edit.manip.face"), ButtonGroup = manipGroup };
+        _faceMode.AccessibilityName = _faceMode.Text;
+        _faceMode.Pressed += () => { if (_edit() is { } e) e.SelectFaces = true; };
+        _manipRow.AddChild(_faceMode);
         AddChild(_manipRow);
 
         var ticks = new HFlowContainer { Name = "ticks" };
@@ -131,6 +143,21 @@ public partial class EditPanel : VBoxContainer
         Triple(obj, "position", "edit.position", _pos, -256, 8192, 0.001, v => _edit()?.SetPosition(v));
         Triple(obj, "size", "edit.size", _size, 0.001, 256, 0.001, v => _edit()?.SetSize(v));
         Triple(obj, "rotation", "edit.rotation", _rot, -9999, 9999, 0.05, v => _edit()?.SetRotation(v));
+        // copy and paste (llpanelobject.cpp: position, size, rotation, all three, and the object's parameters)
+        var clip = new HFlowContainer { Name = "object_clipboard" };
+        foreach (var (what, name) in new[] { (ObjectClip.Position, "position"), (ObjectClip.Size, "size"), (ObjectClip.Rotation, "rotation"), (ObjectClip.All, "all"), (ObjectClip.Parameters, "params") })
+        {
+            var c = new Button { Name = "copy_" + name, Text = strings.Get("edit.copy_" + name) };
+            c.AccessibilityName = c.Text;
+            c.Pressed += () => { if (_edit()?.Copy(what) is { } text) DisplayServer.ClipboardSet(text); Refresh(); };
+            clip.AddChild(c);
+            var p = new Button { Name = "paste_" + name, Text = strings.Get("edit.paste_" + name) };
+            p.AccessibilityName = p.Text;
+            p.Pressed += () => _edit()?.Paste(what);
+            clip.AddChild(p);
+            _pasteButtons[what] = p;
+        }
+        obj.AddChild(clip);
         var flags = new HFlowContainer { Name = "flags" };
         _locked = Tick(flags, "locked", "edit.locked", on => _edit()?.SetLocked(on));
         _physical = Tick(flags, "physical", "edit.physical", _ => SendFlags());
@@ -163,6 +190,10 @@ public partial class EditPanel : VBoxContainer
         ShapeRow(obj, "radius", "edit.radius", -1, 1, 0.01, false);
         ShapeRow(obj, "revolutions", "edit.revolutions", 1, 4, 0.1, false);
         ShapeRow(obj, "skew", "edit.skew", -0.95, 0.95, 0.05, false);
+
+        // ---------------- Texture ----------------
+        var texture = Page("texture", "edit.tab.texture");
+        _textureTab = new EditTextureTab(strings, edit, inventory ?? (() => null), texture, this);
     }
 
     /// <summary>A tool button was pressed.</summary>
@@ -321,7 +352,10 @@ public partial class EditPanel : VBoxContainer
             foreach (var (tool, b) in _tools)
                 b.SetPressedNoSignal(e is { BuildMode: true } && e.Tool == tool);
             foreach (var (mode, b) in _manips)
-                b.SetPressedNoSignal((e?.Manip ?? ManipMode.Move) == mode);
+                b.SetPressedNoSignal(!(e?.SelectFaces ?? false) && (e?.Manip ?? ManipMode.Move) == mode);
+            _faceMode.SetPressedNoSignal(e?.SelectFaces ?? false);
+            foreach (var (what, b) in _pasteButtons)
+                b.Disabled = !(e?.CanPaste(what) ?? false);
             _manipRow.Visible = e is { Tool: BuildTool.Edit or BuildTool.Move };
             _linked.SetPressedNoSignal(e?.EditLinked ?? false);
             _snap.SetPressedNoSignal(e?.SnapEnabled ?? true);
@@ -364,6 +398,52 @@ public partial class EditPanel : VBoxContainer
             }
         }
         finally { _filling = false; }
+        _textureTab.Refresh();
+    }
+
+    /// <summary>The middle of a control of the window on screen, by its name ("tab:texture" for a tab's title), for the live check's
+    /// pointer; null when it is not shown.</summary>
+    public float[]? ControlPoint(string name)
+    {
+        if (name.StartsWith("tab:", StringComparison.Ordinal))
+        {
+            for (int i = 0; i < Tabs.GetTabCount(); i++)
+                if (Tabs.GetTabControl(i).Name == name[4..])
+                {
+                    var bar = Tabs.GetTabBar();
+                    var r = bar.GetTabRect(i);
+                    var c = bar.GetGlobalTransformWithCanvas() * (r.Position + r.Size / 2);
+                    return [c.X, c.Y];
+                }
+            return null;
+        }
+        if (FindChild(name, true, false) is Control ctl && ctl.IsVisibleInTree())
+        {
+            if (ctl is SpinBox sb)
+                ctl = sb.GetLineEdit();
+            var g = ctl.GetGlobalRect().GetCenter();
+            return [g.X, g.Y];
+        }
+        if (_textureTab.Picker is { Visible: true } picker && picker.FindChild(name, true, false) is Control pc)
+        {
+            var g = pc.GetGlobalRect().GetCenter();
+            var w = picker.Position;
+            return [g.X + w.X, g.Y + w.Y];
+        }
+        return null;
+    }
+
+    /// <summary>Scrolls the shown page so a control is in view (a person scrolls the tab the same way).</summary>
+    public void ScrollTo(string name)
+    {
+        if (FindChild(name, true, false) is not Control ctl)
+            return;
+        for (Node? n = ctl.GetParent(); n is not null; n = n.GetParent())
+            if (n is ScrollContainer sc)
+            {
+                sc.EnsureControlVisible(ctl);
+                return;
+            }
     }
 
     private static void SetText(LineEdit e, string t)
@@ -425,5 +505,6 @@ public partial class EditPanel : VBoxContainer
         tabs = Enumerable.Range(0, Tabs.GetTabCount()).Select(i => Tabs.GetTabTitle(i)).ToArray(),
         shape_rows = _shape.Where(kv => kv.Value.Row.Visible).Select(kv => kv.Key).ToArray(),
         type = _type.Selected >= 0 ? _type.GetItemText(_type.Selected) : null,
+        texture = _textureTab.Texts(),
     };
 }
