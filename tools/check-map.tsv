@@ -31,9 +31,11 @@
 ^host/Viewer\.Godot/(project\.godot|export_presets\.cfg|icon|default_env)	full
 \.(gdshader|gdshaderinc|glsl)$|/Shaders?/	full
 # The engine side: what every picture goes through.
-^host/Viewer\.Godot/(Main\.cs|TestRender\.cs|TestRender\.Serve\.cs|TestRender\.FrameFigures\.cs|StartupCheck\.cs|TestWindow\.cs|GraphicsBackendInfo\.cs|PresentDiagnostics\.cs|FrameSentinel\.cs|EngineLogger\.cs|MemorySplit\.cs)$	full
+^host/Viewer\.Godot/(TestRender\.cs|TestRender\.Serve\.cs|TestRender\.FrameFigures\.cs|StartupCheck\.cs|TestWindow\.cs|GraphicsBackendInfo\.cs|PresentDiagnostics\.cs|FrameSentinel\.cs|EngineLogger\.cs|MemorySplit\.cs)$	full
 ^host/Viewer\.Godot/Presentation/(WorldPresenter|Rids|KeptCollections|PipelineWarmup|JitWarmup|PreparedUpload|VideoMemory|LoggedErrorReleases|HeldValues|FrameProbe|TextureHub)[.A-Za-z]*\.cs$	full
 ^core/Viewer\.Core/(World|Camera|Replay|Platform)/	full
+# Main.cs alone: one render case from each area on Vulkan; the next full gate runs the full set.
+^host/Viewer\.Godot/Main\.cs$	mainsample
 ^host/Viewer\.Shell/(PresentationCoordinator|PresentationPolicy|DisplayPlan|RenderFloor|FrameBudget|FrameClock|DeferredDisposals|LiveRidLedger|StagedHandOver|NearestFirstSet|UnitCostModel|SliceStats|ImageDiff|CameraDefaults|FollowCamera|DrawDistanceView|BackendChoice|BackendRelaunch|BackendStatus|DeviceProbe|NativeMemory|EngineLogRoute)\.cs$	full
 # The interface: the theme and the frame are shared by every window, so they run every interface case.
 ^host/Viewer\.Godot/(ShellTheme|ShellRoot|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
@@ -58,6 +60,8 @@
 # Building and the handles.
 ^host/Viewer\.Godot/(Main\.(Build|Edit|Handles)|TestRender\.(Handles|EditLook)|Presentation/(HandleOverlay|SelectionOutline))\.cs$	build
 ^host/Viewer\.Shell/Build/	build
+# The edit controller sends the object and build updates.
+^host/Viewer\.Shell/Build/EditController[.A-Za-z]*\.cs$	build,smoke
 ^core/Viewer\.Core/Building/	build,smoke
 ^fixtures/build/	build
 # The sky, the water and the light.
@@ -66,9 +70,12 @@
 # Avatars.
 ^host/Viewer\.Godot/(Main\.(Appearance|BodyMask|Expressions)|AppearanceExample|NameTagOverlay|TestRender\.(Avatars|AppearanceUi|ArrivalProbe|AttachRoute|Attachments|BakeLook|CaptureLook|Crowd|FaceShape|MorphLook|NameTags|Proportions|Rigged[A-Za-z]*|ShapeLook|SkinNormal))\.cs$	avatars
 ^host/Viewer\.Godot/Presentation/(Avatar[A-Za-z.]*|BodyMask|FaceShader|SkinAtlas|SkinTextures|RiggedNotDrawn|IAttachmentFrames|WornFrameTrace|ArrivalWarmup)\.cs$	avatars
-^host/Viewer\.Shell/(Appearance|Outfit|NameTags|Overrider)/	avatars
+^host/Viewer\.Shell/(NameTags|Overrider)/	avatars
+# Appearance and outfits send and read wearables, bakes and outfit folders.
+^host/Viewer\.Shell/(Appearance|Outfit)/	avatars,smoke
 ^host/Viewer\.Shell/(Avatar[A-Za-z.]*|SkinnedSurfaceData|SharedBodyFrame|RiggedMeshPreparation|AnimationSource|PoseSweep|ArrivalFeeds?|HandoffLedger|CrossingFrameTrace)\.cs$	avatars
-^core/Viewer\.Core/(Avatars|Appearance)/|^core/Viewer\.(Baking|Motion|Overrider)/	avatars
+^core/Viewer\.Core/(Avatars|Appearance)/	avatars,smoke
+^core/Viewer\.(Baking|Motion|Overrider)/	avatars
 ^fixtures/(avatars|nametags)/	avatars
 # Land and regions.
 ^host/Viewer\.Godot/(Main\.(PlainGround|Neighbours)|TestRender\.(Neighbours|Teardown|BanLines|Trees)|Presentation/(NodeTerrainView|TerrainView|NeighbourStack|BanWallLayer))\.cs$	terrain

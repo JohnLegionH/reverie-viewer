@@ -109,8 +109,8 @@ namespace NvTools
                         foreach (string a in r.Areas) if (!mine.Contains(a)) mine.Add(a);
                 if (mine.Count == 0) { mine.Add("full"); s.Unplaced.Add(f); }
                 s.FileAreas[f] = mine;
-                // any file placed outside none is viewer code, and every change to viewer code runs the stock smoke
-                foreach (string a in mine) if (a != "none") s.Smoke = true;
+                // the stock smoke runs only for the areas that say so (the session, the protocol, inventory, the map, login and the
+                // automation) and for the files the map places there because they send or read grid messages
                 foreach (string a in mine)
                 {
                     if (a == "none") continue;

@@ -8,7 +8,7 @@
 # tools\check-map.tsv into the areas of tools\check-areas.tsv (tools\CheckSelector.cs decides, the unit tests check it), and
 # prints what to run:
 #   render: none | render.ps1 -All | render.ps1 -All -OnlyCases '<regex>' -Backends <backend> (one line per backend)
-#   smoke:  yes (any file placed outside none: every change to viewer code) | no
+#   smoke:  yes (a file in an area that runs it: the session, the protocol, inventory, the map, login, the automation, and code that sends or reads grid messages) | no
 # A file the map cannot place selects the full set, and is named. The .NET suite and S-1 run for every order whatever this says.
 #
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\select-checks.ps1 [-Base <commit>] [-Repo <folder>] [-Json <file>]
