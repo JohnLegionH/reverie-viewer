@@ -61,8 +61,8 @@ public partial class TestRender
             : new Dictionary<Guid, byte[]>());
         var treeMeshes = new MeshSource(new SessionMeshes(new SessionAssets(SharedAssets, _ => true, (id, _) => Task.FromResult(AssetFetchResult.Of(AssetFetchStatus.NotFound))), (id, _) => (null, null)));   // trees are made here; nothing is fetched
         var homePrims = new PrimLayer(rig.Scenario, home, treeMeshes, noTextures, _budget) { SimulatedFps = 60 };
-        var homePresenter = new WorldPresenter(home, homeView, prims: homePrims,
-            environment: new EnvironmentLayer(rig.Scenario, rig.Environment, rig.Sun) { HdrEnabled = sharedEnv is not null }) { DayFractionOverride = sharedEnv == "dusk" ? SharedEnvDay : sharedEnv is null ? 0.3 : null, Sky = sharedEnv == "classic" ? SkyChoice.Sunset : SkyChoice.Region };
+        var environment = new EnvironmentLayer(rig.Scenario, rig.Environment, rig.Sun) { HdrEnabled = sharedEnv is not null };
+        var homePresenter = new WorldPresenter(home, homeView, prims: homePrims, environment: environment) { DayFractionOverride = sharedEnv == "dusk" ? SharedEnvDay : sharedEnv is null ? 0.3 : null, Sky = sharedEnv == "classic" ? SkyChoice.Sunset : SkyChoice.Region };
         rig.Camera.LookAtFromPosition(new Vector3(100, (float)GroundHeight(100, 70) + 12f, -70), new Vector3(160, (float)GroundHeight(160, 128) + 6f, -128), Vector3.Up);
         if (sharedEnv is not null)
         {
@@ -80,7 +80,20 @@ public partial class TestRender
         // no face waits for data, with the settle's own cap, then draw a few frames
         await SettleMeshes(homePresenter, homePrims, treeMeshes, noTextures);
         homePresenter.Flush();
-        await Frames(4);
+        if (sharedEnv is not null)
+        {
+            // The dusk sky takes the tone-mapped path, so two things in it move with the clock, not with the scene: the automatic exposure
+            // steps towards its value at the official speed per frame interval, and the sky probe captures the world one face a frame. A picture
+            // taken a fixed number of frames in depends on how long those frames took. So the exposure jumps to the scene's value (the test
+            // switch the haze and avatar cases use) and the picture waits for a finished probe capture: the same picture whatever the timing.
+            HdrTonemapEffect.ExposureInstant = true;
+            // nothing steps the presenter's frame here, so the probe is ticked as its frame would tick it (with the terrain's version)
+            int worldVersion = (homeView as ServerTerrainView)?.GlowVersion ?? 0;
+            for (int i = 0; i < 240 && !environment.ProbeSettled; i++) { environment.TickProbe(worldVersion); await Frames(1); }
+            if (!environment.ProbeSettled) _failures.Add("the sky probe did not finish a capture within 240 frames");
+            await Frames(8);
+        }
+        else await Frames(4);
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);
         Directory.CreateDirectory(_out);
@@ -122,6 +135,7 @@ public partial class TestRender
                     _failures.Add("diff " + diff);
             }
         }
+        if (sharedEnv is not null) HdrTonemapEffect.ExposureInstant = false;
         homePresenter.Dispose();
         homeView.Clear();
         home.Dispose();
