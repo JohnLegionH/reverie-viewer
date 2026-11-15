@@ -435,6 +435,39 @@ public class EditControllerTests
     }
 
     [Fact]
+    public void While_a_handle_is_dragged_the_handles_stand_where_the_drag_has_put_the_selection()
+    {
+        // the official manipulators draw at the selection's centre as it moves (llmaniptranslate.cpp, llmanipscale.cpp: the
+        // selection's bounding box is updated on every drag step), so the handles move with the object
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own, scale: new Vector3(1, 1, 1));
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([1], shift: false);
+        Assert.Null(r.C.ManipCentre);
+        r.C.SnapEnabled = false;
+        Assert.True(r.C.BeginManip());
+        Near(new Vector3(10, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
+        Assert.True(r.C.ManipMove(new Vector3(1.5f, 0, 0)));
+        Near(new Vector3(11.5f, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
+        Assert.True(r.C.ManipMove(new Vector3(2.5f, -1, 0)));         // each step is measured from the start, so is the centre
+        Near(new Vector3(12.5f, 9, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
+        r.C.SnapEnabled = true;
+        Assert.True(r.C.ManipMove(new Vector3(1.2f, 0, 0)));          // snapped: 11.2 lands on 11.0
+        Near(new Vector3(11, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
+        r.C.EndManip();
+        Assert.Null(r.C.ManipCentre);
+
+        Assert.True(r.C.BeginManip());
+        Assert.True(r.C.ManipScaleFace(0, 1, 3));                       // the +x face out to 3 m: the middle moves 1 m along x
+        Near(new Vector3(11, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
+        Near(new Vector3(3, 1, 1), r.C.ManipSize ?? new Vector3(float.NaN));
+        Assert.True(r.C.ManipRotate(Vector3.UnitZ, 45));               // a turn about the centre leaves it where it is
+        Near(new Vector3(10, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
+        r.C.EndManip();
+        Assert.Null(r.C.ManipSize);
+    }
+
+    [Fact]
     public void With_Edit_linked_a_handle_moves_the_part_alone_in_its_roots_frame()
     {
         var r = new Rig();

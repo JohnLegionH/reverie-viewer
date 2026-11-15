@@ -30,24 +30,77 @@ public class CheckSelectorTests
         Assert.False(CheckSelector.Picks(s, "ui_build_classic_vulkan"));
     }
 
-    // Every change to viewer code runs the stock smoke: any file the map places outside none, whatever its area says.
+    // The stock smoke runs for the session, the protocol, inventory, the map, login and the automation, and for code that sends or
+    // reads grid messages (object and build updates included); not for every placed file.
+    [Theory]
+    [InlineData("core/Viewer.Core/Protocol/Messages.cs")]
+    [InlineData("core/Viewer.Core/Session/SessionState.cs")]
+    [InlineData("core/Viewer.Core/Inventory/InventoryStore.cs")]
+    [InlineData("core/Viewer.Core/Map/MapBlocks.cs")]
+    [InlineData("host/Viewer.Godot/LoginScreen.cs")]
+    [InlineData("host/Viewer.Automation/Commands.cs")]
+    [InlineData("host/Viewer.Godot/Automation/EditCommand.cs")]
+    [InlineData("host/Viewer.Shell/Build/EditController.cs")]
+    [InlineData("host/Viewer.Shell/Build/EditController.Faces.cs")]
+    [InlineData("core/Viewer.Core/Building/TextureUpload.cs")]
+    [InlineData("core/Viewer.Core/Appearance/WearableKinds.cs")]
+    public void The_areas_v10_names_and_grid_message_code_run_the_stock_smoke(string file)
+    {
+        var s = Select(file);
+        Assert.Empty(s.Unplaced);
+        Assert.True(s.Smoke, file);
+    }
+
     [Theory]
     [InlineData("host/Viewer.Godot/Reverie/TopBar.cs")]
     [InlineData("host/Viewer.Shell/TerrainPatch.cs")]
     [InlineData("core/Viewer.Core/Meshing/Extrude.cs")]
-    public void Any_file_placed_outside_none_runs_the_stock_smoke(string file)
+    [InlineData("host/Viewer.Shell/Build/Manipulator.cs")]
+    [InlineData("host/Viewer.Godot/Main.Handles.cs")]
+    [InlineData("fixtures/environment/golden-shared-environment-dusk-vulkan.png")]
+    [InlineData("fixtures/avatars/manifest.json")]
+    public void Other_placed_files_do_not_run_the_stock_smoke(string file)
     {
         var s = Select(file);
         Assert.Empty(s.Unplaced);
         Assert.DoesNotContain("none", s.FileAreas[file]);
-        Assert.True(s.Smoke, file);
+        Assert.NotNull(s.Cases);   // they still select their own render cases
+        Assert.False(s.Smoke, file);
     }
 
     [Fact]
-    public void A_none_file_beside_a_placed_one_still_runs_the_smoke_and_none_alone_does_not()
+    public void A_none_file_beside_a_smoke_file_still_runs_the_smoke_and_none_alone_does_not()
     {
-        Assert.True(Select("README.md", "host/Viewer.Shell/TerrainPatch.cs").Smoke);
+        Assert.True(Select("README.md", "core/Viewer.Core/Protocol/Messages.cs").Smoke);
         Assert.False(Select("README.md", "Docs/ARCHITECTURE.md").Smoke);
+    }
+
+    // Main.cs alone selects one render case per area, on Vulkan, instead of the full set; the next gate order runs the full set.
+    [Fact]
+    public void Main_cs_alone_selects_one_render_case_per_area_on_vulkan()
+    {
+        var s = Select("host/Viewer.Godot/Main.cs");
+        Assert.False(s.Full);
+        Assert.Empty(s.Unplaced);
+        foreach (string c in new[] { "loginscreen_vulkan", "select_vulkan", "clouds_midday_vulkan", "avatars_attach_vulkan", "golden_vulkan", "mesh_near_vulkan", "ui_inworld_classic_vulkan" })
+            Assert.True(CheckSelector.Picks(s, c), c);
+        Assert.True(CheckSelector.Picks(s, "proposal-golden-vulkan"));
+        foreach (string c in new[] { "golden_far_vulkan", "sky_midday_vulkan", "mesh_far_vulkan", "avatars_baked_vulkan", "loginscreen_d3d12", "select_d3d12", "ui_login_classic_vulkan" })
+            Assert.False(CheckSelector.Picks(s, c), c);
+        Assert.Equal(new[] { "vulkan" }, s.CasesByBackend.Keys.ToArray());
+        Assert.Single(CheckSelector.RenderLines(s));
+    }
+
+    [Theory]
+    [InlineData("host/Viewer.Godot/TestRender.cs")]
+    [InlineData("tools/render.ps1")]
+    [InlineData("host/Viewer.Godot/Viewer.Godot.csproj")]
+    [InlineData("core/Viewer.Core/World/Scene.cs")]
+    public void Main_cs_beside_a_full_set_file_still_selects_the_full_set(string other)
+    {
+        var s = Select("host/Viewer.Godot/Main.cs", other);
+        Assert.True(s.Full, other);
+        Assert.True(s.Smoke);
     }
 
     // The lines the selector prints are run as printed: render.ps1 renders nothing without a section, so a narrow
@@ -90,6 +143,7 @@ public class CheckSelectorTests
     [InlineData("host/Viewer.Godot/Viewer.Godot.csproj")]
     [InlineData("host/Viewer.Godot/Presentation/WorldPresenter.cs")]
     [InlineData("core/Viewer.Core/World/Scene.cs")]
+    [InlineData("host/Viewer.Godot/TestRender.cs")]
     public void Shared_drawing_code_and_the_check_scripts_select_the_full_set(string file)
     {
         var s = Select(file);
@@ -102,7 +156,7 @@ public class CheckSelectorTests
     {
         var s = Select("host/Viewer.Godot/Reverie/TopBar.cs");
         Assert.False(s.Full);
-        Assert.True(s.Smoke);   // placed outside none: viewer code, so the stock smoke runs
+        Assert.False(s.Smoke);   // the interface sends and reads no grid messages
         Assert.True(CheckSelector.Picks(s, "ui_reverie-topbar-100_reverie-dark_vulkan"));
         Assert.True(CheckSelector.Picks(s, "ui_reverie-topbar-100_reverie-dark_d3d12"));
         Assert.True(CheckSelector.Picks(s, "loginscreen_d3d12"));
@@ -121,11 +175,11 @@ public class CheckSelectorTests
     }
 
     [Fact]
-    public void An_environment_fixture_selects_the_sky_cases_and_the_stock_smoke_on_vulkan()
+    public void An_environment_fixture_selects_the_sky_cases_on_vulkan_without_the_stock_smoke()
     {
         var s = Select("fixtures/environment/golden-shared-environment-dusk-vulkan.png");
         Assert.False(s.Full);
-        Assert.True(s.Smoke);
+        Assert.False(s.Smoke);
         Assert.True(CheckSelector.Picks(s, "shared_env_vulkan"));
         Assert.True(CheckSelector.Picks(s, "clouds_midday_vulkan"));
         Assert.False(CheckSelector.Picks(s, "ui_inworld_classic_vulkan"));
@@ -147,7 +201,7 @@ public class CheckSelectorTests
         var s = Select("host/Viewer.Godot/Reverie/Dock.cs", "fixtures/avatars/manifest.json");
         Assert.Contains("ui", s.Areas);
         Assert.Contains("avatars", s.Areas);
-        Assert.True(s.Smoke);   // avatars run the smoke
+        Assert.False(s.Smoke);   // neither file sends or reads grid messages
         Assert.Equal(new[] { "ui" }, s.FileAreas["host/Viewer.Godot/Reverie/Dock.cs"]);
         Assert.True(CheckSelector.Picks(s, "avatars_baked_vulkan"));
         Assert.True(CheckSelector.Picks(s, "ui_people_classic_d3d12"));

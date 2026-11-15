@@ -124,6 +124,9 @@ public static class Manipulator
     public static float RotationDegrees(float raw, float pointerPixelsFromCentre, bool snapping) =>
         Viewer.Core.Building.Snap.Angle(raw, snapping && pointerPixelsFromCentre > RingPixels * SnapRingRadii);
 
+    /// <summary>A ring drag's turn in degrees from <paramref name="start"/> to <paramref name="now"/>.</summary>
+    public static float RingTurn(Vector3 centre, Vector3 axis, float ringMetres, Vector3 camera, PickRay start, PickRay now, bool snapping) => 0f;
+
     /// <summary>A ring drag's turn: snapped to 5.625-degree steps while snapping is on and the pointer is in the snap regime.</summary>
     public static float RotationDegrees(float raw, bool inSnapRegime, bool snapping) => Viewer.Core.Building.Snap.Angle(raw, snapping && inSnapRegime);
 

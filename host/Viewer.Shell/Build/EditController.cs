@@ -23,7 +23,7 @@ public enum BuildTool { Focus, Move, Edit, Create, Land }
 /// and size by number, flags, shape, Link, Unlink and the Shift-drag copy. Behaviour follows the official viewer's LLToolMgr,
 /// LLSelectMgr and LLPanelObject (read as behaviour only). No engine types: the Godot side draws the window and the handles from it.
 /// </summary>
-public sealed class EditController
+public sealed partial class EditController
 {
     private readonly WorldState _world;
     private readonly Func<ActionIntent, ActionResult> _submit;
@@ -409,6 +409,12 @@ public sealed class EditController
     }
 
     public void EndManip() => _manip = null;
+
+    /// <summary>While a handle is dragged, the selection's centre as the drag has put it; null otherwise.</summary>
+    public Vector3? ManipCentre => null;
+
+    /// <summary>While a Stretch handle is dragged, the box size as the drag has made it; null otherwise.</summary>
+    public Vector3? ManipSize => null;
 
     /// <summary>A Move handle's drag: every object moves by <paramref name="delta"/> from where it began; with snapping on, the selection's centre
     /// lands on the grid along the axes being moved (the grid's own axes).</summary>

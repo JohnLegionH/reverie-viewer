@@ -18,6 +18,24 @@ public static class EditText
     internal static IReadOnlyList<ActionIssue> Objects(IReadOnlyList<uint> locals) => locals.Count == 0 || locals.Any(l => l == 0) ? [new("edit.no_object")] : [];
 }
 
+/// <summary>Set the Texture tab's settings on some faces of one prim (the official viewer's ObjectImage, with the prim's whole
+/// texture entry and the listed faces changed).</summary>
+public sealed record SetObjectFacesIntent(uint LocalId, IReadOnlyList<FaceEdit> Faces) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => [.. EditText.Object(LocalId), .. (Faces.Count == 0 ? [new ActionIssue("edit.no_face")] : Array.Empty<ActionIssue>())];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Put a PBR material on some faces of one prim, or take it off (an empty <see cref="MaterialId"/>), with an optional
+/// override (a glTF document holding only what it changes), through the region's ModifyMaterialParams capability.</summary>
+public sealed record SetFaceMaterialIntent(Guid ObjectId, uint LocalId, IReadOnlyList<int> Faces, Guid MaterialId, string? OverrideJson) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => [.. EditText.Object(LocalId), .. (Faces.Count == 0 || ObjectId == Guid.Empty ? [new ActionIssue("edit.no_face")] : Array.Empty<ActionIssue>())];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
 /// <summary>Rename an object.</summary>
 public sealed record SetObjectNameIntent(uint LocalId, string Name) : ActionIntent
 {

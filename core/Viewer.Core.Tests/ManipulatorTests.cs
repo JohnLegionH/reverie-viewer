@@ -154,4 +154,46 @@ public class ManipulatorTests
         Assert.True(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, new PickRay(level, Vector3.UnitX), pointerPixelsFromCentre: 250));
         Assert.False(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, new PickRay(level, Vector3.UnitX), pointerPixelsFromCentre: 150));
     }
+
+    private static bool OnStep(float degrees) => MathF.Abs(degrees / 5.625f - MathF.Round(degrees / 5.625f)) < 1e-3f;
+
+    [Fact]
+    public void A_flat_ring_seen_from_low_down_keeps_turning_in_snap_steps_while_the_pointer_goes_well_out_above_the_horizon()
+    {
+        // the camera 20 m off and 3 m up: pointed above its own height the pointer never meets the ring's plane, yet the official rotate
+        // tool (llmaniprotate.cpp dragConstrained, the ring seen nearly edge on) reads it on a snap plane half a ring radius above or below
+        // the ring, on the side the camera sees, and keeps snapping instead of stalling
+        var centre = new Vector3(100, 100, 20);
+        var camera = new Vector3(80, 100, 23);
+        PickRay Through(Vector3 p) => new(camera, Vector3.Normalize(p - camera));
+        var start = Through(centre + new Vector3(-1, 0, 0));          // the ring's near side
+        float last = 0;
+        var turns = new List<float>();
+        for (float k = 0.3f; k <= 1.95f; k += 0.15f)
+        {
+            float t = Manipulator.RingTurn(centre, Vector3.UnitZ, 1f, camera, start, Through(centre + new Vector3(0, -k, 6)), snapping: true);
+            turns.Add(t);
+            Assert.True(t != 0 && OnStep(t), $"k {k}: {t}");
+            Assert.True(MathF.Abs(t) >= MathF.Abs(last) - 1e-3f, $"k {k}: {t} after {last} (stalled or turned back)");
+            last = t;
+        }
+        Assert.True(MathF.Abs(turns[^1]) > MathF.Abs(turns[0]) + 30, string.Join(", ", turns));
+        Assert.True(MathF.Abs(turns[^1]) <= 90 + 1e-3f, string.Join(", ", turns));
+    }
+
+    [Fact]
+    public void Seen_from_above_a_ring_drag_is_smooth_near_the_ring_and_snapped_beyond_two_radii()
+    {
+        var centre = new Vector3(100, 100, 20);
+        var camera = new Vector3(100, 90, 40);
+        PickRay Through(Vector3 p) => new(camera, Vector3.Normalize(p - camera));
+        var start = Through(centre + new Vector3(1, 0, 0));
+        float a = 20f * MathF.PI / 180f;
+        float near = Manipulator.RingTurn(centre, Vector3.UnitZ, 1f, camera, start, Through(centre + new Vector3(MathF.Cos(a), MathF.Sin(a), 0) * 0.95f), snapping: true);
+        Near(20, near, 0.01f);
+        float far = Manipulator.RingTurn(centre, Vector3.UnitZ, 1f, camera, start, Through(centre + new Vector3(MathF.Cos(a), MathF.Sin(a), 0) * 3f), snapping: true);
+        Near(22.5f, far, 0.01f);
+        float off = Manipulator.RingTurn(centre, Vector3.UnitZ, 1f, camera, start, Through(centre + new Vector3(MathF.Cos(a), MathF.Sin(a), 0) * 3f), snapping: false);
+        Near(20, off, 0.01f);
+    }
 }
