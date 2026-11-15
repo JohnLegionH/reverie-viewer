@@ -159,13 +159,22 @@ public static class Manipulator
     {
         var toCentre = centre - camera;
         float facing = toCentre.LengthSquared() > 1e-12f ? MathF.Abs(Vector3.Dot(Vector3.Normalize(toCentre), n)) : 1f;
-        if (facing >= EdgeOnFacing && OnPlane(centre, n, ray) is { } hit)
-        {
-            var p = hit - centre;
-            return (p, p.Length() > radius * SnapRingRadii);
-        }
         if (facing >= EdgeOnFacing)
-            return (OnCircleTowardCamera(centre, n, radius, camera, ray), true);   // above the horizon: well out from the ring
+        {
+            // Near the horizon the pointer meets the plane very far out, and past it not at all. Both are read at most a set distance from
+            // the point of the plane under the camera, along the way the pointer runs off: so the reading moves on smoothly across the
+            // horizon instead of jumping (the set distance is far enough that a reading inside it is the plane's own meeting point).
+            var foot = camera - n * Vector3.Dot(camera - centre, n);
+            float far = MathF.Max(radius * 100f, 10f * Vector3.Distance(foot, centre));
+            var away = ray.Direction - n * Vector3.Dot(ray.Direction, n);
+            bool runsOff = away.LengthSquared() > 1e-10f;
+            if (OnPlane(centre, n, ray) is { } hit && (!runsOff || Vector3.Distance(hit, foot) <= far))
+            {
+                var p = hit - centre;
+                return (p, p.Length() > radius * SnapRingRadii);
+            }
+            return (runsOff ? foot - centre + Vector3.Normalize(away) * far : null, true);
+        }
         int side = SnapPlaneSide(centre, n, radius, camera, ray);
         var planeCentre = side == 0 ? centre : centre + n * radius * 0.5f * side;
         return (OnCircleTowardCamera(planeCentre, n, radius, camera, ray), side != 0);

@@ -314,6 +314,9 @@ public partial class Main
             // view first; "tab:texture" for a tab), and a point of the world
             case "control": _editPanel.ScrollTo(text ?? ""); done = _editPanel.ControlPoint(text ?? ""); break;
             case "screen": done = Screen(p) is { } sp ? new[] { sp.X, sp.Y } : null; break;
+            // a PBR material asset put on the selected faces by its id (text), or taken off (no text): for a grid whose inventory holds
+            // no material item to choose by hand
+            case "material": done = Guid.TryParse(text, out var material) ? e.ApplyMaterial(material) : e.RemoveMaterial(); break;
             case "picker": done = _editPanel.TextureTab.Picker is { Visible: true } pk ? pk.Names : null; break;
             case "picker_row":
                 if (_editPanel.TextureTab.Picker is { Visible: true } pr && int.TryParse(text, out int row) && row >= 0 && row < pr.List.ItemCount)

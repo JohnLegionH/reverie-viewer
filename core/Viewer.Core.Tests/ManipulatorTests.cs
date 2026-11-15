@@ -184,6 +184,47 @@ public class ManipulatorTests
     }
 
     [Fact]
+    public void A_ring_seen_at_a_slant_keeps_turning_the_same_way_as_the_pointer_crosses_the_horizon()
+    {
+        // the camera 10 m off and 5 m up (the ring well off edge on): the pointer swept round the ring's middle on screen, well out,
+        // from below it through the right to above it, past the horizon where it stops meeting the ring's plane: the turn must keep
+        // going the same way, with no jump back
+        var centre = new Vector3(100, 100, 20);
+        var camera = new Vector3(100, 90, 25);
+        var forward = Vector3.Normalize(centre - camera);
+        var right = Vector3.UnitX;
+        var up = Vector3.Normalize(Vector3.Cross(right, forward));
+        PickRay At(float degrees) => new(camera, Vector3.Normalize(forward + (right * MathF.Cos(degrees * MathF.PI / 180f) + up * MathF.Sin(degrees * MathF.PI / 180f)) * 0.5f));
+        var start = new PickRay(camera, Vector3.Normalize(centre + new Vector3(0, -1, 0) - camera));
+        var turns = new List<float>();
+        for (int a = -80; a <= 80; a += 8)
+            turns.Add(Manipulator.RingTurn(centre, Vector3.UnitZ, 1f, camera, start, At(a), snapping: true));
+        float Step(float from, float to) => MathF.IEEERemainder(to - from, 360f);
+        var steps = turns.Zip(turns.Skip(1), Step).ToList();
+        bool oneWay = steps.All(s => s >= -1e-3f) || steps.All(s => s <= 1e-3f);
+        Assert.True(oneWay, string.Join(", ", turns));
+        Assert.True(MathF.Abs(steps.Sum()) > 60, string.Join(", ", turns));
+        Assert.All(turns, t => Assert.True(OnStep(t), string.Join(", ", turns)));
+    }
+
+    [Theory]
+    [InlineData(0.6f)]
+    [InlineData(-1.5f)]
+    [InlineData(4f)]
+    public void Just_below_and_just_above_the_horizon_a_ring_drag_reads_the_same_turn(float sideways)
+    {
+        // the camera 10 m off and 5 m up: a pointer a hair below the horizon meets the ring's plane kilometres out, a hair above it
+        // never does; the two must read the same turn (within a snap step), not jump
+        var centre = new Vector3(100, 100, 20);
+        var camera = new Vector3(100, 90, 25);
+        var start = new PickRay(camera, Vector3.Normalize(centre + new Vector3(0, -1, 0) - camera));
+        var flat = Vector3.Normalize(new Vector3(sideways, 1, 0));
+        float below = Manipulator.RingTurn(centre, Vector3.UnitZ, 1f, camera, start, new PickRay(camera, Vector3.Normalize(flat + new Vector3(0, 0, -0.002f))), snapping: true);
+        float above = Manipulator.RingTurn(centre, Vector3.UnitZ, 1f, camera, start, new PickRay(camera, Vector3.Normalize(flat + new Vector3(0, 0, 0.002f))), snapping: true);
+        Assert.True(MathF.Abs(MathF.IEEERemainder(above - below, 360f)) <= 5.625f + 1e-3f, $"below {below}, above {above}");
+    }
+
+    [Fact]
     public void Seen_from_above_a_ring_drag_is_smooth_near_the_ring_and_snapped_beyond_two_radii()
     {
         var centre = new Vector3(100, 100, 20);

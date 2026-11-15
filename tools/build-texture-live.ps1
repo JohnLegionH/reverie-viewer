@@ -28,6 +28,8 @@ param(
     [Parameter(Mandatory)][string]$GridInfoUrl,
     [Parameter(Mandatory)][string]$Start,
     [string]$Exe = "",
+    [string]$MaterialAsset = "",
+    [switch]$TakeBackEarlier,   # also take back the account's objects already on the region (left by an earlier run that stopped)   # a PBR material asset the grid holds, used when no material item is in the inventory
     [int]$StartSeconds = 60
 )
 $ErrorActionPreference = "Stop"
@@ -36,6 +38,8 @@ Assert-ClaimGranted
 $script:port = $null; $script:token = $null; $script:proc = $null
 trap {
     Write-Output ("ERROR " + $_.Exception.GetType().Name + ": " + $_.Exception.Message); Write-Output $_.InvocationInfo.PositionMessage
+    # a check that stops part way still takes back what it rezzed before it logs out
+    if ($script:port -and $script:token -and (Get-Command Invoke-TakeBack -ErrorAction SilentlyContinue)) { try { [void](Invoke-TakeBack -Seconds 20) } catch { } }
     if ($script:port -and $script:token) { try { [void](Invoke-Raw $script:port "session" $script:token ('{"action":"logout"}')); Start-Sleep -Seconds 3; [void](Invoke-Raw $script:port "quit" $script:token) } catch { } }
     break
 }
@@ -164,6 +168,8 @@ foreach ($dy in @(0, 4, -4, 8, -8)) {
 if (-not $spot) { $spot = @{ x = [double]$me[0] + 4.0; y = [double]$me[1] + 12; z = [double]$me[2] - 0.9 } }
 [void](Interact @{ action = "aim"; x = $spot.x; y = $spot.y; z = $spot.z; distance = 8 }); Start-Sleep -Milliseconds 1500
 $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
+# boxes earlier runs of this check left on the test region are taken back with this run's own (by id, re-read at the end)
+if ($TakeBackEarlier) { foreach ($o in @((Build @{ action = "state" }).own_objects)) { Add-Rezzed ([uint32]$o.local) }; Note ("earlier boxes to take back: {0}" -f $script:rezzed.Count) }
 [void](Build @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z })
 $box = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
 if (-not $box) { Check "1 a box is made" $false "none"; [void](Invoke-Raw $script:port "quit" $script:token); exit 1 }
@@ -209,18 +215,22 @@ if ($pts -and $pts.from -and $pts.centre) {
     $pa = $pts.from; $c = $pts.centre
     [void](MoveTo $pa[0] $pa[1]); Start-Sleep -Milliseconds 150
     [void](Mouse "left" $true $pa[0] $pa[1])
-    # out to the side and up past the ring's horizon, in steps; the turn is read while the button is held
-    for ($i = 1; $i -le 8; $i++) {
-        $x = $pa[0] + ($i * 70); $y = $pa[1] - ($i * 45)
-        [void](MoveTo $x $y); Start-Sleep -Milliseconds 700
+    # out to 320 pixels from the ring's middle, then round it from below through the side to above, past the ring's horizon, in steps;
+    # the turn is read while the button is held
+    $rad = 320
+    $path = @(-80, -60, -40, -20, 0, 20, 40, 60, 80) | ForEach-Object { $th = $_ * [math]::PI / 180; @(($c[0] + $rad * [math]::Cos($th)), ($c[1] - $rad * [math]::Sin($th))) }
+    foreach ($q in $path) {
+        [void](MoveTo $q[0] $q[1]); Start-Sleep -Milliseconds 700
         $turns.Add((AngleDiff (Rot $A) $r0))
     }
-    $endTurn = $turns[$turns.Count - 1]
-    [void](Mouse "left" $false ($pa[0] + 560) ($pa[1] - 360)); Start-Sleep -Milliseconds 1200
-    for ($i = 1; $i -lt $turns.Count; $i++) { if ([math]::Abs($turns[$i]) + 0.01 -lt [math]::Abs($turns[$i - 1])) { $stalled = $true } }
-    $steps = @($turns | Select-Object -Last 4 | Where-Object { [math]::Abs($_) -gt 0.5 } | ForEach-Object { $_ / 5.625 })
-    $whole = @($steps | Where-Object { [math]::Abs($_ - [math]::Round($_)) -gt 0.03 }).Count -eq 0
-    Check "3 Rotate ring dragged well out past the horizon: the turn grows in 5.625-degree steps and never stalls or turns back" (-not $stalled -and $whole -and [math]::Abs($turns[$turns.Count - 1]) -gt [math]::Abs($turns[1]) -and [math]::Abs($turns[$turns.Count - 1]) -gt 20) ("turns while held: {0}" -f (($turns | ForEach-Object { "{0:N2}" -f $_ }) -join ", "))
+    $last = $path[$path.Count - 1]
+    [void](Mouse "left" $false $last[0] $last[1]); Start-Sleep -Milliseconds 1200
+    $diffs = @(); for ($i = 1; $i -lt $turns.Count; $i++) { $diffs += (AngleDiff $turns[$i] $turns[$i - 1]) }
+    $oneWay = (@($diffs | Where-Object { $_ -lt -0.01 }).Count -eq 0) -or (@($diffs | Where-Object { $_ -gt 0.01 }).Count -eq 0)
+    $moved = [math]::Abs(($diffs | Measure-Object -Sum).Sum)
+    $stalled = -not $oneWay
+    $whole = @($turns | Where-Object { [math]::Abs($_ / 5.625 - [math]::Round($_ / 5.625)) -gt 0.03 }).Count -eq 0
+    Check "3 Rotate ring dragged round well out, past the horizon: the turn keeps going one way in 5.625-degree steps" ($oneWay -and $whole -and $moved -gt 60) ("turns while held: {0}; turned {1:N1} in all" -f (($turns | ForEach-Object { "{0:N2}" -f $_ }) -join ", "), $moved)
     $report.ring_far = @{ turns = $turns; centre = $c; from = $pa }
 }
 else { Check "3 Rotate ring dragged well out" $false "no ring points" }
@@ -228,13 +238,23 @@ else { Check "3 Rotate ring dragged well out" $false "no ring points" }
 # ---- 4. the Texture tab: Select Face, a face textured from inventory, Planar, two faces aligned ----
 [void](Edit @{ action = "manip"; text = "move" })
 $made = @()
+[void](Interact @{ action = "aim"; x = $spot.x + 0.7; y = $spot.y + 3; z = $spot.z; distance = 7 }); Start-Sleep -Milliseconds 1500
 foreach ($dx in @(0.0, 1.3)) {
     $known = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
-    [void](Build @{ action = "create"; x = $spot.x + $dx; y = $spot.y + 3; z = $spot.z })
+    $cr = Build @{ action = "create"; x = $spot.x + $dx; y = $spot.y + 3; z = $spot.z }
+    Note ("create at +{0}: {1}" -f $dx, ($cr | ConvertTo-Json -Compress -Depth 3))
     $nb = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $known -notcontains $_.id }) | Select-Object -First 1 } 20
     if ($nb) { Add-Rezzed ([uint32]$nb.local); $made += $nb }
 }
+if ($made.Count -lt 2) { Check "4 two more boxes are made" $false ("made {0}" -f $made.Count) }
 $B = [uint32]$made[0].local; $C = [uint32]$made[1].local
+Note ("boxes for the Texture tab: {0} and {1}" -f $B, $C)
+# making boxes chose Create and its window may have closed: the Build window open again (Ctrl+B), then the Edit tool (Ctrl+3)
+$st = Edit @{ action = "state" }
+if (-not $st.window_open) { if ($st.build_mode) { Press "B" $true; [void](EditUntil { param($s) -not $s.build_mode }) }; Press "B" $true; [void](EditUntil { param($s) $s.window_open }) }
+Press "3" $true
+$st = EditUntil { param($s) $s.tool -eq "edit" -and $s.window_open }
+Note ("after making the boxes: build mode {0}, window open {1}, tool {2}" -f $st.build_mode, $st.window_open, $st.tool)
 # both made 1 m wide and set side by side by number (the typing is not what this part checks)
 foreach ($l in @($B, $C)) { [void](Edit @{ action = "select"; text = "$l" }); [void](Edit @{ action = "size"; x = 1; y = 1; z = 0.3 }) }
 [void](Edit @{ action = "select"; text = "$C" }); [void](Edit @{ action = "position"; x = [double]$made[0].x + 1.37; y = [double]$made[0].y; z = [double]$made[0].z })
@@ -249,6 +269,8 @@ $t = (Edit @{ action = "control"; text = "tab:texture" }).done
 if ($t) { ClickAt $t[0] $t[1] }
 $sB = TopOf $oB
 if ($sB) { ClickAt $sB[0] $sB[1] }
+$st = Edit @{ action = "state" }
+Note ("Select Face at {0}, Texture tab at {1}, top of the first box at {2}; tool {3}, select faces {4}, selection {5}" -f (@($p) -join ","), (@($t) -join ","), (@($sB) -join ","), $st.tool, $st.select_faces, (@($st.selection) -join ","))
 $f1 = EditUntil { param($s) $s.select_faces -and @($s.faces).Count -eq 1 -and [uint32]$s.faces[0].local -eq $B }
 Check "4a Select Face, Texture tab, a click on the box's top selects that face alone" ($f1.select_faces -and @($f1.faces).Count -eq 1 -and [uint32]$f1.faces[0].local -eq $B -and [int]$f1.faces[0].face -eq 0) ("faces {0}" -f (($f1.faces | ForEach-Object { "$($_.local):$($_.face)" }) -join ","))
 
@@ -283,14 +305,17 @@ $al = (Edit @{ action = "control"; text = "align" }).done
 $beforeAlign = (Edit @{ action = "state" }).faces
 if ($al) { ClickAt $al[0] $al[1] }
 $f5 = EditUntil { param($s) @($s.faces).Count -eq 2 -and ([double]$s.faces[0].settings.offset[0] -ne [double]$beforeAlign[0].settings.offset[0] -or [double]$s.faces[0].settings.offset[1] -ne [double]$beforeAlign[0].settings.offset[1]) }
-$oB = OwnObj $B; $oC = OwnObj $C
-# the top faces' planar mapping: with the anchor's repeats and no turn, B's offset must be the anchor's less twice the distance (whole repeats aside)
-$repU = [double]$f5.faces[1].settings.repeats[0]; $repV = [double]$f5.faces[1].settings.repeats[1]
-$wantU = [double]$f5.faces[1].settings.offset[0] - 2 * $repU * ([double]$oC.x - [double]$oB.x)
-$wantV = [double]$f5.faces[1].settings.offset[1] - 2 * $repV * ([double]$oC.y - [double]$oB.y)
-$gotU = [double]$f5.faces[0].settings.offset[0]; $gotV = [double]$f5.faces[0].settings.offset[1]
-function Whole([double]$d) { [math]::Abs($d - [math]::Round($d)) -lt 0.01 }
-Check "4e Align: the first face's texture runs on from the last selected face" ((Whole ($gotU - $wantU)) -and (Whole ($gotV - $wantV)) -and -not ((Whole $wantU) -and (Near $gotU [double]$beforeAlign[0].settings.offset[0] 0.001))) ("B offset {0:N4},{1:N4}; wanted {2:N4},{3:N4} (mod 1); before {4},{5}" -f $gotU, $gotV, $wantU, $wantV, $beforeAlign[0].settings.offset[0], $beforeAlign[0].settings.offset[1])
+if (@($f5.faces).Count -eq 2 -and @($beforeAlign).Count -eq 2) {
+    $oB = OwnObj $B; $oC = OwnObj $C
+    # the top faces' planar mapping: with the anchor's repeats and no turn, B's offset must be the anchor's less twice the distance (whole repeats aside)
+    $repU = [double]$f5.faces[1].settings.repeats[0]; $repV = [double]$f5.faces[1].settings.repeats[1]
+    $wantU = [double]$f5.faces[1].settings.offset[0] - 2 * $repU * ([double]$oC.x - [double]$oB.x)
+    $wantV = [double]$f5.faces[1].settings.offset[1] - 2 * $repV * ([double]$oC.y - [double]$oB.y)
+    $gotU = [double]$f5.faces[0].settings.offset[0]; $gotV = [double]$f5.faces[0].settings.offset[1]
+    function Whole([double]$d) { [math]::Abs($d - [math]::Round($d)) -lt 0.01 }
+    Check "4e Align: the first face's texture runs on from the last selected face" ((Whole ($gotU - $wantU)) -and (Whole ($gotV - $wantV)) -and -not ((Whole $wantU) -and (Near $gotU [double]$beforeAlign[0].settings.offset[0] 0.001))) ("B offset {0:N4},{1:N4}; wanted {2:N4},{3:N4} (mod 1); before {4},{5}" -f $gotU, $gotV, $wantU, $wantV, $beforeAlign[0].settings.offset[0], $beforeAlign[0].settings.offset[1])
+}
+else { Check "4e Align: the first face's texture runs on from the last selected face" $false ("faces {0}" -f @($f5.faces).Count) }
 Shot "texture-aligned"
 
 # ---- 5. PBR material: from the picker, if the inventory holds one ----
@@ -311,8 +336,16 @@ if ($mrows) {
 }
 else {
     [void](In @{ kind = "key"; key = "ESCAPE"; down = $true; shift = $false; alt = $false; ctrl = $false }); [void](In @{ kind = "key"; key = "ESCAPE"; down = $false; shift = $false; alt = $false; ctrl = $false })
-    $report.pbr = "no material item in the inventory or the Library: the PBR part could not be driven by hand here"
+    $report.pbr = "no material item in the inventory or the Library: the material is put on by its asset id through the automation, not by hand"
     Note $report.pbr
+    if ($MaterialAsset) {
+        [void](Edit @{ action = "material"; text = $MaterialAsset })
+        $f6 = Wait-Until { $s = Edit @{ action = "state" }; if (@($s.faces).Count -eq 2 -and [string]$s.faces[0].settings.material -eq $MaterialAsset -and [string]$s.faces[1].settings.material -eq $MaterialAsset) { $s } } 20
+        Check "5a (by asset id, not by hand) the region takes a PBR material on both selected faces" ([bool]$f6) ("material {0}" -f $MaterialAsset)
+        [void](Edit @{ action = "material" })
+        $f7 = Wait-Until { $s = Edit @{ action = "state" }; if (@($s.faces).Count -eq 2 -and [string]$s.faces[0].settings.material -eq "00000000-0000-0000-0000-000000000000") { $s } } 20
+        Check "5b (by asset id, not by hand) and takes it off again" ([bool]$f7) ""
+    }
 }
 
 # ---- 6. copy a box's size and paste it onto another ----
