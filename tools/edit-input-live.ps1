@@ -134,19 +134,19 @@ function AngleDiff([double]$a, [double]$b) { $d = $a - $b; while ($d -gt 180) { 
 function HandDrag([string]$what, [double]$x, [double]$y, [double]$z, [scriptblock]$read) {
     $pts = (Edit @{ action = "handle_points"; text = $what; x = $x; y = $y; z = $z }).done
     if (-not $pts -or -not $pts.from) { return @{ error = "no handle points: $($pts | ConvertTo-Json -Compress)" } }
-    $a = $pts.from; $b = $pts.to
+    $pa = $pts.from; $pb = $pts.to   # not $a: PowerShell names ignore case, and $A is the box
     $before = & $read
-    [void](MoveTo $a[0] $a[1]); Start-Sleep -Milliseconds 150
-    $press = Mouse "left" $true $a[0] $a[1]
-    for ($i = 1; $i -le 6; $i++) { $t = $i / 6.0; [void](MoveTo ($a[0] + ($b[0] - $a[0]) * $t) ($a[1] + ($b[1] - $a[1]) * $t)); Start-Sleep -Milliseconds 150 }
-    $held = Mouse "none" $false $b[0] $b[1]
+    [void](MoveTo $pa[0] $pa[1]); Start-Sleep -Milliseconds 150
+    $press = Mouse "left" $true $pa[0] $pa[1]
+    for ($i = 1; $i -le 6; $i++) { $t = $i / 6.0; [void](MoveTo ($pa[0] + ($pb[0] - $pa[0]) * $t) ($pa[1] + ($pb[1] - $pa[1]) * $t)); Start-Sleep -Milliseconds 150 }
+    $held = Mouse "none" $false $pb[0] $pb[1]
     Start-Sleep -Milliseconds 1500
     $during = & $read
     $dragging = (Edit @{ action = "state" }).dragging
-    [void](Mouse "left" $false $b[0] $b[1]); Start-Sleep -Milliseconds 1500
+    [void](Mouse "left" $false $pb[0] $pb[1]); Start-Sleep -Milliseconds 1500
     $after = & $read
     # the pointer moves on with the button up: nothing may follow it
-    for ($i = 1; $i -le 4; $i++) { [void](MoveTo ($b[0] + 25 * $i) ($b[1] + 15 * $i)); Start-Sleep -Milliseconds 150 }
+    for ($i = 1; $i -le 4; $i++) { [void](MoveTo ($pb[0] + 25 * $i) ($pb[1] + 15 * $i)); Start-Sleep -Milliseconds 150 }
     Start-Sleep -Milliseconds 1500
     $later = & $read
     @{ points = $pts; before = $before; during = $during; after = $after; later = $later; steering = [bool]$held.steering; dragging_held = [bool]$dragging; hit = $pts.hit }
