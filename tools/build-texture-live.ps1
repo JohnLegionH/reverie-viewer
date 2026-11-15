@@ -358,19 +358,31 @@ $p = CtlPoint "manip_move"
 if ($p) { ClickAt $p[0] $p[1] }
 $t = (Edit @{ action = "control"; text = "tab:object" }).done
 if ($t) { ClickAt $t[0] $t[1] }
-$sp = ScreenOf $box.id
+# the first Texture-tab box gets another size by number (the typing is not what this step checks), then is clicked by pointer
+[void](Edit @{ action = "select"; text = "$B" }); [void](Edit @{ action = "size"; x = 0.8; y = 0.6; z = 0.45 })
+[void](Wait-Until { $o = OwnObj $B; if ($o -and (Near $o.sz 0.45 0.01)) { $o } } 15)
+ClickAt 900 70   # the sky: nothing selected
+[void](EditUntil { param($s) @($s.selection).Count -eq 0 })
+$oB = OwnObj $B
+$sp = TopOf $oB
 if ($sp) { ClickAt $sp[0] $sp[1] }
-[void](EditUntil { param($s) @($s.selection) -contains $A -and -not $s.select_faces })
-$sizeA = @((OwnObj $A).sx, (OwnObj $A).sy, (OwnObj $A).sz)
+$selB = EditUntil { param($s) @($s.selection) -contains $B -and @($s.selection).Count -eq 1 -and -not $s.select_faces }
+Note ("the first box at {0}: selection {1}" -f (@($sp) -join ","), (@($selB.selection) -join ","))
+$sizeA = @($oB.sx, $oB.sy, $oB.sz)
 $cs = CtlPoint "copy_size"
 if ($cs) { ClickAt $cs[0] $cs[1] }
-$sC = TopOf (OwnObj $C)
+$oC = OwnObj $C
+[void](Interact @{ action = "aim"; x = [double]$oC.x; y = [double]$oC.y; z = [double]$oC.z; distance = 4 }); Start-Sleep -Milliseconds 1500
+$sC = TopOf $oC
 if ($sC) { ClickAt $sC[0] $sC[1] }
-[void](EditUntil { param($s) @($s.selection) -contains $C })
+[void](EditUntil { param($s) @($s.selection) -contains $C -and @($s.selection).Count -eq 1 })
 $ps = CtlPoint "paste_size"
+$st6 = Edit @{ action = "state" }
+Note ("Copy size at {0}, Paste size at {1}; selection {2}, select faces {3}, the other box {4}" -f (@($cs) -join ","), (@($ps) -join ","), (@($st6.selection) -join ","), $st6.select_faces, $C)
+Shot "paste-size"
 if ($ps) { ClickAt $ps[0] $ps[1] }
 $oC2 = Wait-Until { $o = OwnObj $C; if ($o -and (Near $o.sx $sizeA[0] 0.01) -and (Near $o.sy $sizeA[1] 0.01) -and (Near $o.sz $sizeA[2] 0.01)) { $o } } 15
-Check "6 Copy size on one box, Paste size on another: it takes that size" ([bool]$oC2) ("box A {0}; the other now {1}" -f ($sizeA -join ","), $(if ($oC2) { "$($oC2.sx),$($oC2.sy),$($oC2.sz)" } else { $o = OwnObj $C; "$($o.sx),$($o.sy),$($o.sz)" }))
+Check "6 Copy size on one box, Paste size on another: it takes that size" ([bool]$oC2) ("copied {0}; the other now {1}" -f ($sizeA -join ","), $(if ($oC2) { "$($oC2.sx),$($oC2.sy),$($oC2.sz)" } else { $o = OwnObj $C; "$($o.sx),$($o.sy),$($o.sz)" }))
 NoFocus
 $bm = Edit @{ action = "state" }
 if ($bm.build_mode) { Press "ESC" }
