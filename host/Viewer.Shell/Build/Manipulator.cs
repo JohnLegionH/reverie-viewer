@@ -124,8 +124,112 @@ public static class Manipulator
     public static float RotationDegrees(float raw, float pointerPixelsFromCentre, bool snapping) =>
         Viewer.Core.Building.Snap.Angle(raw, snapping && pointerPixelsFromCentre > RingPixels * SnapRingRadii);
 
-    /// <summary>A ring drag's turn in degrees from <paramref name="start"/> to <paramref name="now"/>.</summary>
-    public static float RingTurn(Vector3 centre, Vector3 axis, float ringMetres, Vector3 camera, PickRay start, PickRay now, bool snapping) => 0f;
+    /// <summary>A ring is read edge on while the view meets its axis at more than 80 degrees (llmaniprotate.cpp AXIS_ONTO_CAM_TOLERANCE).</summary>
+    public static readonly float EdgeOnFacing = MathF.Cos(80f * MathF.PI / 180f);
+
+    /// <summary>
+    /// A ring drag's turn in degrees, from where the drag started (<paramref name="start"/>) to where the pointer is now, about
+    /// <paramref name="axis"/> (counter-clockwise looking down the axis is positive); snapped to 5.625-degree steps while snapping is on
+    /// and the pointer is in the snap regime.
+    /// </summary>
+    /// <remarks>
+    /// Read as the official rotate tool reads the pointer (llmaniprotate.cpp dragConstrained, as behaviour). Seen well off edge on, the
+    /// pointer is carried onto the ring's plane, and it snaps beyond two ring radii. Seen nearly edge on, or when the pointer is above the
+    /// horizon so it never meets the plane, it is read on one of two snap planes half a ring radius above and below the ring: a plane
+    /// the camera looks at from its far side snaps for a pointer outside two radii on the near half; the other snaps for a pointer inside
+    /// two radii, on the far half, or off the plane. There the pointer is first carried onto a plane facing the camera, then onto the
+    /// ring's plane at its own sideways distance (at most two radii) and pulled toward the camera so it lies on the two-radius circle; so
+    /// a pointer far out to one side reads a quarter turn and the turn keeps growing, never stalling, as it moves out.
+    /// </remarks>
+    public static float RingTurn(Vector3 centre, Vector3 axis, float ringMetres, Vector3 camera, PickRay start, PickRay now, bool snapping)
+    {
+        var n = Vector3.Normalize(axis);
+        if (!(ringMetres > 0) || !float.IsFinite(n.X))
+            return 0f;
+        var s = ReadRing(centre, n, ringMetres, camera, start);
+        var e = ReadRing(centre, n, ringMetres, camera, now);
+        if (s.InPlane is not { } u || e.InPlane is not { } v || u.LengthSquared() < 1e-10f || v.LengthSquared() < 1e-10f)
+            return 0f;
+        float degrees = MathF.Atan2(Vector3.Dot(n, Vector3.Cross(u, v)), Vector3.Dot(u, v)) * 180f / MathF.PI;
+        return RotationDegrees(degrees, e.Snap, snapping);
+    }
+
+    /// <summary>Where the pointer lies in the ring's plane, from the centre, and whether it is in the snap regime.</summary>
+    private static (Vector3? InPlane, bool Snap) ReadRing(Vector3 centre, Vector3 n, float radius, Vector3 camera, PickRay ray)
+    {
+        var toCentre = centre - camera;
+        float facing = toCentre.LengthSquared() > 1e-12f ? MathF.Abs(Vector3.Dot(Vector3.Normalize(toCentre), n)) : 1f;
+        if (facing >= EdgeOnFacing && OnPlane(centre, n, ray) is { } hit)
+        {
+            var p = hit - centre;
+            return (p, p.Length() > radius * SnapRingRadii);
+        }
+        if (facing >= EdgeOnFacing)
+            return (OnCircleTowardCamera(centre, n, radius, camera, ray), true);   // above the horizon: well out from the ring
+        int side = SnapPlaneSide(centre, n, radius, camera, ray);
+        var planeCentre = side == 0 ? centre : centre + n * radius * 0.5f * side;
+        return (OnCircleTowardCamera(planeCentre, n, radius, camera, ray), side != 0);
+    }
+
+    /// <summary>Which snap plane takes the pointer: +1 the one above the ring (along its axis), -1 the one below, 0 neither.</summary>
+    private static int SnapPlaneSide(Vector3 centre, Vector3 n, float radius, Vector3 camera, PickRay ray)
+    {
+        foreach (int side in new[] { 1, -1 })
+        {
+            var pc = centre + n * radius * 0.5f * side;
+            var look = pc - camera;
+            if (look.LengthSquared() < 1e-12f)
+                continue;
+            look = Vector3.Normalize(look);
+            float dot = Vector3.Dot(look, n);
+            if (MathF.Abs(dot) < 0.01f)
+            {
+                // the snap plane itself seen edge on: the pointer on the view's plane, on this plane's side of it
+                if (OnLine(pc, look, ray) is { } q && Vector3.Dot(q - pc, n) * side > 0)
+                    return side;
+                continue;
+            }
+            var hit = OnPlane(pc, n, ray);
+            var p = hit is { } h ? h - pc : Vector3.Zero;
+            if (dot * side > 0)
+            {
+                // seen from beyond it: outside two radii, on the camera's half
+                if (hit is not null && p.Length() > radius * SnapRingRadii && Vector3.Dot(p, look) < 0)
+                    return side;
+            }
+            else if (hit is null || p.Length() < radius * SnapRingRadii || Vector3.Dot(p, look) > 0)
+                return side;   // seen from this side: inside two radii, on the far half, or off the plane
+        }
+        return 0;
+    }
+
+    /// <summary>The pointer carried onto a plane facing the camera through <paramref name="planeCentre"/>, then onto the ring's plane at
+    /// its sideways distance (at most two ring radii), and pulled toward the camera onto the two-radius circle.</summary>
+    private static Vector3? OnCircleTowardCamera(Vector3 planeCentre, Vector3 n, float radius, Vector3 camera, PickRay ray)
+    {
+        var look = planeCentre - camera;
+        if (look.LengthSquared() < 1e-12f)
+            return null;
+        look = Vector3.Normalize(look);
+        if (OnLine(planeCentre, look, ray) is not { } q)
+            return null;
+        var p = q - planeCentre;
+        p -= n * Vector3.Dot(p, n);
+        float snapRadius = radius * SnapRingRadii;
+        float lateral = MathF.Min(snapRadius, p.Length());
+        float depth = lateral > 0.01f ? MathF.Sqrt(MathF.Max(0, snapRadius * snapRadius - lateral * lateral)) : snapRadius;
+        var lookInPlane = look - n * Vector3.Dot(look, n);
+        return p - lookInPlane * depth;
+    }
+
+    /// <summary>Where the ray's line meets the plane through <paramref name="point"/> square to <paramref name="normal"/> (behind its start too).</summary>
+    private static Vector3? OnLine(Vector3 point, Vector3 normal, PickRay ray)
+    {
+        float den = Vector3.Dot(normal, ray.Direction);
+        if (MathF.Abs(den) < 1e-6f)
+            return null;
+        return ray.Origin + ray.Direction * (Vector3.Dot(point - ray.Origin, normal) / den);
+    }
 
     /// <summary>A ring drag's turn: snapped to 5.625-degree steps while snapping is on and the pointer is in the snap regime.</summary>
     public static float RotationDegrees(float raw, bool inSnapRegime, bool snapping) => Viewer.Core.Building.Snap.Angle(raw, snapping && inSnapRegime);

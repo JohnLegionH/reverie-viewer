@@ -120,6 +120,7 @@ public sealed partial class EditController
         _editLinked = false;
         SendDeselect(_selection);
         _selection.Clear();
+        _faceSelection.Clear();
         Changed?.Invoke();
     }
 
@@ -139,6 +140,8 @@ public sealed partial class EditController
     {
         if (!Selecting)
             return false;
+        if (_selectFaces)
+            return ClickFace(pick, shift);
         if (pick.Kind != PickKind.Object || pick.Hit is not { } hit || _world.Object(hit.Id) is not { } prim || prim.AttachmentPoint is not null)
         {
             if (!shift)
@@ -172,6 +175,7 @@ public sealed partial class EditController
             var kept = chosen.Select(l => _editLinked ? l : RootOf(l)).ToHashSet();
             SendDeselect(_selection.Where(s => !kept.Contains(s)));
             _selection.Clear();
+            _faceSelection.Clear();
         }
         foreach (var l in chosen)
         {
@@ -188,6 +192,7 @@ public sealed partial class EditController
     /// <summary>Nothing stays selected, and the region is told (a selected physical object is held still until it is deselected).</summary>
     public void Deselect()
     {
+        _faceSelection.Clear();
         if (_selection.Count == 0)
             return;
         SendDeselect(_selection);
@@ -405,16 +410,21 @@ public sealed partial class EditController
             return false;
         _manip = starts;
         _manipPivot = Pivot ?? starts[0].Position;
+        _manipCentre = _manipPivot;
+        _manipSize = _manipStartSize = HandleSize;
         return true;
     }
 
     public void EndManip() => _manip = null;
 
-    /// <summary>While a handle is dragged, the selection's centre as the drag has put it; null otherwise.</summary>
-    public Vector3? ManipCentre => null;
+    private Vector3 _manipCentre, _manipSize, _manipStartSize;
 
-    /// <summary>While a Stretch handle is dragged, the box size as the drag has made it; null otherwise.</summary>
-    public Vector3? ManipSize => null;
+    /// <summary>While a handle is dragged, the selection's centre as the drag's latest step put it, so the handles move with the
+    /// selection as the official manipulators do (they are drawn at the selection's box, which each drag step updates); null otherwise.</summary>
+    public Vector3? ManipCentre => _manip is null ? null : _manipCentre;
+
+    /// <summary>While a handle is dragged, the Stretch box's size as the drag's latest step made it; null otherwise.</summary>
+    public Vector3? ManipSize => _manip is null ? null : _manipSize;
 
     /// <summary>A Move handle's drag: every object moves by <paramref name="delta"/> from where it began; with snapping on, the selection's centre
     /// lands on the grid along the axes being moved (the grid's own axes).</summary>
@@ -435,6 +445,7 @@ public sealed partial class EditController
                 MathF.Abs(moved.Z) > 1e-6f ? Snap.ToGrid(target.Z, 0, GridUnit, sub) : target.Z);
             delta = origin + Vector3.Transform(target, turn) - _manipPivot;
         }
+        _manipCentre = _manipPivot + delta;
         bool any = false;
         foreach (var s in starts)
             any |= SendPose(s, s.Position + delta, null, null);
@@ -447,6 +458,7 @@ public sealed partial class EditController
         if (_manip is not { } starts || axis.LengthSquared() < 1e-12f)
             return false;
         var q = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), degrees * MathF.PI / 180f);
+        _manipCentre = _manipPivot;   // a turn round the centre leaves it where it is
         bool any = false;
         foreach (var s in starts)
             any |= SendPose(s, _manipPivot + Vector3.Transform(s.Position - _manipPivot, q), Quaternion.Normalize(q * s.Rotation), null);
@@ -466,6 +478,8 @@ public sealed partial class EditController
             float min = physical ? lim.MinPhysScale : lim.MinScale, max = physical ? lim.MaxPhysScale : lim.MaxScale;
             ratio = ScaleHandles.Corner(s.Scale, ratio, min, max).X / s.Scale.X;
         }
+        _manipCentre = _manipPivot;
+        _manipSize = _manipStartSize * ratio;
         bool any = false;
         foreach (var s in starts.Where(s => Access(s.Local).CanReshape))
             any |= SendPose(s, starts.Count > 1 ? _manipPivot + (s.Position - _manipPivot) * ratio : s.Position, null, s.Scale * ratio, uniform: starts.Count == 1);
@@ -482,7 +496,9 @@ public sealed partial class EditController
         bool physical = ((Find(s.Local)?.Interaction?.Flags ?? 0) & ObjectFlagBits.Physics) != 0;
         var (scale, shift) = ScaleHandles.Face(s.Scale, axis, sign, newSize, StretchBothSides,
             physical ? lim.MinPhysScale : lim.MinScale, physical ? lim.MaxPhysScale : lim.MaxScale);
-        return SendPose(s, s.Position + Vector3.Transform(shift, s.Rotation), null, scale, uniform: StretchBothSides);
+        _manipCentre = s.Position + Vector3.Transform(shift, s.Rotation);
+        _manipSize = scale;
+        return SendPose(s, _manipCentre, null, scale, uniform: StretchBothSides);
     }
 
     /// <summary>Whether the left button belongs to build mode's tools: while build mode is on a press and drag works the tool and its

@@ -98,16 +98,17 @@ public partial class Main
             {
                 if (_handleDrag is { } d)
                 {
-                    centre = d.Centre;
+                    // the handles move with the selection while it is dragged (the drag's own maths keeps measuring from where it began)
+                    centre = e.ManipCentre ?? d.Centre;
                     frame = d.Frame;
-                    size = mode == ManipMode.Scale ? e.HandleSize : d.Size;
+                    size = mode == ManipMode.Scale ? e.ManipSize ?? e.HandleSize : d.Size;
                 }
                 var view = HandleViewNow();
                 lines.AddRange(Manipulator.Lines(mode, centre, frame, size, view, _handleDrag?.Handle ?? _handleHot));
                 if (_handleDrag is { Mode: ManipMode.Move } && e.SnapEnabled)
                 {
                     var (origin, turn) = e.GridFrame();
-                    lines.AddRange(Manipulator.GridLines(e.Pivot ?? centre, origin, turn, e.GridUnit, e.GridExtent, e.GridOpacity));
+                    lines.AddRange(Manipulator.GridLines(centre, origin, turn, e.GridUnit, e.GridExtent, e.GridOpacity));
                 }
             }
         }
@@ -164,9 +165,8 @@ public partial class Main
             HandleKind.Plane => () => e.ManipMove(Manipulator.PlaneDrag(d.Centre, axis, d.Start, now)),
             HandleKind.Ring => () =>
             {
-                float pixels = ProjectRegion(d.Centre) is { } c ? (at - c).Length() : 0f;
-                bool regime = Manipulator.InSnapRegime(d.Centre, axis, Manipulator.Metres(Manipulator.RingPixels, d.Centre, HandleViewNow()), now, pixels);
-                e.ManipRotate(axis, Manipulator.RotationDegrees(Manipulator.RingDegrees(d.Centre, axis, d.Start, now), regime, e.SnapEnabled));
+                var view = HandleViewNow();
+                e.ManipRotate(axis, Manipulator.RingTurn(d.Centre, axis, Manipulator.Metres(Manipulator.RingPixels, d.Centre, view), view.Camera, d.Start, now, e.SnapEnabled));
             },
             HandleKind.Corner => () =>
                 e.ManipScaleCorner(Manipulator.CornerRatio(d.Centre, NVector3.Transform(Manipulator.CornerOffset(d.Size, d.Handle.Corner), d.Frame), d.Start, now)),

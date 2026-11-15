@@ -3,7 +3,9 @@
 
 using LibreMetaverse;
 using LibreMetaverse.Packets;
+using LibreMetaverse.StructuredData;
 using Viewer.Core.Building;
+using Viewer.Core.World;
 
 namespace Viewer.Core.Protocol;
 
@@ -84,6 +86,56 @@ internal static class LmvEdit
         AgentData = { AgentID = agent, SessionID = session, ObjectLocalID = local, UsePhysics = physical, IsTemporary = temporary, IsPhantom = phantom, CastsShadows = false },
         ExtraPhysics = [],
     };
+
+    /// <summary>ObjectImage: the prim's whole texture entry (the copy the library holds, so media and material references stay) with the
+    /// edited faces set from <paramref name="faces"/>, as the official viewer sends a face edit (LLViewerObject::sendTEUpdate).</summary>
+    public static ObjectImagePacket Image(UUID agent, UUID session, uint local, Primitive.TextureEntry? current, IReadOnlyList<FaceEdit> faces)
+    {
+        Primitive.TextureEntry te;
+        if (current is not null)
+        {
+            var bytes = current.GetBytes();
+            te = new Primitive.TextureEntry(bytes, 0, bytes.Length);
+        }
+        else
+            te = new Primitive.TextureEntry(new UUID(FaceRules.DefaultTexture));
+        foreach (var e in faces)
+        {
+            if (e.Face < 0 || e.Face >= Primitive.TextureEntry.MAX_FACES)
+                continue;
+            var f = te.CreateFace((uint)e.Face);
+            var s = e.Settings;
+            f.TextureID = new UUID(s.TextureId);
+            f.RGBA = new Color4(s.Colour.R, s.Colour.G, s.Colour.B, s.Colour.A);
+            f.RepeatU = s.RepeatU;
+            f.RepeatV = s.RepeatV;
+            f.OffsetU = s.OffsetU;
+            f.OffsetV = s.OffsetV;
+            f.Rotation = s.Rotation;
+            f.TexMapType = s.TexGen == TexGen.Planar ? MappingType.Planar : MappingType.Default;
+            f.Fullbright = s.Fullbright;
+            f.Glow = s.Glow;
+        }
+        return new ObjectImagePacket
+        {
+            AgentData = { AgentID = agent, SessionID = session },
+            ObjectData = [new ObjectImagePacket.ObjectDataBlock { ObjectLocalID = local, MediaURL = [], TextureEntry = te.GetBytes() }],
+        };
+    }
+
+    /// <summary>The ModifyMaterialParams body: one entry per face, the material asset (empty takes it off) and an override when given.</summary>
+    public static OSDArray MaterialParams(UUID objectId, IReadOnlyList<int> faces, UUID material, string? overrideJson)
+    {
+        var a = new OSDArray();
+        foreach (int side in faces)
+        {
+            var m = new OSDMap { ["object_id"] = OSD.FromUUID(objectId), ["side"] = OSD.FromInteger(side), ["asset_id"] = OSD.FromUUID(material) };
+            if (overrideJson is not null)
+                m["gltf_json"] = OSD.FromString(overrideJson);
+            a.Add(m);
+        }
+        return a;
+    }
 
     public static ObjectShapePacket Shape(UUID agent, UUID session, uint local, ShapeBytes b) => new()
     {

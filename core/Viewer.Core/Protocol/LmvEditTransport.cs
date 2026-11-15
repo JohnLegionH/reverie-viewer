@@ -6,6 +6,7 @@ using LibreMetaverse.Packets;
 using LibreMetaverse.StructuredData;
 using Viewer.Core.Actions;
 using Viewer.Core.Building;
+using Viewer.Core.Diagnostics;
 using Viewer.Core.Session;
 
 namespace Viewer.Core.Protocol;
@@ -17,8 +18,12 @@ internal sealed partial class LmvTransport
     private CommandDispatch ExecuteEdit(Simulator sim, ActionIntent edit)
     {
         var self = _client.Self;
+        if (edit is SetFaceMaterialIntent material)
+            return SendMaterial(sim, material);
         Packet? packet = edit switch
         {
+            SetObjectFacesIntent f => LmvEdit.Image(self.AgentID, self.SessionID, f.LocalId,
+                sim.ObjectsPrimitives.TryGetValue(f.LocalId, out var prim) ? prim.Textures : null, f.Faces),
             SetObjectNameIntent n => LmvEdit.ObjectName(self.AgentID, self.SessionID, n.LocalId, n.Name),
             SetObjectDescriptionIntent d => LmvEdit.ObjectDescription(self.AgentID, self.SessionID, d.LocalId, d.Description),
             SetObjectPermissionsIntent p => LmvEdit.ObjectPermissions(self.AgentID, self.SessionID, p.LocalIds, p.Field, p.Set, p.Mask),
@@ -37,6 +42,33 @@ internal sealed partial class LmvTransport
         if (packet is null)
             return CommandDispatch.NotSent("unknown_edit");
         _client.Network.SendPacket(packet, sim);
+        return CommandDispatch.Handed;
+    }
+
+    /// <summary>A PBR material put on or taken off faces (with an override when given) through the region's ModifyMaterialParams
+    /// capability, as the official viewer's LLGLTFMaterialList sends it; a region without the capability cannot take one.</summary>
+    private CommandDispatch SendMaterial(Simulator sim, SetFaceMaterialIntent m)
+    {
+        Uri? cap = null;
+        try { cap = sim.Caps?.CapabilityURI("ModifyMaterialParams"); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { }
+        if (cap is null)
+            return CommandDispatch.NotSent("no_material_service");
+        var body = LmvEdit.MaterialParams(new UUID(m.ObjectId), m.Faces, new UUID(m.MaterialId), m.OverrideJson);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var (_, data) = await _client.HttpCapsClient.PostAsync(cap, OSDFormat.Xml, body, CancellationToken.None).ConfigureAwait(false);
+                bool ok = data is not null && OSDParser.Deserialize(data) is OSDMap reply && reply.TryGetValue("success", out var s) && s.AsBoolean();
+                if (!ok)
+                    _log.Warn("edit.material-refused", CoreLog.F("faces", m.Faces.Count));
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _log.Warn("edit.material-failed", CoreLog.F("error", ex.GetType().Name));
+            }
+        });
         return CommandDispatch.Handed;
     }
 

@@ -178,7 +178,9 @@ public class ManipulatorTests
             last = t;
         }
         Assert.True(MathF.Abs(turns[^1]) > MathF.Abs(turns[0]) + 30, string.Join(", ", turns));
-        Assert.True(MathF.Abs(turns[^1]) <= 90 + 1e-3f, string.Join(", ", turns));
+        // the pointer above the camera is read on a plane facing the camera, so far out to the side it reads a little past a quarter turn
+        // (as the official projection does); it never wraps round
+        Assert.True(MathF.Abs(turns[^1]) < 135, string.Join(", ", turns));
     }
 
     [Fact]

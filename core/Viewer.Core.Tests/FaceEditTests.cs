@@ -225,12 +225,14 @@ public class FaceEditTests
         r.Sent.Clear();
         Assert.True(r.C.ApplyMaterial(Gold));
         var put = Assert.IsType<SetFaceMaterialIntent>(Assert.Single(r.Sent));
-        Assert.Equal((G(1), new[] { 0 }, Gold), (put.ObjectId, put.Faces.ToArray(), put.MaterialId));
+        Assert.Equal((G(1), Gold), (put.ObjectId, put.MaterialId));
+        Assert.Equal(new[] { 0 }, put.Faces);
         Assert.Null(put.OverrideJson);
         r.Sent.Clear();
         Assert.True(r.C.RemoveMaterial());
         var off = Assert.IsType<SetFaceMaterialIntent>(Assert.Single(r.Sent));
-        Assert.Equal((new[] { 0 }, Guid.Empty), (off.Faces.ToArray(), off.MaterialId));
+        Assert.Equal(new[] { 0 }, off.Faces);
+        Assert.Equal(Guid.Empty, off.MaterialId);
     }
 
     [Fact]
@@ -259,6 +261,43 @@ public class FaceEditTests
             Near(0.5f, t.GetProperty("rotation").GetSingle());
         }
         Assert.Equal(new TextureTransform(0.25f, 0.5f, 2, 3, 0.5f), PbrMaterial.FromGltf(put.OverrideJson!)?.BaseColorTransform);
+    }
+
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(90f)]
+    [InlineData(35f)]
+    public void Align_planar_faces_lines_up_PBR_faces_through_their_texture_transforms_too(float objectTurn)
+    {
+        // the official viewer leaves PBR faces out of Align planar faces (secondlife/viewer issue 2975); here their glTF texture
+        // transforms are lined up the same way, so the anchor's material runs on across the other face
+        var r = new Rig();
+        var planar = new FaceTextures(FaceTexture.Plain(Wood) with { TexGen = TexGen.Planar });
+        var turn = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, objectTurn * MathF.PI / 180f);
+        r.Prim(3, new Vector3(12.3f, 10.4f, 30), tex: planar, rot: turn);
+        r.Prim(1, new Vector3(10, 10, 30), tex: planar);
+        r.World.ApplyRenderMaterials(Sim, 3, [new RenderMaterialEntry(0, Gold)]);
+        r.World.ApplyRenderMaterials(Sim, 1, [new RenderMaterialEntry(0, Gold)]);
+        r.World.ApplyMaterialOverrides(Sim, 1, [new FaceMaterialOverride(0, "{\"ti\":[{\"o\":[0.2,0.1],\"s\":[1.5,1.5],\"r\":0.4}]}")]);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectFaces = true;
+        r.C.Click(r.At(12.3f, 10.4f), shift: false);
+        r.C.Click(r.At(10, 10), shift: true);
+        r.Sent.Clear();
+        Assert.True(r.C.AlignPlanarFaces());
+        var put = Assert.Single(r.Sent.OfType<SetFaceMaterialIntent>());
+        Assert.Equal((3u, Gold), (put.LocalId, put.MaterialId));
+        var aligned = PbrMaterial.FromGltf(put.OverrideJson!)!.BaseColorTransform;
+        var anchorT = new TextureTransform(0.2f, 0.1f, 1.5f, 1.5f, 0.4f);
+        var a = r.World.Snapshot().Objects.Values.Single(o => o.Id.LocalId == 1);
+        var b = r.World.Snapshot().Objects.Values.Single(o => o.Id.LocalId == 3);
+        foreach (var p in new[] { new Vector3(11, 10.5f, 31), new Vector3(12.9f, 9.1f, 31), new Vector3(11.6f, 11.2f, 31) })
+        {
+            var ua = FaceRules.PlanarPbrUv(a.Position, a.Rotation, Vector3.UnitZ, anchorT, p);
+            var ub = FaceRules.PlanarPbrUv(b.Position, b.Rotation, Vector3.UnitZ, aligned, p);
+            float du = ua.X - ub.X, dv = ua.Y - ub.Y;
+            Assert.True(MathF.Abs(du - MathF.Round(du)) < 2e-3f && MathF.Abs(dv - MathF.Round(dv)) < 2e-3f, $"at {p}: {ua} vs {ub}");
+        }
     }
 
     [Fact]
