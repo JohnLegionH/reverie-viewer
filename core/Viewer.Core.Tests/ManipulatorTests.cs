@@ -135,4 +135,23 @@ public class ManipulatorTests
         var r = Manipulator.PlaneCentre(c, Quaternion.Identity, 2, 1f, View with { Camera = new Vector3(20, 20, 40) });
         Assert.True(r.X > c.X && r.Y > c.Y, r.ToString());
     }
+
+    [Fact]
+    public void The_snap_regime_is_read_in_the_rings_plane_so_a_flat_ring_seen_from_low_down_snaps_beyond_two_ring_radii()
+    {
+        // a flat ring 1 m across the radius at 20 m, the camera 20 m away and 3 m up: on screen the plane is squeezed, so a point
+        // 2.6 radii out in the plane lies well under 200 pixels from the centre, yet the official rule (llmaniprotate.cpp: the pointer
+        // projected onto the snap plane, beyond SNAP_GUIDE_INNER_RADIUS ring radii) snaps there
+        var centre = new Vector3(100, 100, 20);
+        var camera = new Vector3(80, 100, 23);
+        PickRay Through(Vector3 p) => new(camera, Vector3.Normalize(p - camera));
+        Assert.True(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, Through(centre + new Vector3(-2.6f, 0, 0)), pointerPixelsFromCentre: 120));
+        Assert.True(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, Through(centre + new Vector3(0, 2.6f, 0)), pointerPixelsFromCentre: 150));
+        Assert.False(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, Through(centre + new Vector3(-1.2f, 0, 0)), pointerPixelsFromCentre: 60));
+        Assert.False(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, Through(centre + new Vector3(0, 1.9f, 0)), pointerPixelsFromCentre: 110));
+        // seen edge on, the plane cannot be hit: the distance on screen decides, as before
+        var level = new Vector3(80, 100, 20);
+        Assert.True(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, new PickRay(level, Vector3.UnitX), pointerPixelsFromCentre: 250));
+        Assert.False(Manipulator.InSnapRegime(centre, Vector3.UnitZ, 1f, new PickRay(level, Vector3.UnitX), pointerPixelsFromCentre: 150));
+    }
 }

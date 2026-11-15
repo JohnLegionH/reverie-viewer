@@ -302,6 +302,13 @@ function SitByMenu([string]$label) {
     [void](Wait-Until { $s = Interact @{ action = "state" }; if (-not $s.sitting) { $s } } 10)
     Start-Sleep -Seconds 1
 }
+# the floor back in front of the avatar, flat, the camera close, as a person stands by a floor to sit on it
+$me7 = @((Obs).self.region_position)
+[void](Edit @{ action = "rotation"; x = 0; y = 0; z = 0 })
+[void](Edit @{ action = "position"; x = [double]$me7[0] + 2.5; y = [double]$me7[1]; z = [double]$me7[2] - 0.8 })
+[void](Wait-Until { $o = OwnObj $A; if ($o -and (Near $o.x ([double]$me7[0] + 2.5) 0.05)) { $o } } 15)
+$box = OwnObj $A
+[void](Interact @{ action = "aim"; x = [double]$box.x; y = [double]$box.y; z = [double]$box.z; distance = 5 }); Start-Sleep -Milliseconds 1500
 NoFocus
 SitByMenu "7a in build mode: right-click the floor, Sit Here: you sit and the menu closes"
 NoFocus

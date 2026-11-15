@@ -225,9 +225,9 @@ public class EditControllerTests
         Viewer.Shell.BuildMenu.Install(menus, () => inWorld);
         Viewer.Shell.BuildMenu.InstallEditing(menus, () => inWorld, () => r.C, () => selected);
         var build = menus.Menus.Single(m => m.Id == "build");
-        Assert.Equal(["build.toggle", "build.tool.focus", "build.tool.move", "build.tool.edit", "build.create", "build.edit_linked", "build.link", "build.unlink", "build.options", "build.upload"],
+        Assert.Equal(["build.toggle", "build.tool.focus", "build.tool.move", "build.tool.edit", "build.create", "build.edit_linked", "build.link", "build.unlink", "build.options", "build.upload", "build.undo", "build.redo"],
             build.Entries.Select(e => e.Id));
-        Assert.Equal(["control|B", "control|1", "control|2", "control|3", "control|4", null, "control|L", "control|shift|L", null, null], build.Entries.Select(e => e.Shortcut));
+        Assert.Equal(["control|B", "control|1", "control|2", "control|3", "control|4", null, "control|L", "control|shift|L", null, null, "control|Z", "control|Y"], build.Entries.Select(e => e.Shortcut));
         Assert.All(build.Entries, e => Assert.True(Viewer.Shell.StringTable.English().Has(e.LabelKey), e.LabelKey));
         var toggle = build.Entries[0];
         Assert.False(toggle.Checked!());

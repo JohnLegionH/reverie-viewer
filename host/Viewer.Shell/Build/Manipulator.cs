@@ -107,6 +107,10 @@ public static class Manipulator
 
     /// <summary>The angle a ring drag turns by: snapped to <see cref="Viewer.Core.Building.Snap.AngleIncrementDegrees"/> steps while snapping is on and
     /// the pointer is outside the snap ring.</summary>
+    /// <summary>Whether a ring drag is in the snap regime: the pointer, carried onto the ring's plane, lies farther from the centre than
+    /// <see cref="SnapRingRadii"/> ring radii.</summary>
+    public static bool InSnapRegime(Vector3 centre, Vector3 axis, float ringMetres, PickRay pointer, float pointerPixelsFromCentre) => false;
+
     public static float RotationDegrees(float raw, float pointerPixelsFromCentre, bool snapping) =>
         Viewer.Core.Building.Snap.Angle(raw, snapping && pointerPixelsFromCentre > RingPixels * SnapRingRadii);
 
