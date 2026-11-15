@@ -313,7 +313,7 @@ public class TestWindowPlacementTests
         Assert.Contains("[NvTools.TestWindowPlacement]::OffScreen($bounds, [NvTools.TestWindowPlacement]::BaseWidth, [NvTools.TestWindowPlacement]::BaseHeight)", script);
         Assert.Contains("NV_TEST_WINDOW_ONSCREEN", script);
         // the engine keeps a new window partly on a monitor whatever position it is given, so the launcher moves it off once it is up
-        Assert.Contains("[NvZOrder]::MoveOff($ids.ToArray(), $offX, $offY", script);
+        Assert.Contains("[NvZOrder]::MoveOff([NvZOrder]::Tree($p.Id), $offX, $offY)", script);   // the run's own process tree, looked up fast
         Assert.Contains("SwpNoActivate = 0x10", script);
     }
 

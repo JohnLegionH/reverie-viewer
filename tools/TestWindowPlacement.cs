@@ -91,6 +91,8 @@ namespace NvTools
         {
             if (argLine == null) argLine = "";
             if (Regex.IsMatch(argLine, "--headless")) return TestWindowKind.Untouched;
+            // a normal start asked to open minimised shows no window (S-1's shipping-start checks start the program that way)
+            if (!Regex.IsMatch(argLine, "--test-render|--s1-") && Regex.IsMatch(argLine, "--minimized")) return TestWindowKind.Untouched;
             if (!exportedViewer && !Regex.IsMatch(argLine, "--test-render|--s1-")) return TestWindowKind.Untouched;
             if (fullSize) return TestWindowKind.Untouched;
             return onScreen ? TestWindowKind.Corner : TestWindowKind.OffScreen;

@@ -34,14 +34,123 @@ namespace NvTools
 
     public static class CheckSelector
     {
-        public static CheckSelection Select(IEnumerable<string> changedFiles, string mapText, string areasText)
+        private sealed class Rule { public Regex Pattern; public string[] Areas; }
+
+        private static IEnumerable<string[]> Rows(string text)
         {
-            return new CheckSelection();
+            foreach (string raw in (text ?? "").Split('\n'))
+            {
+                string line = raw.TrimEnd('\r');
+                if (line.Length == 0 || line.StartsWith("#")) continue;
+                yield return line.Split('\t');
+            }
         }
 
+        private static Dictionary<string, CheckArea> ReadAreas(string areasText)
+        {
+            var areas = new Dictionary<string, CheckArea>();
+            foreach (string[] c in Rows(areasText))
+            {
+                if (c.Length < 4) throw new ArgumentException("an area line needs four columns: " + string.Join("\t", c));
+                areas[c[0]] = new CheckArea
+                {
+                    Name = c[0],
+                    Cases = c[1] == "-" ? null : c[1],
+                    Backends = c[2] == "-" ? new string[0] : c[2].Split(','),
+                    Smoke = c[3] == "yes",
+                };
+            }
+            if (!areas.ContainsKey("full")) throw new ArgumentException("the areas file has no 'full' area");
+            return areas;
+        }
+
+        private static List<Rule> ReadMap(string mapText)
+        {
+            var rules = new List<Rule>();
+            foreach (string[] c in Rows(mapText))
+            {
+                if (c.Length != 2) throw new ArgumentException("a map line needs two columns: " + string.Join("\t", c));
+                rules.Add(new Rule { Pattern = new Regex(c[0], RegexOptions.CultureInvariant), Areas = c[1].Split(',') });
+            }
+            return rules;
+        }
+
+        /// <summary>
+        /// The checks <paramref name="changedFiles"/> (paths in the repository, either slash) need. Each file takes the areas of every
+        /// map rule it matches; a file that matches none selects the full set and is listed as unplaced. The selection is the union of
+        /// the files' areas: their cases (per backend), and the stock smoke if any of them runs it.
+        /// </summary>
+        public static CheckSelection Select(IEnumerable<string> changedFiles, string mapText, string areasText)
+        {
+            var areas = ReadAreas(areasText);
+            var rules = ReadMap(mapText);
+            var s = new CheckSelection();
+            var perBackend = new Dictionary<string, List<string>>();
+            var all = new List<string>();
+            foreach (string f0 in changedFiles)
+            {
+                if (string.IsNullOrEmpty(f0)) continue;
+                string f = f0.Replace('\\', '/');
+                var mine = new List<string>();
+                foreach (Rule r in rules)
+                    if (r.Pattern.IsMatch(f))
+                        foreach (string a in r.Areas) if (!mine.Contains(a)) mine.Add(a);
+                if (mine.Count == 0) { mine.Add("full"); s.Unplaced.Add(f); }
+                s.FileAreas[f] = mine;
+                foreach (string a in mine)
+                {
+                    if (a == "none") continue;
+                    CheckArea area;
+                    if (!areas.TryGetValue(a, out area)) throw new ArgumentException("the map names an area the areas file does not have: " + a);
+                    if (!s.Areas.Contains(a)) s.Areas.Add(a);
+                    if (a == "full") s.Full = true;
+                    if (area.Smoke) s.Smoke = true;
+                    if (area.Cases == null) continue;
+                    if (!all.Contains(area.Cases)) all.Add(area.Cases);
+                    foreach (string b in area.Backends)
+                    {
+                        List<string> list;
+                        if (!perBackend.TryGetValue(b, out list)) { list = new List<string>(); perBackend[b] = list; }
+                        if (!list.Contains(area.Cases)) list.Add(area.Cases);
+                        if (!s.Backends.Contains(b)) s.Backends.Add(b);
+                    }
+                }
+            }
+            if (s.Full)
+            {
+                CheckArea full = areas["full"];
+                s.Smoke = s.Smoke || full.Smoke;
+                s.Backends = new List<string>(full.Backends);
+                s.Cases = full.Cases;
+                foreach (string b in full.Backends) s.CasesByBackend[b] = full.Cases;
+                return s;
+            }
+            if (all.Count > 0) s.Cases = Join(all);
+            foreach (var kv in perBackend) s.CasesByBackend[kv.Key] = Join(kv.Value);
+            return s;
+        }
+
+        private static string Join(List<string> patterns)
+        {
+            if (patterns.Count == 1) return patterns[0];
+            var parts = new List<string>();
+            foreach (string p in patterns) parts.Add("(?:" + p + ")");
+            return string.Join("|", parts.ToArray());
+        }
+
+        /// <summary>
+        /// Whether <paramref name="selection"/> runs the render case <paramref name="caseTag"/> (a tag ends in its backend,
+        /// _vulkan or _d3d12; a tag without one, such as refuse_opengl3, runs with the full set only).
+        /// </summary>
         public static bool Picks(CheckSelection selection, string caseTag)
         {
-            return false;
+            if (selection == null || string.IsNullOrEmpty(caseTag)) return false;
+            if (selection.Full) return true;
+            Match m = Regex.Match(caseTag, "_(vulkan|d3d12)$");
+            if (!m.Success) return false;
+            string cases;
+            if (!selection.CasesByBackend.TryGetValue(m.Groups[1].Value, out cases) || cases == null) return false;
+            return Regex.IsMatch(caseTag, cases);
         }
     }
 }

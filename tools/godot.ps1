@@ -420,6 +420,27 @@ public static class NvZOrder
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromRect(ref Rect r, uint flags);
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] private struct ProcEntry { public uint Size, Usage, Pid; public IntPtr Heap; public uint Module, Threads, Parent; public int Base; public uint Flags; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string Exe; }
+    [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern bool Process32FirstW(IntPtr snap, ref ProcEntry e);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern bool Process32NextW(IntPtr snap, ref ProcEntry e);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr h);
+    /// <summary>The process and every process below it, from one process snapshot (a few milliseconds, so the window can be looked for often).</summary>
+    public static int[] Tree(int root)
+    {
+        var parent = new Dictionary<uint, uint>();
+        IntPtr snap = CreateToolhelp32Snapshot(2, 0);   // TH32CS_SNAPPROCESS
+        if (snap == (IntPtr)(-1)) return new[] { root };
+        try
+        {
+            var e = new ProcEntry(); e.Size = (uint)Marshal.SizeOf(typeof(ProcEntry));
+            if (Process32FirstW(snap, ref e)) do { parent[e.Pid] = e.Parent; } while (Process32NextW(snap, ref e));
+        }
+        finally { CloseHandle(snap); }
+        var ids = new List<int> { root };
+        for (int i = 0; i < ids.Count; i++) foreach (var kv in parent) if (kv.Value == (uint)ids[i] && kv.Key != (uint)ids[i] && !ids.Contains((int)kv.Key)) ids.Add((int)kv.Key);
+        return ids.ToArray();
+    }
     private const uint SwpNoSize = 1, SwpNoMove = 2, SwpNoActivate = 0x10, SwpNoOwnerZOrder = 0x200;
     /// <summary>Moves every visible top-level window of the given processes that meets a monitor to (x, y), off every monitor, at the
     /// bottom of the stacking order and without activating it (the engine keeps a new window partly on a monitor whatever position it is
@@ -513,20 +534,22 @@ while (-not $p.HasExited) {
     # off every monitor (the engine keeps a new window partly on one whatever position it was given), and checked again every
     # 2 s until the run ends. A corner window is kept at the bottom by the viewer (host\Viewer.Godot\TestWindow.cs), so for it
     # this polls only until the window has been found once, and for at most a minute.
-    if ($windowPlaced -and -not $windowBottomed -and (((Get-Date) - $started).TotalSeconds -lt 60 -or $windowSeenOff) -and ((Get-Date) - $lastWindowPoll).TotalMilliseconds -ge $(if ($windowSeenOff) { 2000 } else { 100 })) {
+    if ($windowPlaced -and -not $windowBottomed -and (((Get-Date) - $started).TotalSeconds -lt 60 -or $windowSeenOff) -and ((Get-Date) - $lastWindowPoll).TotalMilliseconds -ge $(if ($windowSeenOff) { 2000 } else { 40 })) {
         $lastWindowPoll = Get-Date
         try {
             $ids = New-Object System.Collections.Generic.List[int]
             $ids.Add($p.Id)
-            $procs = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
-            for ($i = 0; $i -lt $ids.Count; $i++) { foreach ($c in $procs) { if ([int]$c.ParentProcessId -eq $ids[$i]) { $ids.Add([int]$c.ProcessId) } } }
+            if ($kind -ne [NvTools.TestWindowKind]::OffScreen) {
+                $procs = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
+                for ($i = 0; $i -lt $ids.Count; $i++) { foreach ($c in $procs) { if ([int]$c.ParentProcessId -eq $ids[$i]) { $ids.Add([int]$c.ProcessId) } } }
+            }
             if ($kind -eq [NvTools.TestWindowKind]::OffScreen) {
                 # moved off every monitor as soon as it is up, and checked again every 2 s for the whole run, in case the program moves it back
-                if ([NvZOrder]::MoveOff($ids.ToArray(), $offX, $offY) -gt 0) { $windowSeenOff = $true }
+                if ([NvZOrder]::MoveOff([NvZOrder]::Tree($p.Id), $offX, $offY) -gt 0) { $windowSeenOff = $true }
             } elseif ([NvZOrder]::SendToBottom($ids.ToArray()) -gt 0) { $windowBottomed = $true }
         } catch { $windowBottomed = $true; Write-Output "GODOT: could not send the test window to the bottom ($($_.Exception.Message))" }
     }
-    Start-Sleep -Milliseconds $(if ($windowPlaced -and -not $windowBottomed -and -not $windowSeenOff) { 50 } else { 500 })
+    Start-Sleep -Milliseconds $(if ($windowPlaced -and -not $windowBottomed -and -not $windowSeenOff) { 20 } else { 500 })
 }
 
 # Exited. Give the pipes a moment to reach EOF; if a child still holds them, record it (and do not block forever).
