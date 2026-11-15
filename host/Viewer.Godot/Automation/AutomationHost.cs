@@ -340,8 +340,8 @@ public partial class AutomationHost : Node
             case "edit":   // {action: state|toggle|tool|click|select|linked|position|size|rotation|shape|name|flags|locked|link|unlink|drag, x?, y?, z?, text?, expect?}: build mode's edit tools (answers ids, numbers and states)
             {
                 string action = Str(call.Body, "action") ?? "state";
-                if (action is not ("state" or "toggle" or "tool" or "click" or "select" or "linked" or "position" or "size" or "rotation" or "shape" or "name" or "flags" or "locked" or "link" or "unlink" or "handle" or "manip" or "snap" or "snap_xy" or "use_selection_grid" or "grid" or "grid_options"))
-                    return AutomationReply.Error(400, "action must be state, toggle, tool, click, select, linked, position, size, rotation, shape, name, flags, locked, link, unlink, handle, manip, snap, snap_xy, use_selection_grid, grid or grid_options");
+                if (action is not ("state" or "toggle" or "tool" or "click" or "select" or "linked" or "position" or "size" or "rotation" or "shape" or "name" or "flags" or "locked" or "link" or "unlink" or "handle" or "manip" or "snap" or "snap_xy" or "use_selection_grid" or "grid" or "grid_options" or "handle_points" or "undo"))
+                    return AutomationReply.Error(400, "action must be state, toggle, tool, click, select, linked, position, size, rotation, shape, name, flags, locked, link, unlink, handle, manip, snap, snap_xy, use_selection_grid, grid, grid_options, handle_points or undo");
                 return m.EditCall(action, Num(call.Body, "x", 128), Num(call.Body, "y", 128), Num(call.Body, "z", 30), Str(call.Body, "text"), Str(call.Body, "expect")) is { } edited
                     ? AutomationReply.Ok(edited) : AutomationReply.Error(409, "not in the world");
             }

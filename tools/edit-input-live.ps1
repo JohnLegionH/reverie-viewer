@@ -154,7 +154,14 @@ function HandDrag([string]$what, [double]$x, [double]$y, [double]$z, [scriptbloc
 
 # ---- 1. a box, build mode, the Edit tool, the box clicked ----
 $me = @((Obs).self.region_position)
-$spot = @{ x = [double]$me[0] + 4.0; y = [double]$me[1]; z = [double]$me[2] - 0.9 }
+# a spot clear of anything the region already holds (an earlier run may have left boxes near the arrival point)
+$taken = @((Build @{ action = "state" }).own_objects)
+$spot = $null
+foreach ($dy in @(0, 4, -4, 8, -8)) {
+    $c = @{ x = [double]$me[0] + 4.0; y = [double]$me[1] + $dy; z = [double]$me[2] - 0.9 }
+    if (-not ($taken | Where-Object { [math]::Abs([double]$_.x - $c.x) -lt 3 -and [math]::Abs([double]$_.y - $c.y) -lt 3 })) { $spot = $c; break }
+}
+if (-not $spot) { $spot = @{ x = [double]$me[0] + 4.0; y = [double]$me[1] + 12; z = [double]$me[2] - 0.9 } }
 [void](Interact @{ action = "aim"; x = $spot.x; y = $spot.y; z = $spot.z; distance = 8 }); Start-Sleep -Milliseconds 1500
 $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
 [void](Build @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z })
@@ -169,7 +176,8 @@ $e = EditUntil { param($s) $s.build_mode -and $s.tool -eq "edit" }
 $sp = ScreenOf $box.id
 if ($sp) { ClickAt $sp[0] $sp[1] }
 $sel = EditUntil { param($s) @($s.selection) -contains $A }
-Check "1 build mode, Ctrl+3, a click on the box selects it" ([bool]$e -and @($sel.selection) -contains $A) ("tool {0}; selection {1}" -f $e.tool, (@($sel.selection) -join ","))
+Check "1 build mode, Ctrl+3, a click on the box selects it" ([bool]$e -and @($sel.selection) -contains $A) ("tool {0}; box {1}; selection {2}; clicked at {3}" -f $e.tool, $A, (@($sel.selection) -join ","), (@($sp) -join ","))
+if (-not (@($sel.selection) -contains $A)) { [void](Edit @{ action = "select"; text = "$A" }) }   # so the later checks still run
 # typed numbers make a thin floor turned 45 degrees); the typing itself is not what this check is about
 [void](Edit @{ action = "size"; x = 2; y = 2; z = 0.2 })
 [void](Edit @{ action = "rotation"; x = 0; y = 0; z = 45 })
@@ -182,6 +190,7 @@ Check "1 build mode, Ctrl+3, a click on the box selects it" ([bool]$e -and @($se
 $readPos = { $o = OwnObj $A; if ($o) { @([double]$o.x, [double]$o.y, [double]$o.z) } }
 $mv = HandDrag "axis:x+" 2 0 0 $readPos
 $report.move = $mv
+if ($mv.error) { Note $mv.error; $mv = @{ before = @(0, 0, 0); during = @(0, 0, 0); after = @(0, 0, 0); later = @(9, 9, 9); steering = $true; dragging_held = $false; hit = "none" } }
 $movedDuring = $mv.during -and $mv.before -and ([math]::Abs($mv.during[0] - $mv.before[0]) -gt 0.4)
 $stays = $mv.after -and $mv.later -and (Near $mv.after[0] $mv.later[0] 0.02) -and (Near $mv.after[1] $mv.later[1] 0.02)
 $along = $mv.after -and (Near $mv.after[1] $mv.before[1] 0.05) -and (Near $mv.after[2] $mv.before[2] 0.05) -and ([math]::Abs($mv.after[0] - $mv.before[0]) -gt 1)
@@ -193,12 +202,14 @@ Check "2b Move arrow: it stays where the button is let go, along the arrow only"
 $readRot = { Rot $A }
 $far = HandDrag "ring:z" 30 1 0 $readRot
 $report.rotate_far = $far
+if ($far.error) { Note $far.error; $far = @{ before = 0.0; during = 0.0; after = 0.0; later = 9.0 } }
 $dFar = AngleDiff $far.after $far.before
 $stepsFar = $dFar / 5.625
 Check "3a Rotate ring: the box turns while the button is held and stays turned after" ([math]::Abs((AngleDiff $far.during $far.before)) -gt 2 -and (Near $far.after $far.later 0.05)) ("before {0}, held {1}, after {2}, pointer moved on {3}" -f $far.before, $far.during, $far.after, $far.later)
 Check "3b Rotate ring, pointer well outside the rings: the turn is whole 5.625-degree steps" ([math]::Abs($dFar) -gt 2 -and (Near $stepsFar ([math]::Round($stepsFar)) 0.02)) ("turned {0:N3} degrees = {1:N3} steps" -f $dFar, $stepsFar)
 $near = HandDrag "ring:z" 20 0 0 $readRot
 $report.rotate_near = $near
+if ($near.error) { Note $near.error; $near = @{ before = 0.0; during = 0.0; after = 0.0; later = 9.0 } }
 $dNear = AngleDiff $near.after $near.before
 $stepsNear = $dNear / 5.625
 Check "3c Rotate ring, pointer on the ring: the turn is smooth (not whole steps)" ([math]::Abs($dNear - 20) -lt 2 -and -not (Near $stepsNear ([math]::Round($stepsNear)) 0.02)) ("turned {0:N3} degrees = {1:N3} steps" -f $dNear, $stepsNear)
@@ -209,6 +220,7 @@ $readSize = { $o = OwnObj $A; if ($o) { [double]$o.sz } }
 $s0 = & $readSize
 $st4 = HandDrag "face:z+" ($s0 + 0.6) 0 0 $readSize
 $report.stretch = $st4
+if ($st4.error) { Note $st4.error; $st4 = @{ before = 0.0; during = 0.0; after = 0.0; later = 9.0 } }
 Check "4 Stretch face: the box grows while the button is held and keeps the size it was let go at" (($st4.during - $st4.before) -gt 0.2 -and (Near $st4.after $st4.later 0.005) -and ($st4.after - $st4.before) -gt 0.4) ("z size before {0}, held {1}, after {2}, pointer moved on {3}" -f $st4.before, $st4.during, $st4.after, $st4.later)
 
 # ---- 5. a builder's steps: in Stretch the floor clicked, Grid Options (Ctrl+Shift+B), Units 1 and Enter, the window closed, Shift+X ----
@@ -271,7 +283,7 @@ $report.undo = @{ can_undo = $eu.can_undo; start = @($u0.x, $r0, $u0.sx); change
 Check "6a Ctrl+Z undoes the resize" ([bool]$z1) ("Undo on {0}; size x {1} -> {2}, wanted {3}" -f $eu.can_undo, $sx, (OwnObj $A).sx, $u1.sx)
 Check "6b Ctrl+Z again undoes the turn" ([bool]$z2) ("rotation {0} -> {1}, wanted {2}" -f $r1, (Rot $A), $r0)
 Check "6c Ctrl+Z a third time undoes the move" ([bool]$z3) ("x {0} -> {1}, wanted {2}" -f $tx, (OwnObj $A).x, $u0.x)
-Check "6d Ctrl+Y steps forward again (the move comes back)" ([bool]$y1) ("x now {0}, wanted {1}" -f (OwnObj $A).x, $tx)
+Check "6d Ctrl+Y steps forward again (the move comes back)" ([bool]$z3 -and [bool]$y1) ("x now {0}, wanted {1}" -f (OwnObj $A).x, $tx)
 
 # ---- 7. The right-click menu: Sit Here chosen with the pointer closes the menu; in build mode and out of it ----
 function SitByMenu([string]$label) {
