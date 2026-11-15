@@ -55,13 +55,25 @@ namespace NvTools
                 areas[c[0]] = new CheckArea
                 {
                     Name = c[0],
-                    Cases = c[1] == "-" ? null : c[1],
+                    Cases = c[1] == "-" ? null : TagPattern(c[1]),
                     Backends = c[2] == "-" ? new string[0] : c[2].Split(','),
                     Smoke = c[3] == "yes",
                 };
             }
             if (!areas.ContainsKey("full")) throw new ArgumentException("the areas file has no 'full' area");
             return areas;
+        }
+
+        /// <summary>
+        /// An area's pattern as render.ps1's case filter needs it: that filter reads the picture's tag, which writes the case's name with
+        /// hyphens (shared-env-vulkan for shared_env_vulkan) and puts "proposal-" before it while no golden exists. So an underscore in the
+        /// pattern stands for either, and a pattern that starts with "^(" also allows the prefix.
+        /// </summary>
+        public static string TagPattern(string pattern)
+        {
+            string p = pattern.Replace("_", "[-_]");
+            if (p.StartsWith("^(")) p = "^(?:proposal[-_])?(" + p.Substring(2);
+            return p;
         }
 
         private static List<Rule> ReadMap(string mapText)
@@ -139,14 +151,15 @@ namespace NvTools
         }
 
         /// <summary>
-        /// Whether <paramref name="selection"/> runs the render case <paramref name="caseTag"/> (a tag ends in its backend,
-        /// _vulkan or _d3d12; a tag without one, such as refuse_opengl3, runs with the full set only).
+        /// Whether <paramref name="selection"/> runs the render case <paramref name="caseTag"/>, by its name or its picture's tag (either
+        /// ends in its backend, _vulkan or -d3d12, sometimes with one more word after it; one without, such as refuse_opengl3, runs with the
+        /// full set only).
         /// </summary>
         public static bool Picks(CheckSelection selection, string caseTag)
         {
             if (selection == null || string.IsNullOrEmpty(caseTag)) return false;
             if (selection.Full) return true;
-            Match m = Regex.Match(caseTag, "_(vulkan|d3d12)$");
+            Match m = Regex.Match(caseTag, "[-_](vulkan|d3d12)([-_][a-z]+)?$");
             if (!m.Success) return false;
             string cases;
             if (!selection.CasesByBackend.TryGetValue(m.Groups[1].Value, out cases) || cases == null) return false;

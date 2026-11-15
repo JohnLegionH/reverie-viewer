@@ -3,14 +3,15 @@
 #
 # The areas tools\select-checks.ps1 picks checks by (tools\CheckSelector.cs reads this file).
 # One area per line: name, the render cases it runs (a regular expression on the case's tag, for render.ps1 -OnlyCases; "-" for none),
-# the backends those cases run on, and whether the stock smoke runs (yes/no).
+# the backends those cases run on, and whether the stock smoke runs (yes/no). An underscore in a pattern also matches a hyphen, and
+# "proposal-" may come first: render.ps1's case filter reads the picture's tag (shared-env-vulkan, proposal-shared-env-vulkan).
 # The area "full" stands for the full render set and the stock smoke; tools\check-map.tsv sends to it every path the selector
 # cannot place more narrowly, and every path it does not know.
 #area	cases	backends	smoke
 none	-	-	no
 smoke	-	-	yes
 full	.	vulkan,d3d12	yes
-ui	^(ui_|loginscreen|proportions|dialog12|text_|test_window)	vulkan,d3d12	no
+ui	^(ui|loginscreen|proportions|dialog12|text_|test_window)	vulkan,d3d12	no
 login	^(ui_login|ui_reconnect|loginscreen|test_window)	vulkan,d3d12	yes
 build	^(handles_|ui_build|select)	vulkan,d3d12	no
 environment	^(haze|sundisc|shared_env|water|personal_sky|sky|clouds?_|skycycle|worldlight|lifecycle_water|neighbours_water|glow_light)	vulkan	yes

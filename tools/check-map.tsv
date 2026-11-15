@@ -8,12 +8,15 @@
 #
 # Files that draw nothing and are proven by other checks: the .NET suite (tests), running the live script (live checks).
 #pattern	areas
-^(Docs/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|BUILDING\.md$|THIRD-PARTY-NOTICES\.md$|ThirdPartyLicenses/|LICENSE$|\.gitignore$|\.gitattributes$)	none
+^(Docs/|\.github/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|BUILDING\.md$|THIRD-PARTY-NOTICES\.md$|ThirdPartyLicenses/|LICENSE$|\.gitignore$|\.gitattributes$)	none
 ^core/Viewer\.Core\.Tests/	none
 ^core/Viewer\.Core\.ArchFixture/	none
 \.uid$	none
 ^samples/	none
-^tools/[A-Za-z0-9-]+-live\.ps1$	none
+^fixtures/notecards/	none
+(^|/)LICENSE[A-Za-z0-9-]*\.txt$	none
+^host/Viewer\.Godot/(WorldSoundPlayer|SoundTunerPanel)\.cs$	smoke
+^tools/[A-Za-z0-9-]+-live\.ps1$|^tools/live-smoke\.ps1$	none
 ^tools/(live-env|live-check|live-takeback|other-clients|aim-lib|aim-check|automation|soak-live|login-proof|login-dialogs|prefs-auto-check|ui-checks|ui-sound-check|world-sound-check|window-check|contact-sheets|close-cycles|package|ship-export|rebuild-corej2k|nupkg-fixed-time|assert-[a-z-]+|boot-logo-check)\.ps1$	none
 ^tools/(select-checks\.ps1|CheckSelector\.cs|check-map\.tsv|check-areas\.tsv|test\.sh)$	none
 ^tools/(capture|laptop-kit|release|ui-sounds)/	none
@@ -22,7 +25,9 @@
 ^tools/TestWindowPlacement\.cs$	full
 ^tools/(stock-smoke|stock-server|stock-settings)\.ps1$	smoke
 # Build and tool settings shared by everything.
-(^|/)[^/]+\.csproj$|(^|/)packages\.lock\.json$|^Directory\.|^nuget|^Viewer\.sln$|^nuget-feed/|^native/|^vendor/	full
+^(?!core/Viewer\.Core\.Tests/|tools/)([^/]+/)*([^/]+\.csproj|packages\.lock\.json)$|^Directory\.|^nuget|^Viewer\.sln$|^nuget-feed/|^native/(?!.*LICENSE)	full
+^vendor/second-life-character/	avatars
+^vendor/(?!second-life-character/)	full
 ^host/Viewer\.Godot/(project\.godot|export_presets\.cfg|icon|default_env)	full
 \.(gdshader|gdshaderinc|glsl)$|/Shaders?/	full
 # The engine side: what every picture goes through.
@@ -31,7 +36,7 @@
 ^core/Viewer\.Core/(World|Camera|Replay|Platform)/	full
 ^host/Viewer\.Shell/(PresentationCoordinator|PresentationPolicy|DisplayPlan|RenderFloor|FrameBudget|FrameClock|DeferredDisposals|LiveRidLedger|StagedHandOver|NearestFirstSet|UnitCostModel|SliceStats|ImageDiff|CameraDefaults|FollowCamera|DrawDistanceView|BackendChoice|BackendRelaunch|BackendStatus|DeviceProbe|NativeMemory|EngineLogRoute)\.cs$	full
 # The interface: the theme and the frame are shared by every window, so they run every interface case.
-^host/Viewer\.Godot/(ShellTheme|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
+^host/Viewer\.Godot/(ShellTheme|ShellRoot|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
 ^host/Viewer\.Godot/Reverie/	ui
 ^host/Viewer\.Godot/[A-Za-z]*(Panels?|Pages|Tab|View|Overlay)\.cs$	ui
 ^host/Viewer\.Godot/Main\.(Prefs|Chat|Notifications|Names|Notecards|Addons|Sounds|WorldSounds|ViewChecks|Aim|FrameBurst|FrameTime|LookProbe|MovingProbe|MeshProbe|AvatarProbe|WornTrace|CrossingFrames|HandoffFrames|LoginDump|InventoryMoveCheck|InventoryPointerCheck|TexturePreview)\.cs$	ui,smoke
@@ -74,3 +79,5 @@
 ^host/Viewer\.Shell/(Assets/|MeshLodPreparer|MeshSource|MeshSurfaceData|MaterialSource|TextureSource|[A-Za-z]*Zoo|HeavyScene|BusyScene|LoopbackTextureServer)	objects
 ^core/Viewer\.Core/(Imaging|Meshing|Residency)/|^core/Viewer\.Core\.(DecodeProbe|LifecycleSmoke)/	objects
 ^fixtures/(prims|primmesher|meshes|sculpts|textures|materials|colour|orientation)/	objects
+^host/Viewer\.Godot/Main\.Rlv\.cs$	smoke,ui
+^host/Viewer\.Godot/Main\.Overrider\.cs$	avatars
