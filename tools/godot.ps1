@@ -403,6 +403,7 @@ function Save-Dump {
 $snapshotted = $false
 $windowBottomed = $false
 $windowSeenOff = $false
+$windowSeenAt = [DateTime]::MaxValue
 $lastWindowPoll = [DateTime]::MinValue
 if ($windowPlaced) {
     Add-Type -TypeDefinition @"
@@ -534,7 +535,7 @@ while (-not $p.HasExited) {
     # off every monitor (the engine keeps a new window partly on one whatever position it was given), and checked again every
     # 2 s until the run ends. A corner window is kept at the bottom by the viewer (host\Viewer.Godot\TestWindow.cs), so for it
     # this polls only until the window has been found once, and for at most a minute.
-    if ($windowPlaced -and -not $windowBottomed -and (((Get-Date) - $started).TotalSeconds -lt 60 -or $windowSeenOff) -and ((Get-Date) - $lastWindowPoll).TotalMilliseconds -ge $(if ($windowSeenOff) { 2000 } else { 40 })) {
+    if ($windowPlaced -and -not $windowBottomed -and (((Get-Date) - $started).TotalSeconds -lt 60 -or $windowSeenOff) -and ((Get-Date) - $lastWindowPoll).TotalMilliseconds -ge $(if ($windowSeenOff -and ((Get-Date) - $windowSeenAt).TotalSeconds -ge 15) { 2000 } else { 40 })) {
         $lastWindowPoll = Get-Date
         try {
             $ids = New-Object System.Collections.Generic.List[int]
@@ -545,11 +546,12 @@ while (-not $p.HasExited) {
             }
             if ($kind -eq [NvTools.TestWindowKind]::OffScreen) {
                 # moved off every monitor as soon as it is up, and checked again every 2 s for the whole run, in case the program moves it back
-                if ([NvZOrder]::MoveOff([NvZOrder]::Tree($p.Id), $offX, $offY) -gt 0) { $windowSeenOff = $true }
+                # (every 40 ms for the first 15 s after it appears: the engine places its window again once while it starts)
+                if ([NvZOrder]::MoveOff([NvZOrder]::Tree($p.Id), $offX, $offY) -gt 0 -and -not $windowSeenOff) { $windowSeenOff = $true; $windowSeenAt = Get-Date }
             } elseif ([NvZOrder]::SendToBottom($ids.ToArray()) -gt 0) { $windowBottomed = $true }
         } catch { $windowBottomed = $true; Write-Output "GODOT: could not send the test window to the bottom ($($_.Exception.Message))" }
     }
-    Start-Sleep -Milliseconds $(if ($windowPlaced -and -not $windowBottomed -and -not $windowSeenOff) { 20 } else { 500 })
+    Start-Sleep -Milliseconds $(if ($windowPlaced -and -not $windowBottomed -and -not ($windowSeenOff -and ((Get-Date) - $windowSeenAt).TotalSeconds -ge 15)) { 20 } else { 500 })
 }
 
 # Exited. Give the pipes a moment to reach EOF; if a child still holds them, record it (and do not block forever).

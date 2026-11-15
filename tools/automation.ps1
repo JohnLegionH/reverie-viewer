@@ -79,8 +79,10 @@ function Invoke-Raw([int]$port, [string]$command, [string]$token, [string]$body 
     } finally { $tcp.Close() }
 }
 
+# The viewer runs from the development build, or from the launch folder of hard links tools\godot.ps1 makes from it so that its window
+# opens off the monitors without focus (tools	est-launch.ps1; under test-results, the diagnostics folder this script leaves at its default).
 function Get-ViewerPids([datetime]$since) {
-    @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like "Reverie*.exe" -and $_.CreationDate -ge $since.AddSeconds(-2) -and $_.ExecutablePath -like "$build\dev\*" } | ForEach-Object { [int]$_.ProcessId })
+    @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like "Reverie*.exe" -and $_.CreationDate -ge $since.AddSeconds(-2) -and ($_.ExecutablePath -like "$build\dev\*" -or $_.ExecutablePath -like "$results\launch-*") } | ForEach-Object { [int]$_.ProcessId })
 }
 
 # Starts the development build through godot.ps1 in its own PowerShell (so this script can drive it). Returns the job.
