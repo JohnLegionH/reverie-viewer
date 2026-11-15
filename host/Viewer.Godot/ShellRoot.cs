@@ -255,9 +255,51 @@ public partial class ShellRoot : Control
 
     public override void _Input(InputEvent e)
     {
+        // an open right-click menu takes Esc first and closes with no choice, as the official viewer's menu holder does before anything
+        // else sees the key (llviewerwindow.cpp handleKey); the camera's Esc never runs
+        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } && ContextMenu is { IsOpen: true } menu)
+        {
+            menu.Dismiss();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape }
             && Shell.Focus.OnEscape(GetViewport().GuiGetFocusOwner()?.HasMeta(TakesEscapeMeta) == true) != EscapeResult.None)
+        {
             GetViewport().SetInputAsHandled();
+            return;
+        }
+        // a menu shortcut with Ctrl or Alt reaches the menus before the control that holds the keyboard, so it works while typing
+        if (e is InputEventKey { Pressed: true, Echo: false } k && (k.CtrlPressed || k.AltPressed) && RunShortcut(k))
+            GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>A menu shortcut without Ctrl or Alt (G, Shift+X) reaches the menus only when the control holding the keyboard did not take
+    /// it: a text field types it instead.</summary>
+    public override void _UnhandledKeyInput(InputEvent e)
+    {
+        if (e is InputEventKey { Pressed: true, Echo: false } k && !k.CtrlPressed && !k.AltPressed && RunShortcut(k))
+            GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>Runs the menu entry whose shortcut was pressed, read from the menus now (no menu needs to have been opened). True when one ran.</summary>
+    private bool RunShortcut(InputEventKey k)
+    {
+        if (ChordOf(k) is not { } chord)
+            return false;
+        bool typing = GetViewport().GuiGetFocusOwner() is LineEdit { Editable: true } or TextEdit { Editable: true };
+        if (MenuShortcuts.Route(TopBarMenuMap.Build(Shell.Menus, Shell.Commands), chord, typing) is not { CommandId: { } command })
+            return false;
+        return Shell.Commands.Execute(command);
+    }
+
+    /// <summary>A key event as a menu shortcut's chord: a letter or a digit with its modifier keys; null for any other key.</summary>
+    public static KeyChord? ChordOf(InputEventKey k)
+    {
+        var code = k.Keycode != Key.None ? k.Keycode : k.PhysicalKeycode;
+        return code is >= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9
+            ? new KeyChord(((char)(long)code).ToString(), k.CtrlPressed, k.ShiftPressed, k.AltPressed)
+            : null;
     }
 
     /// <summary>A pointer press the interface did not take is a press on the world.</summary>

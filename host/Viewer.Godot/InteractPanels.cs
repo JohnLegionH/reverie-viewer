@@ -174,6 +174,10 @@ public partial class ContextMenuPanel : PanelContainer
     /// <summary>Esc with the menu open: the menu closes with no choice.</summary>
     public void Dismiss()
     {
+        if (!Visible)
+            return;
+        Close();
+        Dismissed?.Invoke();
     }
 
     public void Close()

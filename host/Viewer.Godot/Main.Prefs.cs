@@ -432,11 +432,14 @@ public partial class Main
                 {
                     "LEFT" => Key.Left, "RIGHT" => Key.Right, "UP" => Key.Up, "DOWN" => Key.Down, "PGUP" => Key.Pageup, "PGDN" => Key.Pagedown,
                     "HOME" => Key.Home, "SPACE" => Key.Space, "ENTER" => Key.Enter, "ESC" => Key.Escape,
-                    { Length: 1 } letter when letter[0] is >= 'A' and <= 'Z' => (Key)letter[0],
+                    { Length: 1 } letter when letter[0] is >= 'A' and <= 'Z' or >= '0' and <= '9' => (Key)letter[0],
                     _ => Key.None,
                 };
                 if (code == Key.None) return null;
-                global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Pressed = down, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt });
+                // a letter or digit without Ctrl or Alt carries its character, as the operating system's key event does (a text field types it)
+                char typed = !down || ctrl || alt || code is not (>= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9) ? '\0'
+                    : code is >= Key.A and <= Key.Z && !shift ? char.ToLowerInvariant((char)(long)code) : (char)(long)code;
+                global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = typed, Pressed = down, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt });
                 break;
             }
             case "mouse":
@@ -468,6 +471,9 @@ public partial class Main
                 FirstButton(GetTree().Root)?.GrabFocus();
                 break;
             }
+            case "release_focus":   // nothing holds the keyboard, as after a click on the world
+                GetViewport().GuiReleaseFocus();
+                break;
             case "state":
                 break;
             case "buttons":

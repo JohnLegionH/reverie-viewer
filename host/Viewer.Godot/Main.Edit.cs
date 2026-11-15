@@ -313,6 +313,7 @@ public partial class Main
             handles_drawn = _handles?.Visible ?? false,
             edit_linked = e.EditLinked,
             window_open = _shell?.Shell.Floaters.IsOpen(EditPanel.FloaterId) ?? false,
+            grid_window_open = _shell?.Shell.Floaters.IsOpen(GridPanel.FloaterId) ?? false,
             placing = _interact?.Placing ?? false,
             selection = e.Selection.ToArray(),
             primary = prim is null ? null : new

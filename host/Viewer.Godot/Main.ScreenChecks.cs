@@ -39,6 +39,7 @@ public partial class Main
     {
         top = _shell?.OpenMenu,
         top_popups_visible = _shell?.VisibleMenus() ?? [],
+        top_popups_filled = _shell?.Menu.Popups.Count(p => p.ItemCount > 0) ?? 0,   // 0 until a menu of the top bar has been opened
         inventory_context = _inventoryPanel?.Context.Visible ?? false,
         open_windows = _shell?.Shell.Floaters.OpenFloaters.Select(f => f.Id).ToArray() ?? [],
         inventory_selected = _inventoryPanel?.SelectedItem is { } sel && sel != Guid.Empty ? sel.ToString() : null,

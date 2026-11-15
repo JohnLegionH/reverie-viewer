@@ -511,6 +511,22 @@ public partial class S1Smoke : Node
         }
         if (shell.Menu.Popups.Any(p => p.ItemCount > 0 || p.Visible)) problems.Add("a dropdown was filled or opened during the key checks");
 
+        // after every menu has been opened and closed once, a shortcut still runs its entry once only
+        for (int m = 0; m < shell.Menu.Titles.Count; m++)
+        {
+            shell.Menu.ClickTitle(m);
+            await Frames(2);
+            shell.Menu.CloseMenus();
+            await Frames(1);
+        }
+        if (!edit.BuildMode) edit.ToggleBuild();
+        foreach (var (key, ctrl, command) in new[] { (Key.I, true, "cmd.content.inventory"), (Key.G, false, BuildMenu.GridSnapCommand), (Key.Key3, true, BuildMenu.EditCommand) })
+        {
+            ran.Clear();
+            await Press(key, ctrl, shift: false, alt: false);
+            if (ran.Count != 1 || ran[0] != command) problems.Add($"{key}{(ctrl ? "+ctrl" : "")} after the menus were opened ran [{string.Join(",", ran)}]");
+        }
+
         // a text field holds the keyboard: Ctrl+I still opens what the menu's entry opens; G (in build mode, so enabled) is typed
         if (!edit.BuildMode) edit.ToggleBuild();
         var field = new LineEdit { Name = "keys_field" };

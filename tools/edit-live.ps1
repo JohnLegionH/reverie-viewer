@@ -112,6 +112,19 @@ function OwnObj([uint32]$local) { @(@((Build @{ action = "state" }).own_objects)
 function OwnPrim([uint32]$local) { @(@((Build @{ action = "state" }).own_prims) | Where-Object { [uint32]$_.local -eq $local }) | Select-Object -First 1 }
 function Primary([uint32]$local) { (Edit @{ action = "select"; text = "$local" }).primary }
 function Near($a, $b, [double]$tol) { [math]::Abs([double]$a - [double]$b) -le $tol }
+# every key this check presses goes through the engine's key input, as a person's key does (never by calling the action)
+function Press([string]$k, [bool]$ctrl = $false, [bool]$shift = $false) {
+    [void](In @{ kind = "key"; key = $k; down = $true; shift = $shift; alt = $false; ctrl = $ctrl })
+    [void](In @{ kind = "key"; key = $k; down = $false; shift = $shift; alt = $false; ctrl = $ctrl })
+}
+function EditUntil([scriptblock]$cond) { $r = Wait-Until { $s = Edit @{ action = "state" }; if ($s -and (& $cond $s)) { $s } } 5; if ($r) { $r } else { Edit @{ action = "state" } } }
+function NoFocus() { [void](In @{ kind = "release_focus" }) }
+
+# ---- 0. from a fresh login, before any menu has been opened: Ctrl+I opens the inventory ----
+$m0 = Api "menus" @{}
+Press "I" $true
+$inv = Wait-Until { $m = Api "menus" @{}; if (@($m.open_windows) -contains "inventory") { $m } } 10
+Check "0 Ctrl+I from a fresh login, no menu opened yet, opens the inventory" ([int]$m0.top_popups_filled -eq 0 -and -not (@($m0.open_windows) -contains "inventory") -and [bool]$inv) ("dropdowns filled before {0}; open after: {1}" -f $m0.top_popups_filled, (@($inv.open_windows) -join ","))
 
 # ---- 1. two plain boxes in front of the avatar ----
 $me = @((Obs).self.region_position)
@@ -131,11 +144,16 @@ $A = [uint32]$boxes[0].local; $B = [uint32]$boxes[1].local
 
 # ---- 2. Build > Create left build mode on with the Create tool; Ctrl+B closes it and opens it again with Create and the window; Edit selects ----
 $made = Edit @{ action = "state" }
-$closed = Edit @{ action = "toggle" }
-$t = Edit @{ action = "toggle" }
+NoFocus
+Press "B" $true
+$closed = EditUntil { param($s) -not $s.build_mode }
+Press "B" $true
+$t = EditUntil { param($s) $s.build_mode }
 $report.toggle = @($made, $closed, $t)
 Check "2a Create is build mode's Create tool; Build closes and reopens it" ($made.build_mode -and $made.tool -eq "create" -and -not $closed.build_mode -and -not $closed.window_open) ("after create: build {0} tool {1}; after Build: build {2} window {3}" -f $made.build_mode, $made.tool, $closed.build_mode, $closed.window_open)
-$e = Edit @{ action = "tool"; text = "edit" }
+Press "3" $true
+$e = EditUntil { param($s) $s.tool -eq "edit" }
+Check "2b Ctrl+3 chooses the Edit tool" ($e.tool -eq "edit") ("tool {0}" -f $e.tool)
 $sel = Edit @{ action = "click"; x = [double]$boxes[0].x; y = [double]$boxes[0].y; z = [double]$boxes[0].z + 0.25 }
 Check "2 Build opens with Create and its window; a click with Edit selects the box" ($t.build_mode -and $t.tool -eq "create" -and $t.window_open -and @($sel.selection).Count -eq 1 -and [uint32]$sel.selection[0] -eq $A) ("build {0} tool {1} window {2}; selection {3}" -f $t.build_mode, $t.tool, $t.window_open, (@($sel.selection) -join ","))
 
@@ -167,20 +185,22 @@ Check "7 a 10 x 10 x 0.2 m floor by numbers" ([bool]$floor) ("{0}" -f ($floor | 
 # ---- 6. link the two (the floor selected last becomes the root), then unlink ----
 [void](Edit @{ action = "select"; text = "$A" })
 [void](Edit @{ action = "select"; text = "$B"; expect = "shift" })
-$lk = Edit @{ action = "link" }
+NoFocus
+Press "L" $true
 $linked = Wait-Until { $p = OwnPrim $A; if ($p -and [uint32]$p.parent -eq $B) { $p } } 15
-Check "8 Link: the floor, selected last, is the root" ([bool]$linked -and $lk.done -eq "sent") ("link {0}; box parent {1}" -f $lk.done, $linked.parent)
+Check "8 Ctrl+L links: the floor, selected last, is the root" ([bool]$linked) ("box parent {0}" -f $linked.parent)
 [void](Edit @{ action = "select"; text = "$B" })
-$ul = Edit @{ action = "unlink" }
+NoFocus
+Press "L" $true $true
 $unlinked = Wait-Until { $p = OwnPrim $A; $q = OwnPrim $B; if ($p -and $q -and [uint32]$p.parent -eq 0 -and [uint32]$q.parent -eq 0) { $p } } 15
-Check "9 Unlink: both stand alone again" ([bool]$unlinked -and $ul.done) ("unlink {0}" -f $ul.done)
+Check "9 Ctrl+Shift+L unlinks: both stand alone again" ([bool]$unlinked) ("box parent {0}" -f $unlinked.parent)
 
 # ---- 7. Shift-drag of the Move tool's +x arrow: the copy stays behind, the box moves ----
 $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { [uint32]$_.local })
 $origin = OwnObj $A
 [void](Edit @{ action = "select"; text = "$A" })
 [void](Interact @{ action = "aim"; x = [double]$origin.x + 1; y = [double]$origin.y; z = [double]$origin.z; distance = 7 }); Start-Sleep -Milliseconds 1500
-[void](Edit @{ action = "tool"; text = "move" })
+NoFocus; Press "2" $true   # Ctrl+2: the Move tool
 $dr = Edit @{ action = "handle"; text = "axis:x+"; x = 2; y = 0; z = 0; expect = "shift" }
 $report.drag = $dr
 $copy = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before -notcontains [uint32]$_.local }) | Select-Object -First 1 } 15
@@ -191,7 +211,11 @@ Check "10 Shift-drag leaves a copy where the box was and moves the box" ([bool]$
 
 # ---- 7b. each kind of handle, re-read from the region ----
 [void](Edit @{ action = "select"; text = "$A" })
-[void](Edit @{ action = "snap"; text = "off" })
+NoFocus
+$sg = Edit @{ action = "state" }
+if ($sg.snap) { Press "G" }
+$sg2 = EditUntil { param($s) -not $s.snap }
+Check "12b G turns grid snapping off" ($sg.snap -and -not $sg2.snap) ("snap before {0}, after G {1}" -f $sg.snap, $sg2.snap)
 $o0 = OwnObj $A
 $h = Edit @{ action = "handle"; text = "axis:y+"; x = 0; y = 1; z = 0 }
 $ay1 = Wait-Until { $o = OwnObj $A; if ($o -and (Near $o.y ([double]$o0.y + 1) 0.05) -and (Near $o.x $o0.x 0.02) -and (Near $o.z $o0.z 0.02)) { $o } } 15
@@ -200,7 +224,10 @@ $o1 = OwnObj $A
 $h = Edit @{ action = "handle"; text = "plane:z"; x = 1; y = -1; z = 0 }
 $pl = Wait-Until { $o = OwnObj $A; if ($o -and (Near $o.x ([double]$o1.x + 1) 0.05) -and (Near $o.y ([double]$o1.y - 1) 0.05) -and (Near $o.z $o1.z 0.02)) { $o } } 15
 Check "14 the flat plane handle moves the box across the ground only" ([bool]$pl) ("handle {0}; after {1}" -f ($h.done | ConvertTo-Json -Compress), ((OwnObj $A) | ConvertTo-Json -Compress))
-[void](Edit @{ action = "snap"; text = "on" })
+NoFocus
+Press "G"
+$sg3 = EditUntil { param($s) $s.snap }
+Check "14b G turns grid snapping on again" ([bool]$sg3.snap) ("snap {0}" -f $sg3.snap)
 $r0 = (Primary $A).rotation[2]
 $h = Edit @{ action = "handle"; text = "ring:z"; x = 30; y = 1; z = 0 }
 $want = [double]$r0 + 28.125
@@ -217,11 +244,13 @@ $h = Edit @{ action = "handle"; text = "face:z+"; x = $newZ; y = 0; z = 0 }
 $fc = Wait-Until { $o = OwnObj $A; if ($o -and (Near $o.sz $newZ 0.05) -and (Near $o.sx $f0.sx 0.01) -and (Near $o.z ([double]$f0.z + 0.25) 0.05)) { $o } } 15
 Check "17 the top face box makes the box taller and its bottom stays put" ([bool]$fc) ("handle {0}; before {1}; after {2}" -f ($h.done | ConvertTo-Json -Compress), ($f0 | ConvertTo-Json -Compress), ((OwnObj $A) | ConvertTo-Json -Compress))
 $x0 = OwnObj $A
-$sx = Edit @{ action = "snap_xy" }
+NoFocus
+Press "X" $false $true
 $snapped = Wait-Until { $o = OwnObj $A; if ($o -and (Near ([double]$o.x * 2) ([math]::Round([double]$o.x * 2)) 0.01) -and (Near ([double]$o.y * 2) ([math]::Round([double]$o.y * 2)) 0.01)) { $o } } 15
-Check "18 Snap Object XY to Grid puts the box on the 0.5 m grid" ([bool]$snapped -and $sx.done) ("before {0},{1}; after {2}" -f $x0.x, $x0.y, ((OwnObj $A) | ConvertTo-Json -Compress))
-$go = Edit @{ action = "grid_options" }
-Check "19 Grid Options opens" ([bool]$go.done) ("open {0}" -f $go.done)
+Check "18 Shift+X (Snap Object XY to Grid) puts the box on the 0.5 m grid" ([bool]$snapped) ("before {0},{1}; after {2}" -f $x0.x, $x0.y, ((OwnObj $A) | ConvertTo-Json -Compress))
+Press "B" $true $true
+$go = EditUntil { param($s) $s.grid_window_open }
+Check "19 Ctrl+Shift+B opens Grid Options" ([bool]$go.grid_window_open) ("open {0}" -f $go.grid_window_open)
 
 # ---- 7c. a physical object stays still while it is selected and moves again once it is deselected ----
 $p0 = OwnObj $A
@@ -237,8 +266,23 @@ $fell = Wait-Until { $o = OwnObj $A; if ($o -and [double]$o.z -lt $lift - 1) { $
 Check "20 selected and physical the box hangs still; deselected it falls" ([bool]$stillHeld -and [bool]$fell) ("lifted to {0}; 4 s later {1}; after deselecting {2}" -f $lift, $held.z, $fell.z)
 
 # ---- 8. Esc leaves build mode ----
-$off = Edit @{ action = "toggle" }
-Check "11 Build again closes build mode and its window" (-not $off.build_mode -and -not $off.window_open) ("build {0} window {1}" -f $off.build_mode, $off.window_open)
+NoFocus
+Press "B" $true
+$off = EditUntil { param($s) -not $s.build_mode }
+Check "11 Ctrl+B again closes build mode and its window" (-not $off.build_mode -and -not $off.window_open) ("build {0} window {1}" -f $off.build_mode, $off.window_open)
+
+# ---- 8b. right-click a box, then Esc: the menu closes, the camera stays, the outline goes ----
+[void](Api "orbit" @{ op = "orbit_around_deg"; value = 30 })
+$cam0 = Api "orbit" @{ op = "state" }
+$rc = Interact @{ action = "rightclick"; id = [string]$boxes[0].id }
+$open = Wait-Until { $s = Interact @{ action = "state" }; if ($s.menu_open -and $s.selected) { $s } } 5
+NoFocus
+Press "ESC"
+$after = Wait-Until { $s = Interact @{ action = "state" }; if (-not $s.menu_open) { $s } } 5
+$cam1 = Api "orbit" @{ op = "state" }
+$camStill = $cam0 -and $cam1 -and ($cam0.focus_on_avatar -eq $cam1.focus_on_avatar) -and (Near $cam0.distance $cam1.distance 0.01) -and ($cam0.mode -eq $cam1.mode)
+Check "21 Esc with the right-click menu open closes the menu only: the camera stays and the outline goes" ([bool]$open -and [bool]$after -and -not $after.selected -and [int]$after.outline_pieces -eq 0 -and $camStill) ("menu before {0}; after: menu {1} selected {2} outline {3}; camera focus {4}->{5} distance {6}->{7}" -f [bool]$open, $after.menu_open, $after.selected, $after.outline_pieces, $cam0.focus_on_avatar, $cam1.focus_on_avatar, $cam0.distance, $cam1.distance)
+[void](Api "orbit" @{ op = "reset" })
 [void](Interact @{ action = "aim"; distance = 0 })
 
 # ---- 9. everything the run rezzed back to the inventory, by id, proven by re-reading the region ----

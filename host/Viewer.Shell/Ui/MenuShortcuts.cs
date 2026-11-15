@@ -10,7 +10,25 @@ public sealed record KeyChord(string Key, bool Control = false, bool Shift = fal
     public bool Modified => Control || Alt;
 
     /// <summary>Reads a shortcut as the official menus write it; null when it is empty or names a key that is not a letter or a digit.</summary>
-    public static KeyChord? Parse(string? shortcut) => null;
+    public static KeyChord? Parse(string? shortcut)
+    {
+        if (string.IsNullOrEmpty(shortcut))
+            return null;
+        bool control = false, shift = false, alt = false;
+        string? key = null;
+        foreach (var part in shortcut.Split('|'))
+        {
+            switch (part.ToLowerInvariant())
+            {
+                case "control": control = true; break;
+                case "shift": shift = true; break;
+                case "alt": alt = true; break;
+                case { Length: 1 } c when char.IsAsciiLetterOrDigit(c[0]) && key is null: key = c.ToUpperInvariant(); break;
+                default: return null;
+            }
+        }
+        return key is null ? null : new KeyChord(key, control, shift, alt);
+    }
 }
 
 /// <summary>
@@ -23,8 +41,24 @@ public sealed record KeyChord(string Key, bool Control = false, bool Shift = fal
 public static class MenuShortcuts
 {
     /// <summary>Every entry of the menus that shows a shortcut the keyboard can give, with that shortcut, in menu order.</summary>
-    public static IReadOnlyList<(TopMenuEntryView Entry, KeyChord Chord)> All(IReadOnlyList<TopMenuView> menus) => [];
+    public static IReadOnlyList<(TopMenuEntryView Entry, KeyChord Chord)> All(IReadOnlyList<TopMenuView> menus) =>
+        Flat(menus.SelectMany(m => m.Entries))
+            .Select(e => (Entry: e, Chord: KeyChord.Parse(e.Shortcut)))
+            .Where(x => x.Chord is not null)
+            .Select(x => (x.Entry, x.Chord!))
+            .ToArray();
 
     /// <summary>The entry a chord runs now, or null: none has it, it is disabled, or a text field takes it.</summary>
-    public static TopMenuEntryView? Route(IReadOnlyList<TopMenuView> menus, KeyChord chord, bool textEntry) => null;
+    public static TopMenuEntryView? Route(IReadOnlyList<TopMenuView> menus, KeyChord chord, bool textEntry)
+    {
+        if (textEntry && !chord.Modified)
+            return null;   // typed into the field
+        foreach (var e in Flat(menus.SelectMany(m => m.Entries)))
+            if (e.CommandId is not null && KeyChord.Parse(e.Shortcut) == chord)
+                return e.Enabled ? e : null;
+        return null;
+    }
+
+    private static IEnumerable<TopMenuEntryView> Flat(IEnumerable<TopMenuEntryView> entries) =>
+        entries.SelectMany(e => e.Children is { } kids ? Flat(kids).Prepend(e) : [e]);
 }

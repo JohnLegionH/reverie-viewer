@@ -80,6 +80,7 @@ public partial class Main
                 {
                     _interactUi = InteractFeature.Install(_shell!);
                     WireTradeButtons(_interactUi);   // once: the buttons outlive a session
+                    _interactUi.Menu.Dismissed += () => _interact?.CloseMenu();   // Esc: the menu closed with no choice, so its selection goes
                 }
                 var strings = _shell!.Shell.Strings;
                 var hooks = new SocialHooks(
