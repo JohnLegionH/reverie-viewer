@@ -417,18 +417,23 @@ public partial class EditPanel : VBoxContainer
                 }
             return null;
         }
+        // "popup:<dropdown>:<item>": an item of a dropdown's open list
+        if (name.StartsWith("popup:", StringComparison.Ordinal) && name.Split(':') is [_, var owner, var item] && int.TryParse(item, out int index)
+            && FindChild(owner, true, false) is OptionButton ob && ob.GetPopup() is { Visible: true } popup && index >= 0 && index < popup.ItemCount)
+        {
+            float h = popup.Size.Y / (float)popup.ItemCount;
+            return [popup.Position.X + popup.Size.X / 2f, popup.Position.Y + h * (index + 0.5f)];
+        }
         if (FindChild(name, true, false) is Control ctl && ctl.IsVisibleInTree())
         {
             if (ctl is SpinBox sb)
                 ctl = sb.GetLineEdit();
             var g = ctl.GetGlobalRect().GetCenter();
+            // a control in a popup window (the inventory picker) is placed in that window: add where the window stands
+            var win = ctl.GetWindow();
+            if (win is not null && win != GetWindow())
+                g += new Vector2(win.Position.X, win.Position.Y);
             return [g.X, g.Y];
-        }
-        if (_textureTab.Picker is { Visible: true } picker && picker.FindChild(name, true, false) is Control pc)
-        {
-            var g = pc.GetGlobalRect().GetCenter();
-            var w = picker.Position;
-            return [g.X + w.X, g.Y + w.Y];
         }
         return null;
     }

@@ -218,7 +218,8 @@ if ($pts -and $pts.from -and $pts.centre) {
     # out to 320 pixels from the ring's middle, then round it from below through the side to above, past the ring's horizon, in steps;
     # the turn is read while the button is held
     $rad = 320
-    $path = @(-80, -60, -40, -20, 0, 20, 40, 60, 80) | ForEach-Object { $th = $_ * [math]::PI / 180; @(($c[0] + $rad * [math]::Cos($th)), ($c[1] - $rad * [math]::Sin($th))) }
+    $path = New-Object System.Collections.Generic.List[object]
+    foreach ($deg in @(-80, -60, -40, -20, 0, 20, 40, 60, 80)) { $th = $deg * [math]::PI / 180; $path.Add(@(($c[0] + $rad * [math]::Cos($th)), ($c[1] - $rad * [math]::Sin($th)))) }
     foreach ($q in $path) {
         [void](MoveTo $q[0] $q[1]); Start-Sleep -Milliseconds 700
         $turns.Add((AngleDiff (Rot $A) $r0))
@@ -261,9 +262,11 @@ foreach ($l in @($B, $C)) { [void](Edit @{ action = "select"; text = "$l" }); [v
 [void](Wait-Until { $o = OwnObj $C; if ($o -and (Near $o.sx 1 0.01) -and (Near $o.x ([double]$made[0].x + 1.37) 0.02)) { $o } } 15)
 [void](Interact @{ action = "aim"; x = [double]$made[0].x + 0.7; y = [double]$made[0].y; z = [double]$made[0].z; distance = 5 }); Start-Sleep -Milliseconds 1500
 $oB = OwnObj $B; $oC = OwnObj $C
+# a control's place on screen: asked twice, so a tab scrolled to bring it into view has laid out again before the place is read
+function CtlPoint([string]$name) { [void](Edit @{ action = "control"; text = $name }); Start-Sleep -Milliseconds 400; (Edit @{ action = "control"; text = $name }).done }
 function TopOf($o) { (Edit @{ action = "screen"; x = [double]$o.x; y = [double]$o.y; z = [double]$o.z + [double]$o.sz / 2 }).done }
 
-$p = (Edit @{ action = "control"; text = "manip_face" }).done
+$p = CtlPoint "manip_face"
 if ($p) { ClickAt $p[0] $p[1] }
 $t = (Edit @{ action = "control"; text = "tab:texture" }).done
 if ($t) { ClickAt $t[0] $t[1] }
@@ -276,14 +279,14 @@ Check "4a Select Face, Texture tab, a click on the box's top selects that face a
 
 # a texture from inventory or the Library, chosen in the picker with the pointer
 $before = $f1.faces[0].settings.texture
-$ch = (Edit @{ action = "control"; text = "texture_choose" }).done
+$ch = CtlPoint "texture_choose"
 if ($ch) { ClickAt $ch[0] $ch[1] }
 $rows = Wait-Until { $n = (Edit @{ action = "picker" }).done; if ($n -and @($n).Count -gt 0) { $n } } 20
 $pickedName = $null
 if ($rows) {
     $row = (Edit @{ action = "picker_row"; text = "0" }).done
     if ($row) { ClickAt $row[0] $row[1]; $pickedName = @($rows)[0] }
-    $use = (Edit @{ action = "control"; text = "pick_use" }).done
+    $use = CtlPoint "pick_use"
     if ($use) { ClickAt $use[0] $use[1] }
 }
 $f2 = EditUntil { param($s) @($s.faces).Count -eq 1 -and $s.faces[0].settings.texture -ne $before }
@@ -295,13 +298,13 @@ $sC = TopOf $oC
 if ($sC) { [void](MoveTo $sC[0] $sC[1]); Start-Sleep -Milliseconds 120; [void](Mouse "left" $true $sC[0] $sC[1] $true); Start-Sleep -Milliseconds 120; [void](Mouse "left" $false $sC[0] $sC[1] $true); Start-Sleep -Milliseconds 300 }
 $f3 = EditUntil { param($s) @($s.faces).Count -eq 2 }
 Check "4c Shift-click the second box's top: both faces are selected, the second last" (@($f3.faces).Count -eq 2 -and [uint32]$f3.faces[1].local -eq $C) ("faces {0}" -f (($f3.faces | ForEach-Object { "$($_.local):$($_.face)" }) -join ","))
-$m = (Edit @{ action = "control"; text = "mapping" }).done
-if ($m) { ClickAt $m[0] $m[1]; Start-Sleep -Milliseconds 300; Press "DOWN"; Press "ENTER" }
+$m = CtlPoint "mapping"
+if ($m) { ClickAt $m[0] $m[1]; Start-Sleep -Milliseconds 400; $pl = (Edit @{ action = "control"; text = "popup:mapping:1" }).done; Note ("Mapping at {0}, Planar in its list at {1}" -f (@($m) -join ","), (@($pl) -join ",")); if ($pl) { ClickAt $pl[0] $pl[1] } }
 $f4 = EditUntil { param($s) @($s.faces).Count -eq 2 -and $s.faces[0].settings.planar -and $s.faces[1].settings.planar }
 Check "4d Mapping set to Planar with the pointer and keys: both faces planar" ([bool]($f4.faces[0].settings.planar -and $f4.faces[1].settings.planar)) ("planar {0}, {1}" -f $f4.faces[0].settings.planar, $f4.faces[1].settings.planar)
 # Align: the faces line up with the last selected one
 NoFocus
-$al = (Edit @{ action = "control"; text = "align" }).done
+$al = CtlPoint "align"
 $beforeAlign = (Edit @{ action = "state" }).faces
 if ($al) { ClickAt $al[0] $al[1] }
 $f5 = EditUntil { param($s) @($s.faces).Count -eq 2 -and ([double]$s.faces[0].settings.offset[0] -ne [double]$beforeAlign[0].settings.offset[0] -or [double]$s.faces[0].settings.offset[1] -ne [double]$beforeAlign[0].settings.offset[1]) }
@@ -319,17 +322,17 @@ else { Check "4e Align: the first face's texture runs on from the last selected 
 Shot "texture-aligned"
 
 # ---- 5. PBR material: from the picker, if the inventory holds one ----
-$mc = (Edit @{ action = "control"; text = "material_choose" }).done
+$mc = CtlPoint "material_choose"
 if ($mc) { ClickAt $mc[0] $mc[1] }
 $mrows = Wait-Until { $n = (Edit @{ action = "picker" }).done; if ($n -and @($n).Count -gt 0) { $n } } 15
 if ($mrows) {
     $row = (Edit @{ action = "picker_row"; text = "0" }).done
     if ($row) { ClickAt $row[0] $row[1] }
-    $use = (Edit @{ action = "control"; text = "pick_use" }).done
+    $use = CtlPoint "pick_use"
     if ($use) { ClickAt $use[0] $use[1] }
     $f6 = Wait-Until { $s = Edit @{ action = "state" }; if (@($s.faces).Count -eq 2 -and $s.faces[0].settings.material -ne "00000000-0000-0000-0000-000000000000") { $s } } 20
     Check "5a a PBR material chosen in the picker is put on both selected faces" ([bool]$f6) ("material {0}" -f $(if ($f6) { $f6.faces[0].settings.material } else { "none" }))
-    $rm = (Edit @{ action = "control"; text = "material_remove" }).done
+    $rm = CtlPoint "material_remove"
     if ($rm) { ClickAt $rm[0] $rm[1] }
     $f7 = Wait-Until { $s = Edit @{ action = "state" }; if (@($s.faces).Count -eq 2 -and $s.faces[0].settings.material -eq "00000000-0000-0000-0000-000000000000") { $s } } 20
     Check "5b Remove takes it off again" ([bool]$f7) ""
@@ -349,7 +352,7 @@ else {
 }
 
 # ---- 6. copy a box's size and paste it onto another ----
-$p = (Edit @{ action = "control"; text = "manip_move" }).done
+$p = CtlPoint "manip_move"
 if ($p) { ClickAt $p[0] $p[1] }
 $t = (Edit @{ action = "control"; text = "tab:object" }).done
 if ($t) { ClickAt $t[0] $t[1] }
@@ -357,12 +360,12 @@ $sp = ScreenOf $box.id
 if ($sp) { ClickAt $sp[0] $sp[1] }
 [void](EditUntil { param($s) @($s.selection) -contains $A -and -not $s.select_faces })
 $sizeA = @((OwnObj $A).sx, (OwnObj $A).sy, (OwnObj $A).sz)
-$cs = (Edit @{ action = "control"; text = "copy_size" }).done
+$cs = CtlPoint "copy_size"
 if ($cs) { ClickAt $cs[0] $cs[1] }
 $sC = TopOf (OwnObj $C)
 if ($sC) { ClickAt $sC[0] $sC[1] }
 [void](EditUntil { param($s) @($s.selection) -contains $C })
-$ps = (Edit @{ action = "control"; text = "paste_size" }).done
+$ps = CtlPoint "paste_size"
 if ($ps) { ClickAt $ps[0] $ps[1] }
 $oC2 = Wait-Until { $o = OwnObj $C; if ($o -and (Near $o.sx $sizeA[0] 0.01) -and (Near $o.sy $sizeA[1] 0.01) -and (Near $o.sz $sizeA[2] 0.01)) { $o } } 15
 Check "6 Copy size on one box, Paste size on another: it takes that size" ([bool]$oC2) ("box A {0}; the other now {1}" -f ($sizeA -join ","), $(if ($oC2) { "$($oC2.sx),$($oC2.sy),$($oC2.sz)" } else { $o = OwnObj $C; "$($o.sx),$($o.sy),$($o.sz)" }))
