@@ -5,9 +5,9 @@
 # render.ps1 - L4 render goldens and L3 resource lifecycle (the test strategy 3.3), against the EXPORTED shipping
 # build (tools\s1.ps1 exports it first; run this after it). Every run goes through tools\godot.ps1 and writes only to
 # tools\test-results\render\ (passed after "--"; ADR-019).
-# Test windows: godot.ps1 opens each run's window at a quarter of the area of the monitor in use (the one holding the
-# foreground window), in its bottom-right corner, at the bottom of the stacking order and without taking focus; the picture
-# is still drawn at its full size. The opt-in measurement sections (-Residency, -Resolutions, -Memory, -Budget, -TextureServer,
+# Test windows: godot.ps1 opens each run's window off every monitor (beyond the right edge of all of them), at the bottom of the
+# stacking order and without taking focus; the picture is drawn at its full size (NV_TEST_WINDOW_ONSCREEN=1: in the corner of the
+# monitor in use instead). The opt-in measurement sections (-Residency, -Resolutions, -Memory, -Budget, -TextureServer,
 # -UploadBench, -Measure) are measuring runs ($script:Measuring, passed to godot.ps1 as -MeasureRun): same window, vsync off
 # and the pacing guard on. NV_TEST_WINDOW_FULL=1 (or godot.ps1 -FullSizeWindow) restores the usual window for every run.
 #   golden_<backend>        synthetic 512x256 fixture (committed) vs its committed golden, backend asserted in the sidecar

@@ -6,7 +6,7 @@
 #     powershell -NoProfile -File <repo>\tools\test.ps1 [-DiagDir <folder>]
 # -DiagDir: passed to s1.ps1 and from there to every godot.ps1 run (hang-tree snapshots go there);
 # absent, godot.ps1's default (tools\test-results) stands.
-# The S-1 runs' windows open at a quarter of the monitor in use, in its bottom-right corner, at the bottom of the stacking order, without focus (see render.ps1); NV_TEST_WINDOW_FULL=1 keeps the full-size window.
+# The S-1 runs' windows open off every monitor, at the bottom of the stacking order, without focus (tools\godot.ps1); NV_TEST_WINDOW_ONSCREEN=1 puts them in the corner of the monitor in use, NV_TEST_WINDOW_FULL=1 keeps the full-size window.
 param([string]$DiagDir = "")
 $ErrorActionPreference = "Stop"
 # stopping this script, however it is stopped, ends everything it started (job-guard.ps1, beside this script)
