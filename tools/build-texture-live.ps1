@@ -287,6 +287,8 @@ if ($rows) {
     $row = (Edit @{ action = "picker_row"; text = "0" }).done
     if ($row) { ClickAt $row[0] $row[1]; $pickedName = @($rows)[0] }
     $use = CtlPoint "pick_use"
+    Note ("picker row 0 at {0}, its Use button at {1}" -f (@($row) -join ","), (@($use) -join ","))
+    Shot "picker-open"
     if ($use) { ClickAt $use[0] $use[1] }
 }
 $f2 = EditUntil { param($s) @($s.faces).Count -eq 1 -and $s.faces[0].settings.texture -ne $before }
@@ -299,7 +301,7 @@ if ($sC) { [void](MoveTo $sC[0] $sC[1]); Start-Sleep -Milliseconds 120; [void](M
 $f3 = EditUntil { param($s) @($s.faces).Count -eq 2 }
 Check "4c Shift-click the second box's top: both faces are selected, the second last" (@($f3.faces).Count -eq 2 -and [uint32]$f3.faces[1].local -eq $C) ("faces {0}" -f (($f3.faces | ForEach-Object { "$($_.local):$($_.face)" }) -join ","))
 $m = CtlPoint "mapping"
-if ($m) { ClickAt $m[0] $m[1]; Start-Sleep -Milliseconds 400; $pl = (Edit @{ action = "control"; text = "popup:mapping:1" }).done; Note ("Mapping at {0}, Planar in its list at {1}" -f (@($m) -join ","), (@($pl) -join ",")); if ($pl) { ClickAt $pl[0] $pl[1] } }
+if ($m) { ClickAt $m[0] $m[1]; Start-Sleep -Milliseconds 400; $pl = (Edit @{ action = "control"; text = "popup:mapping:1" }).done; Note ("Mapping at {0}, Planar in its list at {1}" -f (@($m) -join ","), (@($pl) -join ",")); Shot "mapping-open"; if ($pl) { ClickAt $pl[0] $pl[1] } }
 $f4 = EditUntil { param($s) @($s.faces).Count -eq 2 -and $s.faces[0].settings.planar -and $s.faces[1].settings.planar }
 Check "4d Mapping set to Planar with the pointer and keys: both faces planar" ([bool]($f4.faces[0].settings.planar -and $f4.faces[1].settings.planar)) ("planar {0}, {1}" -f $f4.faces[0].settings.planar, $f4.faces[1].settings.planar)
 # Align: the faces line up with the last selected one

@@ -1765,6 +1765,14 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         if (u.Avatar && u.LocalID == _client.Self.LocalID && u.LocalID != 0)
             Raise(new SelfMoved(MapOrNull(e.Simulator), ToSelfMotion(u, arrivalMs, MovementOf(_client.Self.Movement))));
         Raise(new ObjectMoved(MapOrNull(e.Simulator), u.LocalID, u.Avatar, V(u.Position), Q(u.Rotation), V(u.Velocity), V(u.Acceleration), V(u.AngularVelocity), u.Avatar ? Plane(u.CollisionPlane) : default));
+        // a change of textures alone can come as a terse update carrying the texture entry: the object's faces follow it
+        if (e.Prim is { } prim && TerseWithTextures(prim, u) is { } data)
+        {
+            Avatar? parent = null;
+            if (prim.ParentID != 0)
+                e.Simulator?.ObjectsAvatars.TryGetValue(prim.ParentID, out parent);
+            Raise(new ObjectUpdated(MapOrNull(e.Simulator), data, prim.IsAttachment, parent is null ? null : ToAvatarData(parent)));
+        }
     }
 
     /// <summary>The foot collision plane an avatar's update carries (normal in x, y, z and the plane's offset in w); all zero when the region sent none.</summary>
@@ -1968,6 +1976,18 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     }
 
     // ---------------- LibreMetaverse -> core values (the only place these conversions live) ----------------
+
+    /// <summary>A prim's data with the texture entry and place a terse update carries, or null when the update carries no texture entry.</summary>
+    internal static PrimData? TerseWithTextures(Primitive prim, ObjectMovementUpdate u)
+    {
+        if (u.Avatar || u.Textures is null || prim.PrimData.PCode != PCode.Prim)
+            return null;
+        return ToPrimData(prim) with
+        {
+            Position = V(u.Position), Rotation = Q(u.Rotation), Velocity = V(u.Velocity), AngularVelocity = V(u.AngularVelocity), Acceleration = V(u.Acceleration),
+            Colors = ToColors(u.Textures), Textures = ToTextures(u.Textures), Materials = LmvMaterials.ToMaterials(u.Textures),
+        };
+    }
 
     internal static PrimData ToPrimData(Primitive p) => new(
         p.LocalID, p.ID.Guid, p.ParentID, (int)p.PrimData.AttachmentPoint, V(p.Position), Q(p.Rotation), V(p.Scale), V(p.Velocity), V(p.AngularVelocity),

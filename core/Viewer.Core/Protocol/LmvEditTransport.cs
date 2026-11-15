@@ -41,6 +41,8 @@ internal sealed partial class LmvTransport
         };
         if (packet is null)
             return CommandDispatch.NotSent("unknown_edit");
+        if (edit is SetObjectFacesIntent faces)
+            _log.Info("edit.faces-sent", CoreLog.F("faces", faces.Faces.Count), CoreLog.F("known", sim.ObjectsPrimitives.ContainsKey(faces.LocalId)));
         _client.Network.SendPacket(packet, sim);
         return CommandDispatch.Handed;
     }
