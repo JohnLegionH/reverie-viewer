@@ -16,13 +16,14 @@
 Set-StrictMode -Off
 
 # The name of the launch folder for a build folder: a short hash of what is in it (files, not the sandbox or the dev export).
-function Get-TestLaunchKey([string]$ExeDir) {
+function Get-TestLaunchKey([string]$ExeDir, [string]$Kind = "test") {
     $lines = Get-ChildItem -LiteralPath $ExeDir -File -Force |
         Where-Object { $_.Name -ne "override.cfg" -and $_.Name -notlike "*~RF*.TMP" -and $_.Name -notlike "s1-result*" } |
         Sort-Object Name | ForEach-Object { "$($_.Name)|$($_.Length)|$($_.LastWriteTimeUtc.Ticks)" }
     $data = Get-ChildItem -LiteralPath $ExeDir -Directory -Force | Where-Object { $_.Name -like "data_*" } |
         ForEach-Object { $d = $_; Get-ChildItem -LiteralPath $d.FullName -File -Recurse -Force | Sort-Object FullName | ForEach-Object { "$($_.FullName.Substring($d.FullName.Length))|$($_.Length)|$($_.LastWriteTimeUtc.Ticks)" } }
-    $text = (@("layout:hard-linked-data") + @($lines) + @($data)) -join "`n"
+    $layout = if ($Kind -eq "test") { "layout:hard-linked-data" } else { "layout:hard-linked-data;kind:$Kind" }   # each kind of folder has its own name
+    $text = (@($layout) + @($lines) + @($data)) -join "`n"
     $sha = [System.Security.Cryptography.SHA1]::Create()
     $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($text))
     return (($hash[0..5] | ForEach-Object { $_.ToString("x2") }) -join "")
@@ -50,8 +51,22 @@ function Test-ExportComplete([string]$ExeDir) {
 
 # Makes (or finds) the launch folder for the build in $ExeDir under $Root and returns its path. The build's folder is not
 # written. Returns $null when the links cannot be made (another volume, say): the caller then opens the window as it is.
+# The settings a launch folder's override.cfg holds, by kind. "test": the test window's no-focus setting and the engine's shader
+# and pipeline caches off. "offscreen": the same, and the window opens minimised (the engine keeps a new window at least a third
+# on a monitor whatever position it is given; a minimised one is on none, and the launcher and the viewer bring it back off every
+# monitor). "quiet": only the minimised start, for a normal start that is to stay off the monitors (S-1's shipping-start checks).
+function Get-TestLaunchSettings([string]$Kind) {
+    $test = "[display]`r`n`r`nwindow/size/no_focus=true`r`n{0}`r`n[rendering]`r`n`r`nshader_compiler/shader_cache/enabled=false`r`nshader_compiler/shader_cache/enabled.shipping=false`r`nrendering_device/pipeline_cache/enable=false`r`nrendering_device/pipeline_cache/enable.shipping=false`r`n"
+    switch ($Kind) {
+        "offscreen" { return ($test -f "window/size/mode=1`r`n") }
+        "quiet" { return "[display]`r`n`r`nwindow/size/mode=1`r`n" }
+        default { return ($test -f "") }
+    }
+}
+
 function New-TestLaunchFolder([string]$ExeDir, [string]$Root, [string]$Kind = "test") {
-    $key = Get-TestLaunchKey $ExeDir
+    if ($Kind -notin @("test", "offscreen", "quiet")) { throw "unknown launch folder kind: $Kind" }
+    $key = Get-TestLaunchKey $ExeDir $Kind
     $folder = Join-Path $Root "launch-$key"
     if (Test-Path -LiteralPath (Join-Path $folder "launch.complete")) { return $folder }
     $making = Join-Path $Root "launch-$key.making-$PID-$([DateTime]::UtcNow.Ticks)"
@@ -64,7 +79,7 @@ function New-TestLaunchFolder([string]$ExeDir, [string]$Root, [string]$Kind = "t
         foreach ($d in Get-ChildItem -LiteralPath $ExeDir -Directory -Force | Where-Object { $_.Name -like "data_*" }) {
             Copy-LinkedTree $d.FullName (Join-Path $making $d.Name)
         }
-        Set-Content -LiteralPath (Join-Path $making "override.cfg") -Value "[display]`r`n`r`nwindow/size/no_focus=true`r`n`r`n[rendering]`r`n`r`nshader_compiler/shader_cache/enabled=false`r`nshader_compiler/shader_cache/enabled.shipping=false`r`nrendering_device/pipeline_cache/enable=false`r`nrendering_device/pipeline_cache/enable.shipping=false`r`n" -Encoding ascii
+        Set-Content -LiteralPath (Join-Path $making "override.cfg") -Value (Get-TestLaunchSettings $Kind) -Encoding ascii
         Set-Content -LiteralPath (Join-Path $making "launch.complete") -Value $ExeDir -Encoding ascii
     } catch {
         return $null

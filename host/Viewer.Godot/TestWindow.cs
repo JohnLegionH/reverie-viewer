@@ -22,6 +22,25 @@ public static class TestWindow
 {
     public const string Argument = "--nv-test-window=";
 
+    /// <summary>The place, in desktop pixels, off every monitor, a minimised test window is brought back to (tools\godot.ps1 opens a
+    /// test window minimised: the engine keeps a new window at least a third on a monitor whatever position it is given).</summary>
+    public const string AtArgument = "--nv-test-window-at=";
+
+    /// <summary>The off-screen place the argument names, or null when it is absent or malformed.</summary>
+    public static Vector2I? OffScreenAt(IEnumerable<string> userArgs)
+    {
+        string? value = userArgs.FirstOrDefault(a => a.StartsWith(AtArgument, System.StringComparison.Ordinal))?[AtArgument.Length..];
+        var parts = value?.Split(',');
+        if (parts is { Length: 2 }
+            && int.TryParse(parts[0], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int x)
+            && int.TryParse(parts[1], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int y))
+            return new Vector2I(x, y);
+        return null;
+    }
+
+    /// <summary>Where a minimised test window is brought back to; null brings it back to its own place.</summary>
+    public static Vector2I? OffScreenTarget { get; private set; }
+
     /// <summary>The full drawing size the argument names, or null when it is absent or malformed.</summary>
     public static Vector2I? FullSize(IEnumerable<string> userArgs)
     {
@@ -55,6 +74,7 @@ public static class TestWindow
     private const int SwShow = 5;   // SW_SHOW: shown in its place and activated
     private const int SwMostRecentNoActivate = 4;   // SW_SHOWNOACTIVATE: a minimised window is brought back to its most recent size and place, and not activated
     private const int SwShowNoActivate = 8;   // SW_SHOWNA: shown in its place, focus and the active window untouched
+    private const int SwShowMinNoActivate = 7;   // SW_SHOWMINNOACTIVE: shown minimised, the active window untouched
 
     /// <summary>Shows the main window as it is, without activating it (Windows only).</summary>
     public static void ShowWithoutActivating() => Show(SwShowNoActivate);
@@ -92,6 +112,38 @@ public static class TestWindow
         if (MainHandle() is var h && h != IntPtr.Zero) SetWindowPos(h, HwndBottom, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate | SwpNoOwnerZOrder);
     }
 
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int index);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int index, int value);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
+
+    private const int GwlExStyle = -20, WsExLayered = 0x00080000, WsExNoActivate = 0x08000000;
+    private const uint LwaAlpha = 2;
+
+    /// <summary>
+    /// Brings a minimised main window back at <paramref name="at"/> (desktop pixels, off every monitor) without it ever being seen or
+    /// activated: the system restores a window to where it was first placed, which the engine keeps partly on a monitor, so the window is
+    /// transparent while it comes back, is moved off, and is opaque again. It stays at the bottom of the stacking order and is never made
+    /// the active window (WS_EX_NOACTIVATE).
+    /// </summary>
+    public static void RestoreOffScreen(Vector2I at)
+    {
+        if (MainHandle() is var h && h != IntPtr.Zero)
+        {
+            int ex = GetWindowLong(h, GwlExStyle);
+            SetWindowLong(h, GwlExStyle, ex | WsExLayered | WsExNoActivate);
+            SetLayeredWindowAttributes(h, 0, 0, LwaAlpha);
+            ShowWindow(h, SwMostRecentNoActivate);
+            SetWindowPos(h, HwndBottom, at.X, at.Y, 0, 0, SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+            SetWindowLong(h, GwlExStyle, (ex | WsExNoActivate) & ~WsExLayered);
+        }
+    }
+
     /// <summary>
     /// Brings a minimised main window back to its place without activating it, then puts it at the bottom of the stacking order.
     /// The engine's own restore (<c>WindowSetMode(Windowed)</c>) and SW_RESTORE both activate the window, which would take focus from
@@ -99,6 +151,11 @@ public static class TestWindow
     /// </summary>
     public static void RestoreWithoutActivating()
     {
+        if (OffScreenTarget is { } at)
+        {
+            RestoreOffScreen(at);   // a test window off every monitor goes back there, never onto a monitor
+            return;
+        }
         if (MainHandle() is var h && h != IntPtr.Zero)
         {
             ShowWindow(h, SwMostRecentNoActivate);
@@ -174,7 +231,7 @@ public static class TestWindow
         if (!window.Unfocusable)
             return false;
         window.Unfocusable = false;
-        if (OsVisible() == false) Show(SwShow);   // changing the flag rewrites the window style and can hide the window
+        if (OsVisible() == false) Show(IsMinimized() ? SwShowMinNoActivate : SwShow);   // changing the flag rewrites the window style and can hide the window; a start that opened minimised stays so, not activated
         return true;
     }
 
@@ -182,6 +239,13 @@ public static class TestWindow
     public static Dictionary<string, object?> Apply(Window window, IEnumerable<string> userArgs)
     {
         var full = FullSize(userArgs);
+        // a test window that opened minimised to stay off every monitor is brought back there before its size is read
+        if (full is not null && OffScreenAt(userArgs) is { } offAt)
+        {
+            OffScreenTarget = offAt;
+            if (IsMinimized())
+                RestoreOffScreen(offAt);
+        }
         if (full is { } size)
         {
             if (window.Size != size)   // a measuring run's window already has the full size: drawn as is, not scaled

@@ -290,7 +290,7 @@ public partial class Main
 
     private Rect2I? _windowedRect;
 
-    private static readonly string[] DisplayFlags = ["--disable-vsync", "--fixed-fps", "--max-fps", "--fullscreen", "--windowed", "--maximized"];
+    private static readonly string[] DisplayFlags = ["--disable-vsync", "--fixed-fps", "--max-fps", "--fullscreen", "--windowed", "--maximized", "--position", "--resolution"];
 
     /// <summary>Whether the command line already chose how the window is shown (an engine flag, or a harness placing the window).</summary>
     private static bool DisplayChosenOnCommandLine() =>

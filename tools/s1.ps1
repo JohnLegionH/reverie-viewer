@@ -330,7 +330,7 @@ Add-Case "no_test_settings_in_build" ($(if ($strays.Count -eq 0) { "PASS" } else
 . (Join-Path $PSScriptRoot "test-launch.ps1")
 $t0 = Get-Date
 $diagRoot = if ($DiagDir) { $DiagDir } else { $results }
-$planted = New-TestLaunchFolder $build $diagRoot   # a build folder with an override.cfg beside its executable, as a stray one would be
+$planted = New-TestLaunchFolder $build $diagRoot "offscreen"   # a build folder with an override.cfg beside its executable, as a stray one would be (opening minimised, so it stays off the monitors)
 $plantedOut = ""; $plantedExit = -1; $controlOut = ""; $controlExit = -1
 if ($planted) {
     $stray = Join-Path $results "stray-override"

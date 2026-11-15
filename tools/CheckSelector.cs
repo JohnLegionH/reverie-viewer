@@ -109,6 +109,8 @@ namespace NvTools
                         foreach (string a in r.Areas) if (!mine.Contains(a)) mine.Add(a);
                 if (mine.Count == 0) { mine.Add("full"); s.Unplaced.Add(f); }
                 s.FileAreas[f] = mine;
+                // any file placed outside none is viewer code, and every change to viewer code runs the stock smoke
+                foreach (string a in mine) if (a != "none") s.Smoke = true;
                 foreach (string a in mine)
                 {
                     if (a == "none") continue;
@@ -155,7 +157,22 @@ namespace NvTools
         /// ends in its backend, _vulkan or -d3d12, sometimes with one more word after it; one without, such as refuse_opengl3, runs with the
         /// full set only).
         /// </summary>
-        public static List<string> RenderLines(CheckSelection selection) { return new List<string>(); }
+        /// <summary>
+        /// The render.ps1 command lines for a selection, to be run as printed: "render.ps1 -All" for the full set, one
+        /// "render.ps1 -All -OnlyCases '&lt;cases&gt;' -Backends &lt;backend&gt;" per backend for a narrow selection (render.ps1
+        /// renders nothing without a section, and -OnlyCases filters the full set), or "none".
+        /// </summary>
+        public static List<string> RenderLines(CheckSelection selection)
+        {
+            var lines = new List<string>();
+            if (selection.Full) { lines.Add("render.ps1 -All"); return lines; }
+            if (selection.Cases == null || selection.CasesByBackend.Count == 0) { lines.Add("none"); return lines; }
+            var backends = new List<string>(selection.CasesByBackend.Keys);
+            backends.Sort(StringComparer.Ordinal);
+            backends.Reverse();   // vulkan first
+            foreach (string b in backends) lines.Add("render.ps1 -All -OnlyCases '" + selection.CasesByBackend[b] + "' -Backends " + b);
+            return lines;
+        }
 
         public static bool Picks(CheckSelection selection, string caseTag)
         {

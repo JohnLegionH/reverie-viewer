@@ -134,6 +134,10 @@
 # -OnlyTiming  runs only the timing cases, each alone in a process of its own, one after another (the other cases are reported as SKIP).
 # -OutDir      the folder the pictures, sidecars and the JUnit file go to (default tools\test-results\render).
 # -OnlyCases   a regular expression on the case's tag (the name of its picture, e.g. 'rigged|shape-look'): the other cases are left out and reported as SKIP.
+#              It filters the sections given; alone it is no section (use -All -OnlyCases '<cases>' for the full set filtered).
+# Exit codes: 0 every rendered case passed; 1 a case failed; 2 no section was given (nothing rendered); 3 the sections given rendered
+#             no case (every case was left out or skipped), so a run that rendered nothing never reads as a pass. -PlanOnly and
+#             -ShowPaths render nothing on purpose and exit 0.
 # -PlanOnly    renders nothing: lists every case the selected sections would run, per backend, as batched, in a process of its own, or a timing
 #              case (plan.tsv in the output folder and a count table). Every case is reported as a SKIP.
 # NV_FIXTURES_LOCAL (see tools\fixtures-local.ps1) reads the local-only fixtures from another folder, read-only:
@@ -156,7 +160,8 @@ if (-not $sectionGiven) {
     Write-Output "  -UiSceneOnly <name>  one interface scene"
     Write-Output "Options that are not sections: -Propose, -Backends, -DiagDir, -MeasureOnly, -PathExe, -PathTagSuffix, -PathFilter, -PathExtra, -MeasureFrames, -UploadRepeats, -OneProcessPerCase, -SkipTiming, -OnlyTiming, -OutDir, -PlanOnly, -OnlyCases."
     Write-Output "The header of this script says what each section runs."
-    exit 0
+    Write-Output "RENDERED NO CASE: no section was given (-OnlyCases filters a section; the full set filtered is -All -OnlyCases '<cases>')"
+    exit 2
 }
 # A scene name alone means that scene's section.
 if ($UiSceneOnly) { $UiOnly = [switch]::Present }
@@ -225,6 +230,17 @@ function Add-Case([string]$name, [string]$status, [string]$detail, [double]$seco
     Write-Output ("  {0,-7} Render.{1}  {2}" -f $status, $name, $detail)
 }
 function Esc([string]$s) { [System.Security.SecurityElement]::Escape($s) }
+# Writes the results and ends the run with $code, or with 3 when the sections given rendered no case at all (every case left out
+# by -OnlyCases, -SkipTiming or -OnlyTiming, or skipped): a run that rendered nothing must not read as a pass. -PlanOnly renders
+# nothing on purpose.
+function Exit-Render([int]$code) {
+    Write-JUnit
+    if (-not $PlanOnly -and @($cases | Where-Object Status -ne "SKIP").Count -eq 0) {
+        Write-Output "RENDERED NO CASE: $($cases.Count) case(s) reported, all skipped$(if ($OnlyCases) { " (-OnlyCases '$OnlyCases' matched none of the cases these sections render)" })"
+        exit 3
+    }
+    exit $code
+}
 function Write-JUnit {
     $fail = @($cases | Where-Object Status -eq "FAIL").Count
     $skip = @($cases | Where-Object Status -eq "SKIP").Count
@@ -1093,8 +1109,7 @@ Write-Output "Render stage (exported build)"
 . (Join-Path $PSScriptRoot "test-launch.ps1")
 if (-not (Test-Path -LiteralPath $exe) -or -not (Test-ExportComplete (Split-Path -Parent $exe))) {
     Add-Case "all" "SKIP" "no complete exported build at $exe (the data folder with Viewer.Godot.dll must be beside it; run tools\s1.ps1 first)" 0
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 function Invoke-WindowCases {
@@ -1249,14 +1264,12 @@ function Invoke-WarmCases {
 
 if ($GateOnly) {   # -GateOnly: just the compile gate's cases (the crowd's is with the avatar cases)
     Invoke-PipelineGate
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($WarmOnly) {   # -WarmOnly: just the warm-up cases (the warm-up, its control, the repeat and the leak control)
     Invoke-WarmCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 # one terrain view serving three presenters in turn (the lifecycle and kept-collections cases do this): each presents its chunks on the shared
@@ -1273,27 +1286,23 @@ foreach ($be in $Backends) {
 
 if ($ReuseOnly) {   # -ReuseOnly: just the shared terrain view case
     Invoke-ViewReuse
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($WindowOnly) {   # -WindowOnly: just the cases about the test window (stopped drawing, minimised and brought back)
     Invoke-WindowCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($ChurnOnly) {   # -ChurnOnly: just the moving-objects case (merge_churn_picture_busy_vulkan and its indicative figures)
     Invoke-BusyChurn
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($BusyOnly) {   # -BusyOnly: just the busy view's smoke case
     Invoke-BusySmoke
     Invoke-DrawMerge
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 # the cloud layer (--tr-clouds): the sky with clouds at a fixed scroll, midday and sunset, each picture against its golden and its pixels against the
@@ -1370,8 +1379,7 @@ function Invoke-CloudFrameTimes {
 if ($CloudsOnly) {   # -CloudsOnly: just the cloud cases
     Invoke-CloudCases
     Invoke-CloudFrameTimes
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($WaterSkyOnly) {   # -WaterSkyOnly: the water scene and the time-of-day cases (the cases a sky change moves)
@@ -1380,8 +1388,7 @@ if ($WaterSkyOnly) {   # -WaterSkyOnly: the water scene and the time-of-day case
     Invoke-WaterLookCases
     Invoke-PersonalCases
     Invoke-TimeOfDayCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 # the five time-of-day skies applied four times in a row through the environment layer: the engine allocates a sky's memory at its first use and
@@ -1398,59 +1405,50 @@ foreach ($be in $Backends) {
 
 if ($SkyCycleOnly) {   # -SkyCycleOnly: just the sky cycle case
     Invoke-SkyCycle
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($SkyOnly) {   # -SkyOnly: just the time-of-day cases (to propose or check their goldens)
     Invoke-TimeOfDayCases
     Invoke-CloudCases
     Invoke-SkyCycle
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($SeamsOnly) {   # -SeamsOnly: just the land-seam cases
     Invoke-SeamCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($TreesOnly) {   # -TreesOnly: just the tree cases (to propose or check their goldens)
     Invoke-TreeCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($TeardownOnly) {   # -TeardownOnly: the world torn down in the logout order raises no engine error
     Invoke-TeardownCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($NeighboursOnly) {   # -NeighboursOnly: just the neighbour-region cases (to propose or check their goldens)
     Invoke-NeighbourCases
     Invoke-NeighbourWaterCases
     Invoke-SharedTextureCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($LoginOnly) {   # -LoginOnly: just the login-screen cases (to propose or check their goldens)
     Invoke-LoginScreenCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($BanOnly) {   # -BanOnly: just the ban-line cases (to propose or check their goldens)
     Invoke-BanLineCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if ($ObjectOnly) {   # -ObjectOnly: just the selection highlight and floating text cases (to propose or check their goldens)
     Invoke-ObjectCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 # The character path may hold spaces, so these runs call godot.ps1 in this process (a nested powershell -File splits it).
 function Invoke-AvatarRender([string]$driver, [string]$tag, [string]$extra, [int]$timeout = 240) {
@@ -1495,36 +1493,30 @@ if ($EditLookOnly) {   # -EditLookOnly: just the height-edit avatar cases (to pr
     $editSkip = if (-not $env:NV_CHARACTER_DIR) { "local-only character data: NV_CHARACTER_DIR is not set (and the repository's copy is missing)" } elseif (-not (Test-Path -LiteralPath $env:NV_CHARACTER_DIR)) { "NV_CHARACTER_DIR names a folder that is not there" } else { $null }
     if ($editSkip) { foreach ($be in $Backends) { Add-Case "avatars_edit_look_$be" "SKIP" $editSkip 0 } }
     else { Invoke-EditLookCases }
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if ($ProportionsOnly) {   # -ProportionsOnly: just the picture-proportion cases (a sphere and a cube in the window's own view)
     Invoke-ProportionsCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if ($HandlesOnly) {   # -HandlesOnly: just the edit tools' handle and grid cases (to propose or check their goldens)
     Invoke-HandleCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if ($UiChromeOnly) {   # -UiChromeOnly: just the interface-size cases (to propose or check their goldens)
     Invoke-UiChromeCases
     Invoke-FloaterDragCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if ($UiOnly) {   # -UiOnly: just the interface scene cases (to propose or check their goldens)
     Invoke-UiSceneCases
     Invoke-UiChromeCases
     Invoke-FloaterDragCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if ($DialogOnly) {   # -DialogOnly: just the script dialog cases (to propose or check their goldens)
     Invoke-DialogCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 
@@ -1566,8 +1558,7 @@ function Invoke-NameTagCases {
 }
 if ($NameTagsOnly) {   # -NameTagsOnly: just the name tag cases
     Invoke-NameTagCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 # The automatic cut-out (the official RenderAutoMaskAlphaDeferred / NonDeferred rule, Viewer.Core World\AutoMask): four boxes with one texture whose alpha is
@@ -1600,8 +1591,7 @@ function Invoke-CutOutCases {
 
 if ($CutOutOnly) {   # -CutOutOnly: just the automatic cut-out cases
     Invoke-CutOutCases
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 
 if ($GlowOnly) {   # -GlowOnly: just the glow scene's cases (a work-in-progress check, not the whole stage)
@@ -1610,8 +1600,7 @@ if ($GlowOnly) {   # -GlowOnly: just the glow scene's cases (a work-in-progress 
     Invoke-GlowNegative
     Invoke-GlowDrawCalls
     Invoke-BusySmoke
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if (-not $MeasureOnly) {   # -MeasureOnly: only the opt-in measurements below (not a test run)
 if (-not $AvatarsOnly) {   # -AvatarsOnly: skip the terrain, zoo and path sections up to the avatar cases (a work-in-progress check, not the whole stage)
@@ -2372,8 +2361,7 @@ function Invoke-LiveRepeatCases {
 }
 if ($LiveRepeatOnly) {   # -LiveRepeatOnly: just the repeat cases
     if ($env:NV_CHARACTER_DIR -and -not $avatarSkip) { Invoke-LiveRepeatCases } else { foreach ($be in $Backends) { Add-Case "avatars_live_repeat_$be" "SKIP" $(if ($avatarSkip) { $avatarSkip } else { "NV_CHARACTER_DIR is not set" }) 0 } }
-    Write-JUnit
-    exit 0
+    Exit-Render 0
 }
 if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DIR)) {
     Add-Case "avatars" "FAIL" "NV_CHARACTER_DIR names a folder that does not exist: $env:NV_CHARACTER_DIR" 0
@@ -2984,6 +2972,4 @@ if ($Measure) {
     }
 }
 
-Write-JUnit
-if (@($cases | Where-Object Status -eq "FAIL").Count -gt 0) { exit 1 }
-exit 0
+Exit-Render $(if (@($cases | Where-Object Status -eq "FAIL").Count -gt 0) { 1 } else { 0 })

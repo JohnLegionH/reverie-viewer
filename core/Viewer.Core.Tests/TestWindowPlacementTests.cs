@@ -314,7 +314,7 @@ public class TestWindowPlacementTests
         Assert.Contains("[NvTools.TestWindowPlacement]::OffScreen($bounds, [NvTools.TestWindowPlacement]::BaseWidth, [NvTools.TestWindowPlacement]::BaseHeight)", script);
         Assert.Contains("NV_TEST_WINDOW_ONSCREEN", script);
         // the engine keeps a new window partly on a monitor whatever position it is given, so the launcher moves it off once it is up
-        Assert.Contains("[NvZOrder]::MoveOff([NvZOrder]::Tree($p.Id), $offX, $offY)", script);   // the run's own process tree, looked up fast
+        Assert.Contains("[NvZOrder]::PlaceOff([NvZOrder]::Tree($p.Id), $offX, $offY,", script);   // the run's own process tree, looked up fast
         Assert.Contains("SwpNoActivate = 0x10", script);
     }
 
@@ -361,6 +361,16 @@ public class TestWindowPlacementTests
         Assert.Contains("RestoreOffScreen(", code);
         Assert.Contains("SwShowMinNoActivate = 7", code);   // a stray no-focus setting on a start that opened minimised: shown minimised, not activated
         Assert.DoesNotContain("SetWindowPlacement", code);
+    }
+
+    [Fact]
+    public void A_window_place_or_size_given_on_the_command_line_is_kept_instead_of_the_remembered_one()
+    {
+        // a quiet start opens minimised with its place and size on the command line; the remembered window (maximised on a
+        // first run) would bring it back onto a monitor
+        string code = File.ReadAllText(Path.Combine(RepoRoot(), "host", "Viewer.Godot", "Main.Prefs.cs"));
+        Assert.Matches(@"DisplayFlags = \[[^\]]*""--position""[^\]]*\]", code);
+        Assert.Matches(@"DisplayFlags = \[[^\]]*""--resolution""[^\]]*\]", code);
     }
 
     [Fact]

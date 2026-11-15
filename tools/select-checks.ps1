@@ -7,8 +7,8 @@
 # Reads the files changed between -Base and the work tree (committed, staged, unstaged and new files), places each one with
 # tools\check-map.tsv into the areas of tools\check-areas.tsv (tools\CheckSelector.cs decides, the unit tests check it), and
 # prints what to run:
-#   render: none | render.ps1 -All | render.ps1 -OnlyCases '<regex>' -Backends <backend> (one line per backend)
-#   smoke:  yes | no
+#   render: none | render.ps1 -All | render.ps1 -All -OnlyCases '<regex>' -Backends <backend> (one line per backend)
+#   smoke:  yes (any file placed outside none: every change to viewer code) | no
 # A file the map cannot place selects the full set, and is named. The .NET suite and S-1 run for every order whatever this says.
 #
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\select-checks.ps1 [-Base <commit>] [-Repo <folder>] [-Json <file>]
@@ -34,7 +34,7 @@ $s = [NvTools.CheckSelector]::Select([string[]]$files.ToArray(), $map, $areas)
 Write-Output ("select-checks: {0} changed files since {1}" -f $files.Count, $Base)
 foreach ($f in $files) { Write-Output ("  {0,-24} {1}" -f (($s.FileAreas[$f]) -join ","), $f) }
 Write-Output ("areas:  {0}" -f $(if ($s.Areas.Count) { $s.Areas -join ", " } else { "none" }))
-$render = if ($s.Full) { @("render.ps1 -All") } elseif ($s.Cases) { @($s.CasesByBackend.Keys | Sort-Object -Descending | ForEach-Object { "render.ps1 -OnlyCases '$($s.CasesByBackend[$_])' -Backends $_" }) } else { @("none") }
+$render = @([NvTools.CheckSelector]::RenderLines($s))   # run as printed: a narrow selection is -All filtered by -OnlyCases
 foreach ($r in $render) { Write-Output "render: $r" }
 Write-Output ("smoke:  {0}" -f $(if ($s.Smoke) { "yes" } else { "no" }))
 if ($s.Unplaced.Count) { Write-Output ("unplaced (these select the full set): {0}" -f ($s.Unplaced -join ", ")) }

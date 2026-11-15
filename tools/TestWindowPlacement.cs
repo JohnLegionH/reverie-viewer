@@ -93,16 +93,34 @@ namespace NvTools
         {
             if (argLine == null) argLine = "";
             if (Regex.IsMatch(argLine, "--headless")) return TestWindowKind.Untouched;
-            // a normal start asked to open minimised shows no window (S-1's shipping-start checks start the program that way)
-            if (!Regex.IsMatch(argLine, "--test-render|--s1-") && Regex.IsMatch(argLine, "--minimized")) return TestWindowKind.Untouched;
+            // a normal start of the exported viewer asked to open minimised (S-1's shipping-start checks) opens minimised and
+            // stays so, with its place off every monitor; the editor's own program is left alone
+            if (!Regex.IsMatch(argLine, "--test-render|--s1-") && Regex.IsMatch(argLine, "--minimized")) return exportedViewer && !fullSize ? TestWindowKind.Quiet : TestWindowKind.Untouched;
             if (!exportedViewer && !Regex.IsMatch(argLine, "--test-render|--s1-")) return TestWindowKind.Untouched;
             if (fullSize) return TestWindowKind.Untouched;
             return onScreen ? TestWindowKind.Corner : TestWindowKind.OffScreen;
         }
 
-        public static string OffScreenArgument(PixelRect window) { return ""; }
+        /// <summary>The viewer's argument naming the off-screen place (desktop pixels) a minimised test window is brought back to.</summary>
+        public static string OffScreenArgument(PixelRect window)
+        {
+            return "--nv-test-window-at=" + window.X + "," + window.Y;
+        }
 
-        public static string LaunchKind(TestWindowKind kind) { return ""; }
+        /// <summary>
+        /// The kind of launch folder a run starts from (tools\test-launch.ps1). The engine keeps a new window at least a third on a
+        /// monitor whatever position it is given, so a window that is to be off every monitor opens minimised: "offscreen" (the test
+        /// settings and a minimised start) and "quiet" (only a minimised start, for a normal start). The corner window keeps "test".
+        /// </summary>
+        public static string LaunchKind(TestWindowKind kind)
+        {
+            switch (kind)
+            {
+                case TestWindowKind.OffScreen: return "offscreen";
+                case TestWindowKind.Quiet: return "quiet";
+                default: return "test";
+            }
+        }
 
         /// <summary>The gap left between the right edge of the monitors and an off-screen window.</summary>
         public const int OffScreenGap = 256;

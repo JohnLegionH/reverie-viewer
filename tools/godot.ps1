@@ -115,7 +115,12 @@ New-Item -ItemType Directory -Force -Path $AppDataDir, $DiagDir | Out-Null
 # Runs of the test harness and starts of the exported viewer (the live checks' and the smoke's automation runs) that open
 # a window are placed; the editor and headless runs are untouched. Every placed window opens beyond the right edge of all
 # the monitors, at the usual drawing size, without focus and at the bottom of the stacking order, so nothing a check starts
-# covers or interrupts the person at the machine. NV_TEST_WINDOW_ONSCREEN=1 puts it in the bottom-right corner of the
+# covers or interrupts the person at the machine. The engine keeps a new window at least a third on a monitor whatever
+# position it is given, so such a window opens minimised (the launch folder's override.cfg, tools\test-launch.ps1), where it
+# is on no monitor, and is brought back transparent and without being activated straight to its place off every monitor, by
+# the launcher (below) or by the viewer (--nv-test-window-at=, host\Viewer.Godot\TestWindow.cs), whichever is first. A normal
+# start asked to open minimised (--minimized: S-1's shipping-start checks) opens minimised and stays so (TestWindowKind.Quiet),
+# with its place and size given on the command line so the viewer's remembered window does not bring it back onto a monitor. NV_TEST_WINDOW_ONSCREEN=1 puts it in the bottom-right corner of the
 # monitor in use instead (a quarter of its area), to watch a run. Which window a run gets is TestWindowPlacement.KindFor's decision. The placement itself is tools\TestWindowPlacement.cs, which
 # the unit tests link, so the numbers used here are the numbers tested. The engine is told the window's size and
 # position (--resolution, --position), and the test harness is told the full size it keeps drawing at
@@ -165,7 +170,7 @@ if ($kind -and $kind -ne [NvTools.TestWindowKind]::Untouched) {
             $monitor = [NvTools.TestWindowPlacement]::MonitorOf($bounds, (New-Object NvTools.PixelRect $fgRect.Left, $fgRect.Top, ($fgRect.Right - $fgRect.Left), ($fgRect.Bottom - $fgRect.Top)), $primary)
         }
         if ($env:NV_TEST_WINDOW_MONITOR -match '^\d+$') { $monitor = [int]$env:NV_TEST_WINDOW_MONITOR }
-        if ($kind -eq [NvTools.TestWindowKind]::OffScreen) {
+        if ($kind -eq [NvTools.TestWindowKind]::OffScreen -or $kind -eq [NvTools.TestWindowKind]::Quiet) {
             $win = [NvTools.TestWindowPlacement]::OffScreen($bounds, [NvTools.TestWindowPlacement]::BaseWidth, [NvTools.TestWindowPlacement]::BaseHeight)
             $offX = $win.X; $offY = $win.Y
         } else {
@@ -174,13 +179,20 @@ if ($kind -and $kind -ne [NvTools.TestWindowKind]::Untouched) {
         $windowPlaced = $true
         # the window argument is the viewer's own, so it goes after the engine's "--" separator (a plain start may have none yet)
         $sep = if ($ArgLine -match '(^|\s)--(\s|$)') { "" } else { " --" }
-        $ArgLine = "$([NvTools.TestWindowPlacement]::EngineArguments($win, $bounds)) $ArgLine$sep --nv-test-window=$([NvTools.TestWindowPlacement]::BaseWidth)x$([NvTools.TestWindowPlacement]::BaseHeight)"
+        if ($kind -eq [NvTools.TestWindowKind]::Quiet) {
+            $ArgLine = "$([NvTools.TestWindowPlacement]::EngineArguments($win, $bounds)) $ArgLine"   # a normal start: no harness argument
+        } else {
+            $ArgLine = "$([NvTools.TestWindowPlacement]::EngineArguments($win, $bounds)) $ArgLine$sep --nv-test-window=$([NvTools.TestWindowPlacement]::BaseWidth)x$([NvTools.TestWindowPlacement]::BaseHeight)"
+            if ($kind -eq [NvTools.TestWindowKind]::OffScreen) { $ArgLine = "$ArgLine $([NvTools.TestWindowPlacement]::OffScreenArgument($win))" }
+        }
         # The window is created before any viewer code runs, so the no-focus flag has to be in the project settings
         # the engine reads at start. An exported build reads override.cfg from its own folder, and the build's folder is
         # never written: the run starts from a launch folder of hard links to the build's files with the override.cfg in
         # it (tools	est-launch.ps1), so a run stopped from outside leaves nothing behind in the build.
-        if ($exportedBuild) {
-            $launch = New-TestLaunchFolder $exeDir $DiagDir
+        if ($exportedBuild -and (Test-Path -LiteralPath (Join-Path $exeDir "launch.complete"))) {
+            Write-Output "GODOT: started from the launch folder it is in ($exeDir), with that folder's own override.cfg"
+        } elseif ($exportedBuild) {
+            $launch = New-TestLaunchFolder $exeDir $DiagDir ([NvTools.TestWindowPlacement]::LaunchKind($kind))
             if ($launch) {
                 $Exe = Join-Path $launch (Split-Path -Leaf $Exe)
                 Write-Output "GODOT: test launch folder $launch (the build folder is not written)"
@@ -420,6 +432,10 @@ public static class NvZOrder
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromRect(ref Rect r, uint flags);
+    [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr h, int index);
+    [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr h, int index, int value);
+    [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr h, int command);
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] private struct ProcEntry { public uint Size, Usage, Pid; public IntPtr Heap; public uint Module, Threads, Parent; public int Base; public uint Flags; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string Exe; }
     [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
@@ -443,10 +459,26 @@ public static class NvZOrder
         return ids.ToArray();
     }
     private const uint SwpNoSize = 1, SwpNoMove = 2, SwpNoActivate = 0x10, SwpNoOwnerZOrder = 0x200;
-    /// <summary>Moves every visible top-level window of the given processes that meets a monitor to (x, y), off every monitor, at the
-    /// bottom of the stacking order and without activating it (the engine keeps a new window partly on a monitor whatever position it is
-    /// given). Returns how many such windows the processes have, -1 when none is up yet.</summary>
-    public static int MoveOff(int[] pids, int x, int y)
+    private const int GwlExStyle = -20, WsExLayered = 0x00080000, WsExNoActivate = 0x08000000, SwShowNoActivate = 4;
+    private const uint LwaAlpha = 2;
+    /// <summary>Brings a minimised window back at (x, y), off every monitor, never seen and never activated: transparent while the system
+    /// restores it (it puts it back where it was first placed, partly on a monitor; a placement off every monitor it moves back onto one),
+    /// moved off, then opaque again. WS_EX_NOACTIVATE stays on it, so the system never makes it the active window, whatever window the
+    /// person closes or minimises.</summary>
+    public static void RestoreOff(IntPtr h, int x, int y)
+    {
+        int ex = GetWindowLong(h, GwlExStyle);
+        SetWindowLong(h, GwlExStyle, ex | WsExLayered | WsExNoActivate);
+        SetLayeredWindowAttributes(h, 0, 0, LwaAlpha);
+        ShowWindow(h, SwShowNoActivate);
+        SetWindowPos(h, (IntPtr)1, x, y, 0, 0, SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+        SetWindowLong(h, GwlExStyle, (ex | WsExNoActivate) & ~WsExLayered);
+    }
+    /// <summary>Keeps every visible top-level window of the given processes off every monitor and never active: a window that meets a
+    /// monitor is moved to (x, y), at the bottom of the stacking order and without activating it; a minimised one is brought back there
+    /// (RestoreOff) when <paramref name="restoreMinimised"/>, else left minimised; each is marked WS_EX_NOACTIVATE. Returns how many
+    /// windows are up and not minimised (counting one just brought back), -1 when none is.</summary>
+    public static int PlaceOff(int[] pids, int x, int y, bool restoreMinimised)
     {
         var mine = new HashSet<uint>();
         foreach (int id in pids) mine.Add((uint)id);
@@ -454,8 +486,18 @@ public static class NvZOrder
         EnumWindows((h, l) =>
         {
             uint pid; GetWindowThreadProcessId(h, out pid);
-            if (mine.Contains(pid) && IsWindowVisible(h) && !IsIconic(h))
+            if (mine.Contains(pid) && IsWindowVisible(h))
             {
+                int ex = GetWindowLong(h, GwlExStyle);
+                if ((ex & WsExNoActivate) == 0) SetWindowLong(h, GwlExStyle, ex | WsExNoActivate);
+                if (IsIconic(h))
+                {
+                    if (!restoreMinimised) return true;
+                    RestoreOff(h, x, y);
+                    if (n < 0) n = 0;
+                    n++;
+                    return true;
+                }
                 if (n < 0) n = 0;
                 n++;
                 Rect r;
@@ -540,14 +582,18 @@ while (-not $p.HasExited) {
         try {
             $ids = New-Object System.Collections.Generic.List[int]
             $ids.Add($p.Id)
-            if ($kind -ne [NvTools.TestWindowKind]::OffScreen) {
+            if ($kind -eq [NvTools.TestWindowKind]::Corner) {
                 $procs = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
                 for ($i = 0; $i -lt $ids.Count; $i++) { foreach ($c in $procs) { if ([int]$c.ParentProcessId -eq $ids[$i]) { $ids.Add([int]$c.ProcessId) } } }
             }
             if ($kind -eq [NvTools.TestWindowKind]::OffScreen) {
-                # moved off every monitor as soon as it is up, and checked again every 2 s for the whole run, in case the program moves it back
-                # (every 40 ms for the first 15 s after it appears: the engine places its window again once while it starts)
-                if ([NvZOrder]::MoveOff([NvZOrder]::Tree($p.Id), $offX, $offY) -gt 0 -and -not $windowSeenOff) { $windowSeenOff = $true; $windowSeenAt = Get-Date }
+                # opened minimised: brought back off every monitor the first time it is seen (later a check may minimise it on purpose),
+                # then kept off every monitor, checked again every 2 s for the whole run in case the program moves it back (every 40 ms
+                # for the first 15 s after it appears: the engine places its window again once while it starts)
+                if ([NvZOrder]::PlaceOff([NvZOrder]::Tree($p.Id), $offX, $offY, -not $windowSeenOff) -gt 0 -and -not $windowSeenOff) { $windowSeenOff = $true; $windowSeenAt = Get-Date }
+            } elseif ($kind -eq [NvTools.TestWindowKind]::Quiet) {
+                # a quiet normal start stays minimised; it is only kept from being made the active window or put on a monitor
+                [void][NvZOrder]::PlaceOff([NvZOrder]::Tree($p.Id), $offX, $offY, $false)
             } elseif ([NvZOrder]::SendToBottom($ids.ToArray()) -gt 0) { $windowBottomed = $true }
         } catch { $windowBottomed = $true; Write-Output "GODOT: could not send the test window to the bottom ($($_.Exception.Message))" }
     }
