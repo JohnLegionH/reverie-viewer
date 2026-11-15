@@ -250,6 +250,9 @@ public partial class ShellRoot : Control
     /// <summary>Set on a text field that answers Escape itself (a name prompt cancels on it), so the shell's Escape leaves it alone.</summary>
     public const string TakesEscapeMeta = "takes_escape";
 
+    /// <summary>The right-click menu, once the interaction feature is installed: Esc closes it before anything else sees the key.</summary>
+    public ContextMenuPanel? ContextMenu { get; set; }
+
     public override void _Input(InputEvent e)
     {
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape }

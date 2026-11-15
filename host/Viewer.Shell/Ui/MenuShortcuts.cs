@@ -1,0 +1,30 @@
+// Copyright (c) 2026 Legion Builds
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+namespace Viewer.Shell;
+
+/// <summary>A key with its modifier keys, as a menu entry's shortcut names it ("control|shift|L" is Ctrl+Shift+L).</summary>
+public sealed record KeyChord(string Key, bool Control = false, bool Shift = false, bool Alt = false)
+{
+    /// <summary>Whether Ctrl or Alt is held: such a chord reaches the menus even while a text field holds the keyboard.</summary>
+    public bool Modified => Control || Alt;
+
+    /// <summary>Reads a shortcut as the official menus write it; null when it is empty or names a key that is not a letter or a digit.</summary>
+    public static KeyChord? Parse(string? shortcut) => null;
+}
+
+/// <summary>
+/// The menus' keyboard shortcuts, taken from the menus themselves when the key is pressed, so every shortcut a menu shows works from the
+/// start, whether or not its menu has ever been opened, and an entry's enabled state is read at that moment.
+/// The rules follow the official viewer's key handling (llviewerwindow.cpp handleKey, read as behaviour): a chord with Ctrl or Alt goes to
+/// the menus before the control that holds the keyboard, so it works while typing; a chord without them is typed into a text field that
+/// holds the keyboard and reaches the menus only when none does; a disabled entry does nothing.
+/// </summary>
+public static class MenuShortcuts
+{
+    /// <summary>Every entry of the menus that shows a shortcut the keyboard can give, with that shortcut, in menu order.</summary>
+    public static IReadOnlyList<(TopMenuEntryView Entry, KeyChord Chord)> All(IReadOnlyList<TopMenuView> menus) => [];
+
+    /// <summary>The entry a chord runs now, or null: none has it, it is disabled, or a text field takes it.</summary>
+    public static TopMenuEntryView? Route(IReadOnlyList<TopMenuView> menus, KeyChord chord, bool textEntry) => null;
+}

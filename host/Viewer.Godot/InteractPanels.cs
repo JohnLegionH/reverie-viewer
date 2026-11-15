@@ -168,6 +168,14 @@ public partial class ContextMenuPanel : PanelContainer
         Position = new Vector2(Math.Min(_at.X, Math.Max(0, _limit.X - size.X)), Math.Min(_at.Y, Math.Max(0, _limit.Y - size.Y)));
     }
 
+    /// <summary>Raised when Esc closes the menu with no choice, so the right-click selection goes as when the menu is clicked away.</summary>
+    public event Action? Dismissed;
+
+    /// <summary>Esc with the menu open: the menu closes with no choice.</summary>
+    public void Dismiss()
+    {
+    }
+
     public void Close()
     {
         if (IsInsideTree() && GetViewport().GuiGetFocusOwner() is { } owner && IsAncestorOf(owner))
@@ -194,6 +202,7 @@ public static class InteractFeature
         var s = shell.Shell;
         var menu = new ContextMenuPanel(s.Strings);
         shell.MainView.AddChild(menu);
+        shell.ContextMenu = menu;
         var inspect = new RowsPanel(s.Strings, "inspect_rows");
         var land = new RowsPanel(s.Strings, "land_rows");
         var contents = new ContentsPanel(s.Strings);

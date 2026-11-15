@@ -43,6 +43,16 @@ public class MenuKeyboardWiringTests
     }
 
     [Fact]
+    public void Esc_closing_the_menu_lets_the_right_click_selection_go_as_a_menu_closed_with_no_choice()
+    {
+        string interact = File.ReadAllText(Path.Combine(Host, "Main.Interact.cs"));
+        Assert.Matches(@"\.Menu\.Dismissed \+= \(\) => _interact\?\.CloseMenu\(\)", interact);
+        var dismiss = Regex.Match(MenuClass(), @"public void Dismiss\(\)\s*\{(?<body>[\s\S]*?)\n    \}");
+        Assert.True(dismiss.Success, "Dismiss not found");
+        Assert.Matches(@"Close\(\);[\s\S]*Dismissed\?\.Invoke\(\)", dismiss.Groups["body"].Value);
+    }
+
+    [Fact]
     public void The_host_releases_the_keyboard_when_a_sit_is_sent()
     {
         string interact = File.ReadAllText(Path.Combine(Host, "Main.Interact.cs"));

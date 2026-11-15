@@ -80,6 +80,7 @@ public partial class S1Smoke : Node
                 EngineLogCheck();
                 await UiCheck();
                 await ShellCheck();
+                await KeysCheck();
                 FontCheck();
                 await ChatCheck();
                 await PeopleCheck();
@@ -426,6 +427,145 @@ public partial class S1Smoke : Node
         _result["shell"] = results;
         if (!pass)
             _failures.Add("window frame layout, menus, floater or keyboard focus (see shell)");
+    }
+
+    // The keyboard's way to the menus, with key events sent through the engine's own input path as the operating system's arrive, in a
+    // shell whose menus have never been opened: every shortcut the menus show (listed from the menu model, so a new entry is covered
+    // without a new check) runs its entry when the entry is enabled and nothing when it is not, in and out of build mode; a check entry
+    // (Build) toggles; while a text field holds the keyboard a Ctrl chord still runs its entry and a plain key is typed instead; Esc with
+    // the right-click menu open closes the menu with no choice and never reaches the world's handling (which would reset the camera).
+    private async Task KeysCheck()
+    {
+        var problems = new List<string>();
+        var ran = new List<string>();
+        var table = StringTable.English();
+        var shell = new ShellRoot(new ShellController(table, () => ran.Add("app.quit")));
+        var model = shell.Shell;
+        bool selection = true;
+        var edit = new Viewer.Shell.Build.EditController(new Viewer.Core.World.WorldState(new CoreLog(new KeysNoSink(), "s1")),
+            _ => new Viewer.Core.Actions.ActionResult(Viewer.Core.Actions.ActionStatus.Sent, 1));
+        BuildMenu.Install(model.Menus, () => true);
+        BuildMenu.InstallEditing(model.Menus, () => true, () => edit, () => selection);
+        IEnumerable<MenuEntry> Flat(IEnumerable<MenuEntry> es) => es.SelectMany(e => e.Children is { } k ? Flat(k).Prepend(e) : [e]);
+        model.Menus.AddMenu("keys", "menu.help");
+        foreach (var id in ViewerShortcuts.ByEntry.Keys)
+            if (!Flat(model.Menus.Menus.SelectMany(m => m.Entries)).Any(e => e.Id == id))
+                model.Menus.AddEntry("keys", new MenuEntry(id, "menu.help.about", "cmd." + id));
+        foreach (var e in Flat(model.Menus.Menus.SelectMany(m => m.Entries)))
+            if (e.CommandId.Length > 0 && !model.Commands.Has(e.CommandId))
+            {
+                string c = e.CommandId;
+                model.Commands.Register(c, c == BuildMenu.ToggleCommand ? () => { ran.Add(c); edit.ToggleBuild(); } : () => ran.Add(c));
+            }
+        var panels = InteractFeature.Install(shell);
+        AddChild(shell);
+        var world = new S1KeySink();
+        AddChild(world);
+        async Task Frames(int n) { for (int i = 0; i < n; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
+        async Task Press(Key key, bool ctrl, bool shift, bool alt)
+        {
+            long unicode = ctrl || alt ? 0 : key is >= Key.A and <= Key.Z ? (shift ? (long)key : char.ToLowerInvariant((char)key)) : (long)key;
+            global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Unicode = (char)unicode, Pressed = true, CtrlPressed = ctrl, ShiftPressed = shift, AltPressed = alt });
+            global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = false, CtrlPressed = ctrl, ShiftPressed = shift, AltPressed = alt });
+            await Frames(2);
+        }
+        Task PressChord(KeyChord c) => Press((Key)char.ToUpperInvariant(c.Key[0]), c.Control, c.Shift, c.Alt);
+        IReadOnlyList<TopMenuView> View() => TopBarMenuMap.Build(model.Menus, model.Commands);
+        await Frames(3);
+        GetViewport().GuiReleaseFocus();
+
+        int tried = 0, enabledRuns = 0, disabledRuns = 0;
+        var listed = MenuShortcuts.All(View());
+        if (listed.Count < ViewerShortcuts.ByEntry.Count + 8) problems.Add($"only {listed.Count} shortcuts listed from the menus");
+        // twice: out of build mode, then in it (the grid's keys work only there)
+        foreach (bool building in new[] { false, true })
+        {
+            if (edit.BuildMode != building) edit.ToggleBuild();
+            foreach (var (listedEntry, chord) in listed)
+            {
+                if (listedEntry.Id == "me.quit" && building) continue;
+                var entry = FindView(View(), listedEntry.Id)!;
+                ran.Clear();
+                world.Keys.Clear();
+                bool? checkedBefore = entry.Checked;
+                await PressChord(chord);
+                tried++;
+                if (entry.Enabled)
+                {
+                    enabledRuns++;
+                    if (ran.Count != 1 || ran[0] != entry.CommandId) problems.Add($"{chord.Key}{(chord.Control ? "+ctrl" : "")}{(chord.Shift ? "+shift" : "")}{(chord.Alt ? "+alt" : "")} ({entry.Id}, building {building}): ran [{string.Join(",", ran)}]");
+                    if (world.Keys.Count > 0) problems.Add($"{entry.Id}: the key also reached the world");
+                    if (checkedBefore is { } was)
+                    {
+                        if (FindView(View(), entry.Id)?.Checked != !was) problems.Add($"{entry.Id}: its check mark did not change");
+                        await PressChord(chord);   // back as it was
+                    }
+                }
+                else
+                {
+                    disabledRuns++;
+                    if (ran.Count != 0) problems.Add($"{entry.Id} is disabled but its key ran [{string.Join(",", ran)}]");
+                }
+                if (edit.BuildMode != building) edit.ToggleBuild();
+            }
+        }
+        if (shell.Menu.Popups.Any(p => p.ItemCount > 0 || p.Visible)) problems.Add("a dropdown was filled or opened during the key checks");
+
+        // a text field holds the keyboard: Ctrl+I still opens what the menu's entry opens; G (in build mode, so enabled) is typed
+        if (!edit.BuildMode) edit.ToggleBuild();
+        var field = new LineEdit { Name = "keys_field" };
+        shell.MainView.AddChild(field);
+        await Frames(1);
+        field.GrabFocus();
+        await Frames(2);
+        ran.Clear();
+        await Press(Key.I, ctrl: true, shift: false, alt: false);
+        if (!ran.Contains("cmd.content.inventory")) problems.Add($"Ctrl+I while typing ran [{string.Join(",", ran)}]");
+        ran.Clear();
+        await Press(Key.G, ctrl: false, shift: false, alt: false);
+        if (ran.Count != 0) problems.Add($"G while typing ran [{string.Join(",", ran)}]");
+        if (field.Text != "g") problems.Add($"G while typing: the field holds '{field.Text}'");
+        field.ReleaseFocus();
+        shell.MainView.RemoveChild(field);
+        field.QueueFree();
+        await Frames(1);
+
+        // Esc with the right-click menu open: the menu closes with no choice, the world never sees the key
+        int dismissed = 0;
+        string? chosen = null;
+        panels.Menu.Dismissed += () => dismissed++;
+        panels.Menu.Open(new Vector2(200, 200), [new ContextEntry("touch", "menu.help.about")], id => chosen = id, GetViewport().GetVisibleRect().Size);
+        await Frames(2);
+        world.Keys.Clear();
+        await Press(Key.Escape, ctrl: false, shift: false, alt: false);
+        if (panels.Menu.IsOpen) problems.Add("Esc left the right-click menu open");
+        if (dismissed != 1) problems.Add($"Esc closed the right-click menu {dismissed} times as dismissed");
+        if (chosen is not null) problems.Add($"Esc chose {chosen}");
+        if (world.Keys.Contains(Key.Escape)) problems.Add("Esc with the right-click menu open reached the world (the camera would reset)");
+        // with no menu open, Esc goes on to the world as before
+        world.Keys.Clear();
+        await Press(Key.Escape, ctrl: false, shift: false, alt: false);
+        if (!world.Keys.Contains(Key.Escape)) problems.Add("Esc with no menu open did not reach the world");
+
+        _result["keys"] = new Dictionary<string, object?> { ["shortcuts"] = listed.Count, ["presses"] = tried, ["enabled"] = enabledRuns, ["disabled"] = disabledRuns, ["problems"] = problems };
+        Log($"keys: {listed.Count} shortcuts, {tried} presses ({enabledRuns} enabled, {disabledRuns} disabled), {problems.Count} problems{(problems.Count > 0 ? ": " + string.Join(" | ", problems) : "")}");
+        RemoveChild(world);
+        world.QueueFree();
+        RemoveChild(shell);
+        shell.QueueFree();
+        if (problems.Count > 0 || enabledRuns == 0 || disabledRuns == 0)
+            _failures.Add("menu shortcuts or Esc through the engine's key input (see keys)");
+    }
+
+    private static TopMenuEntryView? FindView(IEnumerable<TopMenuView> menus, string id)
+    {
+        static IEnumerable<TopMenuEntryView> Flat(IEnumerable<TopMenuEntryView> es) => es.SelectMany(e => e.Children is { } k ? Flat(k).Prepend(e) : [e]);
+        return Flat(menus.SelectMany(m => m.Entries)).FirstOrDefault(e => e.Id == id);
+    }
+
+    private sealed class KeysNoSink : ILogSink
+    {
+        public void Write(LogEntry entry) { }
     }
 
     // Chat and conversations, with no grid: the feature installs itself into a shell already drawn (menu and toolbar drawn
@@ -1148,5 +1288,17 @@ public partial class S1Smoke : Node
     private static void Log(string line)
     {
         GD.Print("S1 " + line);
+    }
+}
+
+/// <summary>Stands for the world's key handling in S-1's key check: records every key that reaches the unhandled stage.</summary>
+public partial class S1KeySink : Node
+{
+    public List<Key> Keys { get; } = new();
+
+    public override void _UnhandledInput(InputEvent e)
+    {
+        if (e is InputEventKey { Pressed: true } k)
+            Keys.Add(k.Keycode);
     }
 }
