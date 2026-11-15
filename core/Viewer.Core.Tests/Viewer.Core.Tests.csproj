@@ -20,6 +20,8 @@
   <ItemGroup>
     <!-- The placement of a test run's window; tools\godot.ps1 compiles the same file, so the tests check what the scripts use. -->
     <Compile Include="..\..\tools\TestWindowPlacement.cs" Link="TestWindowPlacement.cs" />
+    <!-- The case selector; tools\select-checks.ps1 compiles the same file. -->
+    <Compile Include="..\..\tools\CheckSelector.cs" Link="CheckSelector.cs" />
   </ItemGroup>
 
   <ItemGroup>

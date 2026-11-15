@@ -270,6 +270,7 @@ public class TestWindowPlacementTests
     [InlineData("--rendering-driver vulkan -- --automation", false, true, true, TestWindowKind.Corner)]
     [InlineData("--rendering-driver vulkan -- --automation", true, true, false, TestWindowKind.Untouched)]        // the full-size switch
     [InlineData("--headless -- --s1-smoke", false, true, false, TestWindowKind.Untouched)]                        // no window is opened
+    [InlineData("--rendering-driver vulkan --minimized --quit-after 60", false, true, false, TestWindowKind.Untouched)]   // a normal start, minimised: S-1's shipping-start checks
     [InlineData("--headless --editor --path X --build-solutions --quit", false, false, false, TestWindowKind.Untouched)]
     public void Every_window_a_check_opens_is_off_screen_unless_asked_otherwise(string argLine, bool fullSize, bool exportedViewer, bool onScreen, TestWindowKind expected)
     {

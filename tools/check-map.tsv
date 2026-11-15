@@ -1,0 +1,76 @@
+# Copyright (c) 2026 Legion Builds
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Which area (tools\check-areas.tsv) a changed file belongs to, for tools\select-checks.ps1 (read by tools\CheckSelector.cs).
+# One rule per line: a regular expression on the file's path in the repository (forward slashes, case-sensitive), then
+# the area or areas it selects (comma-separated). A file takes every rule it matches, so a file can select several areas.
+# A file that matches no rule selects "full": the selector never guesses a file it cannot place.
+#
+# Files that draw nothing and are proven by other checks: the .NET suite (tests), running the live script (live checks).
+#pattern	areas
+^(Docs/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|BUILDING\.md$|THIRD-PARTY-NOTICES\.md$|ThirdPartyLicenses/|LICENSE$|\.gitignore$|\.gitattributes$)	none
+^core/Viewer\.Core\.Tests/	none
+^core/Viewer\.Core\.ArchFixture/	none
+\.uid$	none
+^samples/	none
+^tools/[A-Za-z0-9-]+-live\.ps1$	none
+^tools/(live-env|live-check|live-takeback|other-clients|aim-lib|aim-check|automation|soak-live|login-proof|login-dialogs|prefs-auto-check|ui-checks|ui-sound-check|world-sound-check|window-check|contact-sheets|close-cycles|package|ship-export|rebuild-corej2k|nupkg-fixed-time|assert-[a-z-]+|boot-logo-check)\.ps1$	none
+^tools/(select-checks\.ps1|CheckSelector\.cs|check-map\.tsv|check-areas\.tsv|test\.sh)$	none
+^tools/(capture|laptop-kit|release|ui-sounds)/	none
+# The check scripts themselves: a change to how checks run is proven by the full set.
+^tools/(render|render-serve|godot|s1|test|test-launch|claim-guard|job-guard|own-processes|temp-root|fixtures-local|crash-watch|job-guard)\.ps1$	full
+^tools/TestWindowPlacement\.cs$	full
+^tools/(stock-smoke|stock-server|stock-settings)\.ps1$	smoke
+# Build and tool settings shared by everything.
+(^|/)[^/]+\.csproj$|(^|/)packages\.lock\.json$|^Directory\.|^nuget|^Viewer\.sln$|^nuget-feed/|^native/|^vendor/	full
+^host/Viewer\.Godot/(project\.godot|export_presets\.cfg|icon|default_env)	full
+\.(gdshader|gdshaderinc|glsl)$|/Shaders?/	full
+# The engine side: what every picture goes through.
+^host/Viewer\.Godot/(Main\.cs|TestRender\.cs|TestRender\.Serve\.cs|TestRender\.FrameFigures\.cs|StartupCheck\.cs|TestWindow\.cs|GraphicsBackendInfo\.cs|PresentDiagnostics\.cs|FrameSentinel\.cs|EngineLogger\.cs|MemorySplit\.cs)$	full
+^host/Viewer\.Godot/Presentation/(WorldPresenter|Rids|KeptCollections|PipelineWarmup|JitWarmup|PreparedUpload|VideoMemory|LoggedErrorReleases|HeldValues|FrameProbe|TextureHub)[.A-Za-z]*\.cs$	full
+^core/Viewer\.Core/(World|Camera|Replay|Platform)/	full
+^host/Viewer\.Shell/(PresentationCoordinator|PresentationPolicy|DisplayPlan|RenderFloor|FrameBudget|FrameClock|DeferredDisposals|LiveRidLedger|StagedHandOver|NearestFirstSet|UnitCostModel|SliceStats|ImageDiff|CameraDefaults|FollowCamera|DrawDistanceView|BackendChoice|BackendRelaunch|BackendStatus|DeviceProbe|NativeMemory|EngineLogRoute)\.cs$	full
+# The interface: the theme and the frame are shared by every window, so they run every interface case.
+^host/Viewer\.Godot/(ShellTheme|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
+^host/Viewer\.Godot/Reverie/	ui
+^host/Viewer\.Godot/[A-Za-z]*(Panels?|Pages|Tab|View|Overlay)\.cs$	ui
+^host/Viewer\.Godot/Main\.(Prefs|Chat|Notifications|Names|Notecards|Addons|Sounds|WorldSounds|ViewChecks|Aim|FrameBurst|FrameTime|LookProbe|MovingProbe|MeshProbe|AvatarProbe|WornTrace|CrossingFrames|HandoffFrames|LoginDump|InventoryMoveCheck|InventoryPointerCheck|TexturePreview)\.cs$	ui,smoke
+^host/Viewer\.Shell/(Ui|Strings|Chat|Notifications|Social|Sound|Addons)/	ui
+^host/Viewer\.Shell/(StringTable|Ellipsis|ClockText|BrandText|AboutText|KeyBindings|WindowMemory|ColourChart|MouseLookMode|MouseLookSettings|ContentCacheSetting|CacheUse|FrameTimeLogSettings|CloseRequest)\.cs$	ui
+^core/Viewer\.Addons\.Api/|^addons/	ui
+^fixtures/ui/	ui
+# Login, the session and the grid's services: the login pictures and the stock smoke.
+^host/Viewer\.Godot/(LoginScreen|LoginDialogView|S1Smoke[.A-Za-z]*|Main\.LoginDialogs|TestRender\.LoginScreen)\.cs$	login
+^host/Viewer\.Shell/(Login[A-Za-z]*|GridAddress|RememberedLogins|LocationText|Reconnect/[A-Za-z]*)(\.cs)?	login
+^host/Viewer\.Shell/Reconnect/	login
+^core/Viewer\.Core/(Session|Net|Protocol|Identity)/	login
+^core/Viewer\.Core/(Inventory|Map|Links|Social|Actions|Interaction|Assets|Physics|Scheduling|Diagnostics)/	smoke
+^host/Viewer\.Godot/(Main\.(Inventory|Travel|Links|Interact)|TestRender\.Interact)\.cs$	smoke,ui
+^host/Viewer\.Godot/Automation/	smoke
+^host/Viewer\.Shell/(Inventory|Travel|Interact|Links|Overrider)/	smoke,ui
+^host/Viewer\.Automation/	smoke
+^host/Viewer\.Shell/(SitReport|OwnAvatarDriver|ObjectInterpolator|MotionTrace|Social)/?	smoke
+# Building and the handles.
+^host/Viewer\.Godot/(Main\.(Build|Edit|Handles)|TestRender\.(Handles|EditLook)|Presentation/(HandleOverlay|SelectionOutline))\.cs$	build
+^host/Viewer\.Shell/Build/	build
+^core/Viewer\.Core/Building/	build,smoke
+^fixtures/build/	build
+# The sky, the water and the light.
+^host/Viewer\.Godot/(Main\.Environment|TestRender\.(Clouds|Haze|SunDisc|SkyCycle|WorldLight|SkinLight)|Presentation/(EnvironmentLayer|HdrTonemap|ProbeCapture))\.cs$	environment
+^fixtures/environment/	environment
+# Avatars.
+^host/Viewer\.Godot/(Main\.(Appearance|BodyMask|Expressions)|AppearanceExample|NameTagOverlay|TestRender\.(Avatars|AppearanceUi|ArrivalProbe|AttachRoute|Attachments|BakeLook|CaptureLook|Crowd|FaceShape|MorphLook|NameTags|Proportions|Rigged[A-Za-z]*|ShapeLook|SkinNormal))\.cs$	avatars
+^host/Viewer\.Godot/Presentation/(Avatar[A-Za-z.]*|BodyMask|FaceShader|SkinAtlas|SkinTextures|RiggedNotDrawn|IAttachmentFrames|WornFrameTrace|ArrivalWarmup)\.cs$	avatars
+^host/Viewer\.Shell/(Appearance|Outfit|NameTags|Overrider)/	avatars
+^host/Viewer\.Shell/(Avatar[A-Za-z.]*|SkinnedSurfaceData|SharedBodyFrame|RiggedMeshPreparation|AnimationSource|PoseSweep|ArrivalFeeds?|HandoffLedger|CrossingFrameTrace)\.cs$	avatars
+^core/Viewer\.Core/(Avatars|Appearance)/|^core/Viewer\.(Baking|Motion|Overrider)/	avatars
+^fixtures/(avatars|nametags)/	avatars
+# Land and regions.
+^host/Viewer\.Godot/(Main\.(PlainGround|Neighbours)|TestRender\.(Neighbours|Teardown|BanLines|Trees)|Presentation/(NodeTerrainView|TerrainView|NeighbourStack|BanWallLayer))\.cs$	terrain
+^host/Viewer\.Shell/(Terrain[A-Za-z]*|RegionGround|CellMerge)\.cs$	terrain
+^fixtures/(terrain|neighbours|crossings|trees)/	terrain
+# Objects: prims, meshes, textures, materials, glow.
+^host/Viewer\.Godot/(TestRender\.(Merge|Surfaces|SharedTextures|SharedMeasure|ViewReuse|Busy|BlendStress|Memory|Soak)|Presentation/(PrimLayer[A-Za-z.]*|BlendedFaces|GlowPass|ProjectorLights|HoverTextLayer|SwatchColour))\.cs$	objects
+^host/Viewer\.Shell/(Assets/|MeshLodPreparer|MeshSource|MeshSurfaceData|MaterialSource|TextureSource|[A-Za-z]*Zoo|HeavyScene|BusyScene|LoopbackTextureServer)	objects
+^core/Viewer\.Core/(Imaging|Meshing|Residency)/|^core/Viewer\.Core\.(DecodeProbe|LifecycleSmoke)/	objects
+^fixtures/(prims|primmesher|meshes|sculpts|textures|materials|colour|orientation)/	objects
