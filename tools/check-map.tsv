@@ -17,7 +17,7 @@
 (^|/)LICENSE[A-Za-z0-9-]*\.txt$	none
 ^host/Viewer\.Godot/(WorldSoundPlayer|SoundTunerPanel)\.cs$	smoke
 ^tools/[A-Za-z0-9-]+-live\.ps1$|^tools/live-smoke\.ps1$	none
-^tools/(live-env|live-check|live-takeback|other-clients|aim-lib|aim-check|automation|soak-live|login-proof|login-dialogs|prefs-auto-check|ui-checks|ui-sound-check|world-sound-check|window-check|contact-sheets|close-cycles|package|ship-export|rebuild-corej2k|nupkg-fixed-time|assert-[a-z-]+|boot-logo-check)\.ps1$	none
+^tools/(live-env|live-check|live-takeback|other-clients|aim-lib|aim-check|automation|soak-live|login-proof|login-dialogs|prefs-auto-check|ui-checks|ui-sound-check|world-sound-check|window-record|contact-sheets|close-cycles|package|ship-export|rebuild-corej2k|nupkg-fixed-time|assert-[a-z-]+|boot-logo-check)\.ps1$	none
 ^tools/(select-checks\.ps1|CheckSelector\.cs|check-map\.tsv|check-areas\.tsv|test\.sh)$	none
 ^tools/(capture|laptop-kit|release|ui-sounds)/	none
 # The check scripts themselves: a change to how checks run is proven by the full set.

@@ -179,7 +179,7 @@ public class LauncherClaimTests : IDisposable
     public void The_scan_finds_the_launchers()
     {
         var found = LauncherScripts().ToList();
-        foreach (var expected in new[] { "godot.ps1", "render.ps1", "s1.ps1", "test.ps1", "close-cycles.ps1", "live-check.ps1", "automation.ps1", "contact-sheets.ps1", "login-proof.ps1", "window-check.ps1" })
+        foreach (var expected in new[] { "godot.ps1", "render.ps1", "s1.ps1", "test.ps1", "close-cycles.ps1", "live-check.ps1", "automation.ps1", "contact-sheets.ps1", "login-proof.ps1" })
             Assert.Contains(expected, found);
     }
 
