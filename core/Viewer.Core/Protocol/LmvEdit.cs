@@ -114,9 +114,19 @@ internal static class LmvEdit
         ObjectData = locals.Select(l => new ObjectDelinkPacket.ObjectDataBlock { ObjectLocalID = l }).ToArray(),
     };
 
-    public static UndoPacket Undo(UUID agent, UUID session, UUID group, IReadOnlyList<Guid> objects) => new() { AgentData = { }, ObjectData = [] };
+    /// <summary>Undo: the region steps each object back (stock OpenSim keeps a few states per prim for each update it applied).</summary>
+    public static UndoPacket Undo(UUID agent, UUID session, UUID group, IReadOnlyList<Guid> objects) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session, GroupID = group },
+        ObjectData = [.. objects.Select(o => new UndoPacket.ObjectDataBlock { ObjectID = new UUID(o) })],
+    };
 
-    public static RedoPacket Redo(UUID agent, UUID session, UUID group, IReadOnlyList<Guid> objects) => new() { AgentData = { }, ObjectData = [] };
+    /// <summary>Redo: the region repeats a change it undid on each object.</summary>
+    public static RedoPacket Redo(UUID agent, UUID session, UUID group, IReadOnlyList<Guid> objects) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session, GroupID = group },
+        ObjectData = [.. objects.Select(o => new RedoPacket.ObjectDataBlock { ObjectID = new UUID(o) })],
+    };
 
     public static ObjectDuplicatePacket Duplicate(UUID agent, UUID session, UUID group, IReadOnlyList<uint> roots, System.Numerics.Vector3 offset, uint flags) => new()
     {

@@ -165,7 +165,8 @@ public partial class Main
             HandleKind.Ring => () =>
             {
                 float pixels = ProjectRegion(d.Centre) is { } c ? (at - c).Length() : 0f;
-                e.ManipRotate(axis, Manipulator.RotationDegrees(Manipulator.RingDegrees(d.Centre, axis, d.Start, now), pixels, e.SnapEnabled));
+                bool regime = Manipulator.InSnapRegime(d.Centre, axis, Manipulator.Metres(Manipulator.RingPixels, d.Centre, HandleViewNow()), now, pixels);
+                e.ManipRotate(axis, Manipulator.RotationDegrees(Manipulator.RingDegrees(d.Centre, axis, d.Start, now), regime, e.SnapEnabled));
             },
             HandleKind.Corner => () =>
                 e.ManipScaleCorner(Manipulator.CornerRatio(d.Centre, NVector3.Transform(Manipulator.CornerOffset(d.Size, d.Handle.Corner), d.Frame), d.Start, now)),

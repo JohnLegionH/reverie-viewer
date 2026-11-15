@@ -48,8 +48,15 @@ public static class BuildMenu
         menus.AddSubEntry(OptionsId, new MenuEntry(GridSnapXYId, "menu.build.grid.snap_xy", GridSnapXYCommand, BuildingWithSelection, 20, Shortcut: "shift|X"));
         menus.AddSubEntry(OptionsId, new MenuEntry(GridUseSelectionId, "menu.build.grid.use_selection", GridUseSelectionCommand, BuildingWithSelection, 30, Shortcut: "shift|G"));
         menus.AddSubEntry(OptionsId, new MenuEntry(GridOptionsId, "menu.build.grid.options", GridOptionsCommand, inWorld, 40, Shortcut: "control|shift|B"));
+        // Undo and Redo close the Build menu, after Upload (menu_viewer.xml); on when the selection allows them (llselectmgr.cpp canUndo, canRedo)
+        menus.AddEntry(MenuId, new MenuEntry(UndoId, "menu.build.undo", UndoCommand, () => inWorld() && edit() is { CanUndo: true }, UndoOrder, Shortcut: "control|Z"));
+        menus.AddEntry(MenuId, new MenuEntry(RedoId, "menu.build.redo", RedoCommand, () => inWorld() && edit() is { CanRedo: true }, UndoOrder + 1, Shortcut: "control|Y"));
     }
 
+    /// <summary>Undo and Redo stand last in the Build menu, after Upload.</summary>
+    public const int UndoOrder = 2000;
+
+    /// <summary>The Undo and Redo entries and their commands.</summary>
     public const string UndoId = "build.undo", RedoId = "build.redo", UndoCommand = "build.undo", RedoCommand = "build.redo";
 
     public const string OptionsId = "build.options", GridSnapId = "build.grid.snap", GridSnapXYId = "build.grid.snap_xy", GridUseSelectionId = "build.grid.use_selection",

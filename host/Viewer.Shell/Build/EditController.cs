@@ -479,20 +479,37 @@ public sealed class EditController
         return SendPose(s, s.Position + Vector3.Transform(shift, s.Rotation), null, scale, uniform: StretchBothSides);
     }
 
-    /// <summary>Whether the left button belongs to build mode's tools (no click-steering of the avatar).</summary>
-    public bool OwnsLeftButton => false;
+    /// <summary>Whether the left button belongs to build mode's tools: while build mode is on a press and drag works the tool and its
+    /// handles and never steers the avatar (the official build toolset has no click-to-steer tool; that is the pie tool's, outside build mode).</summary>
+    public bool OwnsLeftButton => BuildMode;
 
-    /// <summary>Whether Undo can be sent for the selection.</summary>
-    public bool CanUndo => false;
+    /// <summary>The objects Undo and Redo name: the selected roots, or each selected part with Edit linked on (llselectmgr.cpp undo:
+    /// SEND_ONLY_ROOTS unless EditLinkedParts), with what each may have done to it.</summary>
+    private IEnumerable<(Guid Id, EditAccess Access)> UndoTargets() =>
+        (EditLinked ? _selection.Distinct() : _selection.Select(RootOf).Where(r => r != 0).Distinct())
+            .Select(l => (Object: Find(l), Access: Access(l)))
+            .Where(t => t.Object is not null)
+            .Select(t => (t.Object!.FullId, t.Access));
 
-    /// <summary>Whether Redo can be sent for the selection.</summary>
-    public bool CanRedo => false;
+    /// <summary>Undo is on when a selected object can be moved or modified (llselectmgr.cpp canUndo).</summary>
+    public bool CanUndo => UndoTargets().Any(t => t.Access.CanModify || t.Access.CanMove);
 
-    /// <summary>Undo (Ctrl+Z) on the selection.</summary>
-    public bool Undo() => false;
+    /// <summary>Redo is on when a selected object can be modified (llselectmgr.cpp canRedo).</summary>
+    public bool CanRedo => UndoTargets().Any(t => t.Access.CanModify);
 
-    /// <summary>Redo (Ctrl+Y) on the selection.</summary>
-    public bool Redo() => false;
+    /// <summary>Undo (Ctrl+Z): the region steps each selected object back to the state it kept before its last change.</summary>
+    public bool Undo()
+    {
+        var ids = UndoTargets().Where(t => t.Access.CanModify || t.Access.CanMove).Select(t => t.Id).ToArray();
+        return ids.Length > 0 && Send(new UndoObjectsIntent(ids));
+    }
+
+    /// <summary>Redo (Ctrl+Y): the region repeats a change it undid on each selected object.</summary>
+    public bool Redo()
+    {
+        var ids = UndoTargets().Where(t => t.Access.CanModify).Select(t => t.Id).ToArray();
+        return ids.Length > 0 && Send(new RedoObjectsIntent(ids));
+    }
 
     /// <summary>Shift+X, Snap Object XY to Grid: each selected root's x and y go to the nearest grid point.</summary>
     public bool SnapSelectionXY()

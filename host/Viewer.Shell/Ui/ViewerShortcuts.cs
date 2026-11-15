@@ -43,7 +43,6 @@ public static class ViewerShortcuts
         ("H", "Focus on selection"), ("shift|H", "Zoom to selection"),
         ("control|alt|R", "Rebake textures"), ("control|shift|2", "Scene load statistics"),
         ("control|D", "Duplicate"),
-        ("control|Z", "Undo"), ("control|Y", "Redo"),
         ("control|E", "Events"),
         ("control|G", "Gestures"),
         ("control|R", "Always run"),

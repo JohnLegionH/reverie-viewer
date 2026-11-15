@@ -635,6 +635,8 @@
   "menu.build.grid.snap_xy": "Snap Object XY to Grid",
   "menu.build.grid.use_selection": "Use Selection for Grid",
   "menu.build.grid.options": "Grid Options...",
+  "menu.build.undo": "Undo",
+  "menu.build.redo": "Redo",
   "edit.manip.move": "Move",
   "edit.manip.rotate": "Rotate",
   "edit.manip.scale": "Stretch",

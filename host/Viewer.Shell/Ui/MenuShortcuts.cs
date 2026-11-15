@@ -48,14 +48,16 @@ public static class MenuShortcuts
             .Select(x => (x.Entry, x.Chord!))
             .ToArray();
 
-    /// <summary>Whether a text field that holds the keyboard takes this chord itself (its own Undo and Redo) before the menus.</summary>
-    public static bool TextFieldFirst(KeyChord chord) => false;
+    /// <summary>Whether a text field that holds the keyboard takes this chord itself (its own Undo and Redo) before the menus:
+    /// the official viewer gives Undo and Redo to whatever handles the edit menu, a line editor while it has the keyboard and the selection
+    /// otherwise (llviewermenu.cpp Edit.Undo through gEditMenuHandler).</summary>
+    public static bool TextFieldFirst(KeyChord chord) => chord.Control && !chord.Shift && !chord.Alt && (chord.Key is "Z" or "Y");
 
     /// <summary>The entry a chord runs now, or null: none has it, it is disabled, or a text field takes it.</summary>
     public static TopMenuEntryView? Route(IReadOnlyList<TopMenuView> menus, KeyChord chord, bool textEntry)
     {
-        if (textEntry && !chord.Modified)
-            return null;   // typed into the field
+        if (textEntry && (!chord.Modified || TextFieldFirst(chord)))
+            return null;   // typed into the field, or the field's own undo and redo
         foreach (var e in Flat(menus.SelectMany(m => m.Entries)))
             if (e.CommandId is not null && KeyChord.Parse(e.Shortcut) == chord)
                 return e.Enabled ? e : null;

@@ -109,10 +109,23 @@ public static class Manipulator
     /// the pointer is outside the snap ring.</summary>
     /// <summary>Whether a ring drag is in the snap regime: the pointer, carried onto the ring's plane, lies farther from the centre than
     /// <see cref="SnapRingRadii"/> ring radii.</summary>
-    public static bool InSnapRegime(Vector3 centre, Vector3 axis, float ringMetres, PickRay pointer, float pointerPixelsFromCentre) => false;
+    /// <remarks>The official rotate tool reads it there (llmaniprotate.cpp: the pointer projected onto the snap plane, beyond SNAP_GUIDE_INNER_RADIUS
+    /// ring radii), so a flat ring seen from low down still snaps once the pointer is well out from it; when the plane is seen edge on and
+    /// cannot be hit, the distance on screen decides.</remarks>
+    public static bool InSnapRegime(Vector3 centre, Vector3 axis, float ringMetres, PickRay pointer, float pointerPixelsFromCentre)
+    {
+        var n = Vector3.Normalize(axis);
+        float facing = MathF.Abs(Vector3.Dot(Vector3.Normalize(pointer.Direction), n));
+        if (facing > 0.01f && OnPlane(centre, n, pointer) is { } hit)
+            return Vector3.Distance(hit, centre) > ringMetres * SnapRingRadii;
+        return pointerPixelsFromCentre > RingPixels * SnapRingRadii;
+    }
 
     public static float RotationDegrees(float raw, float pointerPixelsFromCentre, bool snapping) =>
         Viewer.Core.Building.Snap.Angle(raw, snapping && pointerPixelsFromCentre > RingPixels * SnapRingRadii);
+
+    /// <summary>A ring drag's turn: snapped to 5.625-degree steps while snapping is on and the pointer is in the snap regime.</summary>
+    public static float RotationDegrees(float raw, bool inSnapRegime, bool snapping) => Viewer.Core.Building.Snap.Angle(raw, snapping && inSnapRegime);
 
     /// <summary>A corner drag: the ratio of the pointer's distance from the centre now to when the drag started, along the corner's direction.</summary>
     public static float CornerRatio(Vector3 centre, Vector3 cornerDirection, PickRay start, PickRay now)

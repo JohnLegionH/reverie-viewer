@@ -287,8 +287,11 @@ Check "6d Ctrl+Y steps forward again (the move comes back)" ([bool]$z3 -and [boo
 
 # ---- 7. The right-click menu: Sit Here chosen with the pointer closes the menu; in build mode and out of it ----
 function SitByMenu([string]$label) {
-    $sp = ScreenOf $box.id
-    if (-not $sp) { Check "$label" $false "box not on screen"; return }
+    # the middle of the floor's top face, where a person right-clicks to sit
+    $o = OwnObj $A
+    $h = Interact @{ action = "hover"; x = [double]$o.x; y = [double]$o.y; z = [double]$o.z + [double]$o.sz / 2 - 0.02 }
+    $sp = if ($h -and $null -ne $h.screen_x) { @([double]$h.screen_x, [double]$h.screen_y) } else { $null }
+    if (-not $sp) { Check "$label" $false "floor not on screen"; return }
     ClickAt $sp[0] $sp[1] "right"
     $open = Wait-Until { $s = Interact @{ action = "state" }; if ($s.menu_open) { $s } } 5
     $entry = Api "ui_sounds" @{ action = "find"; name = "entry_sit" }
@@ -297,7 +300,8 @@ function SitByMenu([string]$label) {
     Start-Sleep -Milliseconds 800
     $after = Interact @{ action = "state" }
     $ed = Edit @{ action = "state" }
-    Check $label ([bool]$open -and $entry.found -and [bool]$sat -and -not $after.menu_open) ("menu opened {0}; Sit Here found {1}; sitting {2}; menu open after {3}; build mode {4}, window {5}" -f [bool]$open, $entry.found, [bool]$sat, $after.menu_open, $ed.build_mode, $ed.window_open)
+    Check $label ([bool]$open -and $entry.found -and [bool]$sat -and -not $after.menu_open) ("picked {0} {1}; menu opened {2} with [{3}]; Sit Here found {4}; sitting {5}; menu open after {6}; build mode {7}, window {8}" -f $h.pick.kind, $h.pick.local, [bool]$open, (@($open.entries) -join ","), $entry.found, [bool]$sat, $after.menu_open, $ed.build_mode, $ed.window_open)
+    if ($after.menu_open) { Press "ESC" }
     [void](Interact @{ action = "stand" })
     [void](Wait-Until { $s = Interact @{ action = "state" }; if (-not $s.sitting) { $s } } 10)
     Start-Sleep -Seconds 1
@@ -305,10 +309,10 @@ function SitByMenu([string]$label) {
 # the floor back in front of the avatar, flat, the camera close, as a person stands by a floor to sit on it
 $me7 = @((Obs).self.region_position)
 [void](Edit @{ action = "rotation"; x = 0; y = 0; z = 0 })
-[void](Edit @{ action = "position"; x = [double]$me7[0] + 2.5; y = [double]$me7[1]; z = [double]$me7[2] - 0.8 })
-[void](Wait-Until { $o = OwnObj $A; if ($o -and (Near $o.x ([double]$me7[0] + 2.5) 0.05)) { $o } } 15)
+[void](Edit @{ action = "position"; x = [double]$me7[0] + 6; y = [double]$me7[1]; z = [double]$spot.z + 0.5 })
+[void](Wait-Until { $o = OwnObj $A; if ($o -and (Near $o.x ([double]$me7[0] + 6) 0.05)) { $o } } 15)
 $box = OwnObj $A
-[void](Interact @{ action = "aim"; x = [double]$box.x; y = [double]$box.y; z = [double]$box.z; distance = 5 }); Start-Sleep -Milliseconds 1500
+[void](Interact @{ action = "aim"; x = [double]$box.x; y = [double]$box.y; z = [double]$box.z; distance = 3 }); Start-Sleep -Milliseconds 1500   # the camera between the avatar and the floor
 NoFocus
 SitByMenu "7a in build mode: right-click the floor, Sit Here: you sit and the menu closes"
 NoFocus

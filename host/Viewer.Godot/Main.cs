@@ -654,6 +654,8 @@ public partial class Main : Node
     private bool SteerInput(InputEvent e)
     {
         if (_presented is not { } shown || _driver is null || _camera is null || _mouseLook.Active || _cameraTool) return false;
+        // in build mode the left button is the tools' and their handles': a drag moves the handle, never the avatar
+        if (_edit is { OwnsLeftButton: true } && !_steer.Pressed) return false;
         switch (e)
         {
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true, AltPressed: false } b:

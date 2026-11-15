@@ -29,6 +29,8 @@ internal sealed partial class LmvTransport
             LinkObjectsIntent k => LmvEdit.Link(self.AgentID, self.SessionID, k.OrderedRoots),
             DelinkObjectsIntent k => LmvEdit.Delink(self.AgentID, self.SessionID, k.LocalIds),
             DeselectObjectsIntent d => LmvEdit.Deselect(self.AgentID, self.SessionID, d.LocalIds),
+            UndoObjectsIntent u => LmvEdit.Undo(self.AgentID, self.SessionID, self.ActiveGroup, u.ObjectIds),
+            RedoObjectsIntent r => LmvEdit.Redo(self.AgentID, self.SessionID, self.ActiveGroup, r.ObjectIds),
             DuplicateObjectsIntent c => LmvEdit.Duplicate(self.AgentID, self.SessionID, self.ActiveGroup, c.Roots, c.Offset, c.Flags),
             _ => null,
         };
