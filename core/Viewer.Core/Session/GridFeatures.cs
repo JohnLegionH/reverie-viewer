@@ -5,7 +5,8 @@ using System.Globalization;
 
 namespace Viewer.Core.Session;
 
-/// <summary>The values the login reply gave that the grid's own region settings can replace (null when the login reply had none).</summary>
+/// <summary>The values the login reply (or, behind it, the grid's own grid-info document) gave that the grid's own region settings can
+/// replace (null when neither had one). <paramref name="CurrencyHelper"/> is the grid's currency helper address.</summary>
 public sealed record GridLoginValues(string? MapServerUrl = null, string? SearchUrl = null, string? DestinationGuideUrl = null,
     string? AvatarPickerUrl = null, string? Currency = null, string? CurrencyHelper = null);
 
@@ -32,7 +33,7 @@ public sealed record GridFeatures(int SayRange, int ShoutRange, int WhisperRange
     public static GridFeatures From(IReadOnlyDictionary<string, object?>? extras, GridLoginValues? login)
     {
         login ??= new GridLoginValues();
-        string? baseUri = Text(extras, "currency-base-uri");
+        string? baseUri = Text(extras, "currency-base-uri") ?? NonEmpty(login.CurrencyHelper);
         string? symbol = Text(extras, "currency") ?? NonEmpty(login.Currency) ?? (baseUri is not null ? UnnamedCurrency : null);
         string? gridUrl = Text(extras, "GridURL");
         if (gridUrl is not null && gridUrl.IndexOf("://", StringComparison.Ordinal) is var at and >= 0)

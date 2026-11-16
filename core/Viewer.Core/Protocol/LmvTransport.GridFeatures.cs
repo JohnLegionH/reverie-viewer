@@ -12,12 +12,14 @@ internal sealed partial class LmvTransport : IGridFeaturesSource
 {
     /// <summary>The grid's own settings from the agent's region's OpenSim extras, with the login reply's values behind them. Read when
     /// asked: the region's features arrive once per region and the library raises no event for them.</summary>
-    public GridFeatures GridFeatures()
+    public GridFeatures GridFeatures(GridLoginValues? gridInfo = null)
     {
         IReadOnlyDictionary<string, object?>? extras = null;
         try { extras = LmvGridFeatures.Extras(_client.Network.CurrentSim?.Features?.Get("OpenSimExtras")); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { _log.Warn("grid.features-unreadable", CoreLog.F("error", ex.GetType().Name)); }
-        return Session.GridFeatures.From(extras, new GridLoginValues(MapServerUrl: _client.Network.LoginResponseData?.MapServerUrl));
+        string? map = _client.Network.LoginResponseData?.MapServerUrl;
+        var login = (gridInfo ?? new GridLoginValues()) with { MapServerUrl = string.IsNullOrWhiteSpace(map) ? gridInfo?.MapServerUrl : map };
+        return Session.GridFeatures.From(extras, login);
     }
 
     /// <summary>Asks the region for the money balance (MoneyBalanceRequest; the answer is a <see cref="BalanceChanged"/> event).</summary>

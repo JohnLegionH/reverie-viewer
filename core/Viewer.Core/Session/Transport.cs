@@ -324,7 +324,8 @@ public sealed record BalanceChanged(int Balance) : TransportEvent;
 /// <see cref="BalanceChanged"/> event).</summary>
 public interface IGridFeaturesSource
 {
-    GridFeatures GridFeatures();
+    /// <param name="gridInfo">What the grid's own grid-info document says, behind the login reply's values.</param>
+    GridFeatures GridFeatures(GridLoginValues? gridInfo = null);
     void RequestBalance();
 
     /// <summary>Whether the agent's region offers a capability by this name.</summary>

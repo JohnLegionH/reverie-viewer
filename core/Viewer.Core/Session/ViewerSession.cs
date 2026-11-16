@@ -190,7 +190,7 @@ public sealed class ViewerSession : IDisposable
     /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
     /// <summary>The grid's own settings (chat ranges, map server, search and guide addresses, currency, export flag) from the agent's
     /// region, or Second Life's defaults while the region has sent none.</summary>
-    public GridFeatures GridFeatures => (_transport as IGridFeaturesSource)?.GridFeatures() ?? GridFeatures.Defaults;
+    public GridFeatures GridFeatures => (_transport as IGridFeaturesSource)?.GridFeatures(GridInfoValues) ?? GridFeatures.From(null, GridInfoValues);
 
     /// <summary>What the grid's own grid-info document says (its search page, its currency helper), set by the interface from the grid
     /// it logged in to; the region's settings and the login reply come first.</summary>
