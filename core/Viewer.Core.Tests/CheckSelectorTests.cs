@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System.Text.RegularExpressions;
@@ -38,6 +38,7 @@ public class CheckSelectorTests
     [InlineData("core/Viewer.Core/Inventory/InventoryStore.cs")]
     [InlineData("core/Viewer.Core/Map/MapBlocks.cs")]
     [InlineData("host/Viewer.Godot/LoginScreen.cs")]
+    [InlineData("host/Viewer.Shell/Grids/GridList.cs")]
     [InlineData("host/Viewer.Automation/Commands.cs")]
     [InlineData("host/Viewer.Godot/Automation/EditCommand.cs")]
     [InlineData("host/Viewer.Shell/Build/EditController.cs")]
@@ -66,6 +67,19 @@ public class CheckSelectorTests
         Assert.DoesNotContain("none", s.FileAreas[file]);
         Assert.NotNull(s.Cases);   // they still select their own render cases
         Assert.False(s.Smoke, file);
+    }
+
+    // The grid manager is part of login: its list, look-up and saved names, and its panels on the login screen.
+    [Theory]
+    [InlineData("host/Viewer.Shell/Grids/GridList.cs")]
+    [InlineData("host/Viewer.Shell/Grids/SavedNames.cs")]
+    [InlineData("host/Viewer.Godot/LoginGridPanels.cs")]
+    public void The_grid_manager_files_are_login_files(string file)
+    {
+        var s = Select(file);
+        Assert.Empty(s.Unplaced);
+        Assert.False(s.Full);
+        Assert.Contains("login", s.FileAreas[file]);   // a panel also takes the interface area through the panels rule (a file takes every rule it matches)
     }
 
     [Fact]

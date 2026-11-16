@@ -70,6 +70,26 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
 
     private int _brandingAsked;
 
+    /// <summary>Add a grid's Look up, through the same outbound rules and certificate choices as the login (ten seconds at most).</summary>
+    public async Task<Viewer.Shell.Grids.GridLookupResult> LookUpGridAsync(string typed)
+    {
+        if (fetcher is null)
+            return new(null, "grid.add.no_answer", false);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try { return await Viewer.Shell.Grids.GridLookup.LookUpAsync(typed, fetcher, cts.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) { return new(null, "grid.add.no_answer", false); }
+    }
+
+    /// <summary>Manage grids' Refresh info for one grid, as <see cref="LookUpGridAsync"/>.</summary>
+    public async Task<Viewer.Shell.Grids.GridLookupResult> RefreshGridAsync(Viewer.Shell.Grids.GridEntry entry)
+    {
+        if (fetcher is null)
+            return new(null, "grid.add.no_answer", false);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try { return await Viewer.Shell.Grids.GridLookup.RefreshAsync(entry, fetcher, cts.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) { return new(null, "grid.add.no_answer", false); }
+    }
+
     /// <summary>The address the screen starts with: the start-up option when given, else the last successful login address kept in
     /// <paramref name="settingsDir"/>, else empty. A start-up option that is not an address is ignored.</summary>
     public static string StartAddress(string? gridOption, string? settingsDir)

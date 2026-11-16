@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System.Text.RegularExpressions;
@@ -223,7 +223,7 @@ public class StringTableTests
     [Fact]
     public void Every_login_control_has_a_label_and_an_accessible_name_from_the_table()
     {
-        Assert.Equal(["grid", "resolved", "username", "password", "start", "login", "cancel", "status"], LoginScreenSpec.Controls.Select(c => c.Id));
+        Assert.Equal(["grid", "username", "password", "remember", "remember_password", "start", "start_region", "login", "cancel", "status"], LoginScreenSpec.Controls.Select(c => c.Id));
         foreach (var c in LoginScreenSpec.Controls)
         {
             Assert.False(string.IsNullOrWhiteSpace(En.Get(c.AccessibleNameKey)), c.Id);

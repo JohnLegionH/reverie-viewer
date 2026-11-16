@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using Viewer.Core.Diagnostics;
@@ -51,7 +51,7 @@ public class FirstMinuteLoginTests
     [Fact]
     public void The_login_screen_has_one_username_field_where_the_two_name_fields_were()
     {
-        Assert.Equal(["grid", "resolved", "username", "password", "start", "login", "cancel", "status"], LoginScreenSpec.Controls.Select(c => c.Id));
+        Assert.Equal(["grid", "username", "password", "remember", "remember_password", "start", "start_region", "login", "cancel", "status"], LoginScreenSpec.Controls.Select(c => c.Id));
         var field = Assert.Single(LoginScreenSpec.Controls, c => c.Id == "username");
         Assert.Equal(LoginControlKind.Text, field.Kind);
         Assert.False(string.IsNullOrWhiteSpace(En.Get(field.LabelKey)));
