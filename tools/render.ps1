@@ -92,6 +92,8 @@
 #   engineerrors_<be>       engine errors on the main thread and a worker thread, collections held off: the backtraces the
 #                           logger is handed are released by the main thread's drains, none left for a finalizer;
 #                           engineerrors_control_keep_vulkan (a logger that hands nothing over) must FAIL
+#   engineerrors_optimised_<be>  the same check with every method optimised from its first call (DOTNET_TieredCompilation=0):
+#                           the worker's errors must still be logged, with no crash in the engine's error call
 # -Propose     writes missing goldens as PROPOSALS (committed ones only with -Propose; a person approves after viewing).
 # -Measure     also runs the ADR-003 measurement (nodes vs RenderingServer, 1024x1024) on both backends.
 # -Residency   also runs the camera-path residency measurements: the (local-only region A v5 / region B v3 captures) and
@@ -1826,6 +1828,20 @@ foreach ($be in $Backends) {
     $ee = $e.Json.engineerrors
     $ok = $e.Exit -eq 0 -and $e.Json.backend.driver -eq $be -and $ee -and $ee.held -and $ee.left_after_drain -le 1
     Add-Case "engineerrors_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "$(if ($ee) { "$($ee.raised) errors ($($ee.handed_off_main) off the main thread), $($ee.objects_per_error) engine objects each until released, $($ee.left_after_drain) left after the drain ($($ee.drain_us_per_error) us per error); frame drains released $($ee.frame_disposed) of $($ee.frame_errors) in $($ee.frames_to_release) frames; error own time p50 $($ee.error_ms.p50) ms, mean $($ee.error_ms_mean) ms" })$(if (-not $ok) { '; exit ' + $e.Exit + ' ' + ($e.Json.failures -join ' | ') })" $e.Seconds
+    # The same check with every method optimised from its first call (the runtime's tiered compilation off). GodotSharp's
+    # GD.PushError names the frame above its caller (a StackTrace that skips three frames, then GetFrame(0) used without a null
+    # check); once PushError and GD.ErrPrintError are optimised, PushError's call is a tail call and the helper that takes the
+    # StackTrace is inlined, so on a thread whose own method calls PushError directly there is no such frame and the call throws.
+    # Normally the methods reach their optimised code partway through the worker's errors, at a moment that varies, so the case
+    # above crashed in some runs only; here they are optimised from the start, so a worker that calls PushError that way fails
+    # every time.
+    $prevTc = $env:DOTNET_TieredCompilation
+    $env:DOTNET_TieredCompilation = "0"
+    try { $e = Invoke-Render $be "engineerrors-optimised-$be" "--tr-engineerrors" -NoDump }
+    finally { if ($null -eq $prevTc) { Remove-Item Env:\DOTNET_TieredCompilation -ErrorAction SilentlyContinue } else { $env:DOTNET_TieredCompilation = $prevTc } }
+    $ee = $e.Json.engineerrors
+    $ok = $e.Exit -eq 0 -and $e.Json.backend.driver -eq $be -and $ee -and $ee.held -and $ee.left_after_drain -le 1 -and $ee.handed_off_main -eq $ee.worker_errors
+    Add-Case "engineerrors_optimised_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "$(if ($ee) { "$($ee.raised) errors ($($ee.handed_off_main) off the main thread), every method optimised from its first call, $($ee.left_after_drain) left after the drain" } else { 'no result' })$(if (-not $ok) { '; exit ' + $e.Exit + ' ' + ($e.Json.failures -join ' | ') })" $e.Seconds
 }
 $e = Invoke-Render "vulkan" "engineerrors-control-keep-vulkan" "--tr-engineerrors=keep"
 $caught = $e.Exit -eq 1 -and @($e.Json.failures | Where-Object { $_ -match "only a finalizer would release them" }).Count -ge 1

@@ -9,7 +9,8 @@
 #                  environment variable NV_MOVE_ASIDE_TOOL). Nothing is ever deleted: with no tool the script stops before it touches anything.
 #   -WaitMinutes   how long to wait for a viewer started from -Destination to end (default 15); then the copy is skipped (exit 2).
 # What it does, in order:
-#   1. waits (up to -WaitMinutes) while a Reverie.exe or Reverie.console.exe from -Destination is running; copies nothing while one is
+#   1. waits (up to -WaitMinutes) while a Reverie.exe or Reverie.console.exe from -Destination (its program inside that folder) is
+#      running, and copies nothing while one is; a viewer whose program is anywhere else is listed and ignored
 #   2. moves aside every file in -Destination that the export lacks (the export's own run state, appdata\ and s1-result*, is not part of
 #      the export, so the same files in -Destination are among them)
 #   3. copies every export file that is missing or different, then compares the SHA-256 of every export file with its copy
@@ -31,10 +32,20 @@ if (-not $MoveAsideTool -or -not (Test-Path -LiteralPath $MoveAsideTool)) {
 if (-not (Test-Path -LiteralPath $Source -PathType Container)) { Write-Output "ship-export: no export at the source folder"; exit 1 }
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
 
+function Get-Viewers {
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -in @("Reverie", "Reverie.console") }
+}
+# Only a viewer whose program is inside the destination holds the copy: its files are the ones being replaced. A viewer started
+# from anywhere else (a test copy, another export) uses its own files; it is listed and ignored.
+function Test-InsideFolder($process, [string]$folder) {
+    return [bool]($process.Path -and $process.Path.StartsWith($folder + "\", [StringComparison]::OrdinalIgnoreCase))
+}
 function Get-ViewersFrom([string]$folder) {
-    Get-Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.ProcessName -in @("Reverie", "Reverie.console") -and $_.Path -and $_.Path.StartsWith($folder + "\", [StringComparison]::OrdinalIgnoreCase)
-    }
+    Get-Viewers | Where-Object { Test-InsideFolder $_ $folder }
+}
+foreach ($v in @(Get-Viewers | Where-Object { -not (Test-InsideFolder $_ $Destination) })) {
+    $where = if ($v.Path) { $v.Path } else { "(its program's path could not be read)" }
+    Write-Output "ship-export: a viewer not started from the destination is running, ignored: process $($v.Id), $where"
 }
 $deadline = (Get-Date).AddMinutes($WaitMinutes)
 while ($true) {

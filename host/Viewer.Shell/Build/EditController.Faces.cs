@@ -217,6 +217,53 @@ public sealed partial class EditController
         return any;
     }
 
+    /// <summary>What the faces an edit goes to have now, saved when a picker opens so Cancel can put it back.</summary>
+    public FacePicks SaveFacePicks()
+    {
+        var faces = new List<FacePick>();
+        foreach (var (o, list) in FaceTargets())
+            foreach (int f in list)
+            {
+                var s = FaceRules.Settings(o, f);
+                faces.Add(new FacePick(o.Id.LocalId, f, s.TextureId, s.Colour, o.Materials?[f].RenderMaterialId ?? Guid.Empty));
+            }
+        return new FacePicks(faces);
+    }
+
+    /// <summary>Puts back each saved face's own texture, the face's other settings as they are now. True when anything was sent.</summary>
+    public bool RevertTextures(FacePicks saved) =>
+        RevertFaces(saved, (now, was) => now with { TextureId = was.Texture });
+
+    /// <summary>Puts back each saved face's own colour (its transparency with it). True when anything was sent.</summary>
+    public bool RevertColours(FacePicks saved) =>
+        RevertFaces(saved, (now, was) => now with { Colour = was.Colour });
+
+    private bool RevertFaces(FacePicks saved, Func<FaceSettings, FacePick, FaceSettings> put)
+    {
+        bool any = false;
+        foreach (var g in saved.Faces.GroupBy(p => p.Local))
+        {
+            if (Find(g.Key) is not { } o || !Access(o.Id.LocalId).CanReshape)
+                continue;
+            any |= Send(new SetObjectFacesIntent(o.Id.LocalId, g.Select(p => new FaceEdit(p.Face, put(FaceRules.Settings(o, p.Face), p))).ToArray()));
+        }
+        return any;
+    }
+
+    /// <summary>Puts back each saved face's own PBR material, or none, one message per object and material. True when anything was sent.</summary>
+    public bool RevertMaterials(FacePicks saved)
+    {
+        bool any = false;
+        foreach (var g in saved.Faces.GroupBy(p => p.Local))
+        {
+            if (Find(g.Key) is not { } o || !Access(o.Id.LocalId).CanReshape)
+                continue;
+            foreach (var m in g.GroupBy(p => p.Material))
+                any |= Send(new SetFaceMaterialIntent(o.FullId, o.Id.LocalId, m.Select(p => p.Face).ToArray(), m.Key, null));
+        }
+        return any;
+    }
+
     /// <summary>Puts a PBR material (a material asset) on the faces an edit goes to.</summary>
     public bool ApplyMaterial(Guid materialId) => SendMaterial(materialId);
 
