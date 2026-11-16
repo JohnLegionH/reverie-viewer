@@ -116,6 +116,37 @@ public sealed class BakeServiceTests
         Assert.Equal([$"/caps/viewerasset/?texture_id={plain:D}", $"/agentappearance/texture/{Me:D}/hair/{Bake(Me, 5):D}"], server.Targets);
     }
 
+    /// <summary>IMG_INVISIBLE is a shared texture, never one avatar's bake: the official viewer builds no appearance-service address for it, nor for the two
+    /// default ids (getBakedTextureImage, llvoavatar.cpp:2602-2608), so a face naming it is still fetched by id.</summary>
+    [Fact]
+    public async Task The_invisible_texture_on_a_bake_face_is_fetched_by_id()
+    {
+        var invisible = new Guid("3a367d1c-bef1-6d43-7595-e88c1e3aadb3");
+        using var server = Server();
+        using var t = Transport(server, Service(server));
+        var look = Look(Them);
+        t.NoteAppearance(look with { FaceTextures = look.FaceTextures.SetItem(19, invisible) });
+        await t.FetchTextureAsync(invisible, CancellationToken.None);
+        Assert.Equal([$"/caps/viewerasset/?texture_id={invisible:D}"], server.Targets);
+    }
+
+    /// <summary>An avatar still in view keeps its routes however many others pass: seeing its appearance again puts its bakes at the back of the line.</summary>
+    [Fact]
+    public void An_appearance_seen_again_keeps_its_routes_past_the_bound()
+    {
+        var routes = new BakeRoutes();
+        var stays = new Guid("dddddddd-0000-4000-8000-000000000004");
+        routes.Note(Look(stays));
+        int avatars = BakeRoutes.Capacity / Slots.Length + 2;
+        for (int i = 0; i < avatars; i++)
+        {
+            routes.Note(Look(new Guid($"{i:D8}-0000-4000-8000-000000000000")));
+            if (i % 50 == 0) routes.Note(Look(stays));
+        }
+        Assert.Equal(BakeRoutes.Capacity, routes.Count);
+        Assert.Equal(new Uri($"http://example.org/aa/texture/{stays:D}/head/{Bake(stays, 0):D}"), routes.UriFor(Bake(stays, 0), "http://example.org/aa/", true));
+    }
+
     [Fact]
     public void The_routes_are_bounded_and_the_oldest_go_first()
     {
