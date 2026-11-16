@@ -50,7 +50,8 @@ jobs:
       - name: Start Reverie in ubuntu:${{ matrix.ubuntu }}
         run: |
           docker run --rm -e PACKAGE -v "$RUNNER_TEMP/work:/work" -v "$RUNNER_TEMP/out:/out" \
-            -v "$GITHUB_WORKSPACE/.github/scripts:/scripts:ro" "ubuntu:${{ matrix.ubuntu }}" bash /scripts/linux-start-check.sh
+            -v "$GITHUB_WORKSPACE/.github/scripts:/scripts:ro" -v "$GITHUB_WORKSPACE/README.md:/readme/README.md:ro" \
+            "ubuntu:${{ matrix.ubuntu }}" bash /scripts/linux-start-check.sh
 
       - name: Screenshot
         if: always()

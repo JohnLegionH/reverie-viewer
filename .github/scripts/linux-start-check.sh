@@ -21,11 +21,12 @@ result ubuntu "$VERSION_ID ($VERSION_CODENAME)"
 # ---- 1. what the README tells a person to install, plus the virtual display ----
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq > "$out/apt.log" 2>&1
-# README_PACKAGES: the README's Linux steps. The ICU package carries its version in its name, so it is looked up.
-icu=$(apt-cache search --names-only '^libicu[0-9]+$' | awk '{print $1}' | sort -V | tail -1)
-ssl=libssl3t64; apt-cache show "$ssl" > /dev/null 2>&1 || ssl=libssl3
-readme_packages="${README_PACKAGES:-mesa-vulkan-drivers vulkan-tools $icu $ssl}"
-test_packages="xvfb"
+# The packages are read from the README's Linux steps (its "sudo apt install" line, mounted at /readme/README.md), so
+# the check fails when those steps are not enough. Mesa's software Vulkan driver is part of mesa-vulkan-drivers, which
+# the README names.
+readme_packages=$(grep -m1 -E '^ *sudo apt install ' /readme/README.md | sed -E 's/^ *sudo apt install +//')
+[ -n "$readme_packages" ] || { result install "no 'sudo apt install' line in the README"; exit 1; }
+test_packages="xvfb vulkan-tools"   # the virtual display, and vulkaninfo (the README names it) for the record
 result readme_packages "$readme_packages"
 result test_packages "$test_packages"
 # shellcheck disable=SC2086
@@ -91,6 +92,8 @@ fi
 wait "$pid"; exit_code=$?
 result exit_code "$exit_code"
 crash=$(grep -c -E 'crashed with signal|Unhandled exception|Segmentation fault|Aborted' "$out/stdout.txt")
+# a segmentation fault (139) or an abort (134) is a crash even when nothing was printed; 143 is the SIGTERM sent above
+case "$exit_code" in 134|139) crash=$((crash + 1)) ;; esac
 result crash_lines "$crash"
 refused=$(grep -h -E 'startup\.refused' "$logs"/* 2> /dev/null | head -3)
 result startup_refused "${refused:-none}"
