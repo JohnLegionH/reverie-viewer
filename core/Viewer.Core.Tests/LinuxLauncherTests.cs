@@ -18,7 +18,7 @@ public class LinuxLauncherTests : IDisposable
     private static readonly string[] Wayland = ["libwayland-client.so.0", "libwayland-cursor.so.0", "libxkbcommon.so.0"];
 
     private readonly ITestOutputHelper _out;
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "nv-launcher-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = TestTemp.NewFolder("launcher");
 
     public LinuxLauncherTests(ITestOutputHelper output)
     {
@@ -31,7 +31,7 @@ public class LinuxLauncherTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        TestTemp.Delete(_dir);
     }
 
     private static string Bash()
