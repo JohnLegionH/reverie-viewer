@@ -8,7 +8,7 @@
 #
 # Files that draw nothing and are proven by other checks: the .NET suite (tests), running the live script (live checks).
 #pattern	areas
-^(Docs/|\.github/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|BUILDING\.md$|THIRD-PARTY-NOTICES\.md$|ThirdPartyLicenses/|LICENSE$|\.gitignore$|\.gitattributes$)	none
+^(Docs/|\.github/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|PRIVACY\.md$|BUILDING\.md$|THIRD-PARTY-NOTICES\.md$|ThirdPartyLicenses/|LICENSE$|\.gitignore$|\.gitattributes$)	none
 ^core/Viewer\.Core\.Tests/	none
 ^core/Viewer\.Core\.ArchFixture/	none
 \.uid$	none
@@ -47,8 +47,8 @@
 ^core/Viewer\.Addons\.Api/|^addons/	ui
 ^fixtures/ui/	ui
 # Login, the session and the grid's services: the login pictures and the stock smoke.
-^host/Viewer\.Godot/(LoginScreen|LoginGridPanels|ShownIdentity|LoginDialogView|S1Smoke[.A-Za-z]*|Main\.LoginDialogs|TestRender\.LoginScreen)\.cs$	login
-^host/Viewer\.Shell/(Login[A-Za-z]*|GridAddress|RememberedLogins|LocationText|Reconnect/[A-Za-z]*|Grids/[A-Za-z]*)(\.cs)?	login
+^host/Viewer\.Godot/(LoginScreen|LoginGridPanels|ShownIdentity|LoginDialogView|S1Smoke[.A-Za-z]*|Main\.LoginDialogs|TestRender\.LoginScreen|TestRender\.LoginCard)\.cs$	login
+^host/Viewer\.Shell/(Login[A-Za-z]*|Disclosures|GridAddress|RememberedLogins|LocationText|Reconnect/[A-Za-z]*|Grids/[A-Za-z]*)(\.cs)?	login
 ^host/Viewer\.Shell/Reconnect/	login
 ^core/Viewer\.Core/(Session|Net|Protocol|Identity)/	login
 ^core/Viewer\.Core/(Inventory|Map|Links|Social|Actions|Interaction|Assets|Physics|Scheduling|Diagnostics)/	smoke

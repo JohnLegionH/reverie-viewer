@@ -62,6 +62,25 @@ public sealed class AutomationServer : IDisposable
     }
 
     public int Port { get; }
+
+    private volatile bool _off;
+
+    /// <summary>Whether the API has been turned off for this run (<see cref="TurnOffFor"/>). Once off it stays off: nothing turns it on again.</summary>
+    public bool IsOff => _off;
+
+    /// <summary>Turns the API off for the rest of the run when a login heads for a grid where the per-grid switch does not allow it
+    /// (<see cref="Viewer.Core.Session.ViewerFeature.Automation"/>); from then on every request is refused before it reaches the handler.
+    /// Returns <see cref="IsOff"/>.</summary>
+    public bool TurnOffFor(Viewer.Core.Session.GridKind grid)
+    {
+        if (!Viewer.Core.Session.GridPolicy.Allows(Viewer.Core.Session.ViewerFeature.Automation, grid) && !_off)
+        {
+            _off = true;
+            _log("automation.off_for_grid");
+        }
+        return _off;
+    }
+
     public IPAddress Address => ((IPEndPoint)_listener.LocalEndpoint).Address;
 
     /// <summary>The token as the token file carries it. Only <see cref="TokenFile"/> calls this.</summary>
@@ -93,7 +112,7 @@ public sealed class AutomationServer : IDisposable
                 using var read = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
                 read.CancelAfter(TimeSpan.FromSeconds(5));
                 var req = await RawRequest.ReadAsync(stream, read.Token).ConfigureAwait(false);
-                var verdict = AutomationGuard.Check(req, Port, _token);
+                var verdict = _off ? new GuardVerdict(403, "off-on-this-grid") : AutomationGuard.Check(req, Port, _token);
                 if (verdict is not null)
                 {
                     _log("automation.refused." + verdict.Reason);
@@ -137,6 +156,14 @@ public sealed class AutomationServer : IDisposable
         CryptographicOperations.ZeroMemory(_token);
         _log("automation.stopped");
     }
+}
+
+/// <summary>The per-grid switch for the logins the automation starts itself (the session command's login and the login screen's
+/// submit): it never starts one to a grid where automation is not allowed (Second Life, <see cref="Viewer.Core.Session.ViewerFeature.Automation"/>).</summary>
+public static class AutomationLogin
+{
+    public static bool Refuses(string? loginUri) =>
+        loginUri is not null && !Viewer.Core.Session.GridPolicy.Allows(Viewer.Core.Session.ViewerFeature.Automation, Viewer.Core.Session.GridPolicy.KindOf(loginUri));
 }
 
 /// <summary>The explicit enable flag. Nothing else turns the API on: no setting, no environment variable.</summary>

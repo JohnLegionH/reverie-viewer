@@ -23,6 +23,9 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
 
     private volatile LoginReply? _reply;
 
+    /// <summary>The hashed device ids the last login request sent ("mac" and "id0"); empty before one.</summary>
+    public (string Mac, string Id0) DeviceIds { get; private set; } = ("", "");
+
     /// <summary>Forgets the reply of an earlier attempt.</summary>
     public void Begin() => _reply = null;
 
@@ -42,6 +45,8 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
                     isLogin = true;
                     map["extended_errors"] = OSD.FromBoolean(true);   // asks for message ids and arguments (lllogininstance.cpp, constructAuthParams)
                     AddOfficialFields(map);
+                    // the hashed device ids as sent, kept for the statistics report's system block (never logged)
+                    DeviceIds = (map.TryGetValue("mac", out var mac) ? mac.AsString() : "", map.TryGetValue("id0", out var id0) ? id0.AsString() : "");
                     LogFields(map);
                     var rewritten = new ByteArrayContent(OSDParser.SerializeLLSDXmlBytes(map));
                     foreach (var h in body.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) rewritten.Headers.TryAddWithoutValidation(h.Key, h.Value);

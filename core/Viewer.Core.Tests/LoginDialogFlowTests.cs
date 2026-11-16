@@ -25,6 +25,10 @@ internal sealed class LoginFlow : ILoginPrompts
     public static LoginFlow At(GridFetcher fetcher, string loginUri, params Func<int, TransportLoginResult>[] script) =>
         new(fetcher, loginUri, null, null, script);
 
+    /// <summary>A flow that logs in at a Second Life address (no grid info is ever fetched there).</summary>
+    public static LoginFlow SecondLifeAt(string loginUri, params Func<int, TransportLoginResult>[] script) =>
+        new(null, loginUri, null, null, script);
+
     private LoginFlow(GridFetcher? fetcher, string loginUri, string? settingsDir, CertificateTrust? trust, Func<int, TransportLoginResult>[] script)
     {
         _script = script;
@@ -337,7 +341,7 @@ public class LoginDialogSamplesTests
     public void Every_sample_kind_makes_a_dialog_with_a_main_button_and_other_names_make_none()
     {
         var strings = StringTable.English();
-        Assert.Equal(9, LoginDialogSamples.Kinds.Count);
+        Assert.Equal(11, LoginDialogSamples.Kinds.Count);   // nine login-flow dialogs and the two disclosures
         foreach (var kind in LoginDialogSamples.Kinds)
         {
             var d = LoginDialogSamples.For(strings, kind);

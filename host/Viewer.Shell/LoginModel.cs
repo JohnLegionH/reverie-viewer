@@ -144,6 +144,10 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     /// model keeps it in memory only).</summary>
     public event Action<LoginRecord>? Succeeded;
 
+    /// <summary>Raised with the kind of grid an attempt is about to log in to, after its login address is known and before anything is
+    /// sent to that address (the automation API turns itself off here on a grid where it is not allowed).</summary>
+    public event Action<GridKind>? GridChosen;
+
     /// <summary>Raised (on the thread that changed it) whenever <see cref="Status"/> changes.</summary>
     public event Action<string>? StatusChanged;
 
@@ -158,7 +162,10 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     {
         RememberPassword = on;
         if (!on)
+        {
             Vault?.Forget(LoginUri, UserName);
+            Vault?.ForgetMfaHash(LoginUri, UserName);   // the multifactor hash is kept only with a remembered login
+        }
     }
 
     /// <summary>Whether a hash is saved for the grid and name now typed.</summary>
@@ -294,10 +301,24 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
                 login = resolved.Login;
             }
             SetResolved(login.ToString());
-            // the multifactor hash the grid handed out earlier in this run for this account (kept in memory only, never on disk)
+            GridChosen?.Invoke(GridPolicy.KindOf(login.ToString()));   // before anything is sent to the grid
+            // the multifactor hash the grid handed out earlier in this run for this account, else the one kept with a remembered login
+            // (lllogininstance.cpp: read from the protected store for every login)
             string hashKey = (login + "|" + FirstName.Trim() + " " + LastName.Trim()).ToLowerInvariant();
-            var extras = new LoginExtras(MfaHash: RunMfaHash(hashKey));
+            var vault = Vault is { Available: true } v ? v : null;
+            var extras = new LoginExtras(MfaHash: RunMfaHash(hashKey) ?? vault?.LoadMfaHash(LoginUri, UserName));
             var pinnedNow = new HashSet<string>();
+            // the Third-Party Viewer Policy's disclosures (1.c, 4.b), once before the first Second Life login: refused, nothing is sent
+            if (IsSecondLife(login) && Prompts is { } disclosurePrompts && UserSettings is { } disclosureSettings && Disclosures.SecondLifeDue(disclosureSettings))
+            {
+                if (!(await disclosurePrompts.AskAsync(Disclosures.BeforeSecondLife(strings), attempt.Token).ConfigureAwait(false)).Confirmed)
+                {
+                    LastFailureCode = "cancelled";
+                    SetStatus(strings.Get("login.status.cancelled"));
+                    return false;
+                }
+                Disclosures.SecondLifeAccepted(disclosureSettings);
+            }
             while (true)
             {
                 SetStatus(strings.Get("login.status.connecting"));
@@ -305,7 +326,19 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
                 session.StageChanged += OnStage;
                 var outcome = await session.LoginAsync(new LoginCredentials(FirstName.Trim(), LastName.Trim(), password, extras), attempt.Token).ConfigureAwait(false);
                 if (outcome.Reply?.MfaHash is { } handedOut)
+                {
                     lock (_gate) _mfaHashes[hashKey] = handedOut;
+                    // kept in the protected store only when the person asked for the login to be remembered (saveMFAHash)
+                    if (RememberPassword)
+                        KeepSafely(() => vault?.SaveMfaHash(LoginUri, UserName, handedOut));
+                }
+                else if (outcome.Code == "mfa_challenge" && extras.MfaHash is not null)
+                {
+                    // the grid asked for a token although a hash was sent: it no longer accepts that hash, so it is forgotten
+                    lock (_gate) _mfaHashes.Remove(hashKey);
+                    KeepSafely(() => vault?.ForgetMfaHash(LoginUri, UserName));
+                    extras = extras with { MfaHash = null };
+                }
                 LastFailureCode = outcome.Ok ? null : outcome.Code ?? "failed";
                 if (outcome.Ok)
                 {
@@ -341,6 +374,13 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     }
 
     private readonly Dictionary<string, Secret> _mfaHashes = new(StringComparer.Ordinal);
+
+    // a store that cannot be written (a locked file, an unreachable keyring) never stops the login: the hash is then asked again next time
+    private static void KeepSafely(Action write)
+    {
+        try { write(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException) { }
+    }
 
     private Secret? RunMfaHash(string key)
     {

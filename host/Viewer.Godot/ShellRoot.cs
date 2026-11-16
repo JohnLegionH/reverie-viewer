@@ -521,10 +521,18 @@ public partial class ShellRoot : Control
             var licences = new Button { Name = "licences", Text = _strings.Get("about.licences"), SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
             licences.AccessibilityName = licences.Text;
             licences.Pressed += () => Shell.Commands.Execute("floater.licences");
+            // the privacy policy the Third-Party Viewer Policy asks to be linked (1.c, 4.b), opened in the system browser
+            var privacy = new LinkButton { Name = "privacy", Text = _strings.Get("about.privacy"), TooltipText = Disclosures.PrivacyPolicyAddress };
+            privacy.AccessibilityName = privacy.Text;
+            privacy.Pressed += () => OS.ShellOpen(Disclosures.PrivacyPolicyAddress);
+            var buttons = new HBoxContainer { Name = "about_buttons" };
+            buttons.AddThemeConstantOverride("separation", 16);
+            buttons.AddChild(licences);
+            buttons.AddChild(privacy);
             box.AddChild(release);
             box.AddChild(about);
             box.AddChild(disclaimer);
-            box.AddChild(licences);
+            box.AddChild(buttons);
             frame.SetContent(box);
         }
         else if (spec.Id == ShellController.LicencesFloaterId)

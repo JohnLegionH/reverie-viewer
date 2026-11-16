@@ -38,8 +38,18 @@ public interface ILoginVault
     string? UnavailableKey { get; }
     void Save(string grid, string name, Secret hash);
     Secret? Load(string grid, string name);
-    /// <summary>Forgets the entry for this grid and name. True when there was one.</summary>
+    /// <summary>Forgets the entry for this grid and name, and the multifactor hash kept with it. True when there was a saved password.</summary>
     bool Forget(string grid, string name);
+
+    /// <summary>Keeps the multifactor hash a grid handed out for this grid and name (lllogininstance.cpp saveMFAHash: the protected
+    /// store, beside the saved credentials).</summary>
+    void SaveMfaHash(string grid, string name, Secret hash) { }
+
+    /// <summary>The multifactor hash kept for this grid and name, or null.</summary>
+    Secret? LoadMfaHash(string grid, string name) => null;
+
+    /// <summary>Forgets the multifactor hash kept for this grid and name.</summary>
+    void ForgetMfaHash(string grid, string name) { }
 }
 
 /// <summary>
@@ -84,10 +94,45 @@ public sealed class DpapiLoginVault(string folder) : ILoginVault
     public bool Forget(string grid, string name)
     {
         var entries = Read();
-        if (!entries.Remove(Digest(RememberPassword.EntryKey(grid, name))))
-            return false;
+        bool had = entries.Remove(Digest(RememberPassword.EntryKey(grid, name)));
+        bool hadMfa = entries.Remove(Digest(MfaScope(grid, name)));
+        if (had || hadMfa)
+            Write(entries);
+        return had;
+    }
+
+    // the multifactor hash is kept under a scope of its own beside the saved login, protected the same way
+    private static string MfaScope(string grid, string name) => "mfa|" + RememberPassword.EntryKey(grid, name);
+
+    public void SaveMfaHash(string grid, string name, Secret hash)
+    {
+        string value = hash.Reveal();
+        if (!OperatingSystem.IsWindows() || value.Length == 0 || value.Length > 1024)
+            return;
+        string scope = MfaScope(grid, name);
+        var entries = Read();
+        entries[Digest(scope)] = Convert.ToBase64String(Protect(value, scope));
         Write(entries);
-        return true;
+    }
+
+    public Secret? LoadMfaHash(string grid, string name)
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        string scope = MfaScope(grid, name);
+        if (!Read().TryGetValue(Digest(scope), out var blob))
+            return null;
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(blob); }
+        catch (FormatException) { return null; }
+        return Unprotect(bytes, scope) is { Length: > 0 } hash ? new Secret(hash, SensitiveKind.Token) : null;
+    }
+
+    public void ForgetMfaHash(string grid, string name)
+    {
+        var entries = Read();
+        if (entries.Remove(Digest(MfaScope(grid, name))))
+            Write(entries);
     }
 
     /// <summary>Protects <paramref name="hash"/> for the current user under <paramref name="scope"/> (test seam).</summary>
@@ -180,8 +225,22 @@ public sealed class SecretServiceLoginVault : ILoginVault
     {
         bool had = Load(grid, name) is not null;
         Run(["clear", Attribute, Key(grid, name)], null, out _);
+        ForgetMfaHash(grid, name);
         return had;
     }
+
+    private const string MfaAttribute = "nativeviewer-mfa";
+
+    public void SaveMfaHash(string grid, string name, Secret hash)
+    {
+        if (hash.Reveal().Length is > 0 and <= 1024)
+            Run(["store", "--label=Reverie Viewer two-factor", MfaAttribute, Key(grid, name)], hash.Reveal(), out _);
+    }
+
+    public Secret? LoadMfaHash(string grid, string name) =>
+        Run(["lookup", MfaAttribute, Key(grid, name)], null, out string found) && found.Trim().Length > 0 ? new Secret(found.Trim(), SensitiveKind.Token) : null;
+
+    public void ForgetMfaHash(string grid, string name) => Run(["clear", MfaAttribute, Key(grid, name)], null, out _);
 
     private static string Key(string grid, string name) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(RememberPassword.EntryKey(grid, name)))).ToLowerInvariant();

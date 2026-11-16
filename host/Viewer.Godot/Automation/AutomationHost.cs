@@ -54,12 +54,45 @@ public partial class AutomationHost : Node
         }, e => Main.Log.Info(e));
         _tokenPath = _server.WriteTokenFile(TokenFile.DefaultDirectory(DataDirectories.ForCurrentUser()));
         Main.Log.Info("automation.enabled", CoreLog.F("bind", "loopback"));
+        // the per-grid switch: a login heading for a grid where automation is not allowed (Second Life) turns it off for the rest of
+        // the run, before anything is sent to that grid; the listener and the token file then go on the next frame
+        if (_main?.Model is { } model)
+            model.GridChosen += grid =>
+            {
+                if (_server?.TurnOffFor(grid) == true)
+                    _closeForGrid = true;
+            };
+    }
+
+    private volatile bool _closeForGrid;
+
+    /// <summary>Closes the listener and removes the token file once the API is off for this run's grid. It is never started again.</summary>
+    private void CloseForGrid()
+    {
+        _closeForGrid = false;
+        if (_server is null)
+            return;
+        _server.Dispose();
+        _server = null;
+        if (_tokenPath is not null)
+        {
+            TokenFile.Remove(_tokenPath);
+            _tokenPath = null;
+        }
+        Main.Log.Info("automation.off", CoreLog.F("reason", "grid"));
     }
 
     public override void _Process(double delta)
     {
+        if (_closeForGrid)
+            CloseForGrid();
         while (_calls.TryDequeue(out var item))
-            _ = Answer(item.Call, item.Reply);
+        {
+            if (_server is null || _server.IsOff)
+                item.Reply.TrySetResult(AutomationReply.Error(403, "off-on-this-grid"));   // a call queued before the switch is refused, not run
+            else
+                _ = Answer(item.Call, item.Reply);
+        }
         if (_quitIn > 0 && --_quitIn == 0)
             _main!.RequestClose();   // as the window's close: a session in world is logged out first
     }
@@ -104,6 +137,8 @@ public partial class AutomationHost : Node
                 bool Flag(string key) => call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty(key, out var fv) && fv.ValueKind == JsonValueKind.True;
                 string? name = null;
                 Secret? password = null;
+                if (action == "submit" && AutomationLogin.Refuses(Str(call.Body, "login_uri") ?? m.Model?.LoginUri))
+                    return AutomationReply.Error(403, "automation is not allowed on this grid");   // the per-grid switch: never a login to Second Life
                 if (action == "submit")
                 {
                     string? accounts = Str(call.Body, "accounts_file"), alias = Str(call.Body, "account");
@@ -505,6 +540,8 @@ public partial class AutomationHost : Node
                 string? accounts = Str(body, "accounts_file"), alias = Str(body, "account"), uri = Str(body, "login_uri");
                 if (accounts is null || alias is null || uri is null || !Path.IsPathFullyQualified(accounts))
                     return AutomationReply.Error(400, "accounts_file (absolute), account and login_uri are required");
+                if (AutomationLogin.Refuses(uri))
+                    return AutomationReply.Error(403, "automation is not allowed on this grid");   // the per-grid switch: never a login to Second Life
                 (string first, string last, Secret password) acct;
                 try { acct = AccountsFile.Load(accounts, alias); }
                 catch (Exception) { return AutomationReply.Error(400, "account not available"); }

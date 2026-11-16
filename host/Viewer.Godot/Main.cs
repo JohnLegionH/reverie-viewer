@@ -221,6 +221,8 @@ public partial class Main : Node
         UiTheme.Apply(ThemeResolver.Resolve(startLook, null), ThemeStore.EffectiveScale(startSettings, null, startLook, DisplayScaleProbe.Reading()));
         // the certificates the person chose to trust at login: kept in the settings folder (NV_CERT_STORE names another), applied to every HTTPS connection
         var certificateTrust = new Viewer.Core.Net.CertificateTrust(Viewer.Core.Net.CertificateTrust.FolderFor(settingsDir, System.Environment.GetEnvironmentVariable));
+        var statsFigures = new Viewer.Core.Session.ViewerStatsFigures(0, RenderingServer.GetVideoAdapterName(), RenderingServer.GetVideoAdapterVendor(),
+            RenderingServer.GetVideoAdapterApiVersion(), string.IsNullOrEmpty(startSettings.GetText(Settings.UiLanguageKey)) ? "en" : startSettings.GetText(Settings.UiLanguageKey)!, 0, true, true);
         var model = new LoginModel(strings, opts =>
         {
             var transport = ProtocolAdapters.CreateLibreMetaverse(new OutboundPolicy(opts.Outbound), Log, certificateTrust, CharacterFolder());
@@ -236,7 +238,9 @@ public partial class Main : Node
                 HoldsForNextLogin.Clear();
             }
             transport.SetDrawDistance(Math.Min(Math.Max(opts.DrawDistance / 2f, 50f), opts.DrawDistance));   // arriving: half of the draw distance, before the login
-            return new ViewerSession(opts, transport, Log);
+            // the statistics report's figures (sent only where the grid policy asks for it): read on the report's worker thread, so the
+            // adapter's names are read here, on the main thread, and the frame rate through the engine's own counter
+            return new ViewerSession(opts, transport, Log) { StatsFigures = () => statsFigures with { Fps = Engine.GetFramesPerSecond() } };
         }, GridAddress.HttpFetcher(new OutboundPolicy(new OutboundOptions()), Log, null, certificateTrust), settingsDir);
         model.Trust = certificateTrust;
         // remember password: the login hash only, DPAPI-protected in the settings folder on Windows, the desktop keyring on Linux
@@ -278,10 +282,28 @@ public partial class Main : Node
             CoreLog.F("grid-source", GridAddress.Tidy(gridOption).Uri is not null ? "option" : model.LoginUri.Length > 0 ? "remembered" : "none"),
             CoreLog.F("grid-chars", model.LoginUri.Length), CoreLog.F("ms-since-engine-start", Time.GetTicksMsec()));   // the start-up time to the login screen
         WarmPipelines();
+        bool automation = false;
 #if NV_AUTOMATION
-        if (Viewer.Automation.AutomationArgs.Enabled(OS.GetCmdlineUserArgs()))
+        automation = Viewer.Automation.AutomationArgs.Enabled(OS.GetCmdlineUserArgs());
+        if (automation)
             AddChild(new AutomationHost(this));
 #endif
+        // the Third-Party Viewer Policy's disclosures (1.c, 4.b) at the first run; a development run driven by the automation API
+        // starts from an empty settings folder every time, so it is not stopped by them (its own command shows them)
+        if (!automation && Disclosures.FirstRunDue(startSettings))
+            _ = ShowFirstRunDisclosure(strings, startSettings);
+    }
+
+    /// <summary>The first-run disclosure over the login screen: accepted, it is kept and not shown again; refused, the viewer quits.</summary>
+    private async System.Threading.Tasks.Task ShowFirstRunDisclosure(StringTable strings, SettingsService settings)
+    {
+        if (_loginScreen is not { } screen)
+            return;
+        var answer = await screen.Dialogs.AskAsync(Disclosures.FirstRun(strings), System.Threading.CancellationToken.None);
+        if (answer.Confirmed)
+            Callable.From(() => Disclosures.FirstRunAccepted(settings)).CallDeferred();
+        else
+            Callable.From(RequestClose).CallDeferred();
     }
 
     /// <summary>The pipeline warm-up, off screen, in the login screen's first two frames (before anyone

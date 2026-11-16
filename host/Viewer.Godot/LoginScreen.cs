@@ -51,6 +51,7 @@ public partial class LoginScreen : Control
     private readonly Button _login;
     private readonly Button _cancel;
     private readonly Label _status;
+    private readonly ScrollContainer _statusScroll;
     private bool _syncing;
     private bool _hasNews;
     private readonly PanelContainer _newsPanel;
@@ -222,7 +223,12 @@ public partial class LoginScreen : Control
         _status = Register(new Label { Text = strings.Get("login.status.ready"), AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = ReverieStyle.Status }, Spec("status"));
         _status.AccessibilityLive = AccessibilityServer.AccessibilityLiveMode.Polite;
         _status.CustomMinimumSize = new Vector2(CardWidth - 40, 0);
-        box.AddChild(_status);
+        // the status line wraps inside the card; a long message (a grid's refusal can be a dozen lines) scrolls inside a bounded
+        // area instead of making the card taller than the window, as the official viewer keeps a long login error inside its box
+        _statusScroll = new ScrollContainer { Name = "status_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = false };
+        _statusScroll.AddChild(_status);
+        _status.MinimumSizeChanged += FitStatus;
+        box.AddChild(_statusScroll);
         Labels.Add(_status);
 
         _links = new HBoxContainer { Name = "account_links", Visible = false };
@@ -304,6 +310,17 @@ public partial class LoginScreen : Control
             ShowPasswordTick();
         Restyle();
         ApplyBranding(GridBranding.None);
+    }
+
+    /// <summary>The tallest the status area grows before it scrolls: about five lines of the status text.</summary>
+    public const float StatusMaxHeight = 100;
+
+    /// <summary>The status area is as tall as its text, up to <see cref="StatusMaxHeight"/>; a longer text scrolls inside it.</summary>
+    private void FitStatus()
+    {
+        float h = _statusUnbounded ? _status.GetCombinedMinimumSize().Y : Math.Min(_status.GetCombinedMinimumSize().Y, StatusMaxHeight);
+        if (!Mathf.IsEqualApprox(_statusScroll.CustomMinimumSize.Y, h))
+            _statusScroll.CustomMinimumSize = new Vector2(0, h);
     }
 
     private static MarginContainer Margins(MarginContainer m, int px)
@@ -640,6 +657,17 @@ public partial class LoginScreen : Control
     }
 
     /// <summary>Shows one example grid as chosen (the render cases: a list kept in memory only).</summary>
+    private bool _statusUnbounded;
+
+    /// <summary>Puts a status text on the card as a login would (test pictures). <paramref name="unbounded"/> lets the area grow with its
+    /// text, as before it was bounded: the negative control of the long-message picture.</summary>
+    internal void ShowStatusForTest(string text, bool unbounded)
+    {
+        _statusUnbounded = unbounded;
+        _status.Text = text;
+        FitStatus();
+    }
+
     internal void ShowExampleGrid(GridEntry entry)
     {
         _grids.Add(entry);

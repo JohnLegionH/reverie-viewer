@@ -31,6 +31,10 @@ public enum ViewerFeature
 
     /// <summary>The restrained-life restriction set (RLV), which scripted objects the person wears drive.</summary>
     Restrictions = 5,
+
+    /// <summary>The viewer statistics report posted to the region's ViewerStats capability (llviewerstats.cpp send_viewer_stats). The
+    /// Third-Party Viewer Policy 2.h asks that it is not left out on Second Life; elsewhere it is not sent.</summary>
+    ViewerStatistics = 6,
 }
 
 /// <summary>Where a feature may run.</summary>
@@ -44,6 +48,9 @@ public enum FeatureReach
 
     /// <summary>On Second Life only for objects every part of which the person created; on everywhere else as before.</summary>
     OwnCreationsOnSecondLife,
+
+    /// <summary>On Second Life only; off everywhere else.</summary>
+    SecondLifeOnly,
 }
 
 /// <summary>
@@ -54,15 +61,18 @@ public enum FeatureReach
 public static class GridPolicy
 {
     // The declarations. Backup and restore follow the Third-Party Viewer Policy 2.b: content is exported only when every part's
-    // creator is the person. The automation interface is local and off unless the viewer is started with --automation; the
-    // add-on host and the restriction set act only as the person could by hand. Each is a choice recorded here, in one place.
+    // creator is the person. The automation interface (local, and off unless the viewer is started with --automation) is not allowed
+    // on Second Life, whose bot rules (Third-Party Viewer Policy 4.a.iii) cover scripted agents; the add-on host and the restriction
+    // set act only as the person could by hand. The viewer statistics report is sent where the policy asks for it (2.h) and nowhere
+    // else. Each is a choice recorded here, in one place.
     private static readonly IReadOnlyDictionary<ViewerFeature, FeatureReach> Declared = new Dictionary<ViewerFeature, FeatureReach>
     {
         [ViewerFeature.Backup] = FeatureReach.OwnCreationsOnSecondLife,
         [ViewerFeature.Restore] = FeatureReach.OwnCreationsOnSecondLife,
-        [ViewerFeature.Automation] = FeatureReach.Everywhere,
+        [ViewerFeature.Automation] = FeatureReach.OpenSimOnly,
         [ViewerFeature.Addons] = FeatureReach.Everywhere,
         [ViewerFeature.Restrictions] = FeatureReach.Everywhere,
+        [ViewerFeature.ViewerStatistics] = FeatureReach.SecondLifeOnly,
     };
 
     /// <summary>The kind of grid a login address belongs to: Second Life when its host is one of Linden Lab's.</summary>
@@ -87,6 +97,7 @@ public static class GridPolicy
     {
         null => grid != GridKind.SecondLife,
         FeatureReach.OpenSimOnly => grid != GridKind.SecondLife,
+        FeatureReach.SecondLifeOnly => grid == GridKind.SecondLife,
         _ => true,
     };
 

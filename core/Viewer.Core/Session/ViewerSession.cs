@@ -93,6 +93,16 @@ public sealed class ViewerSession : IDisposable
     /// <summary>Which kind of grid this session is on, from its login address's host (<see cref="GridPolicy.KindOf"/>).</summary>
     public GridKind Grid { get; }
 
+    /// <summary>The viewer statistics sender, while one runs: only on a grid whose policy allows the report
+    /// (<see cref="ViewerFeature.ViewerStatistics"/>) and whose transport can post it; from arrival until logout.</summary>
+    public ViewerStatsSender? Statistics { get; private set; }
+
+    /// <summary>The host's figures for the statistics report (frame rate, graphics adapter, language). Read on a worker thread.</summary>
+    public Func<ViewerStatsFigures>? StatsFigures { get; set; }
+
+    /// <summary>The period between statistics reports (the official five minutes unless a test sets it).</summary>
+    public TimeSpan? StatsPeriod { get; init; }
+
     /// <summary>Whether a feature beyond the official viewer may run on this session's grid (<see cref="GridPolicy.Allows"/>).</summary>
     public bool Allows(ViewerFeature feature) => GridPolicy.Allows(feature, Grid);
 
@@ -507,7 +517,27 @@ public sealed class ViewerSession : IDisposable
             Mutes.AttachCache(Viewer.Core.Social.MuteCache.FileFor(cacheDirectory, r.AgentId), problem => _log.Warn(problem));
         // The session id is not kept: only the adapter needs it, and it holds its own.
         _log.Info("login.ok", CoreLog.F("agent", r.AgentId), CoreLog.F("login-region-size", $"{r.LoginRegionSizeX}x{r.LoginRegionSizeY}"));
+        StartStatistics();
         return new LoginOutcome(true, null, null) { Reply = r.Reply };
+    }
+
+    // the statistics report: only where the grid policy asks for it and the transport can post it (llviewerstats.cpp send_viewer_stats)
+    private void StartStatistics()
+    {
+        if (!Allows(ViewerFeature.ViewerStatistics) || _transport is not IViewerStatsTransport stats)
+            return;
+        lock (_lock)
+            if (_disposed || _ended)
+                return;
+        var started = DateTimeOffset.UtcNow;
+        Statistics = new ViewerStatsSender(stats, () =>
+        {
+            var (run, memoryKb, ramKb) = ViewerStatsSender.ProcessFigures();
+            var figures = StatsFigures?.Invoke() ?? ViewerStatsFigures.Unknown;
+            return new ViewerStatsReport.Inputs(_opts.Identity, DateTimeOffset.UtcNow, run, (DateTimeOffset.UtcNow - started).TotalSeconds, figures,
+                0, 0, 1, memoryKb, ramKb, stats.DeviceIds, stats.Traffic, true);
+        }, StatsPeriod);
+        _log.Info("stats.started");
     }
 
     public async Task LogoutAsync(CancellationToken ct) => await LogoutCoreAsync(SessionEndReason.LoggedOut, ct).ConfigureAwait(false);
@@ -523,6 +553,11 @@ public sealed class ViewerSession : IDisposable
         }
         Actions.EndAllHolds(HoldEnd.SessionEnded);   // nothing held outlives the session's time in world
         _log.Info("logout.start", CoreLog.F("reason", reason));
+        if (Statistics is { } stats)
+        {
+            Statistics = null;
+            await stats.SendFinalAsync(TimeSpan.FromSeconds(3)).ConfigureAwait(false);   // the last report, as the official viewer's quit sends it
+        }
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct, _life.Token);
@@ -1556,6 +1591,8 @@ public sealed class ViewerSession : IDisposable
             _ended = true;
             CancelGraceLocked();
         }
+        Statistics?.Dispose();   // a session that ends without a logout (dropped, kicked) sends no more reports
+        Statistics = null;
         RaiseEnded(reason);
     }
 
@@ -1587,6 +1624,8 @@ public sealed class ViewerSession : IDisposable
                 EndReason = SessionEndReason.Disposed;
             CancelGraceLocked();
         }
+        Statistics?.Dispose();
+        Statistics = null;
         _life.Cancel();
         Actions.Dispose();   // ends any hold still running
         _transport.Event -= OnTransportEvent;
