@@ -238,6 +238,7 @@ public partial class ShellRoot : Control
     public override void _Process(double delta)
     {
         FitOpenedWindows();
+        NoteOpenPopups();
         var owner = GetViewport().GuiGetFocusOwner();
         Shell.Focus.SetTextEntryActive(owner is LineEdit { Editable: true } or TextEdit { Editable: true });
         if ((_clockAge += delta) >= 1)
@@ -253,8 +254,65 @@ public partial class ShellRoot : Control
     /// <summary>The right-click menu, once the interaction feature is installed: Esc closes it before anything else sees the key.</summary>
     public ContextMenuPanel? ContextMenu { get; set; }
 
+    /// <summary>The engine's popup menus that were open at the end of the last frame, with their rectangles: a click outside one closes it
+    /// and the engine may have hidden it already by the time the click reaches this node.</summary>
+    private readonly List<(PopupMenu Menu, Rect2 Rect)> _openPopups = new();
+    /// <summary>The mouse button whose press closed a menu: its release is kept from everything else as well.</summary>
+    private MouseButton? _swallowRelease;
+
+    /// <summary>The menu holder (the official viewer's LLMenuHolderGL, llmenugl.cpp): a mouse press outside an open menu closes it. A right
+    /// press goes on, as the official holder passes it on so a new right-click menu opens where it was made; any other press closes the menu
+    /// and does nothing else, in the world or on another window (the official holder passes that click on too; this viewer keeps it, so a click
+    /// meant to close a menu never selects, touches or presses what lies under it). True when the event was kept.</summary>
+    private bool MenuHolder(InputEventMouseButton b)
+    {
+        if (b.ButtonIndex is not (MouseButton.Left or MouseButton.Right or MouseButton.Middle))
+            return false;   // the wheel scrolls; it closes nothing
+        if (!b.Pressed)
+        {
+            if (_swallowRelease != b.ButtonIndex)
+                return false;
+            _swallowRelease = null;
+            return true;
+        }
+        bool closed = false;
+        if (ContextMenu is { IsOpen: true } menu && !menu.GetGlobalRect().HasPoint(b.Position))
+        {
+            menu.Dismiss();
+            closed = true;
+        }
+        foreach (var (popup, rect) in _openPopups)
+        {
+            if (!GodotObject.IsInstanceValid(popup) || rect.HasPoint(b.Position))
+                continue;
+            if (popup.Visible)
+                popup.Hide();
+            closed = true;
+        }
+        _openPopups.Clear();
+        // a press on the top bar goes on, so moving from one top menu's title to another's opens that menu as the menu bar does
+        if (!closed || b.ButtonIndex == MouseButton.Right || TopBar.GetGlobalRect().HasPoint(b.Position))
+            return false;
+        _swallowRelease = b.ButtonIndex;
+        return true;
+    }
+
+    /// <summary>Notes the engine's popup menus open now (embedded windows of this viewport), for <see cref="MenuHolder"/>.</summary>
+    private void NoteOpenPopups()
+    {
+        _openPopups.Clear();
+        foreach (var w in GetViewport().GetEmbeddedSubwindows())
+            if (w is PopupMenu { Visible: true } p)
+                _openPopups.Add((p, new Rect2(p.Position, p.Size)));
+    }
+
     public override void _Input(InputEvent e)
     {
+        if (e is InputEventMouseButton mb && MenuHolder(mb))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         // an open right-click menu takes Esc first and closes with no choice, as the official viewer's menu holder does before anything
         // else sees the key (llviewerwindow.cpp handleKey); the camera's Esc never runs
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } && ContextMenu is { IsOpen: true } menu)
