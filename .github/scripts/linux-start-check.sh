@@ -7,8 +7,8 @@
 # It installs only what the README's Linux steps name, plus Mesa's software Vulkan driver (lavapipe, which is part of
 # mesa-vulkan-drivers) and a virtual X display (Xvfb). It starts the viewer with no options, waits for the login screen,
 # lets it draw, saves the virtual screen and the logs, then closes the viewer.
-# Pass (exit 0): the log says the login screen is up, the viewer is still running a while later, the screen is not
-# blank (checked by the workflow from the screenshot), and nothing crashed.
+# Pass (exit 0): the log says the login screen is up, the screen then moves on from the start-up splash, the viewer is
+# still running when the screen is taken, and nothing crashed. The picture itself is kept for a person to look at.
 set -u
 out=/out
 mkdir -p "$out"
@@ -73,14 +73,25 @@ for _ in $(seq 1 300); do
 done
 result login_screen_logged "$login"
 result seconds_to_login_screen "$(( $(date +%s) - started ))"
-# let it draw for a while, then take the screen
+# The login screen is built before its first frames are drawn, and with software graphics those frames can take a
+# while: the screen is taken when the log line comes (splash.xwd), then every 10 s until the picture is no longer that
+# one (at most 240 s), and once more 15 s after it changed (screen.xwd), for the picture to settle.
 alive=no
+changed=no
 if [ "$login" = yes ]; then
-    sleep 20
+    cp /tmp/fb/Xvfb_screen0 "$out/splash.xwd"
+    for _ in $(seq 1 24); do
+        sleep 10
+        kill -0 "$pid" 2> /dev/null || break
+        if ! cmp -s /tmp/fb/Xvfb_screen0 "$out/splash.xwd"; then changed=yes; break; fi
+    done
+    result seconds_until_the_screen_changed "$( [ "$changed" = yes ] && echo $(( $(date +%s) - started )) || echo never)"
+    sleep 15
     kill -0 "$pid" 2> /dev/null && alive=yes
     cp /tmp/fb/Xvfb_screen0 "$out/screen.xwd"
 fi
-result running_20s_after_login_screen "$alive"
+result screen_changed_after_login_screen "$changed"
+result running_at_screenshot "$alive"
 
 # ---- 5. close it ----
 exit_code=running
@@ -104,4 +115,4 @@ timeout 600 "$app" -- --s1-out="$out/s1" --s1-tag=ubuntu > "$out/s1-stdout.txt" 
 result s1_exit "$?"
 kill "$xvfb" 2> /dev/null
 
-[ "$login" = yes ] && [ "$alive" = yes ] && [ "$crash" = 0 ]
+[ "$login" = yes ] && [ "$changed" = yes ] && [ "$alive" = yes ] && [ "$crash" = 0 ]

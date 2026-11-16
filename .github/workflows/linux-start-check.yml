@@ -57,6 +57,7 @@ jobs:
         if: always()
         run: |
           test -f "$RUNNER_TEMP/out/screen.xwd" || { echo "no screenshot was taken"; exit 1; }
+          python3 .github/scripts/xwd-to-png.py "$RUNNER_TEMP/out/splash.xwd" "$RUNNER_TEMP/out/splash-ubuntu-${{ matrix.ubuntu }}.png" || true
           python3 .github/scripts/xwd-to-png.py "$RUNNER_TEMP/out/screen.xwd" "$RUNNER_TEMP/out/screen-ubuntu-${{ matrix.ubuntu }}.png"
 
       - name: Summary
@@ -69,4 +70,4 @@ jobs:
           name: start-ubuntu-${{ matrix.ubuntu }}
           path: |
             ${{ runner.temp }}/out/
-            !${{ runner.temp }}/out/screen.xwd
+            !${{ runner.temp }}/out/*.xwd
