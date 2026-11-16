@@ -53,13 +53,16 @@ public class LinuxLauncherTests : IDisposable
         ? "/" + char.ToLowerInvariant(path[0]) + path[2..].Replace('\\', '/')
         : path;
 
-    private (int Exit, string Output) Start(string[] libs, string? display, string? wayland, params string[] args)
+    private (int Exit, string Output) Start(string[] libs, string? display, string? wayland, params string[] args) =>
+        StartWith(new Dictionary<string, string?>(), libs, display, wayland, args);
+
+    private (int Exit, string Output) StartWith(Dictionary<string, string?> extraEnv, string[] libs, string? display, string? wayland, params string[] args)
     {
         string list = string.Join("", libs.Select(l => $"\\t{l} (libc6,x86-64) => /usr/lib/x86_64-linux-gnu/{l}\\n"));
         File.WriteAllText(Path.Combine(_dir, "bin", "ldconfig"), $"#!/bin/sh\nprintf '{list}'\n");
         string cmd = $"export PATH=\"{Unix(Path.Combine(_dir, "bin"))}:$PATH\"; exec sh \"{Unix(Path.Combine(_dir, "pkg", "reverie"))}\"" +
                      string.Concat(args.Select(a => $" '{a}'"));
-        var env = new Dictionary<string, string?> { ["DISPLAY"] = display, ["WAYLAND_DISPLAY"] = wayland };
+        var env = new Dictionary<string, string?>(extraEnv) { ["DISPLAY"] = display, ["WAYLAND_DISPLAY"] = wayland };
         var r = ChildProcess.Run(Bash(), ["-c", cmd], TimeSpan.FromMinutes(1), env);
         _out.WriteLine($"exit {r.ExitCode}\n{r.Output}");
         return r;
@@ -99,6 +102,34 @@ public class LinuxLauncherTests : IDisposable
         Assert.Equal(1, r.Exit);
         Assert.DoesNotContain("engine started", r.Output);
         Assert.Contains("no desktop session", r.Output);
+    }
+
+    [Fact]
+    public void A_library_outside_the_ldconfig_cache_but_on_LD_LIBRARY_PATH_counts_as_present()
+    {
+        string libs = Path.Combine(_dir, "libs");
+        Directory.CreateDirectory(libs);
+        File.WriteAllText(Path.Combine(libs, "libXcursor.so.1"), "");
+        var r = StartWith(new Dictionary<string, string?> { ["LD_LIBRARY_PATH"] = Unix(libs) },
+            X11.Where(l => l != "libXcursor.so.1").ToArray(), ":0", null);
+        Assert.Equal(7, r.Exit);
+        Assert.Contains("engine started", r.Output);
+    }
+
+    [Fact]
+    public void An_ldconfig_cache_listing_nothing_leaves_the_check_to_the_engine()
+    {
+        var r = Start([], ":0", null);
+        Assert.Equal(7, r.Exit);
+        Assert.Contains("engine started", r.Output);
+    }
+
+    [Fact]
+    public void The_check_can_be_turned_off()
+    {
+        var r = StartWith(new Dictionary<string, string?> { ["REVERIE_SKIP_DISPLAY_CHECK"] = "1" }, [], null, null);
+        Assert.Equal(7, r.Exit);
+        Assert.Contains("engine started", r.Output);
     }
 
     [Fact]
