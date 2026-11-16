@@ -72,6 +72,8 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
     private static readonly string[] Slots = AvatarBody.DefaultParts.Select(p => p.Bake).Distinct().ToArray();
 
     private static readonly bool s_wornTrace = System.Environment.GetEnvironmentVariable("NV_WORN_TRACE") == "1";
+    private static string WornTraceVector(System.Numerics.Vector3 v) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{v.X:0.####},{v.Y:0.####},{v.Z:0.####}");
+    private static string WornTraceQuaternion(System.Numerics.Quaternion q) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{q.X:0.####},{q.Y:0.####},{q.Z:0.####},{q.W:0.####}");
     private readonly WorldState _world;
     private readonly WornRecheck _recheck = new();   // avatars (local ids) that must work out again what their worn meshes hide
     private readonly Dictionary<ObjectId, (uint Wearer, Guid[] Faces)> _wornFaces = new();   // each worn piece's wearer and face textures as last seen
@@ -850,7 +852,8 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         }
         if (change.Kind is not (WorldChangeKind.ObjectAdded or WorldChangeKind.ObjectChanged)) return;
         if (_world.Object(change.Id) is not { } o) { if (s_wornTrace) Main.Log.Info("worn.note", CoreLog.F("kind", change.Kind.ToString()), CoreLog.F("local", change.Id.LocalId), CoreLog.F("found", 0)); return; }
-        if (s_wornTrace) Main.Log.Info("worn.note", CoreLog.F("kind", change.Kind.ToString()), CoreLog.F("local", change.Id.LocalId), CoreLog.F("parent", o.ParentLocalId), CoreLog.F("point", o.AttachmentPoint?.ToString() ?? "-"), CoreLog.F("tex", o.Textures is null ? 0 : 1));
+        if (s_wornTrace) Main.Log.Info("worn.note", CoreLog.F("kind", change.Kind.ToString()), CoreLog.F("local", change.Id.LocalId), CoreLog.F("parent", o.ParentLocalId), CoreLog.F("point", o.AttachmentPoint?.ToString() ?? "-"), CoreLog.F("tex", o.Textures is null ? 0 : 1),
+            CoreLog.F("pos", WornTraceVector(o.Position)), CoreLog.F("rot", WornTraceQuaternion(o.Rotation)), CoreLog.F("scale", WornTraceVector(o.Scale)));   // pos and rot as the region sent them: a root's from its attachment point, a child's from its root
         uint wearer;
         if (o.AttachmentPoint is not null) wearer = o.ParentLocalId;
         else if (o.ParentLocalId != 0 && _world.Object(new ObjectId(o.Id.Epoch, o.ParentLocalId)) is { AttachmentPoint: not null } root) wearer = root.ParentLocalId;
