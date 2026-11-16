@@ -22,13 +22,23 @@ public sealed record GridEntry(string Address, string Name, GridInfo? Info, bool
 }
 
 /// <summary>
-/// The grids the person has added, kept in the viewer's own settings folder (grids.json), and which one is chosen. No grid ships
-/// with the viewer: the list starts empty. Firestorm keeps its user grids the same way (fsgridhandler.cpp, grids.user.xml, written
-/// by saveGridList). A list file that cannot be read is taken as an empty list, never as a failure.
+/// The grids the person has added, kept in the viewer's own settings folder (grids.json), and which one is chosen. The person's
+/// list starts empty; one grid comes with the viewer, Second Life's main grid, which is never written to the file, edited or
+/// removed. Firestorm keeps its user grids the same way (fsgridhandler.cpp, grids.user.xml, written by saveGridList). A list file
+/// that cannot be read is taken as an empty list, never as a failure.
 /// </summary>
 public sealed class GridList
 {
     public const string FileName = "grids.json";
+
+    /// <summary>Second Life's main grid login address, as the official viewer has it (llviewernetwork.cpp, MAIN_GRID_LOGIN_URI).
+    /// Second Life serves no grid-info document, so the entry carries no grid info and none is asked for.</summary>
+    public const string SecondLifeLoginUri = "https://login.agni.lindenlab.com/cgi-bin/login.cgi";
+
+    /// <summary>The built-in Second Life entry.</summary>
+    public static GridEntry SecondLife { get; } = new(SecondLifeLoginUri, "Second Life", null) { BuiltIn = true };
+
+    private static readonly GridEntry[] BuiltInEntries = [SecondLife];
 
     private readonly string? _dir;
     private readonly List<GridEntry> _entries = [];
@@ -50,9 +60,9 @@ public sealed class GridList
             {
                 var stored = JsonSerializer.Deserialize<Stored>(File.ReadAllText(path), Json);
                 foreach (var e in stored?.Grids ?? [])
-                    if (e is { Address: not null, Name: not null } && e.Key.Length > 0 && _entries.All(x => x.Key != e.Key))
+                    if (e is { Address: not null, Name: not null } && e.Key.Length > 0 && BuiltInOf(e.Key) is null && _entries.All(x => x.Key != e.Key))
                         _entries.Add(e);
-                _selected = _entries.Any(e => e.Key == stored?.Selected) ? stored!.Selected : _entries.FirstOrDefault()?.Key;
+                _selected = _entries.Any(e => e.Key == stored?.Selected) || BuiltInOf(stored?.Selected ?? "") is not null ? stored!.Selected : _entries.FirstOrDefault()?.Key;
                 return;
             }
         }
@@ -70,17 +80,24 @@ public sealed class GridList
     public IReadOnlyList<GridEntry> Entries => _entries;
 
     /// <summary>The grids that come with the viewer.</summary>
-    public IReadOnlyList<GridEntry> BuiltIn => [];
+    public IReadOnlyList<GridEntry> BuiltIn => BuiltInEntries;
 
     /// <summary>The person's grids, then the ones that come with the viewer: what the grid chooser shows.</summary>
-    public IReadOnlyList<GridEntry> All => _entries;
+    public IReadOnlyList<GridEntry> All => [.. _entries, .. BuiltInEntries];
+
+    private static GridEntry? BuiltInOf(string key) => key.Length == 0 ? null : Array.Find(BuiltInEntries, e => e.Key == key);
 
     /// <summary>The chosen grid, or null when none is.</summary>
-    public GridEntry? Selected => _entries.FirstOrDefault(e => e.Key == _selected);
+    public GridEntry? Selected => _entries.FirstOrDefault(e => e.Key == _selected) ?? BuiltInOf(_selected ?? "");
 
     /// <summary>Adds a grid, or replaces the one with the same key, saves the list and chooses it.</summary>
     public GridEntry Add(GridEntry entry)
     {
+        if (BuiltInOf(entry.Key) is { } builtIn)
+        {
+            Select(builtIn.Key);   // the built-in entry stays as it comes: adding its address chooses it
+            return builtIn;
+        }
         int at = _entries.FindIndex(e => e.Key == entry.Key);
         if (at >= 0)
             _entries[at] = entry;
@@ -105,7 +122,7 @@ public sealed class GridList
     /// <summary>Chooses the grid with this key. False when the list has no such grid.</summary>
     public bool Select(string key)
     {
-        if (_entries.All(e => e.Key != key))
+        if (_entries.All(e => e.Key != key) && BuiltInOf(key) is null)
             return false;
         _selected = key;
         Save();
@@ -116,7 +133,7 @@ public sealed class GridList
     public GridEntry? Find(string address)
     {
         string key = KeyOf(address);
-        return key.Length == 0 ? null : _entries.FirstOrDefault(e => e.Key == key);
+        return key.Length == 0 ? null : _entries.FirstOrDefault(e => e.Key == key) ?? BuiltInOf(key);
     }
 
     /// <summary>--grid=&lt;address&gt; on the command line: adds the grid when it is new and chooses it. Null when the option is not an address.</summary>

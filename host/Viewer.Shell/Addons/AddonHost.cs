@@ -469,7 +469,16 @@ public sealed class AddonHost : IActionVeto, IDisposable
     internal void RaiseScreenChanged() => ScreenChanged?.Invoke();
 
     /// <summary>The user logged in to a grid of this kind.</summary>
-    public void LoggedIn(Viewer.Core.Session.GridKind grid) => LoggedIn();
+    public void LoggedIn(Viewer.Core.Session.GridKind grid)
+    {
+        if (_loggedIn)
+            return;
+        _grid = grid == Viewer.Core.Session.GridKind.SecondLife ? AddonGridType.SecondLife : AddonGridType.OpenSim;
+        LoggedIn();
+    }
+
+    private AddonGridType _grid = AddonGridType.Unknown;
+    internal AddonGridType CurrentGrid => _loggedIn ? _grid : AddonGridType.Unknown;
 
     public void LoggedIn()
     {
@@ -486,6 +495,7 @@ public sealed class AddonHost : IActionVeto, IDisposable
         if (!_loggedIn)
             return;
         _loggedIn = false;
+        _grid = AddonGridType.Unknown;
         _motion = MotionState.Unknown;
         _playing = [];
         Dispatch("logged out", c => c.RaiseLoggedOut());
@@ -775,6 +785,7 @@ internal sealed class AddonContext(AddonHost host, AddonEntry entry) : IAddonCon
     public event Action? Tick { add { if (!_closed) _tick += value; } remove => _tick -= value; }
 
     public bool LoggedInNow => Need(AddonPermissions.Session) && host.IsLoggedIn;
+    public AddonGridType GridType => host.CurrentGrid;
     public event Action? LoggedIn { add { if (Need(AddonPermissions.Session)) _loggedIn += value; } remove => _loggedIn -= value; }
     public event Action? LoggedOut { add { if (Need(AddonPermissions.Session)) _loggedOut += value; } remove => _loggedOut -= value; }
     public event Action<string>? RegionChanged { add { if (Need(AddonPermissions.Session)) _region += value; } remove => _region -= value; }

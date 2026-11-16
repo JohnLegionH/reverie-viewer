@@ -91,14 +91,14 @@ public sealed class ViewerSession : IDisposable
     public string LoginUri => _opts.LoginUri;
 
     /// <summary>Which kind of grid this session is on, from its login address's host (<see cref="GridPolicy.KindOf"/>).</summary>
-    public GridKind Grid => GridKind.OpenSim;
+    public GridKind Grid { get; }
 
     /// <summary>Whether a feature beyond the official viewer may run on this session's grid (<see cref="GridPolicy.Allows"/>).</summary>
-    public bool Allows(ViewerFeature feature) => false;
+    public bool Allows(ViewerFeature feature) => GridPolicy.Allows(feature, Grid);
 
     /// <summary>Whether <paramref name="self"/> may save objects whose parts <paramref name="partCreators"/> made to a file on this
     /// session's grid (<see cref="GridPolicy.MayBackUp"/>).</summary>
-    public bool MayBackUp(Guid self, IReadOnlyCollection<Guid> partCreators) => false;
+    public bool MayBackUp(Guid self, IReadOnlyCollection<Guid> partCreators) => GridPolicy.MayBackUp(Grid, self, partCreators);
     private readonly ISessionTransport _transport;
     private readonly OutboundPolicy _outbound;
     private readonly CoreLog _log;
@@ -404,6 +404,7 @@ public sealed class ViewerSession : IDisposable
         if (bad.Count > 0)
             throw new ArgumentException("invalid outbound options: " + string.Join(", ", bad), nameof(options));
         _opts = options;
+        Grid = GridPolicy.KindOf(options.LoginUri);
         _transport = transport;
         _outbound = new OutboundPolicy(options.Outbound);
         _drawDistance = Interest.ClampDrawDistance(options.DrawDistance);

@@ -27,6 +27,23 @@
     <Using Include="Viewer.Motion" />
   </ItemGroup>
 
+  <!--
+    The version told to a grid is the three-part Version above and a build number: the number of commits in the history the
+    build is made from, so every commit has its own version (the official viewer's major.minor.patch.build form). Outside a git
+    checkout, or when git is not found, the build number is 0. ViewerIdentity reads it from the informational version.
+  -->
+  <Target Name="ViewerBuildNumber" BeforeTargets="AddSourceRevisionToInformationalVersion;GetAssemblyVersion;GenerateAssemblyInfo" Condition="'$(ViewerBuildNumber)' == ''">
+    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; rev-list --count HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ViewerCommitCount" />
+      <Output TaskParameter="ExitCode" PropertyName="_ViewerGitExit" />
+    </Exec>
+    <PropertyGroup>
+      <ViewerBuildNumber Condition="'$(_ViewerGitExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_ViewerCommitCount)', '^\d+$'))">$(_ViewerCommitCount)</ViewerBuildNumber>
+      <ViewerBuildNumber Condition="'$(ViewerBuildNumber)' == ''">0</ViewerBuildNumber>
+      <InformationalVersion>$(Version).$(ViewerBuildNumber)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Viewer.Core.Tests" />
     <InternalsVisibleTo Include="Viewer.Core.LifecycleSmoke" />

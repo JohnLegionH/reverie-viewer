@@ -53,18 +53,52 @@ public enum FeatureReach
 /// </summary>
 public static class GridPolicy
 {
-    private static readonly IReadOnlyDictionary<ViewerFeature, FeatureReach> Declared = new Dictionary<ViewerFeature, FeatureReach>();
+    // The declarations. Backup and restore follow the Third-Party Viewer Policy 2.b: content is exported only when every part's
+    // creator is the person. The automation interface is local and off unless the viewer is started with --automation; the
+    // add-on host and the restriction set act only as the person could by hand. Each is a choice recorded here, in one place.
+    private static readonly IReadOnlyDictionary<ViewerFeature, FeatureReach> Declared = new Dictionary<ViewerFeature, FeatureReach>
+    {
+        [ViewerFeature.Backup] = FeatureReach.OwnCreationsOnSecondLife,
+        [ViewerFeature.Restore] = FeatureReach.OwnCreationsOnSecondLife,
+        [ViewerFeature.Automation] = FeatureReach.Everywhere,
+        [ViewerFeature.Addons] = FeatureReach.Everywhere,
+        [ViewerFeature.Restrictions] = FeatureReach.Everywhere,
+    };
+
+    // Linden Lab's own domains: every Second Life login service (the main grid and the beta grid) is under one of them.
+    private static readonly string[] SecondLifeDomains = ["lindenlab.com", "secondlife.com", "secondlife.io"];
 
     /// <summary>The kind of grid a login address belongs to: Second Life when its host is one of Linden Lab's.</summary>
-    public static GridKind KindOf(string? loginUri) => GridKind.OpenSim;
+    public static GridKind KindOf(string? loginUri)
+    {
+        if (string.IsNullOrWhiteSpace(loginUri) || !Uri.TryCreate(loginUri.Trim(), UriKind.Absolute, out var uri) || uri.Host.Length == 0)
+            return GridKind.OpenSim;
+        string host = uri.Host.TrimEnd('.').ToLowerInvariant();
+        foreach (var domain in SecondLifeDomains)
+            if (host == domain || host.EndsWith("." + domain, StringComparison.Ordinal))
+                return GridKind.SecondLife;
+        return GridKind.OpenSim;
+    }
 
     /// <summary>The declared place of a feature, or null when it has none.</summary>
-    public static FeatureReach? ReachOf(ViewerFeature feature) => null;
+    public static FeatureReach? ReachOf(ViewerFeature feature) => Declared.TryGetValue(feature, out var reach) ? reach : null;
 
-    /// <summary>Whether a feature may run on this kind of grid at all.</summary>
-    public static bool Allows(ViewerFeature feature, GridKind grid) => false;
+    /// <summary>Whether a feature may run on this kind of grid at all. An undeclared feature is off on Second Life and unchanged
+    /// elsewhere.</summary>
+    public static bool Allows(ViewerFeature feature, GridKind grid) => ReachOf(feature) switch
+    {
+        null => grid != GridKind.SecondLife,
+        FeatureReach.OpenSimOnly => grid != GridKind.SecondLife,
+        _ => true,
+    };
 
     /// <summary>Whether objects whose parts were made by <paramref name="partCreators"/> may be saved to a file by
-    /// <paramref name="self"/> on this kind of grid.</summary>
-    public static bool MayBackUp(GridKind grid, Guid self, IReadOnlyCollection<Guid> partCreators) => false;
+    /// <paramref name="self"/> on this kind of grid. On Second Life every part must be the person's own creation, and an object
+    /// with no parts listed is refused; elsewhere this rule does not limit it.</summary>
+    public static bool MayBackUp(GridKind grid, Guid self, IReadOnlyCollection<Guid> partCreators)
+    {
+        if (grid != GridKind.SecondLife)
+            return Allows(ViewerFeature.Backup, grid);
+        return Allows(ViewerFeature.Backup, grid) && self != Guid.Empty && partCreators.Count > 0 && partCreators.All(c => c == self);
+    }
 }

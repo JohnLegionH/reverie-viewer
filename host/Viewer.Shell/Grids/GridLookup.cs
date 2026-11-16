@@ -26,6 +26,9 @@ public static class GridLookup
         var tidy = GridAddress.Tidy(typed);
         if (tidy.Uri is not { } uri)
             return new(null, tidy.ProblemKey, false);
+        // Second Life serves no grid-info document: its address is the built-in entry, asked nothing
+        if (Viewer.Core.Session.GridPolicy.KindOf(uri.ToString()) == Viewer.Core.Session.GridKind.SecondLife)
+            return GridList.KeyOf(uri.ToString()) == GridList.SecondLife.Key ? new(GridList.SecondLife, null, false) : new(null, "grid.add.not_grid", false);
         bool http = HttpWarning(uri) is not null;
         // the address without get_grid_info is the one kept: the list knows the grid by it
         string address = GridAddress.GridInfoOf(uri) == uri ? BaseOf(uri) : uri.ToString();
@@ -41,6 +44,8 @@ public static class GridLookup
     /// <summary>Refresh info: the entry with what the grid publishes now; the name the person gave it stays.</summary>
     public static async Task<GridLookupResult> RefreshAsync(GridEntry entry, GridFetcher fetch, CancellationToken ct)
     {
+        if (entry.BuiltIn)
+            return new(entry, null, false);
         var found = await LookUpAsync(entry.Address, fetch, ct).ConfigureAwait(false);
         if (found.Entry is not { } fresh)
             return found;

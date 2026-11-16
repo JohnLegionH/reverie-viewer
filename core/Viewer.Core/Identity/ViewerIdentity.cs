@@ -35,15 +35,16 @@ public sealed record ViewerIdentity(string Name, string Channel, string Version)
     /// <summary>What this release is, shown after the version on the login screen.</summary>
     public const string ReleaseLabel = "early preview";
 
-    /// <summary>The identity of this build: name and channel "Reverie Viewer", version = the core's three-part version.</summary>
+    /// <summary>The identity of this build: name and channel "Reverie Viewer", version = the core's three-part version and the
+    /// build number (major.minor.patch.build, a different version for every commit; Viewer.Core.csproj, ViewerBuildNumber).</summary>
     public static ViewerIdentity Current { get; } =
-        new(ProductName, ProductName, ThreePartVersion(typeof(ViewerIdentity).Assembly));
+        new(ProductName, ProductName, BuildVersion(typeof(ViewerIdentity).Assembly));
 
     /// <summary>HTTP user agent for the login and capability requests: a product token, so no spaces.</summary>
     public string UserAgent => Name.Replace(" ", "") + "/" + Version;
 
     /// <summary>AssemblyInformationalVersion without its "+sha" build-metadata suffix, else Version as major.minor.build.</summary>
-    internal static string ThreePartVersion(Assembly assembly)
+    internal static string BuildVersion(Assembly assembly)
     {
         var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         if (!string.IsNullOrWhiteSpace(informational))

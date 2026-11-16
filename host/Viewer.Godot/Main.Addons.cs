@@ -279,7 +279,7 @@ public partial class Main
         if (live && !_addonsInWorld && self is not null)
         {
             _addonsInWorld = true;
-            host.LoggedIn();
+            host.LoggedIn(_addonsFor!.Grid);
         }
         while (_addonChat.TryDequeue(out var line))
             if (_addonsInWorld)

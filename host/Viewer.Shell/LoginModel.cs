@@ -50,7 +50,7 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     {
         int mine = Interlocked.Increment(ref _brandingAsked);
         GridBranding found = GridBranding.None;
-        if (fetcher is not null && GridAddress.Tidy(typed).Uri is { } uri)
+        if (fetcher is not null && GridAddress.Tidy(typed).Uri is { } uri && !IsSecondLife(uri))
         {
             try
             {
@@ -69,6 +69,9 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     }
 
     private int _brandingAsked;
+
+    /// <summary>Second Life serves no grid-info document: its login address is used as given and asked nothing else.</summary>
+    private static bool IsSecondLife(Uri uri) => GridPolicy.KindOf(uri.ToString()) == GridKind.SecondLife;
 
     /// <summary>Add a grid's Look up, through the same outbound rules and certificate choices as the login (ten seconds at most).</summary>
     public async Task<Viewer.Shell.Grids.GridLookupResult> LookUpGridAsync(string typed)
@@ -278,7 +281,7 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
         {
             // the grid's own login address, looked up from the address that was typed (and only from it)
             var login = uri;
-            if (fetcher is not null)
+            if (fetcher is not null && !IsSecondLife(uri))
             {
                 SetStatus(strings.Get("login.status.checking", uri));
                 var resolved = await GridAddress.ResolveAsync(uri, fetcher, attempt.Token).ConfigureAwait(false);

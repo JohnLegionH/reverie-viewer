@@ -313,20 +313,22 @@ public partial class LoginScreen : Control
         return m;
     }
 
-    /// <summary>The grids on the list, the chosen one shown; then Add a grid… and Manage grids…; an empty list shows "Choose a grid".</summary>
+    /// <summary>The person's grids and then Second Life, the chosen one shown; then Add a grid… and Manage grids…; with no grid chosen
+    /// the chooser shows "Choose a grid".</summary>
     private void FillGrids()
     {
         _grid.Clear();
         int selected = -1;
-        if (_grids.Entries.Count == 0)
+        var grids = _grids.All;
+        if (_grids.Selected is null)
         {
             _grid.AddIconItem(ReverieIcons.Get(LucideIcons.Grid), _strings.Get("login.grid.none"), PlaceholderItemId);
             _grid.SetItemDisabled(0, true);
             selected = 0;
         }
-        for (int i = 0; i < _grids.Entries.Count; i++)
+        for (int i = 0; i < grids.Count; i++)
         {
-            var e = _grids.Entries[i];
+            var e = grids[i];
             _grid.AddIconItem(ReverieIcons.Get(LucideIcons.Grid), e.Name, i);
             _grid.SetItemMetadata(_grid.ItemCount - 1, e.Key);
             _grid.SetItemTooltip(_grid.ItemCount - 1, e.Address);
@@ -682,7 +684,7 @@ public partial class LoginScreen : Control
             focus = focused?.Name.ToString(),
             grid = _grids.Selected?.Name,
             grid_address = _grids.Selected?.Address,
-            grids = _grids.Entries.Select(e => e.Name).ToArray(),
+            grids = _grids.All.Select(e => e.Name).ToArray(),
             grid_popup_open = popup.Visible,
             grid_popup_focused = popup.Visible ? popup.GetFocusedItem() : -1,
             grid_add_index = _grid.GetItemIndex(AddItemId),

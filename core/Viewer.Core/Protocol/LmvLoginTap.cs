@@ -41,6 +41,7 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
                 {
                     isLogin = true;
                     map["extended_errors"] = OSD.FromBoolean(true);   // asks for message ids and arguments (lllogininstance.cpp, constructAuthParams)
+                    AddOfficialFields(map);
                     LogFields(map);
                     var rewritten = new ByteArrayContent(OSDParser.SerializeLLSDXmlBytes(map));
                     foreach (var h in body.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) rewritten.Headers.TryAddWithoutValidation(h.Key, h.Value);
@@ -70,6 +71,25 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
             }
         }
         return response;
+    }
+
+    /// <summary>The fields of the official viewer's request that the library does not send (lllogininstance.cpp, constructAuthParams):
+    /// the address size, the operating system's own description, an empty host id, and how the last run ended. This viewer keeps no
+    /// record of its last run's end, so it says what the official viewer says after a normal exit: event 0, no duration, no session.
+    /// A field the library already sent is left as it is.</summary>
+    internal static void AddOfficialFields(OSDMap map)
+    {
+        void Add(string name, OSD value)
+        {
+            if (!map.ContainsKey(name))
+                map[name] = value;
+        }
+        Add("address_size", OSD.FromInteger(IntPtr.Size * 8));
+        Add("platform_string", OSD.FromString(System.Runtime.InteropServices.RuntimeInformation.OSDescription));
+        Add("host_id", OSD.FromString(""));
+        Add("last_exec_event", OSD.FromInteger(0));
+        Add("last_exec_duration", OSD.FromInteger(0));
+        Add("last_exec_session_id", OSD.FromString(Guid.Empty.ToString()));
     }
 
     private void LogFields(OSDMap map)
