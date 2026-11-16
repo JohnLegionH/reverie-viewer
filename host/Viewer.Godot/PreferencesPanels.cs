@@ -134,9 +134,9 @@ public sealed partial class PreferencesPanel : VBoxContainer
         var navScroll = new ScrollContainer { Name = "categories_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, CustomMinimumSize = new Vector2(150, 0) };
         body.AddChild(navScroll);
         var nav = new VBoxContainer { Name = "categories", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        // the buttons sit with no gap between them, so every category fits the window's usual size whatever the theme's button padding
-        // (a theme with deeper buttons put the last one behind a scroll bar)
-        nav.AddThemeConstantOverride("separation", 0);
+        // when the list is taller than its place (a theme with deeper buttons put the last one behind a scroll bar at the window's usual
+        // size), the buttons close up with no gap between them; the list only scrolls when even that does not fit (a large interface size)
+        navScroll.Resized += () => FitCategories(navScroll, nav);
         nav.AccessibilityName = strings.Get("prefs.categories");
         navScroll.AddChild(nav);
         foreach (var id in Categories)
@@ -357,6 +357,20 @@ public sealed partial class PreferencesPanel : VBoxContainer
 
     /// <summary>The page view of a settings page (null for the interface page, which is drawn apart).</summary>
     public PrefPageView? PageView(PrefPage page) => _views.GetValueOrDefault(page);
+
+    /// <summary>The category list keeps the theme's gap between its buttons when they fit its place, and closes the gaps when they do not.</summary>
+    private static void FitCategories(ScrollContainer scroll, VBoxContainer nav)
+    {
+        nav.RemoveThemeConstantOverride("separation");
+        int gap = nav.GetThemeConstant("separation");
+        int buttons = nav.GetChildCount();
+        float height = 0;
+        foreach (var c in nav.GetChildren())
+            if (c is Control ctl && ctl.Visible)
+                height += ctl.GetCombinedMinimumSize().Y;
+        if (height + gap * Math.Max(0, buttons - 1) > scroll.Size.Y)
+            nav.AddThemeConstantOverride("separation", 0);
+    }
 
     /// <summary>Shows one category's page (a name from <see cref="Categories"/>).</summary>
     public void ShowCategory(string id)
