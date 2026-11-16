@@ -3,10 +3,14 @@
 
 namespace Viewer.Shell;
 
-public enum LoginControlKind { Text, Secret, Button, Status, Note }
+public enum LoginControlKind { Text, Secret, Button, Status, Note, Choice, Check }
 
 /// <summary>One control of the login screen: its id, kind, the string-table key of its visible label and of its accessible name.</summary>
-public sealed record LoginControl(string Id, LoginControlKind Kind, string LabelKey, string AccessibleNameKey, string? HintKey = null);
+public sealed record LoginControl(string Id, LoginControlKind Kind, string LabelKey, string AccessibleNameKey, string? HintKey = null)
+{
+    /// <summary>Whether Enter in this field logs in.</summary>
+    public bool EnterLogsIn => false;
+}
 
 /// <summary>
 /// The login screen as data (ADR-020): Viewer.Godot builds its controls from this list, so the tests can check that
