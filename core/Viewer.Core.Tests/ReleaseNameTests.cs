@@ -33,7 +33,7 @@ public class ReleaseNameTests
         var id = ViewerIdentity.Current;
         Assert.Equal("Reverie Viewer", id.Name);
         Assert.Equal("Reverie Viewer", id.Channel);
-        Assert.Matches(@"^0\.1\.1\.\d+$", id.Version);   // the core's version and the build number (ViewerIdentityTests)
+        Assert.Matches(@"^0\.1\.2\.\d+$", id.Version);   // the core's version and the build number (ViewerIdentityTests)
         Assert.Equal("ReverieViewer/" + id.Version, id.UserAgent);
     }
 
@@ -58,7 +58,7 @@ public class ReleaseNameTests
     public void The_login_screen_shows_the_product_its_version_and_the_release_label()
     {
         Assert.Equal($"Reverie Viewer {ViewerIdentity.Current.Version} (early preview)", AboutText.LoginRelease(StringTable.English(), ViewerIdentity.Current));
-        Assert.Equal("Reverie Viewer 0.1.1 (early preview)", AboutText.LoginRelease(StringTable.English(), ViewerIdentity.Current.WithoutBuildNumber()));
+        Assert.Equal("Reverie Viewer 0.1.2 (early preview)", AboutText.LoginRelease(StringTable.English(), ViewerIdentity.Current.WithoutBuildNumber()));
     }
 
     [Fact]
