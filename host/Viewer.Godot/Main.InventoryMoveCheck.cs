@@ -191,7 +191,7 @@ public partial class Main
             Step("open_with_key", panel.IsVisibleInTree(), new { shown = panel.IsVisibleInTree() });
             if (!panel.IsVisibleInTree())
                 return new { ok = false, steps };
-            panel.Search.Text = "";
+            panel.Search.Clear();
 
             // 2. every folder opened by a double-click on its name, the agent's and the library's, until none is left closed
             var opened = new HashSet<Guid>();
