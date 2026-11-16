@@ -3,14 +3,25 @@
 
 # Starts the released Linux x86_64 package on the newest Ubuntu release and the newest Ubuntu LTS, each in a fresh
 # official Ubuntu container, with software graphics (Mesa's lavapipe) and a virtual display. It fetches the package
-# from the release itself, so the file tested is the file people download, and checks its checksum first.
-# Pass: the login screen draws on each Ubuntu and nothing crashes. The screenshot, the logs and a summary are kept as
-# the run's artifacts.
+# from the release itself (a draft too), so the file tested is the file people download, and checks its checksum first.
+# Pass: started through the package's launcher, the login screen draws on each Ubuntu, the built-in start check (S-1)
+# passes and nothing crashes. A third job installs everything but the display libraries: the launcher must name what
+# is missing and exit 1 without starting the engine. The screenshot, the logs and a summary are kept as artifacts.
+# Started by hand (Actions, "Run workflow", or gh workflow run) with the release's tag, version and package checksum.
 name: Linux start check
 
 on:
-  push:
-    branches: [linux-pkg-1]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "The release's tag (a draft's tag works), for example v0.1.2"
+        required: true
+      version:
+        description: "The version in the package names, for example 0.1.2"
+        required: true
+      package_sha256:
+        description: "SHA-256 of the linux-x86_64 package as it was built"
+        required: true
 
 # A draft release and its files are visible only to a token that may write the repository's contents: with read
 # alone the release is not found. The workflow only reads; nothing in it writes to the repository or the release.
@@ -18,22 +29,26 @@ permissions:
   contents: write
 
 env:
-  RELEASE_TAG: v0.1.1
-  PACKAGE: reverie-viewer-0.1.1-linux-x86_64
-  SUMS: reverie-viewer-0.1.1-SHA256SUMS.txt
+  RELEASE_TAG: ${{ inputs.release_tag }}
+  PACKAGE: reverie-viewer-${{ inputs.version }}-linux-x86_64
+  SUMS: reverie-viewer-${{ inputs.version }}-SHA256SUMS.txt
   # the checksum of the package as it was built, so a file changed after the build is refused too
-  PACKAGE_SHA256: "289de5489d98242e506e30ec0f65a6b458c015b66a03de7d3c819f47c4c360ca"
+  PACKAGE_SHA256: ${{ inputs.package_sha256 }}
 
 jobs:
   start:
-    name: Start on Ubuntu ${{ matrix.ubuntu }}
+    name: Ubuntu ${{ matrix.ubuntu }} (${{ matrix.mode }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        # 26.10: the newest release; 26.04: the newest LTS
-        ubuntu: ["26.10", "26.04"]
+        # 26.10: the newest release; 26.04: the newest LTS. "start": the README's packages; "no-display-libs": all
+        # but the display libraries, where the launcher must say what is missing.
+        include:
+          - { ubuntu: "26.10", mode: start }
+          - { ubuntu: "26.04", mode: start }
+          - { ubuntu: "26.04", mode: no-display-libs }
     steps:
       - uses: actions/checkout@v4
 
@@ -49,12 +64,12 @@ jobs:
 
       - name: Start Reverie in ubuntu:${{ matrix.ubuntu }}
         run: |
-          docker run --rm -e PACKAGE -v "$RUNNER_TEMP/work:/work" -v "$RUNNER_TEMP/out:/out" \
+          docker run --rm -e PACKAGE -e MODE=${{ matrix.mode }} -v "$RUNNER_TEMP/work:/work" -v "$RUNNER_TEMP/out:/out" \
             -v "$GITHUB_WORKSPACE/.github/scripts:/scripts:ro" -v "$GITHUB_WORKSPACE/README.md:/readme/README.md:ro" \
             "ubuntu:${{ matrix.ubuntu }}" bash /scripts/linux-start-check.sh
 
       - name: Screenshot
-        if: always()
+        if: always() && matrix.mode == 'start'
         run: |
           test -f "$RUNNER_TEMP/out/screen.xwd" || { echo "no screenshot was taken"; exit 1; }
           python3 .github/scripts/xwd-to-png.py "$RUNNER_TEMP/out/splash.xwd" "$RUNNER_TEMP/out/splash-ubuntu-${{ matrix.ubuntu }}.png" || true
@@ -67,7 +82,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: start-ubuntu-${{ matrix.ubuntu }}
+          name: ${{ matrix.mode }}-ubuntu-${{ matrix.ubuntu }}
           path: |
             ${{ runner.temp }}/out/
             !${{ runner.temp }}/out/*.xwd

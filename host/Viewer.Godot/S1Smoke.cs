@@ -25,7 +25,7 @@ namespace Viewer.Godot;
 ///       with the string-table message;
 ///   (a) the net10 Viewer.Core loads (its version);
 ///   (b) the physics lifecycle, 1,000 create/destroy cycles in THIS process, same bounds;
-///   (c) which joltc is loaded (path + SHA-256, must be the patched build);
+///   (c) which joltc is loaded (path + SHA-256, must be the vendored build for the platform, <see cref="JoltcModuleCheck"/>);
 ///   (d) the actual rendering driver, method and GPU adapter;
 ///   (f) Godot's own 3D physics is the Dummy server;
 ///   (h): engine errors/warnings/prints routed through EngineLogger reach the log redacted (ADR-019);
@@ -39,7 +39,6 @@ namespace Viewer.Godot;
 /// </summary>
 public partial class S1Smoke : Node
 {
-    private const string PatchedJoltc = "16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5";
 
     public const int ExitPass = 0, ExitFail = 1, ExitError = 2;
 
@@ -193,20 +192,19 @@ public partial class S1Smoke : Node
         if (!lifecycle.Pass)
             _failures.Add("physics lifecycle: " + lifecycle.Verdict);
 
-        // (c) which joltc is loaded.
+        // (c) which joltc is loaded: joltc.dll on Windows, libjoltc.so on Linux, each the vendored build for its platform.
         using (var self = Process.GetCurrentProcess())
         {
-            var joltc = self.Modules.Cast<ProcessModule>()
-                .Where(m => m.ModuleName.StartsWith("joltc", StringComparison.OrdinalIgnoreCase))
-                .Select(m => new Dictionary<string, object?> { ["path"] = m.FileName, ["sha256"] = Sha256(m.FileName) })
+            var loaded = self.Modules.Cast<ProcessModule>()
+                .Where(m => JoltcModuleCheck.IsJoltc(m.ModuleName))
+                .Select(m => new JoltcModuleCheck.Module(m.ModuleName, m.FileName, Sha256(m.FileName)))
                 .ToList();
-            _result["joltc_loaded"] = joltc;
-            foreach (var j in joltc)
-                Log($"joltc loaded: {j["path"]} sha256={j["sha256"]}");
-            if (joltc.Count != 1)
-                _failures.Add($"expected exactly one loaded joltc module, found {joltc.Count}");
-            else if (!string.Equals((string?)joltc[0]["sha256"], PatchedJoltc, StringComparison.OrdinalIgnoreCase))
-                _failures.Add($"loaded joltc is NOT the patched build: {joltc[0]["sha256"]}");
+            string rid = JoltcModuleCheck.CurrentRid();
+            _result["joltc_loaded"] = loaded.Select(j => new Dictionary<string, object?> { ["path"] = j.Path, ["sha256"] = j.Sha256 }).ToList();
+            _result["joltc_platform"] = rid;
+            foreach (var j in loaded)
+                Log($"joltc loaded: {j.Path} sha256={j.Sha256}");
+            _failures.AddRange(JoltcModuleCheck.Failures(rid, loaded));
         }
 
         // (f) Godot's own 3D physics is the Dummy server: the setting, and the server refusing to create anything.

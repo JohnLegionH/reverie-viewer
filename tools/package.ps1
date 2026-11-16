@@ -23,7 +23,7 @@
 #   4. scans every export for the developer tools (ShippingExportsScanTests, NV_SHIP_EXPORTS = -Exports): 4 passed, 0 skipped;
 #   4b. checks every export comes with no grid filled in (assert-no-grid-address.ps1) and carries no Linden Lab or InWorldz logo
 #      (assert-no-logo.ps1; by content too when NV_CHARACTER_DIR points into the official viewer's source);
-#   5. packs: Windows as a .zip, Linux as a .tar.gz with Unix modes (the executable, createdump and every .so 0755, the rest
+#   5. packs: Windows as a .zip, Linux as a .tar.gz with Unix modes (the executable, the launcher "reverie", createdump and every .so 0755, the rest
 #      0644), each one folder <package>\ holding the export, LICENSE, THIRD-PARTY-NOTICES.md, ThirdPartyLicenses\ and FIRST-RUN.txt
 #      (from tools\release\FIRST-RUN-<os>.txt);
 #   6. writes <name>-<version>-SHA256SUMS.txt beside the packages (sha256sum's format: "<hash>  <file>").
@@ -233,6 +233,11 @@ foreach ($p in $Platforms) {
     $text = $text.Replace("{NAME}", $id.Display).Replace("{VERSION}", $id.Version).Replace("{PACKAGE}", $pkg).Replace("{EXE}", $t.Exe).Replace("{ARCH}", $t.Arch).Replace("{DATA_NAME}", $dataName)
     if ($t.Os -eq "windows") { $text = $text.Replace("`n", "`r`n") }
     [IO.File]::WriteAllText((Join-Path $stage "FIRST-RUN.txt"), $text + $(if ($t.Os -eq "windows") { "`r`n" } else { "`n" }), [Text.UTF8Encoding]::new($false))
+    if ($t.Os -eq "linux") {
+        # the launcher (tools\release\reverie-linux.sh): says what is missing when no window can open, else starts the engine
+        $launcher = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "release\reverie-linux.sh")).Replace("`r`n", "`n")
+        [IO.File]::WriteAllText((Join-Path $stage "reverie"), $launcher, [Text.UTF8Encoding]::new($false))
+    }
     if ($t.Os -eq "windows") {
         $out = Join-Path $OutDir "$pkg.zip"
         [IO.Compression.ZipFile]::CreateFromDirectory($stage, $out, [IO.Compression.CompressionLevel]::Optimal, $true)
@@ -246,7 +251,7 @@ foreach ($p in $Platforms) {
         }
         foreach ($f in Get-ChildItem -LiteralPath $stage -Recurse -File -Force | Sort-Object FullName) {
             $rel = $f.FullName.Substring($stage.Length + 1).Replace('\', '/')
-            $exec = ($rel -eq $t.Exe) -or ($f.Name -eq "createdump") -or ($f.Name -like "*.so") -or ($f.Name -like "*.so.*")
+            $exec = ($rel -eq $t.Exe) -or ($rel -eq "reverie") -or ($f.Name -eq "createdump") -or ($f.Name -like "*.so") -or ($f.Name -like "*.so.*")
             $mode = if ($exec) { "0755" } else { "0644" }
             $lines.Add("$(Get-MtreePath ($pkg + '/' + $rel)) type=file mode=$mode uid=0 gid=0 contents=$(Get-MtreePath $f.FullName.Replace('\', '/'))")
         }

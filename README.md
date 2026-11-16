@@ -2,36 +2,40 @@
 
 **Your dreams, in view.**
 
-Reverie Viewer is a modern, open-source viewer for OpenSimulator grids. Second Life support is planned. It is a desktop
+Reverie Viewer is a modern, open-source viewer for OpenSimulator grids. It is a desktop
 program built on the Godot engine with a .NET core, and it draws with Vulkan or Direct3D 12.
 
-> **Early preview.** Version 0.1.1 is an early public release. Expect missing features and rough edges, and keep a
+> **Early preview.** Version 0.1.2 is an early public release. Expect missing features and rough edges, and keep a
 > second viewer at hand for anything you rely on.
 
 ## Install and first start
 
 ### Windows 10 or 11 (64-bit)
 
-1. Download `reverie-viewer-0.1.1-windows-x86_64.zip` from the release page and, if you like, check it against the
+1. Download `reverie-viewer-0.1.2-windows-x86_64.zip` from the release page and, if you like, check it against the
    `SHA256SUMS` file published beside it.
 2. Unpack the whole zip into a folder of its own. Keep the files together.
 3. Double-click `Reverie.exe`.
 4. The release is not code-signed yet, so Windows may show **"Windows protected your PC"**. Click **More info**, then
    **Run anyway**. Windows asks this once for each new version.
-5. On the login screen, type your grid's login address (your grid's website gives it, for example
-   `http://grid.example.org:8002/`), your name and your password. No grid is filled in for you.
+5. On the login screen, add your grid (see [Add your grid](#add-your-grid) below), then type your name and your
+   password.
 
 To watch the viewer's log while it runs, start `Reverie.console.exe` instead.
 
 ### Ubuntu 26.04 (and other Linux distributions)
 
-Packages are built for x86_64 (`reverie-viewer-0.1.1-linux-x86_64.tar.gz`) and ARM64
-(`reverie-viewer-0.1.1-linux-arm64.tar.gz`).
+Packages are built for x86_64 (`reverie-viewer-0.1.2-linux-x86_64.tar.gz`) and ARM64
+(`reverie-viewer-0.1.2-linux-arm64.tar.gz`).
 
 ```
-tar -xzf reverie-viewer-0.1.1-linux-x86_64.tar.gz
-./reverie-viewer-0.1.1-linux-x86_64/Reverie.x86_64
+tar -xzf reverie-viewer-0.1.2-linux-x86_64.tar.gz
+./reverie-viewer-0.1.2-linux-x86_64/reverie
 ```
+
+`reverie` checks that a window can open and then starts the viewer (`Reverie.x86_64`, or `Reverie.arm64` on ARM64)
+with the same options. If there is no desktop session, or display libraries are missing, it says which and what to
+install, instead of starting.
 
 - You need a graphics driver with **Vulkan 1.3**. On Ubuntu, the Mesa drivers (`mesa-vulkan-drivers`) cover AMD and Intel
   graphics; for NVIDIA, use the proprietary driver from "Additional Drivers". `vulkaninfo --summary` (package
@@ -49,6 +53,22 @@ tar -xzf reverie-viewer-0.1.1-linux-x86_64.tar.gz
 - The viewer runs natively on Wayland and falls back to X11. To force X11, add `--display-driver x11`.
 - **Testers wanted:** the Linux builds have not yet been run on a real Linux desktop by the developers. If you try one,
   please report what happened, good or bad, on the issues page.
+
+### Add your grid
+
+The grid list on the login screen starts with **Second Life**, which is built in. To add an OpenSimulator grid:
+
+1. On the login screen, open the **Grid** list and choose **Add a grid…**.
+2. Type the grid's login address (your grid's website gives it, for example `https://grid.example.org:8002/`) and
+   choose **Look up**. The viewer asks the grid for its name, sign-up and password pages, and whether it has hypergrid
+   and a currency, and shows what it found.
+3. If the address starts with `http://`, the window warns that the connection isn't encrypted. Use the `https://`
+   address when your grid offers one.
+4. Change the name shown if you like, then choose **Add grid**. The grid is now in the list, and the viewer remembers
+   it and the names you log in with on it.
+
+To change or remove a grid later, open the **Grid** list and choose **Manage grids…**: there you can refresh a grid's
+information, edit it or remove it.
 
 ### Where it keeps its files
 
@@ -69,7 +89,7 @@ OpenGL mode. On older hardware the viewer refuses to start and says why; on Wind
 
 ## What works today
 
-- Logging in to OpenSimulator grids by typing the grid's address, with an optional remembered password (kept protected
+- Logging in to OpenSimulator grids from your own list of grids, with an optional remembered password (kept protected
   for your user account, never as the plain password), the grid's name, colours and links, and its login messages.
   If the connection drops, the viewer reconnects.
 - The world: terrain, water, sky and environment settings, prims, sculpties and mesh objects, glow, projected lights,
@@ -92,7 +112,6 @@ OpenGL mode. On older hardware the viewer refuses to start and says why; on Wind
 
 What you will notice is missing in this preview:
 
-- One grid at a time: there is no saved list of grids yet. Type the grid's address at each login.
 - Inventory is not complete: no emptying the trash, no copy and paste, no item properties, no Worn tab and no filters.
 - No giving or paying people, no profiles and no list of people nearby.
 - No landmarks yet (making one, a places list, teleport history).
@@ -103,7 +122,7 @@ What you will notice is missing in this preview:
 - No music, media or voice.
 - No hypergrid travel.
 - RLV is only partly supported, and off until you turn it on.
-- Logging in to Second Life has not been tried yet.
+- Logging in to Second Life with a real account has not been tried yet.
 - The Linux builds have started and drawn their login screen with software graphics only; they have not been run on a
   real Linux desktop yet.
 

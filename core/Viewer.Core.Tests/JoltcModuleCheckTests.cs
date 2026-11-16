@@ -69,7 +69,7 @@ public class JoltcModuleCheckTests
     public void Two_copies_fail()
     {
         string sha = Sha(Vendored("win-x64", "joltc.dll"));
-        var loaded = new[] { new JoltcModuleCheck.Module("joltc.dll", "C:/a/joltc.dll", sha), new JoltcModuleCheck.Module("joltc.dll", "C:/b/joltc.dll", sha) };
+        var loaded = new[] { new JoltcModuleCheck.Module("joltc.dll", "/opt/a/joltc.dll", sha), new JoltcModuleCheck.Module("joltc.dll", "/opt/b/joltc.dll", sha) };
         Assert.Contains("found 2", Assert.Single(JoltcModuleCheck.Failures("win-x64", loaded)));
     }
 

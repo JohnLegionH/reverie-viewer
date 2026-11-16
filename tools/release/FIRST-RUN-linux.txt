@@ -16,10 +16,12 @@ HOW TO START IT
 1. Unpack the archive, keeping the files together:
        tar -xzf {PACKAGE}.tar.gz
 2. Start it:
-       ./{PACKAGE}/{EXE}
+       ./{PACKAGE}/reverie
+   "reverie" checks that a window can open, then starts the viewer ({EXE}). Without a desktop session, or
+   with display libraries missing, it says which and what to install.
 3. Enter the grid's login address, your name and your password on the login screen.
 To use X11 instead of Wayland, start it with:
-       ./{PACKAGE}/{EXE} --display-driver x11
+       ./{PACKAGE}/reverie --display-driver x11
 
 SETTINGS AND LOGS (the XDG folders; these are the defaults)
 - Settings:  ~/.config/{DATA_NAME}

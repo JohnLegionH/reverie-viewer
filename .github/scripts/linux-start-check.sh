@@ -3,12 +3,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Start check for a Linux package, run inside a fresh official Ubuntu container by .github/workflows/linux-start-check.yml.
-# Inputs: the package archive at /work/$PACKAGE.tar.gz; results go to /out.
+# Inputs: the package archive at /work/$PACKAGE.tar.gz, MODE (start or no-display-libs); results go to /out.
 # It installs only what the README's Linux steps name, plus Mesa's software Vulkan driver (lavapipe, which is part of
-# mesa-vulkan-drivers) and a virtual X display (Xvfb). It starts the viewer with no options, waits for the login screen,
-# lets it draw, saves the virtual screen and the logs, then closes the viewer.
+# mesa-vulkan-drivers) and a virtual X display (Xvfb). It starts the viewer through the package's launcher with no
+# options, waits for the login screen, lets it draw, saves the virtual screen and the logs, then closes the viewer.
 # Pass (exit 0): the log says the login screen is up, the screen then moves on from the start-up splash, the viewer is
-# still running when the screen is taken, and nothing crashed. The picture itself is kept for a person to look at.
+# still running when the screen is taken, nothing crashed, and S-1 passes. The picture is kept for a person to look at.
+# MODE=no-display-libs leaves the README's display libraries out. Pass: the launcher exits 1, names the missing
+# libraries and the install line, and the engine never starts. The engine started directly is recorded for comparison.
 set -u
 out=/out
 mkdir -p "$out"
@@ -26,6 +28,12 @@ apt-get update -qq > "$out/apt.log" 2>&1
 # the README names.
 readme_packages=$(grep -m1 -E '^ *sudo apt install ' /readme/README.md | sed -E 's/^ *sudo apt install +//')
 [ -n "$readme_packages" ] || { result install "no 'sudo apt install' line in the README"; exit 1; }
+mode=${MODE:-start}
+result mode "$mode"
+if [ "$mode" = no-display-libs ]; then
+    # shellcheck disable=SC2086
+    readme_packages=$(printf '%s\n' $readme_packages | grep -v -E '^lib(x|wayland|fontconfig)' | tr '\n' ' ')
+fi
 test_packages="xvfb vulkan-tools"   # the virtual display, and vulkaninfo (the README names it) for the record
 result readme_packages "$readme_packages"
 result test_packages "$test_packages"
@@ -37,11 +45,13 @@ result install ok
 
 # ---- 2. unpack and look at what the package needs ----
 tar -xzf "/work/$PACKAGE.tar.gz" -C /work
-app="/work/$PACKAGE/Reverie.x86_64"
-[ -x "$app" ] || { result unpack "no executable at $app"; exit 1; }
+engine="/work/$PACKAGE/Reverie.x86_64"
+app="/work/$PACKAGE/reverie"
+[ -x "$engine" ] || { result unpack "no executable at $engine"; exit 1; }
+[ -x "$app" ] || { result unpack "no launcher at $app"; exit 1; }
 result unpack ok
 {
-    echo "== ldd Reverie.x86_64"; ldd "$app"
+    echo "== ldd Reverie.x86_64"; ldd "$engine"
     find "/work/$PACKAGE" -name '*.so' -print | sort | while read -r so; do echo "== ldd $so"; ldd "$so"; done
 } > "$out/ldd.txt" 2>&1
 missing=$(grep -c 'not found' "$out/ldd.txt")
@@ -57,6 +67,25 @@ xvfb=$!
 for _ in $(seq 1 50); do [ -e /tmp/.X11-unix/X99 ] && break; sleep 0.2; done
 [ -e /tmp/.X11-unix/X99 ] || { result display "Xvfb did not start"; exit 1; }
 export DISPLAY=:99
+
+if [ "$mode" = no-display-libs ]; then
+    export HOME=/work/home
+    mkdir -p "$HOME"
+    timeout 120 "$app" > "$out/launcher.txt" 2>&1
+    launcher_exit=$?
+    result launcher_exit "$launcher_exit"
+    grep -q 'libXcursor.so.1' "$out/launcher.txt" && named=yes || named=no
+    result launcher_named_libXcursor "$named"
+    grep -q 'sudo apt install' "$out/launcher.txt" && line=yes || line=no
+    result launcher_gave_install_line "$line"
+    grep -q 'DisplayServer' "$out/launcher.txt" && engine_ran=yes || engine_ran=no
+    result engine_started_by_launcher "$engine_ran"
+    timeout 120 "$engine" > "$out/engine-direct.txt" 2>&1
+    result engine_direct_exit "$?"
+    kill "$xvfb" 2> /dev/null
+    [ "$launcher_exit" = 1 ] && [ "$named" = yes ] && [ "$line" = yes ] && [ "$engine_ran" = no ]
+    exit $?
+fi
 
 # ---- 4. start the viewer as a person would, wait for the login screen ----
 export HOME=/work/home
@@ -110,9 +139,10 @@ refused=$(grep -h -E 'startup\.refused' "$logs"/* 2> /dev/null | head -3)
 result startup_refused "${refused:-none}"
 mkdir -p "$out/logs"; cp -r "$logs"/. "$out/logs/" 2> /dev/null
 
-# ---- 6. the built-in start check (S-1), for information only ----
+# ---- 6. the built-in start check (S-1) ----
 timeout 600 "$app" -- --s1-out="$out/s1" --s1-tag=ubuntu > "$out/s1-stdout.txt" 2>&1
-result s1_exit "$?"
+s1=$?
+result s1_exit "$s1"
 kill "$xvfb" 2> /dev/null
 
-[ "$login" = yes ] && [ "$changed" = yes ] && [ "$alive" = yes ] && [ "$crash" = 0 ]
+[ "$login" = yes ] && [ "$changed" = yes ] && [ "$alive" = yes ] && [ "$crash" = 0 ] && [ "$s1" = 0 ]
