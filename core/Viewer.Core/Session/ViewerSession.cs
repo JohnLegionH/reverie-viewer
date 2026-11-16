@@ -192,6 +192,9 @@ public sealed class ViewerSession : IDisposable
     /// region, or Second Life's defaults while the region has sent none.</summary>
     public GridFeatures GridFeatures => (_transport as IGridFeaturesSource)?.GridFeatures() ?? GridFeatures.Defaults;
 
+    /// <summary>Whether the agent's region offers a capability by this name (false when the transport cannot say).</summary>
+    public bool RegionHas(string capability) => (_transport as IGridFeaturesSource)?.HasRegionCapability(capability) ?? false;
+
     public Viewer.Core.Building.EditLimits EditLimits => (_transport as Viewer.Core.Protocol.LmvTransport)?.EditLimits() ?? Viewer.Core.Building.EditLimits.Official;
 
     /// <summary>The grid's model upload (the same capability as images, with a model request), or null when the transport has none.</summary>

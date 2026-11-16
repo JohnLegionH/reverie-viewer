@@ -278,9 +278,12 @@ public partial class Main
                     map_open = _shell?.Shell.Floaters.IsOpen(TravelFeature.MapId) ?? false,
                     markers = map.Markers(size.X, size.Y).Select(m => m.Kind.ToString()).ToArray(),
                     coarse = s.CoarseLocations.Count,
+                    region_sizes = map.Regions.Select(r => new { grid_x = r.GridX, grid_y = r.GridY, size_x = r.SizeX, size_y = r.SizeY }).ToArray(),
                     minimap = mini is null ? null : new
                     {
                         rotated = mini.Rotated, scale = mini.PixelsPerRegion,
+                        // the drawn outline of the agent's region, in metres (one edge's pixels over pixels per 256 m)
+                        outline_m = mini.RegionCorners.Count < 2 || mini.PixelsPerRegion <= 0 ? 0 : Math.Round(Math.Sqrt(Math.Pow(mini.RegionCorners[1].X - mini.RegionCorners[0].X, 2) + Math.Pow(mini.RegionCorners[1].Y - mini.RegionCorners[0].Y, 2)) / mini.PixelsPerRegion * 256),
                         dots = mini.Dots.Select(d => new { id = d.Id, friend = d.Friend }).ToArray(),
                     },
                 };

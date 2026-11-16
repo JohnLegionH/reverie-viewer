@@ -326,6 +326,9 @@ public interface IGridFeaturesSource
 {
     GridFeatures GridFeatures();
     void RequestBalance();
+
+    /// <summary>Whether the agent's region offers a capability by this name.</summary>
+    bool HasRegionCapability(string name);
 }
 
 // ---------------- teleport, the world map and the mini-map ----------------

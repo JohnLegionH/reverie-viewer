@@ -28,5 +28,7 @@ internal sealed partial class LmvTransport : IGridFeaturesSource
         _client.Self.RequestBalance();
     }
 
+    public bool HasRegionCapability(string name) => _client.Network.CurrentSim?.Caps?.CapabilityURI(name) is not null;
+
     private void OnMoneyBalance(object? sender, BalanceEventArgs e) => Raise(new BalanceChanged(e.Balance));
 }
