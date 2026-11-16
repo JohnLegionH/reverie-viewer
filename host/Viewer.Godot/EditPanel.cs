@@ -71,7 +71,8 @@ public partial class EditPanel : VBoxContainer
         var group = new ButtonGroup();
         foreach (var (tool, key) in new[] { (BuildTool.Focus, "edit.tool.focus"), (BuildTool.Move, "edit.tool.move"), (BuildTool.Edit, "edit.tool.edit"), (BuildTool.Create, "edit.tool.create") })
         {
-            var b = new Button { Name = "tool_" + tool.ToString().ToLowerInvariant(), Text = strings.Get(key), ToggleMode = true, ButtonGroup = group };
+            // each tool's tooltip names it with its shortcut (the Build menu's Ctrl+1 to Ctrl+4)
+            var b = new Button { Name = "tool_" + tool.ToString().ToLowerInvariant(), Text = strings.Get(key), ToggleMode = true, ButtonGroup = group, TooltipText = strings.Get(key + ".tip") };
             b.AccessibilityName = b.Text;
             b.Pressed += () => ToolChosen?.Invoke(tool);
             tools.AddChild(b);
@@ -84,7 +85,7 @@ public partial class EditPanel : VBoxContainer
         var manipGroup = new ButtonGroup();
         foreach (var (mode, key) in new[] { (ManipMode.Move, "edit.manip.move"), (ManipMode.Rotate, "edit.manip.rotate"), (ManipMode.Scale, "edit.manip.scale") })
         {
-            var b = new CheckBox { Name = "manip_" + mode.ToString().ToLowerInvariant(), Text = strings.Get(key), ButtonGroup = manipGroup };
+            var b = new CheckBox { Name = "manip_" + mode.ToString().ToLowerInvariant(), Text = strings.Get(key), ButtonGroup = manipGroup, TooltipText = strings.Get(key + ".tip") };
             b.AccessibilityName = b.Text;
             b.Pressed += () => { if (_edit() is { } e) e.Manip = mode; };
             _manipRow.AddChild(b);
@@ -92,7 +93,7 @@ public partial class EditPanel : VBoxContainer
             b.Pressed += () => { if (_edit() is { } e) e.SelectFaces = false; };
         }
         // Select Face: the official radio choice beside Position, Rotate and Stretch (floater_tools.xml radio_select_face)
-        _faceMode = new CheckBox { Name = "manip_face", Text = strings.Get("edit.manip.face"), ButtonGroup = manipGroup };
+        _faceMode = new CheckBox { Name = "manip_face", Text = strings.Get("edit.manip.face"), ButtonGroup = manipGroup, TooltipText = strings.Get("edit.manip.face.tip") };
         _faceMode.AccessibilityName = _faceMode.Text;
         _faceMode.Pressed += () => { if (_edit() is { } e) e.SelectFaces = true; };
         _manipRow.AddChild(_faceMode);
