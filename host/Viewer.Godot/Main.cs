@@ -221,6 +221,8 @@ public partial class Main : Node
         UiTheme.Apply(ThemeResolver.Resolve(startLook, null), ThemeStore.EffectiveScale(startSettings, null, startLook, DisplayScaleProbe.Reading()));
         // the certificates the person chose to trust at login: kept in the settings folder (NV_CERT_STORE names another), applied to every HTTPS connection
         var certificateTrust = new Viewer.Core.Net.CertificateTrust(Viewer.Core.Net.CertificateTrust.FolderFor(settingsDir, System.Environment.GetEnvironmentVariable));
+        var statsFigures = new Viewer.Core.Session.ViewerStatsFigures(0, RenderingServer.GetVideoAdapterName(), RenderingServer.GetVideoAdapterVendor(),
+            RenderingServer.GetVideoAdapterApiVersion(), string.IsNullOrEmpty(startSettings.GetText(Settings.UiLanguageKey)) ? "en" : startSettings.GetText(Settings.UiLanguageKey)!, 0, true, true);
         var model = new LoginModel(strings, opts =>
         {
             var transport = ProtocolAdapters.CreateLibreMetaverse(new OutboundPolicy(opts.Outbound), Log, certificateTrust, CharacterFolder());
@@ -236,7 +238,9 @@ public partial class Main : Node
                 HoldsForNextLogin.Clear();
             }
             transport.SetDrawDistance(Math.Min(Math.Max(opts.DrawDistance / 2f, 50f), opts.DrawDistance));   // arriving: half of the draw distance, before the login
-            return new ViewerSession(opts, transport, Log);
+            // the statistics report's figures (sent only where the grid policy asks for it): read on the report's worker thread, so the
+            // adapter's names are read here, on the main thread, and the frame rate through the engine's own counter
+            return new ViewerSession(opts, transport, Log) { StatsFigures = () => statsFigures with { Fps = Engine.GetFramesPerSecond() } };
         }, GridAddress.HttpFetcher(new OutboundPolicy(new OutboundOptions()), Log, null, certificateTrust), settingsDir);
         model.Trust = certificateTrust;
         // remember password: the login hash only, DPAPI-protected in the settings folder on Windows, the desktop keyring on Linux
