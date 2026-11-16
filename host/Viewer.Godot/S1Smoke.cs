@@ -578,6 +578,77 @@ public partial class S1Smoke : Node
         await Press(Key.Escape, ctrl: false, shift: false, alt: false);
         if (!world.Keys.Contains(Key.Escape)) problems.Add("Esc with no menu open did not reach the world");
 
+        // the right-click menu's other ways of closing, through the engine's pointer input (llmenugl.cpp LLMenuHolderGL): a click anywhere
+        // outside it closes it with no choice and does nothing else, in the world or on another window; a right-click outside closes it and
+        // goes on (the official holder hides its menus on a right mouse-down and passes the click on, so a new menu can open there)
+        async Task Mouse(Vector2 at, MouseButton button)
+        {
+            var mask = button == MouseButton.Right ? MouseButtonMask.Right : MouseButtonMask.Left;
+            global::Godot.Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+            await Frames(1);
+            global::Godot.Input.ParseInputEvent(new InputEventMouseButton { Position = at, GlobalPosition = at, ButtonIndex = button, Pressed = true, ButtonMask = mask });
+            await Frames(1);
+            global::Godot.Input.ParseInputEvent(new InputEventMouseButton { Position = at, GlobalPosition = at, ButtonIndex = button, Pressed = false });
+            await Frames(2);
+        }
+        var outside = new Vector2(60, 420);
+        async Task OpenMenu()
+        {
+            chosen = null;
+            dismissed = 0;
+            panels.Menu.Open(new Vector2(320, 120), [new ContextEntry("touch", "menu.help.about")], id => chosen = id, GetViewport().GetVisibleRect().Size);
+            await Frames(2);
+            world.Buttons.Clear();
+        }
+        await OpenMenu();
+        await Mouse(outside, MouseButton.Left);
+        if (panels.Menu.IsOpen) problems.Add("a click in the world outside the right-click menu left it open");
+        if (dismissed != 1) problems.Add($"a click outside closed the right-click menu {dismissed} times as dismissed");
+        if (chosen is not null) problems.Add($"a click outside chose {chosen}");
+        if (world.Buttons.Count != 0) problems.Add($"the click that closed the right-click menu reached the world [{string.Join(",", world.Buttons)}]");
+        // with no menu open the same click reaches the world
+        world.Buttons.Clear();
+        await Mouse(outside, MouseButton.Left);
+        if (!world.Buttons.Contains("Left+")) problems.Add("a click in the world with no menu open did not reach the world");
+        // a click on another window's button closes the menu and does not press the button
+        var other = new Button { Name = "menu_other_window", Text = "other", Position = new Vector2(40, 300), Size = new Vector2(120, 40) };
+        int otherPressed = 0;
+        other.Pressed += () => otherPressed++;
+        shell.MainView.AddChild(other);
+        await OpenMenu();
+        await Mouse(other.GetGlobalRect().GetCenter(), MouseButton.Left);
+        if (panels.Menu.IsOpen) problems.Add("a click on another window's button left the right-click menu open");
+        if (otherPressed != 0) problems.Add("the click that closed the right-click menu pressed another window's button");
+        await Mouse(other.GetGlobalRect().GetCenter(), MouseButton.Left);
+        if (otherPressed != 1) problems.Add($"with the menu closed, a click on the button pressed it {otherPressed} times");
+        shell.MainView.RemoveChild(other);
+        other.QueueFree();
+        // a right-click outside closes the menu and goes on to the world
+        await OpenMenu();
+        await Mouse(outside, MouseButton.Right);
+        if (panels.Menu.IsOpen) problems.Add("a right-click outside left the right-click menu open");
+        if (chosen is not null) problems.Add($"a right-click outside chose {chosen}");
+        if (!world.Buttons.Contains("Right+")) problems.Add($"a right-click outside the menu did not go on to the world [{string.Join(",", world.Buttons)}]");
+        // a menu of the inventory (the engine's own popup menu) closes on a click outside, and the click does nothing else
+        var popup = new PopupMenu { Name = "menu_popup_check" };
+        popup.AddItem("one", 1);
+        int popupChosen = 0;
+        popup.IdPressed += _ => popupChosen++;
+        shell.AddChild(popup);
+        popup.Popup(new Rect2I(320, 120, 0, 0));
+        await Frames(2);
+        world.Buttons.Clear();
+        await Mouse(outside, MouseButton.Left);
+        if (popup.Visible) problems.Add("a click outside left an inventory popup menu open");
+        if (popupChosen != 0) problems.Add("a click outside chose an inventory popup menu's entry");
+        if (world.Buttons.Count != 0) problems.Add($"the click that closed an inventory popup menu reached the world [{string.Join(",", world.Buttons)}]");
+        popup.Popup(new Rect2I(320, 120, 0, 0));
+        await Frames(2);
+        await Press(Key.Escape, ctrl: false, shift: false, alt: false);
+        if (popup.Visible) problems.Add("Esc left an inventory popup menu open");
+        shell.RemoveChild(popup);
+        popup.QueueFree();
+
         _result["keys"] = new Dictionary<string, object?> { ["shortcuts"] = listed.Count, ["presses"] = tried, ["enabled"] = enabledRuns, ["disabled"] = disabledRuns, ["problems"] = problems };
         Log($"keys: {listed.Count} shortcuts, {tried} presses ({enabledRuns} enabled, {disabledRuns} disabled), {problems.Count} problems{(problems.Count > 0 ? ": " + string.Join(" | ", problems) : "")}");
         RemoveChild(world);
@@ -1326,10 +1397,14 @@ public partial class S1Smoke : Node
 public partial class S1KeySink : Node
 {
     public List<Key> Keys { get; } = new();
+    /// <summary>Every mouse button press and release that reaches the unhandled stage (the world's clicks), as "Left+" and "Left-".</summary>
+    public List<string> Buttons { get; } = new();
 
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is InputEventKey { Pressed: true } k)
             Keys.Add(k.Keycode);
+        if (e is InputEventMouseButton b)
+            Buttons.Add(b.ButtonIndex + (b.Pressed ? "+" : "-"));
     }
 }
