@@ -70,7 +70,13 @@ internal sealed partial class LmvTransport : IWearableTransport
     /// <summary>Whether the item's asset moved: a new id is a change; the same id may still be right (the same file again) and is checked by reading it; none cannot be told.</summary>
     /// <summary>The item as the older item update message sends it after a wearable save: the new name, and the upload's transaction
     /// on the item itself, which is where the region reads it.</summary>
-    internal static InventoryItem LegacyItemUpdate(InventoryItem item, string name, Guid transactionId) => new(item.UUID);
+    internal static InventoryItem LegacyItemUpdate(InventoryItem item, string name, Guid transactionId) => new(item.UUID)
+    {
+        ParentUUID = item.ParentUUID, Name = name, Description = item.Description, AssetType = item.AssetType, InventoryType = item.InventoryType, AssetUUID = item.AssetUUID,
+        Permissions = item.Permissions, OwnerID = item.OwnerID, CreatorID = item.CreatorID, GroupID = item.GroupID, GroupOwned = item.GroupOwned,
+        SaleType = item.SaleType, SalePrice = item.SalePrice, Flags = item.Flags, CreationDate = item.CreationDate,
+        TransactionID = new UUID(transactionId),
+    };
 
     internal static ItemUpdateOutcome JudgeUpdate(Guid before, Guid after) =>
         after == Guid.Empty ? ItemUpdateOutcome.Unknown : after == before ? ItemUpdateOutcome.Same : ItemUpdateOutcome.Changed;
@@ -187,12 +193,7 @@ internal sealed partial class LmvTransport : IWearableTransport
             else
             {
                 // a grid without that API: the older item update message, with the transaction; the grid's own copy of the item is then read until it names a new asset
-                var update = new InventoryItem(item.UUID)
-                {
-                    ParentUUID = item.ParentUUID, Name = name, Description = item.Description, AssetType = item.AssetType, InventoryType = item.InventoryType, AssetUUID = item.AssetUUID,
-                    Permissions = item.Permissions, OwnerID = item.OwnerID, CreatorID = item.CreatorID, GroupID = item.GroupID, GroupOwned = item.GroupOwned,
-                    SaleType = item.SaleType, SalePrice = item.SalePrice, Flags = item.Flags, CreationDate = item.CreationDate,
-                };
+                var update = LegacyItemUpdate(item, name, transactionId);
                 Inv.RequestUpdateItems(new List<InventoryItem> { update }, new UUID(transactionId));
                 after = Guid.Empty;
                 var until = DateTime.UtcNow + ItemConfirmWait;

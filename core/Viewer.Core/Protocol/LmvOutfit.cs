@@ -61,11 +61,28 @@ internal sealed partial class LmvTransport
     /// (a region that does not bake), or nobody (a baking region without the capability).</summary>
     internal enum RebuildPlan { AskRegion, ViewerBakes, NoService }
 
-    internal static RebuildPlan PlanRebuild(Viewer.Core.World.AppearanceMode mode, bool regionHasCapability) => RebuildPlan.AskRegion;
+    internal static RebuildPlan PlanRebuild(Viewer.Core.World.AppearanceMode mode, bool regionHasCapability) =>
+        mode == Viewer.Core.World.AppearanceMode.Client ? RebuildPlan.ViewerBakes
+        : regionHasCapability ? RebuildPlan.AskRegion
+        : RebuildPlan.NoService;
 
     /// <summary>Runs inventory work that waits for a reply the grid may never send, for at most <paramref name="limit"/>: true when it
     /// finished, false when the limit passed first.</summary>
-    internal static Task<bool> WithinAsync(Func<CancellationToken, Task> work, TimeSpan limit) => Task.FromResult(true);
+    internal static async Task<bool> WithinAsync(Func<CancellationToken, Task> work, TimeSpan limit)
+    {
+        using var cut = new CancellationTokenSource(limit);
+        var running = work(cut.Token);
+        var done = await Task.WhenAny(running, Task.Delay(Timeout.Infinite, cut.Token).ContinueWith(_ => { }, TaskScheduler.Default)).ConfigureAwait(false);
+        if (done != running)
+            return false;
+        try { await running.ConfigureAwait(false); }
+        catch (OperationCanceledException) when (cut.IsCancellationRequested) { return false; }
+        return true;
+    }
+
+    /// <summary>The longest an outfit's links are waited for (the older link message is answered one link at a time, and a grid may
+    /// never answer one).</summary>
+    private static readonly TimeSpan LinkReplyLimit = TimeSpan.FromSeconds(30);
 
     private InventoryBase? Stored(Guid id) =>
         _client.Inventory.Store is { } store && store.TryGetValue(new UUID(id), out var b) ? b : null;
@@ -116,8 +133,11 @@ internal sealed partial class LmvTransport
                 await RemoveLinkAsync(linkId).ConfigureAwait(false);
             foreach (var d in change.Renumbered)
                 RewriteLinkNote(d);
-            if (newLinks.Count > 0)
-                await inv.CreateLinksAsync(cof, newLinks, null, CancellationToken.None).ConfigureAwait(false);
+            if (newLinks.Count > 0 && !await WithinAsync(ct => inv.CreateLinksAsync(cof, newLinks, null, ct), LinkReplyLimit).ConfigureAwait(false))
+            {
+                Raise(new OutfitCommandFinished(false, false, "failed", -1, Touched: touched));
+                return;
+            }
             foreach (var (item, request) in toAttach)
                 _client.Appearance.Attach(item, (AttachmentPoint)request.Point, replace: !request.Add);
             foreach (var id in change.Detach)
@@ -221,7 +241,8 @@ internal sealed partial class LmvTransport
             {
                 foreach (var old in oldBaseLinks)
                     await RemoveLinkAsync(old.Guid).ConfigureAwait(false);
-                await inv.CreateLinksAsync(new UUID(s.CofId), new List<(InventoryBase, string)> { (created, "") }, null, CancellationToken.None).ConfigureAwait(false);
+                if (!await WithinAsync(ct => inv.CreateLinksAsync(new UUID(s.CofId), new List<(InventoryBase, string)> { (created, "") }, null, ct), LinkReplyLimit).ConfigureAwait(false))
+                    _log.Warn("outfit.base-link-unanswered", CoreLog.F("folder", "outfit"));
             }
             await RefreshAppearanceAsync(new UUID(s.CofId), save: true, folder: folderId.Guid).ConfigureAwait(false);
         }
@@ -279,8 +300,18 @@ internal sealed partial class LmvTransport
     private async Task<(bool Ok, string Reason, int Version)> RequestRebuildAsync(UUID cof)
     {
         var caps = _client.Network.CurrentSim?.Caps?.CapabilityURI(RefreshCapability);
-        if (caps is null)
-            return (false, "no_service", -1);
+        switch (PlanRebuild(_bakeController?.Mode ?? Viewer.Core.World.AppearanceMode.Unknown, caps is not null))
+        {
+            case RebuildPlan.NoService:
+                return (false, "no_service", -1);
+            case RebuildPlan.ViewerBakes:
+            {
+                // a region that does not bake: the look is the viewer's own bake (started with the change), so the change is done once
+                // the current outfit folder is read back with the grid's version
+                await _client.Inventory.RequestFolderContentsAsync(cof, _client.Self.AgentID, true, true, InventorySortOrder.ByName, CancellationToken.None).ConfigureAwait(false);
+                return Stored(cof.Guid) is InventoryFolder held && held.Version >= 0 ? (true, "", held.Version) : (false, "no_version", -1);
+            }
+        }
         var http = _client.HttpCapsClient;
         for (int attempt = 0; attempt <= RefreshMaxRetries; attempt++)
         {
@@ -294,7 +325,7 @@ internal sealed partial class LmvTransport
             int version = folder.Version;
             try
             {
-                var (_, data) = await http.PostAsync(caps, OSDFormat.Xml, RefreshBody(version), CancellationToken.None).ConfigureAwait(false);
+                var (_, data) = await http.PostAsync(caps!, OSDFormat.Xml, RefreshBody(version), CancellationToken.None).ConfigureAwait(false);
                 if (data is not null && OSDParser.Deserialize(data) is OSDMap reply && reply.TryGetValue("success", out var ok) && ok.AsBoolean())
                     return (true, "", version);
                 // the region refused; the official viewer tries again only when the reply names the version it expected
@@ -378,7 +409,7 @@ internal sealed partial class LmvTransport
                 if (_t.Stored(l.Target) is { } target)
                     items.Add((target, l.Description));
             if (items.Count > 0)
-                await _t._client.Inventory.CreateLinksAsync(new UUID(folder), items, null, CancellationToken.None).ConfigureAwait(false);
+                await WithinAsync(ct => _t._client.Inventory.CreateLinksAsync(new UUID(folder), items, null, ct), LinkReplyLimit).ConfigureAwait(false);   // the save reads the links back to confirm
         }
 
         public async Task<IReadOnlySet<Guid>> ReadLinkTargetsAsync(Guid folder)
