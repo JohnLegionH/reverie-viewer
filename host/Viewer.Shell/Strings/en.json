@@ -762,6 +762,7 @@
   "edit.tex.material.none": "No PBR material",
   "edit.tex.material.choose": "Choose material from inventory",
   "edit.tex.material.remove": "Remove",
+  "edit.tex.material.none": "No materials in your inventory",
   "edit.tex.pbr_scale_u": "Scale u",
   "edit.tex.pbr_scale_v": "Scale v",
   "edit.tex.pbr_offset_u": "Offset u",
