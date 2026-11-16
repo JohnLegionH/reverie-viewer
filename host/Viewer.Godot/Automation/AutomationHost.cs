@@ -439,6 +439,8 @@ public partial class AutomationHost : Node
                 if (Str(call.Body, "reset_slices") == "1") FrameMeter.ResetLongest();   // the longest slice starts again; a light reading follows
                 return AutomationReply.Ok(Str(call.Body, "light") == "1" ? LiveSample.Light(m) : LiveSample.Take());
             }
+            case "script":   // {action: state|where|list, text?: "text" for the front window's text, control?}: the script editor's front window, where its controls stand, the inventory's scripts (development builds only)
+                return m.ScriptCall(Str(call.Body, "action") ?? "state", Str(call.Body, "text"), Str(call.Body, "control")) is { } script ? AutomationReply.Ok(script) : AutomationReply.Error(409, "no shell");
             case "input":   // {kind: key|mouse|text|account|state, key?, button?: left|right|middle (none: a move), down?, shift?, ctrl?, alt?, x?, y?, text?, accounts_file?, account?, part?: name|password}: a key or mouse event through the engine's input path; text: each character typed as a key press; account: the account's name or password typed the same way, read here from the accounts file and never answered (development builds only)
             {
                 if (Str(call.Body, "kind") == "text")

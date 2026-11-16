@@ -1011,6 +1011,9 @@ public sealed class ViewerSession : IDisposable
     /// <summary>The transport's notecard reading, when it has one.</summary>
     public Viewer.Core.Inventory.INotecardTransport? Notecards => _transport as Viewer.Core.Inventory.INotecardTransport;
 
+    /// <summary>Reads and saves scripts (the script editor), where the transport can.</summary>
+    public Viewer.Core.Inventory.IScriptTransport? Scripts => _transport as Viewer.Core.Inventory.IScriptTransport;
+
     /// <summary>The texture asset behind an inventory texture item (the empty id when unknown).</summary>
     public Guid TextureAssetOf(Guid itemId) =>
         (_transport as Viewer.Core.Appearance.IWearableTransport)?.TextureAssetOf(itemId) ?? Guid.Empty;

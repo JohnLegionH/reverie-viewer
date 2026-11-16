@@ -15,8 +15,9 @@ namespace Viewer.Godot;
 /// <summary>
 /// The Build window's Content tab, after the official floater_tools.xml Contents panel and LLPanelObjectInventory (read as behaviour): New
 /// Script, the prim's items by name, Delete and Copy to inventory for the chosen item, and the list as a drop target for inventory items and
-/// whole folders (a folder's items go in one at a time, as Firestorm's Z-drop). The list is asked for when the tab shows a prim. Notecards and
-/// scripts inside a prim are not opened: this viewer has no notecard or script editor yet. Standard controls styled through the Theme alone.
+/// whole folders (a folder's items go in one at a time, as Firestorm's Z-drop). The list is asked for when the tab shows a prim. Open, or a
+/// double-click on a row, opens a script in the script editor (llpanelobjectinventory.cpp opens a script's live editor); notecards inside a
+/// prim are not opened yet. Standard controls styled through the Theme alone.
 /// Main thread only.
 /// </summary>
 public sealed class EditContentTab
@@ -25,7 +26,10 @@ public sealed class EditContentTab
     private readonly Func<EditController?> _edit;
     private readonly Func<InventoryModel?> _inventory;
     private readonly ContentDropList _list;
-    private readonly Button _newScript, _delete, _copy;
+    private readonly Button _newScript, _delete, _copy, _open;
+
+    /// <summary>Open on a row (the button or a double-click): the item's id, for the script editor.</summary>
+    public Action<Guid>? OpenRequested;
     private readonly Label _status;
     private Guid _askedFor;
     private readonly List<Guid> _rows = new();
@@ -43,10 +47,13 @@ public sealed class EditContentTab
         _list.AccessibilityName = strings.Get("edit.content.list");
         _list.Accepts = ids => ids.Count > 0 && _edit()?.Object() is not null;
         _list.Dropped += Drop;
+        _list.ItemActivated += i => { if (i < _rows.Count) OpenRequested?.Invoke(_rows[(int)i]); };
         page.AddChild(_list);
         var row = new HBoxContainer { Name = "content_buttons" };
         _delete = Btn("content_delete", "edit.content.delete", () => { if (Chosen() is { } id) _edit()?.DeleteItem(id); });
         _copy = Btn("content_copy", "edit.content.copy", () => { if (Chosen() is { } id) _edit()?.CopyItemToInventory(id); });
+        _open = Btn("content_open", "edit.content.open", () => { if (Chosen() is { } id) OpenRequested?.Invoke(id); });
+        row.AddChild(_open);
         row.AddChild(_delete);
         row.AddChild(_copy);
         page.AddChild(row);
@@ -131,6 +138,7 @@ public sealed class EditContentTab
         _newScript.Disabled = !modify;
         _delete.Disabled = !modify || Chosen() is null;
         _copy.Disabled = Chosen() is null;
+        _open.Disabled = Chosen() is not { } chosen || items.FirstOrDefault(i => i.ItemId == chosen) is not { AssetType: 10 };
         if (e is { Pending: 0 } && _status.Text.Length > 0 && o is null)
             _status.Text = string.Empty;
         if (o is not null && e is { ContentsKnown: false })
@@ -153,6 +161,9 @@ public sealed class EditContentTab
             }
         return false;
     }
+
+    /// <summary>The Open button (the live check clicks it).</summary>
+    public Button OpenButton => _open;
 
     /// <summary>The list control (the live check drags onto it).</summary>
     public Control List => _list;

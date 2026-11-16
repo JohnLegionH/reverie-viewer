@@ -607,7 +607,7 @@ function Invoke-UiSceneCases {
     # every interface window and the in-world frame, each on its own, in the Classic look on each backend; the login screen and the in-world
     # frame also in High contrast. Goldens: fixtures\ui\golden-ui-<scene>-<look>-<backend>.png (-Propose writes a missing one; approved after
     # viewing). The negative control draws the in-world frame with the accent and the text colour replaced (--tr-alter=wrongtoken): the diff MUST fail.
-    $scenes = @("inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog", "permission", "inspect", "land", "personal", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview", "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "build")
+    $scenes = @("inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog", "permission", "inspect", "land", "personal", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview", "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "build", "script", "script-error", "script-readonly")
     $plan = @()
     if ($UiSceneOnly) { $scenes = @($scenes | Where-Object { $_ -eq $UiSceneOnly }) }
     foreach ($sc in $scenes) { $plan += ,@($sc, "classic") }

@@ -51,7 +51,59 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
+        "script", "script-error", "script-readonly",
     ];
+
+    /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
+    private const string ExampleScriptText =
+        "// Says hello when touched\n" +
+        "integer count = 0;\n" +
+        "\n" +
+        "default\n" +
+        "{\n" +
+        "    state_entry()\n" +
+        "    {\n" +
+        "        llSetText(\"Touch me\", <1.0, 1.0, 1.0>, 1.0);\n" +
+        "    }\n" +
+        "\n" +
+        "    touch_start(integer total)\n" +
+        "    {\n" +
+        "        count += total\n" +
+        "        llSay(0, \"Hello, \" + llDetectedName(0) + \"! Touches: \" + (string)count);\n" +
+        "    }\n" +
+        "}\n";
+
+    /// <summary>
+    /// The script editor with an example script: "script", a script inside an object with Save, Running (ticked, as the region answered),
+    /// Reset and Mono, after a save that compiled; "script-error", the same script after a save whose compiler named a line (the error listed
+    /// under the code and the caret put on its place by a click on it); "script-readonly", a library script opened read only. No session or grid.
+    /// </summary>
+    private static void ExampleScript(ShellRoot shell, string scene)
+    {
+        static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        var feature = new ScriptEditorFeature(shell);
+        feature.Bind(null, openSim: true);
+        const uint full = 0x7fffffff;
+        bool readOnly = scene == "script-readonly";
+        var owner = readOnly ? G(3) : G(1);
+        var access = new Viewer.Core.Inventory.ScriptAccess(G(20), G(21), G(1),
+            new Viewer.Core.Inventory.NotecardPermissions(owner, owner, full, full, 0, readOnly ? Viewer.Core.Inventory.NotecardPermissions.Copy : 0, full),
+            InLibrary: readOnly, ObjectId: readOnly ? Guid.Empty : G(30), LocalId: readOnly ? 0u : 7u);
+        var panel = feature.Open(access, readOnly ? "Example library script" : "Example script");
+        string text = scene == "script-error" ? ExampleScriptText : ExampleScriptText.Replace("count += total\n", "count += total;\n", StringComparison.Ordinal);
+        panel.ShowText(text);
+        if (readOnly)
+            return;
+        panel.ShowRunning(true, true);
+        if (scene == "script-error")
+        {
+            panel.ShowAnswer(new Viewer.Core.Inventory.ScriptSaveResult(Viewer.Core.Inventory.ScriptSaveStatus.Saved, false, G(22),
+                [Viewer.Core.Inventory.ScriptMessage.Parse("(13, 8) : ERROR : Syntax error")]));
+            panel.ErrorClicked(0);
+        }
+        else
+            panel.ShowAnswer(new Viewer.Core.Inventory.ScriptSaveResult(Viewer.Core.Inventory.ScriptSaveStatus.Saved, true, G(22), []));
+    }
 
     /// <summary>The Build window with an example box selected: the Edit tool, the Object tab with its place, size, rotation and a hollowed,
     /// twisted box's shape fields, on an in-memory world with no session or grid.</summary>
@@ -119,6 +171,11 @@ public partial class TestRender
                 var drop = new DropPanel(strings, new Viewer.Shell.Reconnect.ReconnectModel(model, strings, (_, _) => Task.CompletedTask));
                 shell.MainView.AddChild(drop);
                 drop.ShowNotice(new Viewer.Shell.Reconnect.DropNotice(strings.Get("drop.title"), strings.Get("drop.body"), strings.Get("drop.reason.unknown"), true));
+                break;
+            case "script":
+            case "script-error":
+            case "script-readonly":
+                ExampleScript(shell, scene);
                 break;
             case "scriptdialog":
             case "permission":

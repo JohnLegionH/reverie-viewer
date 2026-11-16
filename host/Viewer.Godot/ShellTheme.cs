@@ -245,9 +245,44 @@ public static class ShellTheme
         theme.SetColor("font_color", "ProgressBar", text);
         theme.SetStylebox("background", "ProgressBar", field);
         theme.SetStylebox("fill", "ProgressBar", Box(t, t.AccentFill, t.AccentFill, 0));
+        // the script editor's code field: the text field's faces, the code font, the line numbers muted, the current line faintly marked
+        theme.SetStylebox("normal", "CodeEdit", field);
+        theme.SetStylebox("focus", "CodeEdit", focus);
+        theme.SetStylebox("read_only", "CodeEdit", field);
+        theme.SetColor("font_color", "CodeEdit", text);
+        theme.SetColor("font_readonly_color", "CodeEdit", text);
+        theme.SetColor("caret_color", "CodeEdit", accent);
+        theme.SetColor("selection_color", "CodeEdit", C(t.Selection));
+        theme.SetColor("current_line_color", "CodeEdit", C(t.Selection with { A = t.Selection.A / 2f }));
+        theme.SetColor("line_number_color", "CodeEdit", muted);
+        theme.SetColor("background_color", "CodeEdit", C(t.Input));
+        theme.SetColor("search_result_color", "CodeEdit", C(t.Selection));
+        if (Fonts.Code is { } code)
+            theme.SetFont("font", "CodeEdit", code);
         ReverieStyle.Add(theme, t);   // the Reverie components' variations, from the same tokens
         return theme;
     }
+
+    /// <summary>
+    /// The script editor's word colours, each one of the theme's own colours, so a theme change recolours the code with the rest of the
+    /// interface. The groups are the official viewer's (indra/llui/llkeywords.cpp getColorGroup: functions, control flow, events, data types,
+    /// constants, deprecated words, comments and string literals); which token each group takes is this viewer's choice.
+    /// </summary>
+    public static Color Syntax(ThemeTokens t, Viewer.Shell.Inventory.LslWordKind kind) => C(kind switch
+    {
+        Viewer.Shell.Inventory.LslWordKind.Function => t.Accent,
+        Viewer.Shell.Inventory.LslWordKind.Control => t.Warning,
+        Viewer.Shell.Inventory.LslWordKind.Event => t.ChatOwn,
+        Viewer.Shell.Inventory.LslWordKind.Type => t.Success,
+        Viewer.Shell.Inventory.LslWordKind.Constant => t.ChatSystem,
+        _ => t.Error,
+    });
+
+    /// <summary>The colour of comments in the script editor.</summary>
+    public static Color SyntaxComment(ThemeTokens t) => C(t.TextSecondary);
+
+    /// <summary>The colour of string literals in the script editor.</summary>
+    public static Color SyntaxString(ThemeTokens t) => C(t.ChatObject);
 
     /// <summary>A panel face: the fill, a border of the theme's width, the theme's corner radius.</summary>
     public static StyleBoxFlat Box(ThemeTokens t, UiColour fill, UiColour border, int margin, int? radius = null)
@@ -320,6 +355,12 @@ public static class Fonts
     public static FontFile? InterRegular => _inter ??= Make("Inter-Regular");
 
     public static FontFile? InterSemiBold => _interSemiBold ??= Make("Inter-SemiBold");
+
+    private static Font? _code;
+
+    /// <summary>The script editor's font: the system's fixed-width font (Consolas, Menlo, DejaVu Sans Mono or the system's monospace
+    /// family), so the columns the compiler names line up.</summary>
+    public static Font Code => _code ??= new SystemFont { FontNames = ["Consolas", "Menlo", "DejaVu Sans Mono", "Liberation Mono", "monospace"], AllowSystemFallback = true };
 
     /// <summary>The sizes whose metrics are fitted: every size the interface draws text at, at any interface size.</summary>
     public const int FittedMin = 6, FittedMax = 96;

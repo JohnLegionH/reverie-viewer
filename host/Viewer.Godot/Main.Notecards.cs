@@ -11,13 +11,14 @@ using Viewer.Shell.Inventory;
 namespace Viewer.Godot;
 
 /// <summary>
-/// Notecards in the running viewer: the windows come with the inventory when the first session logs in; opening a notecard from
-/// the inventory (a double-click, Enter, or Open on its menu) reads it from the grid and shows it; every window closes when the
-/// session ends.
+/// Notecards and scripts in the running viewer: the windows come with the inventory when the first session logs in; opening a notecard
+/// or a script from the inventory (a double-click, Enter, or Open on its menu) reads it from the grid and shows it, and Open on a script in
+/// the Build window's Content tab opens it in the script editor; every window closes when the session ends.
 /// </summary>
 public partial class Main
 {
     private NotecardFeature? _notecards;
+    private ScriptEditorFeature? _scripts;
     private bool _notecardsHooked;
 
     /// <summary>A session's inventory is shown: notecards open from it.</summary>
@@ -30,9 +31,37 @@ public partial class Main
         {
             _inventoryPanel.OpenRequested += OpenNotecard;
             _inventoryPanel.OpenRequested += id => OpenTexturePreview(id);   // a texture opens in the texture preview
+            _inventoryPanel.OpenRequested += OpenInventoryScript;            // a script opens in the script editor
             _notecardsHooked = true;
         }
         _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit);
+        Scripts().Bind(session.Scripts, !Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid(session.LoginUri));
+    }
+
+    /// <summary>The script editor windows, made once.</summary>
+    private ScriptEditorFeature Scripts() => _scripts ??= new ScriptEditorFeature(_shell!, (where, view) =>
+        Log.Info("script.open", Viewer.Core.Diagnostics.CoreLog.F("where", where), Viewer.Core.Diagnostics.CoreLog.F("view", view ?? "")));
+
+    private void OpenInventoryScript(Guid itemId)
+    {
+        if (_inventoryFor is not { IsEnded: false } session || _shell is null)
+            return;
+        var item = session.Inventory.Item(itemId);
+        Guid target = item?.LinkedId is { } linked && session.Inventory.Item(linked) is { Kind: ItemKind.Script } ? linked : itemId;
+        if (session.Inventory.Item(target) is not { Kind: ItemKind.Script } script)
+            return;
+        Scripts().OpenInventory(target, script.Name);
+    }
+
+    /// <summary>Open on a row of the Build window's Content tab: a script opens in the script editor as one inside the prim.</summary>
+    private void OpenContentScript(Guid itemId)
+    {
+        if (_shell is null || _edit is null || (_interactFor ?? _inventoryFor) is not { IsEnded: false } session)
+            return;
+        if (_edit.ScriptToOpen(itemId, session.AgentId) is not { } access)
+            return;
+        string name = _edit.Contents.FirstOrDefault(i => i.ItemId == itemId)?.Name ?? "";
+        Scripts().Open(access, name);
     }
 
     /// <summary>The windows, with a log line for a card that did not open (its status and the fixed reason, never its content).</summary>
@@ -43,7 +72,11 @@ public partial class Main
             Log.Info("notecard.not-opened", Viewer.Core.Diagnostics.CoreLog.F("status", status), Viewer.Core.Diagnostics.CoreLog.F("reason", reason ?? "")));
     }
 
-    private void DetachNotecards() => _notecards?.Bind(null, null, null);
+    private void DetachNotecards()
+    {
+        _notecards?.Bind(null, null, null);
+        _scripts?.Bind(null, true);
+    }
 
     private void OpenNotecard(Guid itemId)
     {
@@ -154,6 +187,81 @@ public partial class Main
             }
         }
         return NotecardState();
+    }
+
+    /// <summary>
+    /// The script editor for the development automation: "state" describes the front window (whether it is open, editable, changed, saving,
+    /// running, its status key, the errors' places, the caret, the text's length and, for <paramref name="text"/> = "text", the text itself;
+    /// live scripts are this check's own); "where" gives the screen centre of a control of the front window by its name (save, running,
+    /// reset, mono, code, find, goto, prompt_save, prompt_dont_save, prompt_cancel, error:N, line:N for the start of a line of the code),
+    /// or of the Content tab's Open button and a Content row (content_open, content_row:NAME); "list" gives the inventory's own script ids.
+    /// Every press and key is sent through the input command by the check itself.
+    /// </summary>
+    public object? ScriptCall(string action, string? text, string? control)
+    {
+        if (_shell is null)
+            return null;
+        var front = _scripts?.Front;
+        switch (action)
+        {
+            case "list":
+                if (_inventoryFor is not { IsEnded: false } s)
+                    return null;
+                return new { scripts = s.Inventory.AllItems().Where(i => i.Kind == ItemKind.Script && !s.Inventory.IsInLibrary(i.Id)).Select(i => new { id = i.Id, name = i.Name }).ToArray() };
+            case "where":
+            {
+                global::Godot.Control? c = null;
+                global::Godot.Vector2? at = null;
+                if (control == "content_open")
+                    c = _editPanel?.ContentTab.OpenButton;
+                else if (control is { } row && row.StartsWith("content_row:", StringComparison.Ordinal) && _editPanel?.ContentTab.List is global::Godot.ItemList list)
+                {
+                    for (int i = 0; i < list.ItemCount; i++)
+                        if (list.GetItemText(i) == row["content_row:".Length..])
+                        {
+                            var r = list.GetItemRect(i);
+                            at = list.GetGlobalTransformWithCanvas() * (r.Position + r.Size / 2);
+                        }
+                }
+                else if (control is { } err && err.StartsWith("error:", StringComparison.Ordinal) && front is not null && int.TryParse(err[6..], out int n) && n < front.Errors.ItemCount)
+                {
+                    var r = front.Errors.GetItemRect(n);
+                    at = front.Errors.GetGlobalTransformWithCanvas() * (r.Position + r.Size / 2);
+                }
+                else if (control is { } ln && ln.StartsWith("line:", StringComparison.Ordinal) && front is not null && int.TryParse(ln[5..], out int line))
+                {
+                    var p = front.Code.GetPosAtLineColumn(line, 0);
+                    if (p.X >= 0)
+                        at = front.Code.GetGlobalTransformWithCanvas() * new global::Godot.Vector2(p.X + 4, p.Y - 4);
+                }
+                else
+                    c = front?.FindChild(control ?? "", true, false) as global::Godot.Control;
+                if (c is { } ctl && ctl.IsVisibleInTree())
+                    at = ctl.GetGlobalTransformWithCanvas() * (ctl.Size / 2);
+                return at is { } a ? new { x = a.X, y = a.Y } : new { error = "not shown" };
+            }
+        }
+        var e = front?.Editing;
+        return new
+        {
+            open = _scripts?.OpenPanels.Count ?? 0,
+            loaded = e?.Loaded ?? false,
+            in_object = e?.InObject ?? false,
+            view = e?.View.ToString(),
+            can_edit = e?.CanEdit ?? false,
+            dirty = e?.IsDirty ?? false,
+            saving = e?.Saving ?? false,
+            running = e?.Running,
+            can_set_running = e?.CanSetRunning ?? false,
+            status = e?.StatusKey,
+            errors = e?.Messages.Select(m => new { line = m.Line, column = m.Column }).ToArray(),
+            caret = front is null ? null : new[] { front.Code.GetCaretLine(), front.Code.GetCaretColumn() },
+            code_editable = front?.Code.Editable ?? false,
+            prompt = front?.UnsavedPrompt.Visible ?? false,
+            text_chars = front?.Code.Text.Length ?? -1,
+            text = text == "text" ? front?.Code.Text : null,
+            focused = front is not null && front.GetViewport().GuiGetFocusOwner() == front.Code,
+        };
     }
 
     private readonly Dictionary<string, Guid> _notecardFixtures = new(StringComparer.OrdinalIgnoreCase);

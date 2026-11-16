@@ -162,7 +162,8 @@ public sealed partial class EditController
 
     /// <summary>Open on a listed item of the primary prim, for the script editor: the script and the prim it is in, or null when the item is not
     /// a listed script (llpanelobjectinventory.cpp opens a script's live editor; other kinds are not opened from here yet).</summary>
-    public Viewer.Core.Inventory.ScriptAccess? ScriptToOpen(Guid itemId, Guid agent) => null;
+    public Viewer.Core.Inventory.ScriptAccess? ScriptToOpen(Guid itemId, Guid agent) =>
+        Object() is { } o && Listed(itemId) is { } item ? Viewer.Shell.Inventory.ScriptEditing.AccessFor(item, o.FullId, o.Id.LocalId, agent) : null;
 
     /// <summary>Deletes a listed item from the primary prim; the list is asked for again.</summary>
     public bool DeleteItem(Guid itemId)
