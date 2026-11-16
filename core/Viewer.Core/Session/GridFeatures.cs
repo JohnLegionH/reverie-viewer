@@ -7,7 +7,7 @@ namespace Viewer.Core.Session;
 
 /// <summary>The values the login reply gave that the grid's own region settings can replace (null when the login reply had none).</summary>
 public sealed record GridLoginValues(string? MapServerUrl = null, string? SearchUrl = null, string? DestinationGuideUrl = null,
-    string? AvatarPickerUrl = null, string? Currency = null);
+    string? AvatarPickerUrl = null, string? Currency = null, string? CurrencyHelper = null);
 
 /// <summary>
 /// The grid's own settings from the region's simulator features ("OpenSimExtras"), with the defaults that apply where a grid sends

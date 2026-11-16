@@ -133,6 +133,29 @@ public class GridFeaturesTests
     }
 
     [Fact]
+    public void A_currency_helper_in_the_grids_own_document_means_the_grid_has_a_currency()
+    {
+        var f = GridFeatures.From(null, new GridLoginValues(CurrencyHelper: "http://money.example.org/"));
+        Assert.True(f.HasCurrency);
+        Assert.Equal("OS$", f.CurrencySymbol);
+        Assert.Equal("http://money.example.org/", f.CurrencyBaseUri);
+        // the region's own helper address wins
+        Assert.Equal("http://region-money.example.org/", GridFeatures.From(One("currency-base-uri", "http://region-money.example.org/"),
+            new GridLoginValues(CurrencyHelper: "http://money.example.org/")).CurrencyBaseUri);
+    }
+
+    [Fact]
+    public async Task The_session_uses_the_grids_own_document_behind_the_region()
+    {
+        var t = new FakeTransport();
+        using var s = new ViewerSession(new SessionOptions { LoginUri = "http://grid.example:8002/" }, t, new CoreLog(new ListSink(), "test"));
+        await Task.CompletedTask;
+        s.GridInfoValues = new GridLoginValues(SearchUrl: "http://search.example.org/", CurrencyHelper: "http://money.example.org/");
+        Assert.Equal("http://search.example.org/", s.GridFeatures.SearchUrl);
+        Assert.True(s.GridFeatures.HasCurrency);
+    }
+
+    [Fact]
     public void A_grid_with_extras_but_no_currency_shows_no_balance()
     {
         var f = GridFeatures.From(One("say-range", 20L), null);

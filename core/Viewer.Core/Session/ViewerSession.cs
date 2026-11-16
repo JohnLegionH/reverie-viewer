@@ -192,6 +192,10 @@ public sealed class ViewerSession : IDisposable
     /// region, or Second Life's defaults while the region has sent none.</summary>
     public GridFeatures GridFeatures => (_transport as IGridFeaturesSource)?.GridFeatures() ?? GridFeatures.Defaults;
 
+    /// <summary>What the grid's own grid-info document says (its search page, its currency helper), set by the interface from the grid
+    /// it logged in to; the region's settings and the login reply come first.</summary>
+    public GridLoginValues? GridInfoValues { get; set; }
+
     /// <summary>Whether the agent's region offers a capability by this name (false when the transport cannot say).</summary>
     public bool RegionHas(string capability) => (_transport as IGridFeaturesSource)?.HasRegionCapability(capability) ?? false;
 
