@@ -92,7 +92,7 @@ plainly when a card is below the floor.
 
 | Maker | Families listed with Vulkan 1.3 or newer | Source |
 |---|---|---|
-| NVIDIA | Turing, Ampere, Ada Lovelace and Blackwell (GeForce GTX 16 series, RTX 20 series and newer) are listed for Vulkan 1.4. | [NVIDIA Vulkan driver support](https://developer.nvidia.com/vulkan-driver) |
+| NVIDIA | Turing and every later architecture (GeForce GTX 16 series, RTX 20 series and newer) are listed for Vulkan 1.4. | [NVIDIA Vulkan driver support](https://developer.nvidia.com/vulkan-driver) |
 | AMD | The first Vulkan 1.3 driver (Adrenalin 22.1.2, Windows) lists Radeon RX 500, RX Vega, Radeon VII, RX 5000 and RX 6000 series; later series came after it. | [AMD Adrenalin 22.1.2 with Vulkan 1.3](https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-22-1-2-VULKAN-1-3.html) |
 | Intel | Arc A and B series, Iris Xe and Iris Xe MAX, Iris Plus, UHD Graphics of 10th generation Core processors and newer, UHD Graphics 610/620/630, HD Graphics 520/530 and Iris Plus 540/550/580. Intel lists some other 6th to 8th generation parts (HD Graphics 500 to 515 and 610 to 630, Iris Plus 640 to 655) at Vulkan 1.2, below the floor, and HD Graphics 5500/6000 and older without Vulkan. | [Intel graphics API support](https://www.intel.com/content/www/us/en/support/articles/000005524/graphics-drivers.html) |
 
