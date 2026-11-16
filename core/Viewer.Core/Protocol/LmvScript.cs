@@ -59,6 +59,9 @@ internal sealed partial class LmvTransport : IScriptTransport
         }
     }
 
+    /// <summary>The address of a script's text under the region's ViewerAsset capability ("lsltext_id", as the notecard's "notecard_id").</summary>
+    internal static Uri? ScriptAssetUrl(Uri cap, Guid asset) => null;
+
     /// <summary>The first request's body (llviewerassetupload.cpp LLScriptAssetUpload::generatePostBody): item_id and target for a script
     /// in the inventory; task_id, item_id, is_script_running and target for one inside an object.</summary>
     internal static OSDMap ScriptUploadBody(ScriptAccess access, ScriptTarget target, bool running)

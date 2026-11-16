@@ -158,6 +158,13 @@ public class ScriptEditorTests
     }
 
     [Fact]
+    public void Script_text_is_asked_for_by_its_asset_under_the_regions_asset_capability()
+    {
+        Assert.Equal(new Uri("http://example.org/cap/1?lsltext_id=00000004-0000-0000-0000-000000000000"), LmvTransport.ScriptAssetUrl(new Uri("http://example.org/cap/1"), Asset));
+        Assert.Equal(new Uri("http://example.org/cap?a=b&lsltext_id=00000004-0000-0000-0000-000000000000"), LmvTransport.ScriptAssetUrl(new Uri("http://example.org/cap?a=b"), Asset));
+    }
+
+    [Fact]
     public void Reset_names_the_object_and_the_script()
     {
         var p = LmvTransport.ScriptReset(new UUID(Agent), new UUID(Other), Box, Item);
