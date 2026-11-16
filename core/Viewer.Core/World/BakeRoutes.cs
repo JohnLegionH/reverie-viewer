@@ -15,7 +15,11 @@ namespace Viewer.Core.World;
 /// and the avatar's appearance says it is server-baked (appearance version above 0, setIsUsingServerBakes,
 /// llvoavatar.cpp:11015; getImageURL, llvoavatar.cpp:6818); otherwise a bake is an ordinary texture fetched by id.
 ///
-/// Bounded: the oldest routes go first past <see cref="Capacity"/>. A bake id names one bake, so its route never changes.
+/// IMG_INVISIBLE is a shared texture, never one avatar's bake, and gets no route (the official viewer builds no address for it or the two
+/// default ids: getBakedTextureImage, llvoavatar.cpp:2602-2608).
+///
+/// Bounded: past <see cref="Capacity"/> the routes least recently seen go first (an appearance seen again puts its bakes at the back).
+/// A bake id names one bake, so its route never changes.
 /// </summary>
 public sealed class BakeRoutes
 {
@@ -23,8 +27,11 @@ public sealed class BakeRoutes
     public const int Capacity = 4096;
 
     private readonly object _gate = new();
-    private readonly Dictionary<Guid, (Guid Agent, string Slot)> _routes = new();
-    private readonly Queue<Guid> _order = new();
+    private readonly Dictionary<Guid, LinkedListNode<(Guid Id, Guid Agent, string Slot)>> _routes = new();
+    private readonly LinkedList<(Guid Id, Guid Agent, string Slot)> _order = new();   // least recently seen first
+
+    /// <summary>IMG_INVISIBLE (indra_constants.cpp:52): the shared fully transparent texture.</summary>
+    public static readonly Guid ImgInvisible = Guid.Parse("3a367d1c-bef1-6d43-7595-e88c1e3aadb3");
 
     /// <summary>Records the bakes an appearance names. An appearance that is not server-baked (version 0) records nothing.</summary>
     public void Note(AvatarAppearanceData appearance)
@@ -35,10 +42,19 @@ public sealed class BakeRoutes
         {
             foreach (var (slot, id) in bakes)
             {
-                if (_routes.ContainsKey(id)) continue;
-                _routes[id] = (appearance.AgentId, slot);
-                _order.Enqueue(id);
-                while (_order.Count > Capacity) _routes.Remove(_order.Dequeue());
+                if (id == ImgInvisible) continue;
+                if (_routes.TryGetValue(id, out var seen))
+                {
+                    _order.Remove(seen);
+                    _order.AddLast(seen);
+                    continue;
+                }
+                _routes[id] = _order.AddLast((id, appearance.AgentId, slot));
+                while (_order.Count > Capacity)
+                {
+                    _routes.Remove(_order.First!.Value.Id);
+                    _order.RemoveFirst();
+                }
             }
         }
     }
@@ -53,9 +69,12 @@ public sealed class BakeRoutes
     public Uri? UriFor(Guid id, string? service, bool regionBakes)
     {
         if (!regionBakes || string.IsNullOrEmpty(service)) return null;
-        (Guid Agent, string Slot) route;
+        (Guid Id, Guid Agent, string Slot) route;
         lock (_gate)
-            if (!_routes.TryGetValue(id, out route)) return null;
+        {
+            if (!_routes.TryGetValue(id, out var node)) return null;
+            route = node.Value;
+        }
         return Uri.TryCreate(AppearanceSlots.BakeAddress(service, route.Agent, route.Slot, id), UriKind.Absolute, out var uri)
             && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) ? uri : null;
     }

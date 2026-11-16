@@ -158,6 +158,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// The same textures straight from the region's texture capability with a plain bounded client
     /// of our own (the outbound policy's handler, NOT LibreMetaverse's caps client or its rate limiter), at a fixed
     /// concurrency (at most the official viewer's 8). Read-only GETs; cancelled with the session like every texture request.
+    /// A measurement of the texture capability only: every id, a server bake too, is asked by id here.
     /// </summary>
     public async Task<Viewer.Core.Assets.TextureProbeResult?> ProbeTexturesAsync(IReadOnlyList<Guid> ids, int concurrency, long? to, CancellationToken ct)
     {
