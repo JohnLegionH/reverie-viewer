@@ -43,6 +43,19 @@ public class ViewerIdentityTests(ITestOutputHelper output)
         Assert.Equal(CommitCount(), v[(threePart.Length + 1)..]);
     }
 
+    [Fact]
+    public void Without_the_build_number_the_version_is_the_three_part_core_version_and_nothing_else_changes()
+    {
+        // test pictures show this form, so the login screen's goldens do not change with every commit
+        var id = new ViewerIdentity("Name", "Channel", "1.2.3.456");
+        var shown = id.WithoutBuildNumber();
+        Assert.Equal("1.2.3", shown.Version);
+        Assert.Equal("Name", shown.Name);
+        Assert.Equal("Channel", shown.Channel);
+        Assert.Equal("1.2.3", new ViewerIdentity("N", "C", "1.2.3").WithoutBuildNumber().Version);
+        Assert.Equal(typeof(ViewerIdentity).Assembly.GetName().Version!.ToString(3), ViewerIdentity.Current.WithoutBuildNumber().Version);
+    }
+
     /// <summary>The commit count of the checkout these tests were built from ("0" outside a git checkout, as the build does).</summary>
     private static string CommitCount()
     {
