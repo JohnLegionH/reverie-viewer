@@ -37,6 +37,15 @@ tar -xzf reverie-viewer-0.1.0-linux-x86_64.tar.gz
   graphics; for NVIDIA, use the proprietary driver from "Additional Drivers". `vulkaninfo --summary` (package
   `vulkan-tools`) shows what your driver offers.
 - glibc 2.34 or newer, and the ICU and OpenSSL 3 libraries, which desktop installs normally have.
+- A desktop install also has the display libraries the viewer loads. On a minimal install (a server image with a
+  desktop added later, for example), install what it needs to start and draw on Ubuntu 26.04 or 26.10 with:
+
+  ```
+  sudo apt install mesa-vulkan-drivers libicu78 libssl3t64 libx11-6 libxcursor1 libxext6 libxi6 libxinerama1 libxrandr2 libxrender1 libxkbcommon0 libwayland-client0 libwayland-cursor0 libfontconfig1
+  ```
+
+  On other Ubuntu releases the ICU package has another number (`apt-cache search '^libicu[0-9]'` names it). For sound
+  the viewer uses PulseAudio (`libpulse0`) or ALSA, which a desktop has; without either it runs silent.
 - The viewer runs natively on Wayland and falls back to X11. To force X11, add `--display-driver x11`.
 - **Testers wanted:** the Linux builds have not yet been run on a real Linux desktop by the developers. If you try one,
   please report what happened, good or bad, on the issues page.
@@ -54,20 +63,28 @@ The viewer writes nothing into the folder it runs from.
 ## Hardware
 
 The viewer needs a graphics card and driver with **Vulkan 1.3** or **Direct3D 12** (feature level 12_0). There is no
-OpenGL mode. On older hardware the viewer refuses to start and says why.
+OpenGL mode. On older hardware the viewer refuses to start and says why; on Windows, if Vulkan is too old but Direct3D
+12 is new enough, it uses Direct3D 12 by itself. Memory, graphics cards by family and what has been measured:
+[Docs/SPECS.md](Docs/SPECS.md).
 
 ## What works today
 
-- Logging in to OpenSimulator grids, with an optional remembered password (kept protected for your user account, never
-  as the plain password), and the grid's own login page and links.
+- Logging in to OpenSimulator grids by typing the grid's address, with an optional remembered password (kept protected
+  for your user account, never as the plain password), the grid's name, colours and links, and its login messages.
+  If the connection drops, the viewer reconnects.
 - The world: terrain, water, sky and environment settings, prims, sculpties and mesh objects, glow, projected lights,
   and the regions around the one you are in.
-- Avatars, your own and others', with their shape, clothing, attachments and animations.
-- Walking, flying, sitting, the camera controls, teleporting, home, the world map and the mini-map.
-- Nearby chat, instant messages, the people list and notifications.
-- Inventory, outfits and wearing and taking off clothes and attachments.
-- Uploading images and models.
-- Sounds, with interface sounds and a mono option.
+- Avatars, your own and others', with their shape, clothing, attachments, mesh bodies and animations, on grids with or
+  without server-side baking.
+- Walking, flying, sitting, mouselook, the camera controls, teleporting, home, the world map and the mini-map.
+- Nearby chat, instant messages, group chat, the friends list, teleport offers and notifications.
+- Inventory: browsing, searching, new folders, renaming, moving and moving to the trash; outfits, and the appearance
+  editors for shape, skin, hair, eyes and clothing.
+- Building: the Build window with its General, Object, Texture, Features and Content tabs, the move, rotate and stretch
+  handles, linking and unlinking, PBR materials, undo and redo, and grid snapping.
+- Uploading images and static mesh models.
+- Touching, sitting on, buying and paying objects, and script dialogs.
+- World sounds, with interface sounds and a mono option.
 - Preferences, including the graphics backend, and windows that remember their places.
 - Keyboard shortcuts for the windows that exist (for example Ctrl+I for the inventory).
 
@@ -75,12 +92,20 @@ OpenGL mode. On older hardware the viewer refuses to start and says why.
 
 What you will notice is missing in this preview:
 
-- No building or edit tools yet.
-- RLV is only partly supported.
+- One grid at a time: there is no saved list of grids yet. Type the grid's address at each login.
+- Inventory is not complete: no emptying the trash, no copy and paste, no item properties, no Worn tab and no filters.
+- No giving or paying people, no profiles and no list of people nearby.
+- No landmarks yet (making one, a places list, teleport history).
+- No saved chat logs, no snapshots and no particles.
+- No script or notecard editing, no gestures, and no rigged mesh, sound or animation upload.
+- No land, parcel or estate tools, and no search.
+- No groups beyond group chat, notices and your active group and title.
 - No music, media or voice.
 - No hypergrid travel.
+- RLV is only partly supported, and off until you turn it on.
 - Logging in to Second Life has not been tried yet.
-- The Linux builds have not been run on a real Linux display yet.
+- The Linux builds have started and drawn their login screen with software graphics only; they have not been run on a
+  real Linux desktop yet.
 
 ## Add-ons
 

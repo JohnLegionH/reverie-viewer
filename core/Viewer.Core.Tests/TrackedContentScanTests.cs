@@ -49,6 +49,8 @@ public class TrackedContentScanTests
             "modemworld.me", "jrouwe.github.io", "www.firestormviewer.org", "wiki.firestormviewer.org", "docs.wasmtime.dev", "www.stride3d.net",
             "www.minecraft.net", "www.gamedeveloper.com", "web.dev", "threejs.org", "theupdateframework.github.io", "luau.org", "glama.ai",
             "fosdem.org", "docs.rs",
+            // graphics makers' published API support, cited in Docs/SPECS.md
+            "developer.nvidia.com", "www.amd.com", "www.intel.com",
             // named in the unmodified licence text of the vendored interface font (ThirdPartyLicenses/LICENSE-Inter.txt)
             "scripts.sil.org",
             // named in the unmodified third-party notices of the bundled .NET runtime (ThirdPartyLicenses/THIRD-PARTY-NOTICES-dotnet-runtime-*.txt)
