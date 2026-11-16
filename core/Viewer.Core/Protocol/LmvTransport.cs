@@ -142,6 +142,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// </summary>
     private Uri? TextureAddress(Guid id) => BakeAddress(id) ?? (TextureCapability() is { } cap ? TextureUri(cap, id) : null);
 
+    private int _bakeSourceLogged;
+
     private Uri? BakeAddress(Guid id)
     {
         try
@@ -149,7 +151,10 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
             var service = AppearanceServiceOverride is { } s ? s() : _client.Network.AgentAppearanceServiceURL;
             if (string.IsNullOrEmpty(service)) return null;
             bool regionBakes = RegionBakesOverride is { } b ? b() : _client.Network.CurrentSim?.Protocols.HasFlag(RegionProtocols.AgentAppearanceService) == true;
-            return _bakeRoutes.UriFor(id, service, regionBakes);
+            var uri = _bakeRoutes.UriFor(id, service, regionBakes);
+            if (uri is not null && Interlocked.Exchange(ref _bakeSourceLogged, 1) == 0)
+                _log.Info("texture.bake_source", CoreLog.F("source", "appearance_service"), CoreLog.F("host", uri.Host));   // once a session: where bakes come from (the host only)
+            return uri;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException) { return null; }
     }
