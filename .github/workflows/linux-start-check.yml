@@ -12,8 +12,10 @@ on:
   push:
     branches: [linux-pkg-1]
 
+# A draft release and its files are visible only to a token that may write the repository's contents: with read
+# alone the release is not found. The workflow only reads; nothing in it writes to the repository or the release.
 permissions:
-  contents: read
+  contents: write
 
 env:
   RELEASE_TAG: v0.1.1
