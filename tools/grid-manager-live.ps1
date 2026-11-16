@@ -104,7 +104,7 @@ if ($viewers.Count -gt 0) { Write-Output "BLOCKED: a viewer that can log in is a
 New-Item -ItemType Directory -Force -Path $Sandbox | Out-Null
 $report = [ordered]@{ started_utc = (Get-Date).ToUniversalTime().ToString("o"); steps = @() }
 $textLog = Join-Path $Sandbox "live.txt"
-function Say([string]$line) { Write-Output $line; Add-Content -LiteralPath $textLog -Value $line -Encoding utf8 }
+function Say([string]$line) { Write-Host $line; Add-Content -LiteralPath $textLog -Value $line -Encoding utf8 }
 function Record([string]$n, [string]$name, [bool]$pass, [string]$detail) {
     $script:report.steps += [ordered]@{ step = $n; name = $name; pass = $pass; detail = $detail }
     Say ("STEP {0} {1}: {2}  {3}" -f $n, $name, $(if ($pass) { "PASS" } else { "FAIL" }), $detail)
