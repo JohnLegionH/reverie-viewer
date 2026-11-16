@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Legion Builds
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# Start check for a Linux package, run inside a fresh official Ubuntu container by .github/workflows/linux-start-check.yml.
+# Inputs: the package archive at /work/$PACKAGE.tar.gz; results go to /out.
+# It installs only what the README's Linux steps name, plus Mesa's software Vulkan driver (lavapipe, which is part of
+# mesa-vulkan-drivers) and a virtual X display (Xvfb). It starts the viewer with no options, waits for the login screen,
+# lets it draw, saves the virtual screen and the logs, then closes the viewer.
+# Pass (exit 0): the log says the login screen is up, the viewer is still running a while later, the screen is not
+# blank (checked by the workflow from the screenshot), and nothing crashed.
+set -u
+out=/out
+mkdir -p "$out"
+trap 'chmod -R a+rwX "$out" 2>/dev/null' EXIT
+result() { echo "$1=$2" | tee -a "$out/result.txt"; }
+: > "$out/result.txt"
+. /etc/os-release
+result ubuntu "$VERSION_ID ($VERSION_CODENAME)"
+
+# ---- 1. what the README tells a person to install, plus the virtual display ----
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq > "$out/apt.log" 2>&1
+# README_PACKAGES: the README's Linux steps. The ICU package carries its version in its name, so it is looked up.
+icu=$(apt-cache search --names-only '^libicu[0-9]+$' | awk '{print $1}' | sort -V | tail -1)
+ssl=libssl3t64; apt-cache show "$ssl" > /dev/null 2>&1 || ssl=libssl3
+readme_packages="${README_PACKAGES:-mesa-vulkan-drivers vulkan-tools $icu $ssl}"
+test_packages="xvfb"
+result readme_packages "$readme_packages"
+result test_packages "$test_packages"
+# shellcheck disable=SC2086
+if ! apt-get install -y -q --no-install-recommends $readme_packages $test_packages >> "$out/apt.log" 2>&1; then
+    result install failed; exit 1
+fi
+result install ok
+
+# ---- 2. unpack and look at what the package needs ----
+tar -xzf "/work/$PACKAGE.tar.gz" -C /work
+app="/work/$PACKAGE/Reverie.x86_64"
+[ -x "$app" ] || { result unpack "no executable at $app"; exit 1; }
+result unpack ok
+{
+    echo "== ldd Reverie.x86_64"; ldd "$app"
+    find "/work/$PACKAGE" -name '*.so' -print | sort | while read -r so; do echo "== ldd $so"; ldd "$so"; done
+} > "$out/ldd.txt" 2>&1
+missing=$(grep -c 'not found' "$out/ldd.txt")
+result ldd_not_found "$missing"
+vulkaninfo --summary > "$out/vulkaninfo.txt" 2>&1
+result vulkan_device "$(grep -m1 -E 'deviceName' "$out/vulkaninfo.txt" | sed 's/.*= *//')"
+result vulkan_api "$(grep -m1 -E 'apiVersion' "$out/vulkaninfo.txt" | sed 's/.*= *//')"
+
+# ---- 3. a virtual display ----
+mkdir -p /tmp/fb
+Xvfb :99 -screen 0 1280x800x24 -fbdir /tmp/fb -nolisten tcp > "$out/xvfb.log" 2>&1 &
+xvfb=$!
+for _ in $(seq 1 50); do [ -e /tmp/.X11-unix/X99 ] && break; sleep 0.2; done
+[ -e /tmp/.X11-unix/X99 ] || { result display "Xvfb did not start"; exit 1; }
+export DISPLAY=:99
+
+# ---- 4. start the viewer as a person would, wait for the login screen ----
+export HOME=/work/home
+mkdir -p "$HOME"
+logs="$HOME/.local/state/ReverieViewer/logs"
+started=$(date +%s)
+"$app" > "$out/stdout.txt" 2>&1 &
+pid=$!
+login=no
+for _ in $(seq 1 300); do
+    if grep -qs 'login.screen' "$logs"/* ; then login=yes; break; fi
+    kill -0 "$pid" 2> /dev/null || break
+    sleep 1
+done
+result login_screen_logged "$login"
+result seconds_to_login_screen "$(( $(date +%s) - started ))"
+# let it draw for a while, then take the screen
+alive=no
+if [ "$login" = yes ]; then
+    sleep 20
+    kill -0 "$pid" 2> /dev/null && alive=yes
+    cp /tmp/fb/Xvfb_screen0 "$out/screen.xwd"
+fi
+result running_20s_after_login_screen "$alive"
+
+# ---- 5. close it ----
+exit_code=running
+if kill -0 "$pid" 2> /dev/null; then
+    kill -TERM "$pid"
+    for _ in $(seq 1 30); do kill -0 "$pid" 2> /dev/null || break; sleep 1; done
+    if kill -0 "$pid" 2> /dev/null; then kill -KILL "$pid"; result closed "killed after 30 s"; else result closed "on SIGTERM"; fi
+fi
+wait "$pid"; exit_code=$?
+result exit_code "$exit_code"
+crash=$(grep -c -E 'crashed with signal|Unhandled exception|Segmentation fault|Aborted' "$out/stdout.txt")
+result crash_lines "$crash"
+refused=$(grep -h -E 'startup\.refused' "$logs"/* 2> /dev/null | head -3)
+result startup_refused "${refused:-none}"
+mkdir -p "$out/logs"; cp -r "$logs"/. "$out/logs/" 2> /dev/null
+
+# ---- 6. the built-in start check (S-1), for information only ----
+timeout 600 "$app" -- --s1-out="$out/s1" --s1-tag=ubuntu > "$out/s1-stdout.txt" 2>&1
+result s1_exit "$?"
+kill "$xvfb" 2> /dev/null
+
+[ "$login" = yes ] && [ "$alive" = yes ] && [ "$crash" = 0 ]
