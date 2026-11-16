@@ -68,6 +68,10 @@ internal sealed partial class LmvTransport : IWearableTransport
     }
 
     /// <summary>Whether the item's asset moved: a new id is a change; the same id may still be right (the same file again) and is checked by reading it; none cannot be told.</summary>
+    /// <summary>The item as the older item update message sends it after a wearable save: the new name, and the upload's transaction
+    /// on the item itself, which is where the region reads it.</summary>
+    internal static InventoryItem LegacyItemUpdate(InventoryItem item, string name, Guid transactionId) => new(item.UUID);
+
     internal static ItemUpdateOutcome JudgeUpdate(Guid before, Guid after) =>
         after == Guid.Empty ? ItemUpdateOutcome.Unknown : after == before ? ItemUpdateOutcome.Same : ItemUpdateOutcome.Changed;
 

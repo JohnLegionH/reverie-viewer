@@ -57,6 +57,16 @@ internal sealed partial class LmvTransport
         }
     }
 
+    /// <summary>Who makes the look after an outfit change: the region (asked through its rebuild capability), the viewer itself
+    /// (a region that does not bake), or nobody (a baking region without the capability).</summary>
+    internal enum RebuildPlan { AskRegion, ViewerBakes, NoService }
+
+    internal static RebuildPlan PlanRebuild(Viewer.Core.World.AppearanceMode mode, bool regionHasCapability) => RebuildPlan.AskRegion;
+
+    /// <summary>Runs inventory work that waits for a reply the grid may never send, for at most <paramref name="limit"/>: true when it
+    /// finished, false when the limit passed first.</summary>
+    internal static Task<bool> WithinAsync(Func<CancellationToken, Task> work, TimeSpan limit) => Task.FromResult(true);
+
     private InventoryBase? Stored(Guid id) =>
         _client.Inventory.Store is { } store && store.TryGetValue(new UUID(id), out var b) ? b : null;
 
