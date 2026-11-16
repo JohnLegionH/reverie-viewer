@@ -136,7 +136,7 @@ public sealed class ViewerStatsSender : IDisposable
     private int _sending;
     private int _sent;
 
-    public ViewerStatsSender(IViewerStatsTransport transport, Func<ViewerStatsReport.Inputs> inputs, TimeSpan? period = null)
+    public ViewerStatsSender(IViewerStatsTransport transport, Func<ViewerStatsReport.Inputs> inputs, TimeSpan? period = null, TimeSpan? firstRetry = null)
     {
         _transport = transport;
         _inputs = inputs;

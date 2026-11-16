@@ -84,6 +84,14 @@ public class SecondLifePolicyTests
         Assert.Equal([GridKind.OpenSim], seen);
     }
 
+    [Theory]
+    [InlineData("https://login.agni.lindenlab.com/cgi-bin/login.cgi", true)]
+    [InlineData("https://login.aditi.lindenlab.com/cgi-bin/login.cgi", true)]
+    [InlineData("https://grid.example.org:8002/", false)]
+    [InlineData(null, false)]
+    public void The_automation_never_starts_a_login_to_Second_Life(string? loginUri, bool refused) =>
+        Assert.Equal(refused, AutomationLogin.Refuses(loginUri));
+
     private static int Send(int port, string token, string command)
     {
         using var tcp = new TcpClient();
@@ -247,11 +255,11 @@ public class SecondLifePolicyTests
         using var s = new ViewerSession(new SessionOptions { LoginUri = SecondLifeLogin }, t, new CoreLog(new ListSink(), "test"));
         Assert.True((await s.LoginAsync(new LoginCredentials("Test", "User", new Secret("pw", SensitiveKind.PasswordDigest)), CancellationToken.None)).Ok);
         Assert.NotNull(s.Statistics);
-        await WaitFor(() => t.Posted.Count >= 1);
+        await WaitFor(() => t.PostedCount >= 1);
         var first = Assert.Single(t.Posted);
         Assert.Equal(t.DeviceIds.Id0, ((IDictionary<string, object?>)first["system"]!)["serial_number"]);
         await s.LogoutAsync(CancellationToken.None);
-        Assert.Equal(2, t.Posted.Count);
+        Assert.Equal(2, t.PostedCount);
         Assert.Null(s.Statistics);
     }
 
@@ -266,6 +274,54 @@ public class SecondLifePolicyTests
         Assert.Empty(t.Posted);
     }
 
+    [Fact]
+    public async Task The_first_report_is_tried_again_until_the_region_has_its_capability()
+    {
+        var t = new StatsTransport { MissingFor = 3 };
+        using var sender = new ViewerStatsSender(t, SampleInputs, TimeSpan.FromHours(1), TimeSpan.FromMilliseconds(20));
+        await WaitFor(() => sender.Sent == 1);
+        Assert.Equal(4, t.Attempts);
+    }
+
+    [Fact]
+    public async Task The_logout_report_waits_for_a_periodic_report_still_on_its_way()
+    {
+        var t = new StatsTransport { Hold = new TaskCompletionSource() };
+        var sender = new ViewerStatsSender(t, SampleInputs, TimeSpan.FromHours(1));
+        await WaitFor(() => t.Attempts == 1);   // the arrival report is being posted and held
+        var final = sender.SendFinalAsync(TimeSpan.FromSeconds(20));
+        t.Hold.SetResult();
+        await final;
+        Assert.Equal(2, t.PostedCount);
+    }
+
+    [Fact]
+    public void The_report_carries_the_official_fixed_fields()
+    {
+        var report = ViewerStatsReport.Build(SampleInputs());
+        Assert.Equal(false, report.GetValueOrDefault("MinimalSkin"));
+        Assert.True(report.ContainsKey("AgentPositionSnaps"));
+        var stats = (IDictionary<string, object?>)report["stats"]!;
+        Assert.Equal(0, ((IDictionary<string, object?>)stats["failures"]!)["missing_updater"]);
+        Assert.True(stats.ContainsKey("voice"));
+        Assert.Equal(true, ((IDictionary<string, object?>)report["misc"]!)["Version"]);
+        Assert.True(((IDictionary<string, object?>)report["system"]!).ContainsKey("gl"));
+        Assert.False(report.ContainsKey("session_id"));   // added by the transport as it posts, never in anything that could be logged
+    }
+
+    [Fact]
+    public void The_report_goes_out_as_LLSD_with_the_session_id_added_at_posting()
+    {
+        var osd = Viewer.Core.Protocol.LmvTransport.ForPosting(ViewerStatsReport.Build(SampleInputs()), Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"));
+        string xml = System.Text.Encoding.UTF8.GetString(LibreMetaverse.StructuredData.OSDParser.SerializeLLSDXmlBytes(osd));
+        Assert.Contains("<key>session_id</key><uuid>aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee</uuid>", xml);
+        Assert.Contains("<key>agent</key><map>", xml);
+        Assert.Contains("<key>hardware_concurrency</key><integer>", xml);
+    }
+
+    private static ViewerStatsReport.Inputs SampleInputs() => new(new ViewerIdentity("Reverie Viewer", "Reverie Viewer", "0.1.0.1"), DateTimeOffset.UtcNow, 10, 10,
+        ViewerStatsFigures.Unknown, 0, 0, 1, 1000, 1000, ("m", "i"), ViewerStatsTraffic.None, true);
+
     private static async Task WaitFor(Func<bool> done)
     {
         var until = DateTime.UtcNow.AddSeconds(20);
@@ -278,6 +334,11 @@ public class SecondLifePolicyTests
     private sealed class StatsTransport : ISessionTransport, IViewerStatsTransport
     {
         public readonly List<IReadOnlyDictionary<string, object?>> Posted = [];
+        public int MissingFor;
+        public TaskCompletionSource? Hold;
+        private int _attempts;
+        public int Attempts => Volatile.Read(ref _attempts);
+        public int PostedCount { get { lock (Posted) return Posted.Count; } }
 #pragma warning disable CS0067
         public event Action<TransportEvent>? Event;
 #pragma warning restore CS0067
@@ -288,10 +349,15 @@ public class SecondLifePolicyTests
         public int ConnectedSimulatorCount => 0;
         public void SetDrawDistance(float metres) { }
         public void Dispose() { }
-        public Task<bool> PostViewerStatsAsync(IReadOnlyDictionary<string, object?> report, CancellationToken ct)
+        public async Task<bool> PostViewerStatsAsync(IReadOnlyDictionary<string, object?> report, CancellationToken ct)
         {
+            int n = Interlocked.Increment(ref _attempts);
+            if (n <= MissingFor)
+                return false;   // no ViewerStats capability yet
+            if (Hold is { } hold && n == 1)
+                await hold.Task.WaitAsync(ct);
             lock (Posted) Posted.Add(report);
-            return Task.FromResult(true);
+            return true;
         }
         public (string Mac, string Id0) DeviceIds => ("0123456789abcdef0123456789abcdef", "fedcba9876543210fedcba9876543210");
         public ViewerStatsTraffic Traffic => ViewerStatsTraffic.None;

@@ -33,6 +33,9 @@ internal sealed partial class LmvTransport : IViewerStatsTransport
         }
     }
 
+    /// <summary>The report as posted (RED STUB).</summary>
+    internal static OSD ForPosting(IReadOnlyDictionary<string, object?> report, Guid sessionId) => ToOsd(report);
+
     internal static OSD ToOsd(object? value) => value switch
     {
         null => new OSD(),

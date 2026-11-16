@@ -158,6 +158,13 @@ public sealed class AutomationServer : IDisposable
     }
 }
 
+/// <summary>The per-grid switch for the logins the automation starts itself (the session command's login and the login screen's
+/// submit): it never starts one to a grid where automation is not allowed (Second Life, <see cref="Viewer.Core.Session.ViewerFeature.Automation"/>).</summary>
+public static class AutomationLogin
+{
+    public static bool Refuses(string? loginUri) => false;   // RED STUB
+}
+
 /// <summary>The explicit enable flag. Nothing else turns the API on: no setting, no environment variable.</summary>
 public static class AutomationArgs
 {
