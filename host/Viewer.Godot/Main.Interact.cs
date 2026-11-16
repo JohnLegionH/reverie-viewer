@@ -229,6 +229,27 @@ public partial class Main
     {
         _hoverText?.Update([], Vector3.Zero, Vector3.Forward);
         _outline?.Update([], Vector3.Zero, 60f);
+        _faceHighlight?.Update([]);
+    }
+
+    private Presentation.FaceHighlight? _faceHighlight;
+
+    /// <summary>Select Face: the chosen faces get the face marker, and their objects no whole-object outline (the official viewer outlines
+    /// only what is selected, and in Select Face that is faces). Returns the objects whose faces are marked.</summary>
+    private HashSet<uint> UpdateFaceHighlight(WorldState world)
+    {
+        if (_faceHighlight is null)
+        {
+            _faceHighlight = new Presentation.FaceHighlight { Name = "face-highlight" };
+            _stage!.AddChild(_faceHighlight);
+        }
+        var marked = new List<Presentation.HighlightedFaces>();
+        if (_edit is { BuildMode: true, SelectFaces: true } e)
+            foreach (var group in e.SelectedFaces.GroupBy(f => f.Local))
+                if (world.Object(new ObjectId(world.Epoch, group.Key)) is { } o && ObjectPicker.WorldPose(world, o, out var pos, out var rot))
+                    marked.Add(new Presentation.HighlightedFaces(new Presentation.OutlinedPrim(o, pos, rot, o.ParentLocalId == 0), group.Select(f => f.Face).ToHashSet()));
+        _faceHighlight.Update(marked);
+        return marked.Select(m => m.Prim.Prim.Id.LocalId).ToHashSet();
     }
 
     private void UpdateHoverText(WorldState world)
@@ -253,9 +274,10 @@ public partial class Main
             _stage!.AddChild(_outline);
         }
         var prims = new List<Presentation.OutlinedPrim>();
+        var faceMarked = UpdateFaceHighlight(world);
         foreach (var (editRoot, highlight) in EditOutlined(world))
             foreach (var o in new[] { editRoot }.Concat(world.Linkset(editRoot.Id)))
-                if (ObjectPicker.WorldPose(world, o, out var pos, out var rot))
+                if (!faceMarked.Contains(highlight.LocalId) && ObjectPicker.WorldPose(world, o, out var pos, out var rot))
                     prims.Add(new Presentation.OutlinedPrim(o, pos, rot, o.Id == highlight));
         if (prims.Count == 0 && ic.Selected is { } sel && world.Object(sel) is { } root)
         {
