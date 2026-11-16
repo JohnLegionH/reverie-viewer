@@ -162,8 +162,9 @@ public partial class FaceHighlight : Node3D
         _shader ??= new Shader
         {
             // the marker: four squares to each unit of the face's texture coordinates, white, with rounded corners and a clear cross of
-            // gaps between them; half opacity, drawn over the face, unlit
-            Code = "shader_type spatial;\nrender_mode cull_back, unshaded, depth_draw_never, blend_mix;\nuniform vec4 colour : source_color = vec4(1.0, 1.0, 1.0, 0.5);\nuniform float lift = 0.002;\n" +
+            // gaps between them; half opacity, drawn over the face, unlit; both sides drawn (the turn into the engine's axes reverses the
+            // triangles' winding, and the layer's inner side is hidden by the face it sits on)
+            Code = "shader_type spatial;\nrender_mode cull_disabled, unshaded, depth_draw_never, blend_mix;\nuniform vec4 colour : source_color = vec4(1.0, 1.0, 1.0, 0.5);\nuniform float lift = 0.002;\n" +
                    "void vertex() { VERTEX += NORMAL * lift; }\n" +
                    "void fragment() {\n  vec2 cell = fract(UV * 2.0) - 0.5;\n  vec2 d = abs(cell) - vec2(0.36);\n" +
                    "  float r = 0.08;\n  float dist = length(max(d + r, 0.0)) - r;\n  float square = 1.0 - smoothstep(-0.01, 0.01, dist);\n" +
