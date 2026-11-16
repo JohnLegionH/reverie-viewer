@@ -26,9 +26,11 @@ are sent on Second Life only, never to other grids. They hold:
 
 - how long the viewer has run and been in the foreground, frames per second, the viewer's version and language, the
   region's frame rate, how many avatars are in view, network ping, distance travelled, regions visited and memory use;
-- this computer's memory, operating system, processor, address size, number of processor cores, its network card address
-  (MAC address), `serial_number` (the same hashed device id as `id0`), and the graphics card's name, maker and driver;
-- how much was downloaded, network packet counts and failures, whether the inventory loaded, and your display-name settings.
+- this computer's memory, operating system, processor, address size and number of processor cores; `mac_address` and
+  `serial_number`, which are the same two hashes the login sends as `mac` and `id0` (never a network card address itself);
+  and the graphics card's name, maker and driver;
+- how much was downloaded, network packet counts and failures, whether the inventory loaded, and your display-name settings;
+- the id of your current session, which the grid gave the viewer at login.
 
 Linden Lab's own privacy policy covers what it does with this.
 
