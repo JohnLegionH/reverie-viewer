@@ -362,8 +362,8 @@ public partial class InventoryPickPopup : PopupPanel
 /// The Build window's texture (or material) picker and colour picker, each a window of its own with a title bar and a close button, as the
 /// official LLFloaterTexturePicker and LLFloaterColorPicker are (floater_texture_ctrl.xml 1-13, floater_color_picker.xml 1-9): they stay
 /// open while the person clicks elsewhere. A choice is applied as it is made (the official Apply now, on by default: TextureLivePreview
-/// and ApplyColorImmediately, settings.xml 228-248); OK keeps it and closes (lltexturectrl.cpp 1059-1067, llfloatercolorpicker.cpp
-/// 406-420); Cancel, the close button, or the Build window closing puts back each face's texture, material or colour as it was when the
+/// and ApplyColorImmediately, settings.xml 228-248); OK keeps it and closes (lltexturectrl.cpp 1060-1068, llfloatercolorpicker.cpp
+/// 407-420); Cancel, the close button, or the Build window closing puts back each face's texture, material or colour as it was when the
 /// picker opened (lltexturectrl.cpp 1047-1057, llfloatercolorpicker.cpp 391-403, llpanelface.cpp 3280-3283 and 2907-2910). Main thread only.
 /// </summary>
 public sealed class FacePickerWindows
