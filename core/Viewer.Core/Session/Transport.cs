@@ -317,6 +317,21 @@ public interface IGroupRequester
     void RequestGroupTitles(Guid group);
 }
 
+/// <summary>The agent's money balance as the grid last gave it.</summary>
+public sealed record BalanceChanged(int Balance) : TransportEvent;
+
+/// <summary>A transport that reads the grid's own settings from the agent's region and can ask for the money balance (the answer is a
+/// <see cref="BalanceChanged"/> event).</summary>
+public interface IGridFeaturesSource
+{
+    /// <param name="gridInfo">What the grid's own grid-info document says, behind the login reply's values.</param>
+    GridFeatures GridFeatures(GridLoginValues? gridInfo = null);
+    void RequestBalance();
+
+    /// <summary>Whether the agent's region offers a capability by this name.</summary>
+    bool HasRegionCapability(string name);
+}
+
 // ---------------- teleport, the world map and the mini-map ----------------
 // Offers and friends' positions say who people are and where, so those records are communication events: never written to a
 // capture or a log with their content.

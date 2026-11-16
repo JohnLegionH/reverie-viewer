@@ -100,6 +100,7 @@ public sealed class ViewerSession : IDisposable
     private bool _movementSeen;
     private string? _firstFailReason;
     private int _loginSizeX, _loginSizeY;
+    private SimRef? _loginSim;   // the region the login reply's size belongs to: the first one connected
     private RegionInfo? _region;
     private bool _presentationAttached = true;
     private CancellationTokenSource? _grace;
@@ -187,6 +188,17 @@ public sealed class ViewerSession : IDisposable
     public Viewer.Core.Building.ITextureUploadService? BuildService => _transport as Viewer.Core.Building.ITextureUploadService;
 
     /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
+    /// <summary>The grid's own settings (chat ranges, map server, search and guide addresses, currency, export flag) from the agent's
+    /// region, or Second Life's defaults while the region has sent none.</summary>
+    public GridFeatures GridFeatures => (_transport as IGridFeaturesSource)?.GridFeatures(GridInfoValues) ?? GridFeatures.From(null, GridInfoValues);
+
+    /// <summary>What the grid's own grid-info document says (its search page, its currency helper), set by the interface from the grid
+    /// it logged in to; the region's settings and the login reply come first.</summary>
+    public GridLoginValues? GridInfoValues { get; set; }
+
+    /// <summary>Whether the agent's region offers a capability by this name (false when the transport cannot say).</summary>
+    public bool RegionHas(string capability) => (_transport as IGridFeaturesSource)?.HasRegionCapability(capability) ?? false;
+
     public Viewer.Core.Building.EditLimits EditLimits => (_transport as Viewer.Core.Protocol.LmvTransport)?.EditLimits() ?? Viewer.Core.Building.EditLimits.Official;
 
     /// <summary>The grid's model upload (the same capability as images, with a model request), or null when the transport has none.</summary>
@@ -907,6 +919,9 @@ public sealed class ViewerSession : IDisposable
                 if (IsCurrent(chat.Sim))
                     Communicate(chat);
                 break;
+            case BalanceChanged:
+                Communicate(e);
+                break;
             case MuteListReceived mutes:
                 Mutes.Load(mutes.Entries);
                 Communicate(e);
@@ -1337,7 +1352,11 @@ public sealed class ViewerSession : IDisposable
         lock (_lock)
         {
             // Every SimConnected (login or a teleport landing) starts the region afresh from its own sources.
-            region = RegionSize.AtConnect(c.Sim, c.SimSizeX, c.SimSizeY, _loginSizeX, _loginSizeY) with { Terrain = c.Terrain, WaterHeight = c.WaterHeight, IsEstateManager = c.IsEstateManager ?? false };
+            // the login reply's size is the login region's: a later landing (a teleport) is sized by its own message, as Firestorm sizes
+            // each region from the message that brings it (llviewermessage.cpp, process_teleport_finish)
+            _loginSim ??= c.Sim;
+            bool loginRegion = _loginSim.Handle == c.Sim.Handle;
+            region = RegionSize.AtConnect(c.Sim, c.SimSizeX, c.SimSizeY, loginRegion ? _loginSizeX : 0, loginRegion ? _loginSizeY : 0) with { Terrain = c.Terrain, WaterHeight = c.WaterHeight, IsEstateManager = c.IsEstateManager ?? false };
             _region = region;
             if (!ReferenceEquals(_currentSim, c.Sim) || _originSim is null)
                 _originSim = c.Sim;   // a landing anchors the frame on the new region; a repeat connect keeps it
@@ -1428,6 +1447,12 @@ public sealed class ViewerSession : IDisposable
             // the groups this agent is in, asked for once per login (the region usually sends them unasked; this makes sure)
             try { groupList.RequestGroups(); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { _log.Warn("group.list-request-failed", CoreLog.F("error", ex.GetType().Name)); }
+        }
+        if (stage == SessionStage.InWorld && _transport is IGridFeaturesSource money)
+        {
+            // the balance, asked for once per login as the official viewer does (llstartup.cpp, sendMoneyBalanceRequest)
+            try { money.RequestBalance(); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { _log.Warn("money.balance-request-failed", CoreLog.F("error", ex.GetType().Name)); }
         }
         if (stage == SessionStage.InWorld && _transport is IMuteListRequester muteRequester)
             AskForMuteList(muteRequester);

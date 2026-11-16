@@ -109,6 +109,14 @@ public partial class Main
                 return await SuitcaseCheck(panel);
             case "pointer":
                 return await PointerCheck(panel, live: false);
+            case "noais":   // in world: starts the inventory check for a grid without the inventory API, by real input (it runs longer than one
+                            // call may wait); folder = the test name typed. noais_result answers {running} until it is done, then its result.
+                if (_noAisRun is { IsCompleted: false })
+                    return new { running = true };
+                _noAisRun = NoAisCheck(panel, string.IsNullOrWhiteSpace(folder) ? "Test Folder" : folder);
+                return new { started = true };
+            case "noais_result":
+                return _noAisRun is null ? new { refused = "not_started" } : !_noAisRun.IsCompleted ? new { running = true } : await _noAisRun;
             case "pointer_live":
                 if (_inventoryFor is null)
                     return new { refused = "not_in_world" };

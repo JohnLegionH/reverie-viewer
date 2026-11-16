@@ -61,6 +61,12 @@ public partial class Main
                 _comms = new CommsHub(s.AgentId, s.Names, s.Actions.Submit, UserSettings(null), () => DateTimeOffset.Now, s.RequestQueuedNames,
                     notice => PeopleFeature.NoticeText(notice, strings, s.Names), s.RequestGroupTitles);
                 _comms.Incoming = RlvIncomingFilter;
+                // the grid's own grid-info document (the grid list keeps it for the grid logged in to): its search page and currency helper
+                if (_gridList?.Selected?.Info is { } info)
+                    s.GridInfoValues = new Viewer.Core.Session.GridLoginValues(SearchUrl: info.Search?.ToString(), CurrencyHelper: info.Economy?.ToString());
+                // chat from beyond the grid's say range is dimmed; chat places are in the speaker's region, as the agent's own is
+                _comms.Nearby.IsBeyondSayRange = at => s.World.LastSelfMotion is { } me
+                    && s.GridFeatures.BeyondSayRange(System.Numerics.Vector3.Distance(at, me.Motion.Position - s.World.OriginOffset));
                 s.Communication += _comms.Enqueue;
                 _commsFor = s;
                 AttachLinks(s);
@@ -75,6 +81,21 @@ public partial class Main
             _people?.BindBlocked(_blocked);
         }
         _comms?.Pump();
+        UpdateBalance();
+    }
+
+    private (int? Balance, string? Region, long Slot) _balanceShown;
+
+    /// <summary>The balance in the top bar, only on a grid with a currency, in the grid's own symbol; worked out again when the balance,
+    /// the region or the 5-second slot changes (the currency is the region's setting).</summary>
+    private void UpdateBalance()
+    {
+        var s = _commsFor;
+        var key = (_comms?.Balance, s?.Region?.Name, Environment.TickCount64 / 5000);   // the region's features come after it: look again every 5 s
+        if (key == _balanceShown)
+            return;
+        _balanceShown = key;
+        _shell?.TopBar.SetBalance(s is not null && key.Item1 is { } b ? s.GridFeatures.BalanceText(b) : null);
     }
 
 #if NV_AUTOMATION

@@ -25,6 +25,9 @@ public static class ChatText
     /// <param name="links">When given, links in the text are made clickable through the one link renderer; otherwise the text is plain.</param>
     public static string Format(ChatLine line, ThemeSpec theme, StringTable strings, bool showTime, float opacity = 1f, Viewer.Shell.Links.LinkRouter? links = null)
     {
+        // far chat is drawn at eight tenths (the official viewer's alpha for chat beyond the near-chat radius, llviewerchat.cpp)
+        if (line.Far)
+            opacity *= 0.8f;
 string Hex(UiColour c) => opacity >= 1f ? c.Hex : c.Hex + ((int)Math.Round(Math.Clamp(opacity, 0f, 1f) * 255f)).ToString("x2", CultureInfo.InvariantCulture);
         var colour = line.Mark == ChatMark.ScriptError ? theme.Error : line.Style switch
         {
@@ -141,6 +144,9 @@ public sealed class CommsHub
     }
 
     public NearbyChat Nearby { get; }
+
+    /// <summary>The agent's money balance as the grid last gave it (null until it does).</summary>
+    public int? Balance { get; private set; }
     public Conversations Ims { get; }
     public Viewer.Shell.Social.FriendsModel Friends { get; }
     public Viewer.Shell.Social.GroupsModel Groups { get; }
@@ -201,6 +207,9 @@ public sealed class CommsHub
                     break;
                 case GroupsListed or ActiveGroupChanged or GroupTitlesListed or GroupNoticeReceived:
                     Groups.Receive(e);
+                    break;
+                case BalanceChanged money:
+                    Balance = money.Balance;
                     break;
                 case GroupChatJoined joined:
                     Ims.ReceiveJoined(joined);

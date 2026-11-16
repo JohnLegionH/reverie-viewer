@@ -44,6 +44,9 @@ public sealed partial class WorldSounds
     /// <summary>Whether an object is blocked (the block list by id).</summary>
     public Func<Guid, bool> ObjectMuted { get; set; } = _ => false;
 
+    /// <summary>A region's width in metres, by region handle (a parcel overlay is laid out for its region's real size).</summary>
+    public Func<ulong, int> RegionWidth { get; set; } = _ => 256;
+
     /// <summary>Whether a resident's object sounds are blocked (blocked outright, or the object-sounds flag).</summary>
     public Func<Guid, bool> OwnerSoundsMuted { get; set; } = _ => false;
 
@@ -105,8 +108,7 @@ public sealed partial class WorldSounds
                 _parcels.SetAgentParcel(parcel.Sim.Handle, parcel.SoundLocal, parcel.Bitmap, (int)(perEdge * ParcelSoundMap.GridStep));
                 break;
             case ParcelOverlayReceived overlay when overlay.Sim is { } sim:
-                int edge = (int)Math.Round(Math.Sqrt(overlay.Data.Length * 4.0));
-                _parcels.SetOverlay(sim.Handle, overlay.Chunk, overlay.Data, (int)(edge * ParcelSoundMap.GridStep));
+                _parcels.SetOverlay(sim.Handle, overlay.Chunk, overlay.Data, RegionWidth(sim.Handle));   // a packet does not say how large its region is
                 break;
             case AvatarAnimationsReceived an:
                 bool typing = an.Playing.Any(p => p.AnimationId == StepSounds.Type);
