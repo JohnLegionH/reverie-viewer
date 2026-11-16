@@ -68,6 +68,34 @@ public class SecondLifeGridTests
         Assert.Single(list.BuiltIn);
     }
 
+    [Theory]
+    [InlineData("https://login.agni.lindenlab.com/")]
+    [InlineData("https://login.aditi.lindenlab.com/cgi-bin/login.cgi")]
+    [InlineData("http://login.agni.lindenlab.com/cgi-bin/login.cgi")]
+    public void No_other_Linden_Lab_address_reaches_the_persons_list_by_command_line_add_or_the_file(string address)
+    {
+        string dir = TestTemp.NewFolder("sl-other");
+        var list = new GridList(dir);
+        Assert.Null(list.ApplyCommandLine(address));
+        Assert.Equal("Second Life", list.Add(new GridEntry(address, "Mine", null)).Name);   // adding a Linden Lab address chooses the built-in one
+        Assert.Empty(list.Entries);
+        Assert.Equal("Second Life", list.Selected?.Name);
+
+        // a list file that already holds one (written by hand, or by an earlier version) drops it on reading
+        File.WriteAllText(Path.Combine(dir, GridList.FileName),
+            "{\"Selected\":null,\"Grids\":[{\"Address\":\"" + address + "\",\"Name\":\"Mine\"},{\"Address\":\"https://grid.example.org:8002/\",\"Name\":\"Example Grid\"}]}");
+        Assert.Equal(["Example Grid"], new GridList(dir).Entries.Select(e => e.Name));
+    }
+
+    [Fact]
+    public void The_main_grid_address_on_the_command_line_chooses_the_built_in_entry()
+    {
+        var list = new GridList(TestTemp.NewFolder("sl-cmd"));
+        Assert.Equal("Second Life", list.ApplyCommandLine(MainGrid)?.Name);
+        Assert.Empty(list.Entries);
+        Assert.Equal("Second Life", list.Selected?.Name);
+    }
+
     [Fact]
     public async Task Look_up_and_refresh_of_Second_Life_ask_for_no_grid_info()
     {

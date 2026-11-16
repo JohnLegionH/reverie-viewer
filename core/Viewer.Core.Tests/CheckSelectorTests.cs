@@ -74,6 +74,7 @@ public class CheckSelectorTests
     [InlineData("host/Viewer.Shell/Grids/GridList.cs")]
     [InlineData("host/Viewer.Shell/Grids/SavedNames.cs")]
     [InlineData("host/Viewer.Godot/LoginGridPanels.cs")]
+    [InlineData("host/Viewer.Godot/ShownIdentity.cs")]   // the version the login screen and About show
     public void The_grid_manager_files_are_login_files(string file)
     {
         var s = Select(file);

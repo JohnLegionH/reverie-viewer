@@ -74,6 +74,15 @@ public class GridPolicyTests
     }
 
     [Fact]
+    public void On_Second_Life_a_restore_needs_every_part_to_be_the_persons_own_creation_too()
+    {
+        Assert.True(GridPolicy.MayRestore(GridKind.SecondLife, Self, [Self]));
+        Assert.False(GridPolicy.MayRestore(GridKind.SecondLife, Self, [Self, Other]));
+        Assert.False(GridPolicy.MayRestore(GridKind.SecondLife, Self, []));
+        Assert.True(GridPolicy.MayRestore(GridKind.OpenSim, Self, [Other]));
+    }
+
+    [Fact]
     public void Elsewhere_a_backup_is_not_limited_by_who_made_the_parts()
     {
         Assert.True(GridPolicy.MayBackUp(GridKind.OpenSim, Self, [Self, Other]));
@@ -87,7 +96,7 @@ public class GridPolicyTests
         var t = typeof(GridPolicy);
         Assert.Empty(t.GetProperties(BindingFlags.Public | BindingFlags.Static).Where(p => p.CanWrite));
         Assert.Empty(t.GetFields(BindingFlags.Public | BindingFlags.Static));
-        Assert.Equal(["Allows", "KindOf", "MayBackUp", "ReachOf"],
+        Assert.Equal(["Allows", "KindOf", "MayBackUp", "MayRestore", "ReachOf"],
             t.GetMethods(BindingFlags.Public | BindingFlags.Static).Select(m => m.Name).Distinct().Order().ToArray());
     }
 

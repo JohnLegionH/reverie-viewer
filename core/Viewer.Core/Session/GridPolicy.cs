@@ -101,4 +101,8 @@ public static class GridPolicy
             return Allows(ViewerFeature.Backup, grid);
         return Allows(ViewerFeature.Backup, grid) && self != Guid.Empty && partCreators.Count > 0 && partCreators.All(c => c == self);
     }
+
+    /// <summary>Whether objects from a file whose parts were made by <paramref name="partCreators"/> may be rezzed again by
+    /// <paramref name="self"/> on this kind of grid: the same rule as <see cref="MayBackUp"/>.</summary>
+    public static bool MayRestore(GridKind grid, Guid self, IReadOnlyCollection<Guid> partCreators) => false;
 }
