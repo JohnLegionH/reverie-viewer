@@ -275,6 +275,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _client.Self.ChatFromSimulator += OnChat;
         _client.Self.IM += OnInstantMessage;
         _client.Self.AlertMessage += OnAlertMessage;
+        _client.Self.MoneyBalance += OnMoneyBalance;
         _client.Self.ScriptDialog += OnScriptDialog;
         _client.Self.ScriptQuestion += OnScriptQuestion;
         _client.Self.LoadURL += OnLoadUrl;
@@ -1302,11 +1303,11 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// <summary>The largest map tile picture taken (the grid's tiles are a few kilobytes).</summary>
     public const int MapTileCapBytes = 1024 * 1024;
 
-    /// <summary>A map tile picture from the map server the login reply names, through the outbound policy and bounded before it is held.
+    /// <summary>A map tile picture from the grid's map server (the region's own setting, else the login reply's), through the outbound policy and bounded before it is held.
     /// A 404 is NotFound; a missing or unusable map server address, a refusal or any other failure is Failed.</summary>
     public async Task<Viewer.Core.Assets.AssetFetchResult> FetchMapTileAsync(int level, int gridX, int gridY, CancellationToken ct)
     {
-        var uri = Viewer.Core.Map.MapMath.TileUri(_client.Network.LoginResponseData?.MapServerUrl, new Viewer.Core.Map.MapTileKey(level, gridX, gridY));
+        var uri = Viewer.Core.Map.MapMath.TileUri(GridFeatures().MapServerUrl, new Viewer.Core.Map.MapTileKey(level, gridX, gridY));
         if (uri is null)
             return Viewer.Core.Assets.AssetFetchResult.Of(Viewer.Core.Assets.AssetFetchStatus.Failed);
         HttpClient http;
@@ -2194,6 +2195,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _client.Self.ChatFromSimulator -= OnChat;
         _client.Self.IM -= OnInstantMessage;
         _client.Self.AlertMessage -= OnAlertMessage;
+        _client.Self.MoneyBalance -= OnMoneyBalance;
         _client.Self.ScriptDialog -= OnScriptDialog;
         _client.Self.ScriptQuestion -= OnScriptQuestion;
         _client.Self.LoadURL -= OnLoadUrl;

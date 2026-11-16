@@ -261,9 +261,11 @@ public sealed class NearbyChat
             _ => chat.SourceId == _self ? ChatLineStyle.Own : ChatLineStyle.Agent,
         };
         var range = chat.Type switch { ChatLineType.Whisper => ChatKind.Whisper, ChatLineType.Shout => ChatKind.Shout, _ => ChatKind.Say };
+        // a line with a place, from someone else, beyond the grid's say range is shown dimmed (llviewerchat.cpp)
+        bool far = chat.Position != System.Numerics.Vector3.Zero && chat.SourceId != _self && IsBeyondSayRange?.Invoke(chat.Position) == true;
         if (chat.Source != ChatSource.Object)
         {
-            Add(new ChatLine(_clock(), style, chat.SourceId, chat.FromName, rest, range, emote));
+            Add(new ChatLine(_clock(), style, chat.SourceId, chat.FromName, rest, range, emote, Far: far));
             return;
         }
         // a direct line starting with an at sign is for scripts, not for people (llfloaterimnearbychathandler.cpp)
@@ -278,7 +280,7 @@ public sealed class NearbyChat
         };
         Objects.Remember(new Viewer.Shell.Notifications.ObjectInfo(chat.SourceId, chat.OwnerId, chat.FromName, false, "",
             chat.Position == System.Numerics.Vector3.Zero ? null : chat.Position));
-        Add(new ChatLine(_clock(), style, chat.SourceId, chat.FromName, rest, range, emote, ObjectId: chat.SourceId, OwnerId: chat.OwnerId, Mark: mark));
+        Add(new ChatLine(_clock(), style, chat.SourceId, chat.FromName, rest, range, emote, ObjectId: chat.SourceId, OwnerId: chat.OwnerId, Mark: mark, Far: far));
     }
 
     /// <summary>A line from the grid itself (a system message or a message box), shown in nearby chat.</summary>

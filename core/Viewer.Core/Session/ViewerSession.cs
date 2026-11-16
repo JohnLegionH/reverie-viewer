@@ -187,6 +187,10 @@ public sealed class ViewerSession : IDisposable
     public Viewer.Core.Building.ITextureUploadService? BuildService => _transport as Viewer.Core.Building.ITextureUploadService;
 
     /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
+    /// <summary>The grid's own settings (chat ranges, map server, search and guide addresses, currency, export flag) from the agent's
+    /// region, or Second Life's defaults while the region has sent none.</summary>
+    public GridFeatures GridFeatures => (_transport as IGridFeaturesSource)?.GridFeatures() ?? GridFeatures.Defaults;
+
     public Viewer.Core.Building.EditLimits EditLimits => (_transport as Viewer.Core.Protocol.LmvTransport)?.EditLimits() ?? Viewer.Core.Building.EditLimits.Official;
 
     /// <summary>The grid's model upload (the same capability as images, with a model request), or null when the transport has none.</summary>
@@ -907,6 +911,9 @@ public sealed class ViewerSession : IDisposable
                 if (IsCurrent(chat.Sim))
                     Communicate(chat);
                 break;
+            case BalanceChanged:
+                Communicate(e);
+                break;
             case MuteListReceived mutes:
                 Mutes.Load(mutes.Entries);
                 Communicate(e);
@@ -1425,6 +1432,12 @@ public sealed class ViewerSession : IDisposable
             // the groups this agent is in, asked for once per login (the region usually sends them unasked; this makes sure)
             try { groupList.RequestGroups(); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { _log.Warn("group.list-request-failed", CoreLog.F("error", ex.GetType().Name)); }
+        }
+        if (stage == SessionStage.InWorld && _transport is IGridFeaturesSource money)
+        {
+            // the balance, asked for once per login as the official viewer does (llstartup.cpp, sendMoneyBalanceRequest)
+            try { money.RequestBalance(); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { _log.Warn("money.balance-request-failed", CoreLog.F("error", ex.GetType().Name)); }
         }
         if (stage == SessionStage.InWorld && _transport is IMuteListRequester muteRequester)
             AskForMuteList(muteRequester);
