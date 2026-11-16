@@ -206,8 +206,14 @@ Check "1 Create hands back: the tool becomes Edit (Move) and the new box is sele
 Press "4" $true; Start-Sleep -Milliseconds 400
 $kt = ClickCtl "keep_tool"; Start-Sleep -Milliseconds 400
 $before2 = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
-$gp2 = Ground 0 3
-if ($gp2) { ClickAt $gp2[0] $gp2[1] }
+# a spot of ground on screen clear of the Build window (on the left) and of the first box
+$pa0 = ScreenOf $boxA.id
+$gp2 = $null
+foreach ($d in @(@(3, 0), @(-3, 0), @(0, 3), @(0, -3), @(2.5, 2.5), @(-2.5, -2.5), @(2.5, -2.5), @(-2.5, 2.5))) {
+    $p = Ground $d[0] $d[1]
+    if ($p -and $p[0] -gt 560 -and $p[0] -lt 1100 -and $p[1] -gt 120 -and $p[1] -lt 500 -and (-not $pa0 -or (Flat $p $pa0) -gt 90)) { $gp2 = $p; break }
+}
+if ($gp2) { ClickAt $gp2[0] $gp2[1] } else { Note "no clear spot of ground on screen for the second box" }
 $boxB = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before2 -notcontains $_.id }) | Select-Object -First 1 } 20
 if ($boxB) { Add-Rezzed ([uint32]$boxB.local); $B = [uint32]$boxB.local }
 Start-Sleep -Milliseconds 800
