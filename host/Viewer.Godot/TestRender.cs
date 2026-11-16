@@ -1574,6 +1574,26 @@ public partial class TestRender : Node
     // ---------------- the engine errors' backtraces (--tr-engineerrors[=keep]) ----------------
 
     /// <summary>
+    /// The worker thread's engine errors for <see cref="EngineErrorsCheck"/>. GodotSharp's GD.PushError names the frame above its
+    /// caller (it takes a StackTrace that skips three frames and reads its first frame without a null check). Once PushError and
+    /// GD.ErrPrintError have their optimised code, PushError's call is a tail call and the helper that takes the StackTrace is
+    /// inlined, so a thread's own method that called PushError directly left no frame there and the call threw a
+    /// NullReferenceException, ending the process (in some runs only: the optimised code arrives partway through the errors, at a
+    /// moment that varies). These two methods are never inlined or optimised, so their frames always stand above the call.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
+    private static void WorkerErrorsLogged(int n)
+    {
+        for (int i = 0; i < n; i++) WorkerErrorLogged();
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
+    private static void WorkerErrorLogged()
+    {
+        GD.PushError("engine error check: logged off the main thread");
+    }
+
+    /// <summary>
     /// Every engine error hands the logger its script backtraces (engine objects), which only a finalizer released until
     /// the logger handed them over for the main thread's pinned disposal (<see cref="LoggedErrorReleases"/>). (1) Engine
     /// errors on the main thread and on a worker thread with collections held off (a no-GC region), so no finalizer can
@@ -1591,10 +1611,10 @@ public partial class TestRender : Node
         if (Main.EngineLog is not { } route) { _failures.Add("no engine log route (the viewer's logger is not registered)"); return 1; }
         // an engine error on the main thread ("Parameter material is null", as a region change once raised by the thousand)
         static void EngineError() => RenderingServer.MaterialSetParam(new Rid(), EngineNames.Tex, default);
-        // errors logged on another thread: the logger is called on that thread
+        // errors logged on another thread: the logger is called on that thread (WorkerErrorsLogged, below)
         static void OnWorker(int n)
         {
-            var t = new System.Threading.Thread(() => { for (int i = 0; i < n; i++) GD.PushError("engine error check: logged off the main thread"); });
+            var t = new System.Threading.Thread(() => WorkerErrorsLogged(n));
             t.Start();
             t.Join();
         }
