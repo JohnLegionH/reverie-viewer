@@ -22,9 +22,10 @@ public enum ChatLineStyle { Own, Agent, Object, System }
 /// <param name="OwnerId">The object's owner, when the region said.</param>
 /// <param name="Mark">What kind of object line this is (owner-only, direct to this user, a script error, an object's instant message).</param>
 /// <param name="Place">The place text an object's instant message carried.</param>
+/// <param name="Far">The speaker was beyond the grid's say range when the line arrived (shown dimmed).</param>
 public sealed record ChatLine(DateTimeOffset At, ChatLineStyle Style, Guid SpeakerId, string Name, string Text, ChatKind Range = ChatKind.Say,
     bool Emote = false, bool Saved = false, DateTimeOffset? SavedAt = null, Guid ObjectId = default, Guid OwnerId = default,
-    ChatMark Mark = ChatMark.None, string? Place = null);
+    ChatMark Mark = ChatMark.None, string? Place = null, bool Far = false);
 
 /// <summary>How an object's line is marked: none, heard only by its owner (owner say), sent to this user alone (region say-to), a script error, or an object's instant message.</summary>
 public enum ChatMark { None, OwnerOnly, Direct, ScriptError, ObjectMessage }
@@ -208,6 +209,9 @@ public sealed class NearbyChat
         Add(new ChatLine(_clock(), ChatLineStyle.Object, m.ObjectId, m.ObjectName, rest, ChatKind.Say, emote,
             ObjectId: m.ObjectId, OwnerId: m.OwnerId, Mark: ChatMark.ObjectMessage, Place: m.Location));
     }
+
+    /// <summary>Whether a speaker at a region position is beyond the grid's say range (null: every line is near).</summary>
+    public Func<System.Numerics.Vector3, bool>? IsBeyondSayRange { get; set; }
 
     /// <summary>Who is typing nearby, in the order they started (never this user).</summary>
     public IReadOnlyList<(Guid Id, string Name)> Typing => _others.Select(o => (o.Id, o.Name)).ToArray();
