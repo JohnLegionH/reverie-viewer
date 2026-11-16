@@ -3,6 +3,7 @@
 
 using Viewer.Core.Actions;
 using Viewer.Core.Building;
+using Viewer.Core.Interaction;
 using Viewer.Core.World;
 
 namespace Viewer.Shell.Build;
@@ -30,8 +31,18 @@ public sealed class NewPrimTracker
     public int Waiting { get; private set; }
 
     /// <summary>A create was sent.</summary>
-    public void Expect() { }
+    public void Expect() => Waiting++;
 
     /// <summary>An object arrived in the world: when it is a box this viewer just made, the settings go on it. True when it was one.</summary>
-    public bool Arrived(ObjectState o) => false;
+    public bool Arrived(ObjectState o)
+    {
+        const uint Full = ObjectFlagBits.YouOwner | ObjectFlagBits.Modify | ObjectFlagBits.Copy | ObjectFlagBits.Transfer;
+        uint flags = o.Interaction?.Flags ?? 0;
+        if (Waiting == 0 || o.ParentLocalId != 0 || o.AttachmentPoint is not null || (flags & ObjectFlagBits.CreateSelected) == 0 || (flags & Full) != Full)
+            return false;
+        Waiting--;
+        foreach (var edit in _defaults().EditsFor(o.Id.LocalId, BoxFaces))
+            _submit(edit);
+        return true;
+    }
 }

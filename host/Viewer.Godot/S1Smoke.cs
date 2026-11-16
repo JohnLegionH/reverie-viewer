@@ -447,6 +447,7 @@ public partial class S1Smoke : Node
             _ => new Viewer.Core.Actions.ActionResult(Viewer.Core.Actions.ActionStatus.Sent, 1));
         BuildMenu.Install(model.Menus, () => true);
         BuildMenu.InstallEditing(model.Menus, () => true, () => edit, () => selection);
+        BuildMenu.InstallSelectionHelpers(model.Menus, () => true, () => edit);
         IEnumerable<MenuEntry> Flat(IEnumerable<MenuEntry> es) => es.SelectMany(e => e.Children is { } k ? Flat(k).Prepend(e) : [e]);
         model.Menus.AddMenu("keys", "menu.help");
         foreach (var id in ViewerShortcuts.ByEntry.Keys)

@@ -142,7 +142,9 @@ public sealed partial class EditController
             return false;
         if (_selectFaces)
             return ClickFace(pick, shift);
-        if (pick.Kind != PickKind.Object || pick.Hit is not { } hit || _world.Object(hit.Id) is not { } prim || prim.AttachmentPoint is not null)
+        // Select Only My Objects: another's object is passed over as if the click had found nothing (llselectmgr.cpp, SelectOwnedOnly)
+        if (pick.Kind != PickKind.Object || pick.Hit is not { } hit || _world.Object(hit.Id) is not { } prim || prim.AttachmentPoint is not null
+            || !Choosable(prim.Id.LocalId))
         {
             if (!shift)
                 Deselect();
@@ -169,7 +171,7 @@ public sealed partial class EditController
     /// <summary>A drag-select: the objects inside the box (their roots, or the parts with Edit linked); Shift adds to the selection.</summary>
     public void SelectMany(IEnumerable<uint> locals, bool shift)
     {
-        var chosen = locals.ToList();
+        var chosen = locals.Where(Choosable).ToList();
         if (!shift)
         {
             var kept = chosen.Select(l => _editLinked ? l : RootOf(l)).ToHashSet();

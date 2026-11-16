@@ -71,6 +71,9 @@ public sealed class InteractionController
     /// <summary>The new-prim settings Create uses (Preferences, Building); the default box when not given.</summary>
     public Func<Viewer.Core.Building.NewPrimDefaults>? NewPrim { get; set; }
 
+    /// <summary>Raised when Create has sent a box (the new-prim settings go on it once the region sends it back).</summary>
+    public event Action? BoxCreated;
+
     /// <summary>Build, Create was chosen: the next left click in the world places the default box.</summary>
     public bool Placing { get; private set; }
 
@@ -95,9 +98,11 @@ public sealed class InteractionController
     {
         if (!Placing || Viewer.Core.Building.BuildRules.CreatePlacement(pick, cameraPosition, cameraAt, rayDirection, nearClip) is not { } placement)
             return false;
-        if (_submit(new CreateBoxIntent(placement)).Status != ActionStatus.Sent)
+        var made = NewPrim?.Invoke();
+        if (_submit(new CreateBoxIntent(placement, made?.Size, made is null ? null : (byte)made.Material)).Status != ActionStatus.Sent)
             return false;
         Placing = false;
+        BoxCreated?.Invoke();
         PlaySound?.Invoke(global::Viewer.Shell.Sound.UiSoundSlot.ObjectCreate);
         Changed?.Invoke();
         return true;

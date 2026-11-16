@@ -59,7 +59,17 @@ public static class BuildMenu
 
     /// <summary>Select Next Part (Ctrl+.) and Select Previous Part (Ctrl+,) after Edit Linked Parts, Select Only My Objects in Options, and
     /// Take Into Folder after Unlink (menu_viewer.xml's places for the first three).</summary>
-    public static void InstallSelectionHelpers(MenuModel menus, Func<bool> inWorld, Func<Viewer.Shell.Build.EditController?> edit) { }
+    public static void InstallSelectionHelpers(MenuModel menus, Func<bool> inWorld, Func<Viewer.Shell.Build.EditController?> edit)
+    {
+        // on with something selected and Edit Linked on (llviewermenu.cpp LLToolsEnableSelectNextPart)
+        bool Parts() => inWorld() && edit() is { CanSelectNextPart: true };
+        menus.AddEntry(MenuId, new MenuEntry(NextPartId, "menu.build.next_part", NextPartCommand, Parts, EditLinkedOrder + 1, Shortcut: "control|."));
+        menus.AddEntry(MenuId, new MenuEntry(PreviousPartId, "menu.build.previous_part", PreviousPartCommand, Parts, EditLinkedOrder + 2, Shortcut: "control|,"));
+        menus.AddEntry(MenuId, new MenuEntry(TakeIntoFolderId, "menu.build.take_into_folder", TakeIntoFolderCommand,
+            () => inWorld() && edit() is { Selection.Count: > 0 }, LinkOrder + 2));
+        // Select Only My Objects stands before the grid's entries in Options, as in the official menu
+        menus.AddSubEntry(OptionsId, new MenuEntry(OwnedOnlyId, "menu.build.owned_only", OwnedOnlyCommand, inWorld, 5, () => edit()?.SelectOwnedOnly ?? false));
+    }
 
     /// <summary>Undo and Redo stand last in the Build menu, after Upload.</summary>
     public const int UndoOrder = 2000;

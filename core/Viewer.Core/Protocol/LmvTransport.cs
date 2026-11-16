@@ -270,6 +270,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _client.Network.RegisterCallback(PacketType.ParcelOverlay, OnSoundPacket);
         _client.Self.AvatarSitResponse += OnAvatarSitResponse;
         _client.Objects.ObjectProperties += OnObjectProperties;
+        _client.Objects.PhysicsProperties += OnPhysicsProperties;
         _client.Objects.PayPriceReply += OnPayPriceReply;
         _client.Self.ChatFromSimulator += OnChat;
         _client.Self.IM += OnInstantMessage;
@@ -2007,7 +2008,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// <summary>The prim's click action, object flags and floating text. Null when it has none of them (the usual prim: touch, no flags, no text).</summary>
     internal static PrimInteraction? ToInteraction(Primitive p)
     {
-        const uint Interesting = Viewer.Core.Interaction.ObjectFlagBits.Physics | Viewer.Core.Interaction.ObjectFlagBits.Modify | Viewer.Core.Interaction.ObjectFlagBits.Copy
+        const uint Interesting = Viewer.Core.Interaction.ObjectFlagBits.Physics | Viewer.Core.Interaction.ObjectFlagBits.CreateSelected | Viewer.Core.Interaction.ObjectFlagBits.Modify | Viewer.Core.Interaction.ObjectFlagBits.Copy
             | Viewer.Core.Interaction.ObjectFlagBits.YouOwner | Viewer.Core.Interaction.ObjectFlagBits.Scripted | Viewer.Core.Interaction.ObjectFlagBits.HandleTouch
             | Viewer.Core.Interaction.ObjectFlagBits.TakesMoney | Viewer.Core.Interaction.ObjectFlagBits.InventoryEmpty
             | Viewer.Core.Interaction.ObjectFlagBits.Move | Viewer.Core.Interaction.ObjectFlagBits.Transfer;
@@ -2025,8 +2026,10 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     internal static PrimLight? ToLight(Primitive p) =>
         p.Light is { Radius: > 0f, Intensity: > 0f } l ? new PrimLight(new System.Numerics.Vector3(l.Color.R, l.Color.G, l.Color.B), l.Intensity, l.Radius, l.Falloff, l.Cutoff) : null;
 
-    /// <summary>The prim's flexible block (its softness and forces); null when it has none.</summary>
-    internal static Viewer.Core.Building.FlexibleParams? ToFlexible(Primitive p) => null;
+    /// <summary>The prim's flexible settings (its softness and forces) when it is flexible: its path is the flexible path, as the official
+    /// viewer's isFlexible reads it (the library always holds a flexible block, filled or not); null otherwise.</summary>
+    internal static Viewer.Core.Building.FlexibleParams? ToFlexible(Primitive p) =>
+        p.PrimData.PathCurve == PathCurve.Flexible && p.Flexible is { } f ? new Viewer.Core.Building.FlexibleParams(f.Softness, f.Gravity, f.Drag, f.Wind, f.Tension, new System.Numerics.Vector3(f.Force.X, f.Force.Y, f.Force.Z)) : null;
 
     /// <summary>The prim's projector (light image block), only on a prim that also has a light and whose image names a texture.</summary>
     internal static PrimProjector? ToProjector(Primitive p) =>
@@ -2186,6 +2189,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _client.Network.UnregisterCallback(PacketType.ParcelOverlay, OnSoundPacket);
         _client.Self.AvatarSitResponse -= OnAvatarSitResponse;
         _client.Objects.ObjectProperties -= OnObjectProperties;
+        _client.Objects.PhysicsProperties -= OnPhysicsProperties;
         _client.Objects.PayPriceReply -= OnPayPriceReply;
         _client.Self.ChatFromSimulator -= OnChat;
         _client.Self.IM -= OnInstantMessage;

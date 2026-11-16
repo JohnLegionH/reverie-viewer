@@ -293,11 +293,11 @@ public partial class ShellRoot : Control
         return Shell.Commands.Execute(command);
     }
 
-    /// <summary>A key event as a menu shortcut's chord: a letter or a digit with its modifier keys; null for any other key.</summary>
+    /// <summary>A key event as a menu shortcut's chord: a letter, a digit, a full stop or a comma with its modifier keys; null for any other key.</summary>
     public static KeyChord? ChordOf(InputEventKey k)
     {
         var code = k.Keycode != Key.None ? k.Keycode : k.PhysicalKeycode;
-        return code is >= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9
+        return code is >= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9 or Key.Period or Key.Comma
             ? new KeyChord(((char)(long)code).ToString(), k.CtrlPressed, k.ShiftPressed, k.AltPressed)
             : null;
     }

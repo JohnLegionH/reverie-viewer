@@ -164,7 +164,7 @@ public class NewPrimDefaultsTests
         Assert.Empty(sent);
         Assert.True(t.Arrived(O(9, Full | ObjectFlagBits.CreateSelected)));
         Assert.Equal(0, t.Waiting);
-        Assert.Equal(Changed().EditsFor(9, NewPrimTracker.BoxFaces), sent);
+        Assert.Equivalent(Changed().EditsFor(9, NewPrimTracker.BoxFaces), sent, strict: true);   // records holding lists compare by their contents
         Assert.False(t.Arrived(O(10, Full | ObjectFlagBits.CreateSelected)));
     }
 

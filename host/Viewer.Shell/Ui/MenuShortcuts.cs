@@ -9,7 +9,8 @@ public sealed record KeyChord(string Key, bool Control = false, bool Shift = fal
     /// <summary>Whether Ctrl or Alt is held: such a chord reaches the menus even while a text field holds the keyboard.</summary>
     public bool Modified => Control || Alt;
 
-    /// <summary>Reads a shortcut as the official menus write it; null when it is empty or names a key that is not a letter or a digit.</summary>
+    /// <summary>Reads a shortcut as the official menus write it; null when it is empty or names a key that is not a letter, a digit, a full stop
+    /// or a comma (the official menu writes Select Next Part and Select Previous Part as "control|." and "control|,").</summary>
     public static KeyChord? Parse(string? shortcut)
     {
         if (string.IsNullOrEmpty(shortcut))
@@ -23,7 +24,7 @@ public sealed record KeyChord(string Key, bool Control = false, bool Shift = fal
                 case "control": control = true; break;
                 case "shift": shift = true; break;
                 case "alt": alt = true; break;
-                case { Length: 1 } c when char.IsAsciiLetterOrDigit(c[0]) && key is null: key = c.ToUpperInvariant(); break;
+                case { Length: 1 } c when (char.IsAsciiLetterOrDigit(c[0]) || c[0] is '.' or ',') && key is null: key = c.ToUpperInvariant(); break;
                 default: return null;
             }
         }

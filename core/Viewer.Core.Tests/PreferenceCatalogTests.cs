@@ -82,6 +82,24 @@ public class PreferenceCatalogTests
 
         new("cache_folder", PrefPage.Cache, PrefKind.Folder, Restart, PrefScope.Global, ""),
         new("cache_size_mb", PrefPage.Cache, PrefKind.Whole, Restart, PrefScope.Global, 1024, 256, 65536),
+
+        new("new_prim_size_x", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 0.5, 0.01, 64),
+        new("new_prim_size_y", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 0.5, 0.01, 64),
+        new("new_prim_size_z", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 0.5, 0.01, 64),
+        new("new_prim_material", PrefPage.Building, PrefKind.Choice, Live, PrefScope.Global, "wood"),
+        new("new_prim_red", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 1.0, 0, 1),
+        new("new_prim_green", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 1.0, 0, 1),
+        new("new_prim_blue", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 1.0, 0, 1),
+        new("new_prim_transparency", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 0.0, 0, 90),
+        new("new_prim_glow", PrefPage.Building, PrefKind.Real, Live, PrefScope.Global, 0.0, 0, 1),
+        new("new_prim_full_bright", PrefPage.Building, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("new_prim_texture", PrefPage.Building, PrefKind.Text, Live, PrefScope.Global, "89556747-24cb-43ed-920b-47caed15465f"),
+        new("new_prim_physical", PrefPage.Building, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("new_prim_temporary", PrefPage.Building, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("new_prim_phantom", PrefPage.Building, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("new_prim_next_owner_copy", PrefPage.Building, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("new_prim_next_owner_modify", PrefPage.Building, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("new_prim_next_owner_transfer", PrefPage.Building, PrefKind.Switch, Live, PrefScope.Global, true),
     ];
 
     public static IEnumerable<object[]> Keys() => Table.Select(e => new object[] { e.Key });
@@ -185,6 +203,7 @@ public class PreferenceCatalogTests
                 };
             case PrefKind.Real: return e.Max / 2 + 0.5 is var half && half == Convert.ToDouble(e.Default) ? e.Min : half;   // a value other than the default
             case PrefKind.Choice: return d.Choices.First(c => c != (string)e.Default);
+            case PrefKind.Text: return "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e";
             default: return "/srv/example-cache";
         }
 

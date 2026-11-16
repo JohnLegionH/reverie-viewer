@@ -56,6 +56,8 @@ public class MenuShortcutRouteTests
     [InlineData("shift|X", "X", false, true, false)]
     [InlineData("G", "G", false, false, false)]
     [InlineData("control|b", "B", true, false, false)]
+    [InlineData("control|.", ".", true, false, false)]   // Select Next Part, as the official menu writes it
+    [InlineData("control|,", ",", true, false, false)]   // Select Previous Part
     public void A_shortcut_reads_as_its_key_and_modifiers(string shortcut, string key, bool ctrl, bool shift, bool alt) =>
         Assert.Equal(new KeyChord(key, ctrl, shift, alt), KeyChord.Parse(shortcut));
 

@@ -25,9 +25,44 @@ public sealed record NewPrimDefaults(Vector3 Size, int Material, Vector3 Color, 
 
     /// <summary>The settings held to what a prim may have: the size to the region's limits, the material to Stone to Rubber, colour and glow to
     /// 0 to 1, transparency to 0 to 90; an empty texture is plywood.</summary>
-    public NewPrimDefaults Clamped(EditLimits limits) => this;
+    public NewPrimDefaults Clamped(EditLimits limits)
+    {
+        static float C(float v, float min, float max, float fallback) => float.IsFinite(v) ? Math.Clamp(v, min, max) : fallback;
+        return this with
+        {
+            Size = new(C(Size.X, limits.MinScale, limits.MaxScale, 0.5f), C(Size.Y, limits.MinScale, limits.MaxScale, 0.5f), C(Size.Z, limits.MinScale, limits.MaxScale, 0.5f)),
+            Material = Material is >= 0 and <= 6 ? Material : DefaultBox.MaterialWood,
+            Color = new(C(Color.X, 0f, 1f, 1f), C(Color.Y, 0f, 1f, 1f), C(Color.Z, 0f, 1f, 1f)),
+            Transparency = C(Transparency, 0f, 90f, 0f),
+            Glow = C(Glow, 0f, 1f, 0f),
+            Texture = Texture == Guid.Empty ? Plywood : Texture,
+        };
+    }
 
     /// <summary>The edits to send to a prim just made with these settings: only those that differ from what the region gives a new prim
     /// (its faces, its flags, its next-owner permissions), so the untouched defaults send nothing.</summary>
-    public IReadOnlyList<Viewer.Core.Actions.ActionIntent> EditsFor(uint localId, int faceCount) => [];
+    public IReadOnlyList<Viewer.Core.Actions.ActionIntent> EditsFor(uint localId, int faceCount)
+    {
+        var d = Default;
+        var edits = new List<Viewer.Core.Actions.ActionIntent>();
+        if (Texture != d.Texture || Color != d.Color || Transparency != d.Transparency || Glow != d.Glow || FullBright != d.FullBright)
+        {
+            // every face as a new box has it (repeats 1, no offset or turn, the default mapping), with these settings on top
+            var face = new FaceSettings(Texture, new Viewer.Core.World.Rgba(Color.X, Color.Y, Color.Z, 1f - Transparency / 100f), 1f, 1f, 0f, 0f, 0f,
+                default, FullBright, Glow);
+            edits.Add(new Viewer.Core.Actions.SetObjectFacesIntent(localId, [.. Enumerable.Range(0, faceCount).Select(f => new FaceEdit(f, face))]));
+        }
+        if (Physical != d.Physical || Temporary != d.Temporary || Phantom != d.Phantom)
+            edits.Add(new Viewer.Core.Actions.SetObjectFlagsIntent(localId, Physical, Temporary, Phantom));
+        // the next owner's permissions, one change each, as ObjectPermissions on the next owner's field
+        foreach (var (mask, value, was) in new[] { (PermCopy, NextOwnerCopy, d.NextOwnerCopy), (PermModify, NextOwnerModify, d.NextOwnerModify),
+                     (PermTransfer, NextOwnerTransfer, d.NextOwnerTransfer) })
+            if (value != was)
+                edits.Add(new Viewer.Core.Actions.SetObjectPermissionsIntent([localId], FieldNextOwner, value, mask));
+        return edits;
+    }
+
+    /// <summary>The protocol's permission bits and ObjectPermissions' next-owner field.</summary>
+    private const uint PermTransfer = 1u << 13, PermModify = 1u << 14, PermCopy = 1u << 15;
+    private const byte FieldNextOwner = 0x10;
 }

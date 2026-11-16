@@ -32,7 +32,7 @@ internal static class LmvBuild
         ObjectData =
         {
             PCode = DefaultBox.PCodeVolume,
-            Material = DefaultBox.MaterialWood,
+            Material = material,
             AddFlags = DefaultBox.AddFlagCreateSelected,
             PathCurve = DefaultBox.PathLine,
             ProfileCurve = DefaultBox.ProfileSquare,
@@ -40,7 +40,7 @@ internal static class LmvBuild
             PathBegin = 0, PathEnd = 0, PathScaleX = DefaultBox.PathScalePacked, PathScaleY = DefaultBox.PathScalePacked,
             PathShearX = 0, PathShearY = 0, PathTwist = 0, PathTwistBegin = 0, PathRadiusOffset = 0, PathTaperX = 0, PathTaperY = 0,
             PathRevolutions = 0, PathSkew = 0, ProfileBegin = 0, ProfileEnd = 0, ProfileHollow = 0,
-            Scale = L(DefaultBox.Scale),
+            Scale = L(scale),
             Rotation = Quaternion.Identity,
             RayStart = L(p.RayStart),
             RayEnd = L(p.RayEnd),

@@ -149,7 +149,11 @@ public partial class Main
             _edit?.Receive(e);
         }
         while (_textChanges.TryDequeue(out var c))
+        {
             TrackText(sess.World, c);
+            if (c.Kind == WorldChangeKind.ObjectAdded && _newPrims is { Waiting: > 0 } made && sess.World.Object(c.Id) is { } added)
+                made.Arrived(added);
+        }
         ic.Tick();
         _seatMouseLook?.Update(ic.Sitting, ic.Seat is { ForceMouselook: true });   // a seat that asks for mouse-look puts the view into it
         _interactUi!.Stand.Visible = ic.Sitting;

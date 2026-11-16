@@ -274,7 +274,8 @@ public class BuildFeaturesTabTests
     [Fact]
     public void A_prims_flexible_block_reaches_the_world_and_a_prim_without_one_has_none()
     {
-        var p = new Primitive { PrimData = new Primitive.ConstructionData(), Flexible = new Primitive.FlexibleData { Softness = 3, Gravity = 1f, Drag = 4f, Wind = 2f, Tension = 5f, Force = new LibreMetaverse.Vector3(0, 0, 1) } };
+        // the library always holds a flexible block; a prim is flexible when its path is the flexible path
+        var p = new Primitive { PrimData = new Primitive.ConstructionData { PathCurve = PathCurve.Flexible }, Flexible = new Primitive.FlexibleData { Softness = 3, Gravity = 1f, Drag = 4f, Wind = 2f, Tension = 5f, Force = new LibreMetaverse.Vector3(0, 0, 1) } };
         Assert.Equal(new FlexibleParams(3, 1f, 4f, 2f, 5f, new Vector3(0, 0, 1)), LmvTransport.ToFlexible(p));
         Assert.Null(LmvTransport.ToFlexible(new Primitive { PrimData = new Primitive.ConstructionData() }));
     }

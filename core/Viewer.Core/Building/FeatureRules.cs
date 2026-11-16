@@ -54,21 +54,27 @@ public static class FeatureRules
     public static readonly IReadOnlyList<string> Materials = ["stone", "metal", "glass", "wood", "flesh", "plastic", "rubber"];
 
     /// <summary>The flexible settings held to their ranges: softness 0 to 3, gravity -10 to 10, drag, wind and tension 0 to 10, force -10 to 10.</summary>
-    public static FlexibleParams Clamp(FlexibleParams f) => f;
+    public static FlexibleParams Clamp(FlexibleParams f) => new(Math.Clamp(f.Softness, 0, 3), C(f.Gravity, -10f, 10f, 0.3f), C(f.Drag, 0f, 10f, 2f),
+        C(f.Wind, 0f, 10f, 0f), C(f.Tension, 0f, 10f, 1f), new(C(f.Force.X, -10f, 10f, 0f), C(f.Force.Y, -10f, 10f, 0f), C(f.Force.Z, -10f, 10f, 0f)));
+
+    private static float C(float v, float min, float max, float fallback) => float.IsFinite(v) ? Math.Clamp(v, min, max) : fallback;
 
     /// <summary>The light held to its ranges: each colour channel and the intensity 0 to 1, radius 0 to 20 m, falloff 0 to 2.</summary>
-    public static LightParams Clamp(LightParams l) => l;
+    public static LightParams Clamp(LightParams l) =>
+        new(new(C(l.Color.X, 0f, 1f, 1f), C(l.Color.Y, 0f, 1f, 1f), C(l.Color.Z, 0f, 1f, 1f)), C(l.Intensity, 0f, 1f, 1f), C(l.Radius, 0f, 20f, 10f), C(l.Falloff, 0f, 2f, 0.75f));
 
     /// <summary>The projector held to its ranges: field of view 0 to 3, focus -20 to 20, ambiance 0 to 1.</summary>
-    public static ProjectorParams Clamp(ProjectorParams p) => p;
+    public static ProjectorParams Clamp(ProjectorParams p) => new(p.Texture, C(p.Fov, 0f, 3f, MathF.PI / 2f), C(p.Focus, -20f, 20f, 0f), C(p.Ambiance, 0f, 1f, 0f));
 
     /// <summary>The physics settings held to their ranges: a known shape type, gravity -1 to 28, friction 0 to 255, density 1 to 22587,
     /// restitution 0 to 1.</summary>
-    public static PhysicsParams Clamp(PhysicsParams p) => p;
+    public static PhysicsParams Clamp(PhysicsParams p) => new(p.ShapeType <= ShapeConvex ? p.ShapeType : ShapePrim, C(p.Gravity, -1f, 28f, 1f),
+        C(p.Friction, 0f, 255f, 0.6f), C(p.Density, 1f, 22587f, 1000f), C(p.Restitution, 0f, 1f, 0.5f));
 
     /// <summary>The shape's path curve once Flexible Path is ticked (the flexible path) or cleared (a straight line).</summary>
     public const byte PathFlexible = 0x80, PathLine = 0x10;
 
     /// <summary>Whether a prim can be made flexible: a prim that is not a sculpt or mesh, whose path is a straight line or already flexible.</summary>
-    public static bool CanFlex(Viewer.Core.Meshing.PrimShape? shape) => false;
+    public static bool CanFlex(Viewer.Core.Meshing.PrimShape? shape) =>
+        shape is { SculptType: 0 } && (shape.PathCurve & 0xF0) is PathLine or PathFlexible;
 }

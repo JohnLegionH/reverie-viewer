@@ -109,6 +109,29 @@ public class BuildSelectionHelperTests
     }
 
     [Fact]
+    public void Ctrl_dot_and_Ctrl_comma_reach_the_part_entries_through_the_menus_with_no_menu_opened()
+    {
+        var menus = new MenuModel();
+        var commands = new ShellCommands();
+        var r = new BuildFeaturesTabTests.Rig();
+        r.Prim(10, new Vector3(10, 10, 30), Own);
+        r.Prim(11, new Vector3(0, -6, 0), Own, parent: 10);
+        BuildMenu.InstallEditing(menus, () => true, () => r.C, () => r.C.Selection.Count > 0);
+        BuildMenu.InstallSelectionHelpers(menus, () => true, () => r.C);
+        commands.Register(BuildMenu.NextPartCommand, () => r.C.SelectNextPart(true));
+        commands.Register(BuildMenu.PreviousPartCommand, () => r.C.SelectNextPart(false));
+        r.C.EditLinked = true;
+        r.Select(10, 10);
+        var view = TopBarMenuMap.Build(menus, commands);
+        Assert.Contains(MenuShortcuts.All(view), s => s.Entry.Id == BuildMenu.NextPartId && s.Chord == new KeyChord(".", Control: true));
+        var next = MenuShortcuts.Route(view, new KeyChord(".", Control: true), textEntry: true);   // a Ctrl chord reaches the menus while typing too
+        Assert.Equal(BuildMenu.NextPartCommand, next?.CommandId);
+        Assert.True(commands.Execute(next!.CommandId!));
+        Assert.Equal([11u], r.C.Selection);
+        Assert.Equal(BuildMenu.PreviousPartCommand, MenuShortcuts.Route(TopBarMenuMap.Build(menus, commands), new KeyChord(",", Control: true), false)?.CommandId);
+    }
+
+    [Fact]
     public void Take_Into_Folder_takes_each_selected_root_into_the_folder_one_per_pump_and_leaves_what_may_not_be_taken()
     {
         var r = new BuildFeaturesTabTests.Rig();

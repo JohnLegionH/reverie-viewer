@@ -86,7 +86,32 @@ public static class PreferenceCatalog
         // Cache
         new TextPref(Settings.CacheFolderKey, PrefPage.Cache, PrefApply.Restart, "", null, PrefKind.Folder),
         P(Settings.CacheSizeMb, PrefPage.Cache, PrefApply.Restart, 256, 65536),
+
+        // Building: what Create makes
+        P(NewPrimSettings.SizeX, PrefPage.Building, PrefApply.Live, 0.01, 64),
+        P(NewPrimSettings.SizeY, PrefPage.Building, PrefApply.Live, 0.01, 64),
+        P(NewPrimSettings.SizeZ, PrefPage.Building, PrefApply.Live, 0.01, 64),
+        new TextPref(NewPrimSettings.MaterialKey, PrefPage.Building, PrefApply.Live, "wood", NewPrimSettings.Materials),
+        P(NewPrimSettings.Red, PrefPage.Building, PrefApply.Live, 0, 1),
+        P(NewPrimSettings.Green, PrefPage.Building, PrefApply.Live, 0, 1),
+        P(NewPrimSettings.Blue, PrefPage.Building, PrefApply.Live, 0, 1),
+        P(NewPrimSettings.Transparency, PrefPage.Building, PrefApply.Live, 0, 90),
+        P(NewPrimSettings.Glow, PrefPage.Building, PrefApply.Live, 0, 1),
+        P(NewPrimSettings.FullBright, PrefPage.Building, PrefApply.Live),
+        new TextPref(NewPrimSettings.TextureKey, PrefPage.Building, PrefApply.Live, NewPrimDefaultsText.Plywood, null, PrefKind.Text),
+        P(NewPrimSettings.Physical, PrefPage.Building, PrefApply.Live),
+        P(NewPrimSettings.Temporary, PrefPage.Building, PrefApply.Live),
+        P(NewPrimSettings.Phantom, PrefPage.Building, PrefApply.Live),
+        P(NewPrimSettings.NextOwnerCopy, PrefPage.Building, PrefApply.Live),
+        P(NewPrimSettings.NextOwnerModify, PrefPage.Building, PrefApply.Live),
+        P(NewPrimSettings.NextOwnerTransfer, PrefPage.Building, PrefApply.Live),
     ];
+
+    /// <summary>The new-prim texture setting's default as text.</summary>
+    private static class NewPrimDefaultsText
+    {
+        public static readonly string Plywood = Viewer.Core.Building.NewPrimDefaults.Plywood.ToString();
+    }
 
     /// <summary>The settings of one page, in the order shown.</summary>
     public static IReadOnlyList<PrefDef> OfPage(PrefPage page) => All.Where(d => d.Page == page).ToArray();

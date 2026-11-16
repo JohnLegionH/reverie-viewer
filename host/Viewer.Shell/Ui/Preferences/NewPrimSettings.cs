@@ -13,17 +13,17 @@ namespace Viewer.Shell;
 /// </summary>
 public static class NewPrimSettings
 {
-    private static float Real(float v, float min, float max, float fallback) => float.IsFinite(v) ? Math.Clamp(v, min, max) : fallback;
+    private static double Real(double v, double min, double max, double fallback) => double.IsFinite(v) ? Math.Clamp(v, min, max) : fallback;
 
-    public static readonly Setting<float> SizeX = new("new_prim_size_x", 0.5f, v => Real(v, 0.01f, 64f, 0.5f));
-    public static readonly Setting<float> SizeY = new("new_prim_size_y", 0.5f, v => Real(v, 0.01f, 64f, 0.5f));
-    public static readonly Setting<float> SizeZ = new("new_prim_size_z", 0.5f, v => Real(v, 0.01f, 64f, 0.5f));
+    public static readonly Setting<double> SizeX = new("new_prim_size_x", 0.5, v => Real(v, 0.01, 64, 0.5));
+    public static readonly Setting<double> SizeY = new("new_prim_size_y", 0.5, v => Real(v, 0.01, 64, 0.5));
+    public static readonly Setting<double> SizeZ = new("new_prim_size_z", 0.5, v => Real(v, 0.01, 64, 0.5));
     public const string MaterialKey = "new_prim_material";
-    public static readonly Setting<float> Red = new("new_prim_red", 1f, v => Real(v, 0f, 1f, 1f));
-    public static readonly Setting<float> Green = new("new_prim_green", 1f, v => Real(v, 0f, 1f, 1f));
-    public static readonly Setting<float> Blue = new("new_prim_blue", 1f, v => Real(v, 0f, 1f, 1f));
-    public static readonly Setting<float> Transparency = new("new_prim_transparency", 0f, v => Real(v, 0f, 90f, 0f));
-    public static readonly Setting<float> Glow = new("new_prim_glow", 0f, v => Real(v, 0f, 1f, 0f));
+    public static readonly Setting<double> Red = new("new_prim_red", 1.0, v => Real(v, 0, 1, 1));
+    public static readonly Setting<double> Green = new("new_prim_green", 1.0, v => Real(v, 0, 1, 1));
+    public static readonly Setting<double> Blue = new("new_prim_blue", 1.0, v => Real(v, 0, 1, 1));
+    public static readonly Setting<double> Transparency = new("new_prim_transparency", 0.0, v => Real(v, 0, 90, 0));
+    public static readonly Setting<double> Glow = new("new_prim_glow", 0.0, v => Real(v, 0, 1, 0));
     public static readonly Setting<bool> FullBright = new("new_prim_full_bright", false, v => v);
     public const string TextureKey = "new_prim_texture";
     public static readonly Setting<bool> Physical = new("new_prim_physical", false, v => v);
@@ -34,5 +34,15 @@ public static class NewPrimSettings
     public static readonly Setting<bool> NextOwnerTransfer = new("new_prim_next_owner_transfer", true, v => v);
 
     /// <summary>The settings as Create uses them.</summary>
-    public static NewPrimDefaults Read(SettingsService settings) => NewPrimDefaults.Default;
+    public static NewPrimDefaults Read(SettingsService settings)
+    {
+        int material = settings.GetText(MaterialKey) is { } m ? Array.IndexOf(Materials, m) : -1;
+        var texture = settings.GetText(TextureKey) is { } t && Guid.TryParse(t, out var id) ? id : NewPrimDefaults.Plywood;
+        return new NewPrimDefaults(new Vector3((float)settings.Get(SizeX), (float)settings.Get(SizeY), (float)settings.Get(SizeZ)), material >= 0 ? material : DefaultBox.MaterialWood,
+            new Vector3((float)settings.Get(Red), (float)settings.Get(Green), (float)settings.Get(Blue)), (float)settings.Get(Transparency), (float)settings.Get(Glow), settings.Get(FullBright), texture,
+            settings.Get(Physical), settings.Get(Temporary), settings.Get(Phantom), settings.Get(NextOwnerCopy), settings.Get(NextOwnerModify), settings.Get(NextOwnerTransfer));
+    }
+
+    /// <summary>The material list's ids, in the protocol's numbering (Stone 0 to Rubber 6).</summary>
+    public static readonly string[] Materials = ["stone", "metal", "glass", "wood", "flesh", "plastic", "rubber"];
 }

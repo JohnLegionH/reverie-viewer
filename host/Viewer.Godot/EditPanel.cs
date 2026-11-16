@@ -27,7 +27,7 @@ public partial class EditPanel : VBoxContainer
     private readonly Dictionary<BuildTool, Button> _tools = new();
     private readonly Dictionary<ManipMode, CheckBox> _manips = new();
     private readonly HBoxContainer _manipRow;
-    private readonly CheckBox _linked, _snap, _both, _stretchTex;
+    private readonly CheckBox _linked, _snap, _both, _stretchTex, _ownedOnly;
     private readonly Label _status;
     public Button Link { get; }
     public Button Unlink { get; }
@@ -51,6 +51,10 @@ public partial class EditPanel : VBoxContainer
     private readonly Dictionary<ObjectClip, Button> _pasteButtons = new();
 
     public EditTextureTab TextureTab => _textureTab;
+    private readonly EditFeaturesTab _featuresTab;
+    private readonly EditContentTab _contentTab;
+    public EditFeaturesTab FeaturesTab => _featuresTab;
+    public EditContentTab ContentTab => _contentTab;
 
     public EditPanel(StringTable strings, Func<EditController?> edit, Func<Viewer.Core.Inventory.InventoryModel?>? inventory = null)
     {
@@ -95,6 +99,8 @@ public partial class EditPanel : VBoxContainer
         _snap = Tick(ticks, "snap", "edit.snap", on => { if (_edit() is { } e) e.SnapEnabled = on; });
         _both = Tick(ticks, "stretch_both", "edit.stretch_both", on => { if (_edit() is { } e) e.StretchBothSides = on; });
         _stretchTex = Tick(ticks, "stretch_textures", "edit.stretch_textures", on => { if (_edit() is { } e) e.StretchTextures = on; });
+        // Select Only My Objects, the official Build > Options item (SelectOwnedOnly), as a tick here too
+        _ownedOnly = Tick(ticks, "owned_only", "edit.owned_only", on => { if (_edit() is { } e) e.SelectOwnedOnly = on; });
         AddChild(ticks);
 
         var linkRow = new HBoxContainer { Name = "link_row" };
@@ -191,9 +197,13 @@ public partial class EditPanel : VBoxContainer
         ShapeRow(obj, "revolutions", "edit.revolutions", 1, 4, 0.1, false);
         ShapeRow(obj, "skew", "edit.skew", -0.95, 0.95, 0.05, false);
 
-        // ---------------- Texture ----------------
+        // ---------------- Features, Texture and Content, in the official order ----------------
+        var features = Page("features", "edit.tab.features");
+        _featuresTab = new EditFeaturesTab(strings, edit, inventory ?? (() => null), features, this);
         var texture = Page("texture", "edit.tab.texture");
         _textureTab = new EditTextureTab(strings, edit, inventory ?? (() => null), texture, this);
+        var content = Page("content", "edit.tab.content");
+        _contentTab = new EditContentTab(strings, edit, inventory ?? (() => null), content);
     }
 
     /// <summary>A tool button was pressed.</summary>
@@ -361,6 +371,7 @@ public partial class EditPanel : VBoxContainer
             _snap.SetPressedNoSignal(e?.SnapEnabled ?? true);
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);
+            _ownedOnly.SetPressedNoSignal(e?.SelectOwnedOnly ?? false);
             var o = e?.Object();
             var access = o is null || e is null ? new EditAccess(false, false, false, false) : e.Access(o.Id.LocalId);
             int count = e?.Selection.Count ?? 0;
@@ -399,6 +410,8 @@ public partial class EditPanel : VBoxContainer
         }
         finally { _filling = false; }
         _textureTab.Refresh();
+        _featuresTab.Refresh();
+        _contentTab.Refresh(Tabs.GetCurrentTabControl()?.Name == "content" && IsVisibleInTree());
     }
 
     /// <summary>The middle of a control of the window on screen, by its name ("tab:texture" for a tab's title), for the live check's
@@ -511,5 +524,7 @@ public partial class EditPanel : VBoxContainer
         shape_rows = _shape.Where(kv => kv.Value.Row.Visible).Select(kv => kv.Key).ToArray(),
         type = _type.Selected >= 0 ? _type.GetItemText(_type.Selected) : null,
         texture = _textureTab.Texts(),
+        features = _featuresTab.Texts(),
+        contents = _contentTab.Names,
     };
 }

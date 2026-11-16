@@ -42,6 +42,12 @@ public partial class Main
             regions: () => s.Worlds.Select(w => new RegionArea(w.Offset.X, w.Offset.Y, w.Region.SizeX, w.Region.SizeY)).ToList());
         _edit.Changed += () => _editPanel?.Refresh();
         _editDrag = null;
+        // Create makes the box of the new-prim settings (Preferences, Building) and puts the rest of them on it when it arrives
+        Viewer.Core.Building.NewPrimDefaults NewPrim() =>
+            (_settings is { } st ? NewPrimSettings.Read(st) : Viewer.Core.Building.NewPrimDefaults.Default).Clamped(s.EditLimits);
+        ic.NewPrim = NewPrim;
+        _newPrims = new Viewer.Shell.Build.NewPrimTracker(s.Actions.Submit, NewPrim);
+        ic.BoxCreated += () => _newPrims?.Expect();
         if (_editPanel is not null || _shell is null)
             return;
         var shell = _shell.Shell;
@@ -71,6 +77,29 @@ public partial class Main
         shell.Commands.Register(BuildMenu.GridOptionsCommand, OpenGridOptions);
         shell.Commands.Register(BuildMenu.UndoCommand, () => _edit?.Undo());
         shell.Commands.Register(BuildMenu.RedoCommand, () => _edit?.Redo());
+        BuildMenu.InstallSelectionHelpers(shell.Menus, InWorld, () => _edit);
+        shell.Commands.Register(BuildMenu.NextPartCommand, () => _edit?.SelectNextPart(true));
+        shell.Commands.Register(BuildMenu.PreviousPartCommand, () => _edit?.SelectNextPart(false));
+        shell.Commands.Register(BuildMenu.OwnedOnlyCommand, () => { if (_edit is { } e) { e.SelectOwnedOnly = !e.SelectOwnedOnly; _editPanel?.Refresh(); } });
+        shell.Commands.Register(BuildMenu.TakeIntoFolderCommand, OpenTakeIntoFolder);
+        // folder drops and takes into a folder go one at a time, at Firestorm's Z-take pace (0.66 s)
+        var pump = new global::Godot.Timer { Name = "edit_queues", WaitTime = 0.66, Autostart = true };
+        pump.Timeout += () => _edit?.PumpQueues();
+        _editPanel.AddChild(pump);
+    }
+
+    private FolderPickPanel? _takeFolder;
+    private Viewer.Shell.Build.NewPrimTracker? _newPrims;
+
+    /// <summary>Build, Take Into Folder: a list of the inventory's folders; the chosen one receives the selected objects, one at a time.</summary>
+    private void OpenTakeIntoFolder()
+    {
+        if (_edit is not { Selection.Count: > 0 } || _interactFor?.Inventory is not { } inv || _editPanel is null || _shell is null)
+            return;
+        _takeFolder?.QueueFree();
+        _takeFolder = new FolderPickPanel(_shell.Shell.Strings, inv, folder => _edit?.TakeIntoFolder(folder));
+        _editPanel.AddChild(_takeFolder);
+        _takeFolder.PopupCentered(new Vector2I(360, 420));
     }
 
     private void ToggleBuild()

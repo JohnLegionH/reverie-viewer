@@ -90,7 +90,7 @@ public sealed class TextPref : PrefDef
     }
 
     /// <summary>Whether <paramref name="id"/> may be stored (any text for a folder).</summary>
-    public bool Accepts(string id) => Kind == PrefKind.Folder || Choices.Contains(id);
+    public bool Accepts(string id) => Kind == PrefKind.Folder || (Kind == PrefKind.Text ? Guid.TryParse(id, out _) : Choices.Contains(id));
 
     public override object Read(SettingsService settings, string? account) =>
         settings.GetText(Key) is { } text && Accepts(text) ? text : (string)Default;
