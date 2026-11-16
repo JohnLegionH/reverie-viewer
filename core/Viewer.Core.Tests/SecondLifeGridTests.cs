@@ -112,7 +112,11 @@ public class SecondLifeGridTests
     public async Task The_login_goes_to_the_main_grid_address_as_given_and_asks_for_no_grid_info()
     {
         var f = new CountingFetcher();
-        var flow = LoginFlow.At(f.Fetch, MainGrid, LoginFlow.Fail("key", "Sorry! We couldn't log you in."));
+        // the reply Second Life's login service gave a made-up name (reason "key"), recorded from a live attempt
+        const string recorded = "Sorry! We couldn't log you in.\n\nPlease check to make sure you entered the right\n\n    * Username (like bobsmith12 or steller.sunshine)\n\n"
+            + "    * Password\n\n    * Second Factor Token (if enabled)\n\n"
+            + "Also, please make sure your Caps Lock key is off. If you feel this is an error, please contact support@secondlife.com.";
+        var flow = LoginFlow.At(f.Fetch, MainGrid, LoginFlow.Fail("key", recorded));
         var model = flow.Model;
 
         Assert.False(await model.LoginAsync());
@@ -120,7 +124,9 @@ public class SecondLifeGridTests
         Assert.Empty(f.Asked);
         Assert.Equal(MainGrid, Assert.Single(flow.Requests).LoginUri);
         Assert.Equal(MainGrid, model.ResolvedLoginUri);
-        Assert.Contains("Sorry! We couldn't log you in.", model.Status);
+        Assert.Contains(recorded, model.Status);
+        Assert.Empty(flow.Shown);   // a refused name shows the grid's message on the status line, no dialog
+        Assert.Equal("key", model.LastFailureCode);
     }
 
     [Fact]
