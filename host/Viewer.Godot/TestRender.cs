@@ -409,6 +409,8 @@ public partial class TestRender : Node
             return await SharedMeasureRun(Arg(args, "--tr-fixture=") ?? throw new ArgumentException("--tr-sharedmeasure needs --tr-fixture=<a codestream file>"), int.Parse(measureCount));   // two regions' textures measured (TestRender.SharedMeasure.cs)
         if (Arg(args, "--tr-loginscreen=") is { } loginTable)
             return await LoginScreenRun(loginTable, Arg(args, "--tr-golden="));   // the login screen against its golden (TestRender.LoginScreen.cs)
+        if (Arg(args, "--tr-logincard=") is { } loginCard)
+            return await LoginCardRun(loginCard, Arg(args, "--tr-golden="), Arg(args, "--tr-alter=") == "unbounded");   // the login card at the test window's size (TestRender.LoginCard.cs)
         if (Arg(args, "--tr-ui=") is { } uiScene)
             return await UiSceneRun(uiScene, Arg(args, "--tr-theme=") ?? ThemePresets.Classic, Arg(args, "--tr-alter=") == "wrongtoken", Arg(args, "--tr-golden="));   // one interface scene against its golden (TestRender.Ui.cs)
         if (Arg(args, "--tr-handles=") is { } handles)

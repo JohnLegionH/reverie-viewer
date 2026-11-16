@@ -308,6 +308,17 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
             var vault = Vault is { Available: true } v ? v : null;
             var extras = new LoginExtras(MfaHash: RunMfaHash(hashKey) ?? vault?.LoadMfaHash(LoginUri, UserName));
             var pinnedNow = new HashSet<string>();
+            // the Third-Party Viewer Policy's disclosures (1.c, 4.b), once before the first Second Life login: refused, nothing is sent
+            if (IsSecondLife(login) && Prompts is { } disclosurePrompts && UserSettings is { } disclosureSettings && Disclosures.SecondLifeDue(disclosureSettings))
+            {
+                if (!(await disclosurePrompts.AskAsync(Disclosures.BeforeSecondLife(strings), attempt.Token).ConfigureAwait(false)).Confirmed)
+                {
+                    LastFailureCode = "cancelled";
+                    SetStatus(strings.Get("login.status.cancelled"));
+                    return false;
+                }
+                Disclosures.SecondLifeAccepted(disclosureSettings);
+            }
             while (true)
             {
                 SetStatus(strings.Get("login.status.connecting"));

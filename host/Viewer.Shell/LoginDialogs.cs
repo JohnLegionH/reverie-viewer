@@ -8,7 +8,7 @@ using Viewer.Core.Session;
 
 namespace Viewer.Shell;
 
-public enum LoginDialogKind { Terms, Critical, Update, Token, TrustCertificate, CertificateError, Unknown }
+public enum LoginDialogKind { Terms, Critical, Update, Token, TrustCertificate, CertificateError, Unknown, Disclosure }
 
 /// <summary>One labelled line of a dialog (a certificate's subject, a fingerprint).</summary>
 public sealed record DialogField(string Label, string Value);
