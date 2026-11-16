@@ -47,6 +47,8 @@ public class TrackedContentScanTests
             "claude.com", "claude.ai", "www.apache.org", "secondlife.com", "wiki.secondlife.com", "jpeg.org", "khronos.org", "www.khronos.org", "holger.dammertz.org",
             // Second Life's own login hosts, which the script editor tells apart from other grids (BuildContentTabTests)
             "login.agni.lindenlab.com", "login.aditi.lindenlab.com",
+            // a lookalike that ends in Linden Lab's domain name without being under it, which the grid switch must not take for Second Life (GridPolicyTests)
+            "notlindenlab.com",
             // cited in Docs (public references, reviewed rewrite): a new host fails this test until reviewed here
             "modemworld.me", "jrouwe.github.io", "www.firestormviewer.org", "wiki.firestormviewer.org", "docs.wasmtime.dev", "www.stride3d.net",
             "www.minecraft.net", "www.gamedeveloper.com", "web.dev", "threejs.org", "theupdateframework.github.io", "luau.org", "glama.ai",

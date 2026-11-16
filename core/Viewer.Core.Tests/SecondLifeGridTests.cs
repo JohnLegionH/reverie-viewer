@@ -49,7 +49,7 @@ public class SecondLifeGridTests
         list.Add(new GridEntry("https://grid.example.org:8002/", "Example Grid", null));
         Assert.True(list.Select(Assert.Single(list.BuiltIn).Key));
         Assert.Equal("Second Life", list.Selected?.Name);
-        Assert.DoesNotContain("https://login.agni", File.ReadAllText(Path.Combine(dir, GridList.FileName)), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(MainGrid, File.ReadAllText(Path.Combine(dir, GridList.FileName)), StringComparison.OrdinalIgnoreCase);
 
         var again = new GridList(dir);
         Assert.Equal("Second Life", again.Selected?.Name);

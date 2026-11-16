@@ -33,8 +33,8 @@ public class ReleaseNameTests
         var id = ViewerIdentity.Current;
         Assert.Equal("Reverie Viewer", id.Name);
         Assert.Equal("Reverie Viewer", id.Channel);
-        Assert.Equal("0.1.0", id.Version);
-        Assert.Equal("ReverieViewer/0.1.0", id.UserAgent);
+        Assert.Matches(@"^0\.1\.0\.\d+$", id.Version);   // the core's version and the build number (ViewerIdentityTests)
+        Assert.Equal("ReverieViewer/" + id.Version, id.UserAgent);
     }
 
     [Fact]
@@ -57,14 +57,15 @@ public class ReleaseNameTests
     [Fact]
     public void The_login_screen_shows_the_product_its_version_and_the_release_label()
     {
-        Assert.Equal("Reverie Viewer 0.1.0 (early preview)", AboutText.LoginRelease(StringTable.English(), ViewerIdentity.Current));
+        Assert.Equal($"Reverie Viewer {ViewerIdentity.Current.Version} (early preview)", AboutText.LoginRelease(StringTable.English(), ViewerIdentity.Current));
+        Assert.Equal("Reverie Viewer 0.1.0 (early preview)", AboutText.LoginRelease(StringTable.English(), ViewerIdentity.Current.WithoutBuildNumber()));
     }
 
     [Fact]
     public void The_About_window_shows_the_whole_text()
     {
         var expected = string.Join("\n\n",
-            "Reverie Viewer\nReverie 0.1.0",
+            "Reverie Viewer\nReverie " + ViewerIdentity.Current.Version,
             "Your dreams, in view.",
             "A reverie is a daydream, and a virtual world is a daydream we share. Reverie Viewer is a modern, open-source viewer for OpenSimulator grids and Second Life: familiar where it should be, better where it can be.",
             "The name also nods to the AI it was built with. \"Reverie\" was the simulation at the heart of the Generative Agents study, where AI agents lived out their days in a small virtual town. Reverie Viewer was built with AI, and AI agents helped test it.",

@@ -65,20 +65,18 @@ public static class GridPolicy
         [ViewerFeature.Restrictions] = FeatureReach.Everywhere,
     };
 
-    // Linden Lab's own domains: every Second Life login service (the main grid and the beta grid) is under one of them.
-    private static readonly string[] SecondLifeDomains = ["lindenlab.com", "secondlife.com", "secondlife.io"];
-
     /// <summary>The kind of grid a login address belongs to: Second Life when its host is one of Linden Lab's.</summary>
     public static GridKind KindOf(string? loginUri)
     {
         if (string.IsNullOrWhiteSpace(loginUri) || !Uri.TryCreate(loginUri.Trim(), UriKind.Absolute, out var uri) || uri.Host.Length == 0)
             return GridKind.OpenSim;
         string host = uri.Host.TrimEnd('.').ToLowerInvariant();
-        foreach (var domain in SecondLifeDomains)
-            if (host == domain || host.EndsWith("." + domain, StringComparison.Ordinal))
-                return GridKind.SecondLife;
-        return GridKind.OpenSim;
+        // Linden Lab's own domains: every Second Life login service (the main grid and the beta grid) is under one of them
+        return Under(host, "lindenlab.com") || Under(host, "secondlife.com") || Under(host, "secondlife.io") ? GridKind.SecondLife : GridKind.OpenSim;
     }
+
+    private static bool Under(string host, string domain) =>
+        host == domain || host.EndsWith("." + domain, StringComparison.Ordinal);
 
     /// <summary>The declared place of a feature, or null when it has none.</summary>
     public static FeatureReach? ReachOf(ViewerFeature feature) => Declared.TryGetValue(feature, out var reach) ? reach : null;
