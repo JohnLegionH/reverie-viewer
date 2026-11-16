@@ -44,6 +44,9 @@ public sealed partial class WorldSounds
     /// <summary>Whether an object is blocked (the block list by id).</summary>
     public Func<Guid, bool> ObjectMuted { get; set; } = _ => false;
 
+    /// <summary>A region's width in metres, by region handle (a parcel overlay is laid out for its region's real size).</summary>
+    public Func<ulong, int> RegionWidth { get; set; } = _ => 256;
+
     /// <summary>Whether a resident's object sounds are blocked (blocked outright, or the object-sounds flag).</summary>
     public Func<Guid, bool> OwnerSoundsMuted { get; set; } = _ => false;
 

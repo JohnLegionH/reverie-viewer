@@ -49,6 +49,10 @@ public static class BanWall
         return seg;
     }
 
+    /// <summary>The parcel squares per region edge that a parcel bitmap covers (one bit per 4 m square): 64 for a 256 m region, more for
+    /// a larger one.</summary>
+    public static int CellsFor(byte[] bitmap) => 0;
+
     /// <summary>A ban is a wall 5000 m tall; a refusal by the access list or the group, 50 m.</summary>
     public static float HeightFor(ParcelDenial denial) => denial == ParcelDenial.Banned ? BanHeight : ParcelHeight;
 
@@ -131,6 +135,9 @@ public sealed class BanLineState
     public BanLineMode Mode { get; set; } = BanLineMode.OnCollision;
     public ParcelDenial? Denial { get; private set; }
     public byte[]? Segments { get; private set; }
+
+    /// <summary>The parcel squares per edge of the region the wall is in.</summary>
+    public int Cells { get; private set; } = BanWall.CellsPerEdge;
     public bool UsePass { get; private set; }
 
     /// <summary>The region the last collision message came from: the wall is drawn in that region, which is not always the one the agent is in.</summary>
