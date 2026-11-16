@@ -78,8 +78,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         }
         using var both = CancellationTokenSource.CreateLinkedTokenSource(ct, life);
         _textureHttp.RequestDeadline = TextureDeadline;
-        if (TextureCapability() is { } cap)
-            return await _textureHttp.WholeAsync(TextureUri(cap, id), Viewer.Core.Imaging.J2kLimits.Default.MaxBytes, both.Token, () => Timeline?.BeginRequest(id, "whole"), ClassOf(id)).ConfigureAwait(false);
+        if (TextureAddress(id) is { } address)
+            return await _textureHttp.WholeAsync(address, Viewer.Core.Imaging.J2kLimits.Default.MaxBytes, both.Token, () => Timeline?.BeginRequest(id, "whole"), ClassOf(id)).ConfigureAwait(false);
         var timing = Timeline?.BeginRequest(id, "whole-library");
         long read = 0;
         try
@@ -123,6 +123,37 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
 
     private static Uri TextureUri(Uri cap, Guid id) => new(cap.ToString().TrimEnd('/') + "/?texture_id=" + id.ToString("D"));
 
+    /// <summary>Which avatar and slot each server bake this session has seen belongs to (filled from every AvatarAppearance).</summary>
+    private readonly BakeRoutes _bakeRoutes = new();
+
+    /// <summary>Tests only: the appearance-service URL to use instead of the login reply's.</summary>
+    internal Func<string?>? AppearanceServiceOverride { get; set; }
+
+    /// <summary>Tests only: whether the region bakes avatars, instead of the current region's RegionProtocols bit 0.</summary>
+    internal Func<bool>? RegionBakesOverride { get; set; }
+
+    /// <summary>Tests only: records an appearance's bakes as an AvatarAppearance from the region does.</summary>
+    internal void NoteAppearance(AvatarAppearanceData appearance) => _bakeRoutes.Note(appearance);
+
+    /// <summary>
+    /// Where a texture is fetched from: a server bake of any avatar from the login reply's appearance service, at
+    /// texture/avatar/slot/bake (see <see cref="BakeRoutes"/>), when the login reply named one and the region bakes avatars;
+    /// anything else by id from the region's texture capability, as before; null with neither.
+    /// </summary>
+    private Uri? TextureAddress(Guid id) => BakeAddress(id) ?? (TextureCapability() is { } cap ? TextureUri(cap, id) : null);
+
+    private Uri? BakeAddress(Guid id)
+    {
+        try
+        {
+            var service = AppearanceServiceOverride is { } s ? s() : _client.Network.AgentAppearanceServiceURL;
+            if (string.IsNullOrEmpty(service)) return null;
+            bool regionBakes = RegionBakesOverride is { } b ? b() : _client.Network.CurrentSim?.Protocols.HasFlag(RegionProtocols.AgentAppearanceService) == true;
+            return _bakeRoutes.UriFor(id, service, regionBakes);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { return null; }
+    }
+
     /// <summary>
     /// The same textures straight from the region's texture capability with a plain bounded client
     /// of our own (the outbound policy's handler, NOT LibreMetaverse's caps client or its rate limiter), at a fixed
@@ -151,18 +182,17 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// </summary>
     public async Task<RangeAnswer> GetTextureRangeAsync(Guid id, long from, long? to, int capBytes, CancellationToken ct)
     {
-        Uri? cap;
         CancellationToken life;
         lock (_lock)
         {
             if (_disposed) return RangeAnswer.Fail(null, "transport disposed");
             life = _textureFetches.Token;
         }
-        cap = TextureCapability();
-        if (cap is null) return RangeAnswer.Fail(null, "no texture capability");
+        var address = TextureAddress(id);
+        if (address is null) return RangeAnswer.Fail(null, "no texture capability");
         using var both = CancellationTokenSource.CreateLinkedTokenSource(ct, life);
         _textureHttp.RequestDeadline = TextureDeadline;
-        return await _textureHttp.RangeAsync(TextureUri(cap, id), from, to, capBytes, both.Token, () => Timeline?.BeginRequest(id, "range"), ClassOf(id)).ConfigureAwait(false);
+        return await _textureHttp.RangeAsync(address, from, to, capBytes, both.Token, () => Timeline?.BeginRequest(id, "range"), ClassOf(id)).ConfigureAwait(false);
     }
 
     /// <summary>Cancels every texture range request in flight (logout, disconnect, region change, dispose).</summary>
@@ -1780,8 +1810,12 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// <summary>The foot collision plane an avatar's update carries (normal in x, y, z and the plane's offset in w); all zero when the region sent none.</summary>
     internal static N.Vector4 Plane(LibreMetaverse.Vector4 p) => new(p.X, p.Y, p.Z, p.W);
 
-    private void OnAvatarAppearance(object? sender, AvatarAppearanceEventArgs e) =>
-        Raise(new AvatarAppearanceReceived(MapOrNull(e.Simulator), ToAppearanceData(e)));
+    private void OnAvatarAppearance(object? sender, AvatarAppearanceEventArgs e)
+    {
+        var data = ToAppearanceData(e);
+        _bakeRoutes.Note(data);   // before it is raised: the bakes it names may be asked for at once
+        Raise(new AvatarAppearanceReceived(MapOrNull(e.Simulator), data));
+    }
 
     /// <summary>An AvatarAnimation: the avatar and every animation it now plays, read from the packet with its simulator.</summary>
     /// <summary>A CameraConstraint message's plane (the official viewer's process_camera_constraint, llviewermessage.cpp).</summary>

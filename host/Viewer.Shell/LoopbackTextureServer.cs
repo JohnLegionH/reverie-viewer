@@ -59,6 +59,9 @@ public sealed class LoopbackTextureServer : IDisposable
     public Uri Base => new($"http://127.0.0.1:{Port}/");
     public Uri UriFor(Guid id) => new(Base, "?texture_id=" + id.ToString("D"));
     public long Requests => Interlocked.Read(ref _requests);
+    /// <summary>Every request target asked (path and query), in arrival order.</summary>
+    public IReadOnlyList<string> Targets => _targets.ToArray();
+    private readonly ConcurrentQueue<string> _targets = new();
     public long RangeRequests => Interlocked.Read(ref _rangeRequests);
     /// <summary>Requests without a Range header.</summary>
     public long PlainRequests => Interlocked.Read(ref _plainRequests);
@@ -138,9 +141,14 @@ public sealed class LoopbackTextureServer : IDisposable
         var lines = head.Split("\r\n");
         var parts = lines[0].Split(' ');
         string target = parts.Length > 1 ? parts[1] : "";
+        _targets.Enqueue(target);
         int q = target.IndexOf("texture_id=", StringComparison.Ordinal);
         Guid id = Guid.Empty;
         byte[]? data = q >= 0 && Guid.TryParse(target[(q + "texture_id=".Length)..].Split('&')[0], out id) ? _lookup(id) : null;
+        // an appearance service's baked-texture address, texture/<avatar id>/<slot>/<bake id> (any prefix before it)
+        int t = target.IndexOf("/texture/", StringComparison.Ordinal);
+        if (q < 0 && t >= 0 && target[(t + "/texture/".Length)..].Split('/') is { Length: 3 } seg && Guid.TryParse(seg[2], out id))
+            data = _lookup(id);
         if (data is null) { await Write(stream, "404 Not Found", [], ReadOnlyMemory<byte>.Empty, end).ConfigureAwait(false); return; }
         string? range = lines.Skip(1).FirstOrDefault(l => l.StartsWith("Range:", StringComparison.OrdinalIgnoreCase))?[6..].Trim();
         if (range is null) Interlocked.Increment(ref _plainRequests);

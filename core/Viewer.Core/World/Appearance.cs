@@ -171,9 +171,12 @@ public static class AppearanceSlots
         foreach (var look in looks)
             foreach (var (slot, texture) in look.Bakes)
                 if (texture == id)
-                    return $"{service}texture/{look.AgentId}/{slot}/{id}";
+                    return BakeAddress(service, look.AgentId, slot, id);
         return null;
     }
+
+    /// <summary>The appearance service's address for one bake (llvoavatar.cpp:5889-5908): service + "texture/" + avatar id + "/" + slot name + "/" + bake id.</summary>
+    public static string BakeAddress(string service, Guid agent, string slot, Guid id) => $"{service}texture/{agent:D}/{slot}/{id:D}";
 }
 
 /// <summary>
