@@ -160,6 +160,10 @@ public sealed partial class EditController
 
     private TaskItem? Listed(Guid itemId) => Contents.FirstOrDefault(i => i.ItemId == itemId);
 
+    /// <summary>Open on a listed item of the primary prim, for the script editor: the script and the prim it is in, or null when the item is not
+    /// a listed script (llpanelobjectinventory.cpp opens a script's live editor; other kinds are not opened from here yet).</summary>
+    public Viewer.Core.Inventory.ScriptAccess? ScriptToOpen(Guid itemId, Guid agent) => null;
+
     /// <summary>Deletes a listed item from the primary prim; the list is asked for again.</summary>
     public bool DeleteItem(Guid itemId)
     {

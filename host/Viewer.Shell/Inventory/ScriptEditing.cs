@@ -238,6 +238,10 @@ public sealed class ScriptEditing
         return (sb.ToString(), count);
     }
 
+    /// <summary>Whether a login address is Second Life's (its login hosts are under lindenlab.com): there the editor shows LSL's words only;
+    /// elsewhere, as Firestorm does on OpenSim grids (llpreviewscript.cpp, LLGridManager::isInOpenSim), OSSL's words too.</summary>
+    public static bool IsSecondLifeGrid(string? loginUri) => false;
+
     /// <summary>A script listed inside an object as the editor's access to it; null when the item is not a script (asset type 10).</summary>
     public static ScriptAccess? AccessFor(Viewer.Core.Session.TaskItem item, Guid objectId, uint localId, Guid agent) =>
         item.AssetType != 10 ? null

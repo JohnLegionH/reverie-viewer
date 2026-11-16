@@ -128,4 +128,30 @@ public class BuildContentTabTests
         var d = LmvFeatures.Remove(Agent, Session, 7, new UUID(G(11)));
         Assert.Equal((7u, new UUID(G(11))), (d.InventoryData.LocalID, d.InventoryData.ItemID));
     }
+
+    [Fact]
+    public void Open_on_a_listed_script_gives_the_editor_the_script_and_the_prim_it_is_in()
+    {
+        var r = Selected();
+        var script = new TaskItem(G(11), "New Script", 10, 10, G(50), 0x7FFFFFFF, 0, G(60), G(50), 0x7FFFFFFF, 0, 0);
+        r.C.Receive(new TaskInventoryReceived(G(1), [script, Item(12, "card")]));
+        var a = r.C.ScriptToOpen(G(11), G(50));
+        Assert.NotNull(a);
+        Assert.Equal(G(1), a!.ObjectId);
+        Assert.Equal(1u, a.LocalId);
+        Assert.Equal(G(60), a.AssetId);
+        Assert.Equal(Viewer.Core.Inventory.ScriptView.Editable, Viewer.Core.Inventory.ScriptRules.ViewOf(a));
+        Assert.Null(r.C.ScriptToOpen(G(12), G(50)));   // a notecard
+        Assert.Null(r.C.ScriptToOpen(G(99), G(50)));   // not listed
+    }
+
+    [Fact]
+    public void Ossl_words_are_for_grids_other_than_second_life()
+    {
+        Assert.True(Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid("https://login.agni.lindenlab.com/cgi-bin/login.cgi"));
+        Assert.True(Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid("https://login.aditi.lindenlab.com/cgi-bin/login.cgi"));
+        Assert.False(Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid("http://grid.example.org:8002/"));
+        Assert.False(Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid("http://lindenlab.com.example.org/"));
+        Assert.False(Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid(null));
+    }
 }
