@@ -32,13 +32,18 @@
     build is made from, so every commit has its own version (the official viewer's major.minor.patch.build form). Outside a git
     checkout, or when git is not found, the build number is 0. ViewerIdentity reads it from the informational version.
   -->
-  <Target Name="ViewerBuildNumber" BeforeTargets="AddSourceRevisionToInformationalVersion;GetAssemblyVersion;GenerateAssemblyInfo" Condition="'$(ViewerBuildNumber)' == ''">
-    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; rev-list --count HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" EchoOff="true">
+  <Target Name="ViewerBuildNumber" BeforeTargets="AddSourceRevisionToInformationalVersion;GetAssemblyVersion;GenerateAssemblyInfo">
+    <!-- /p:ViewerBuildNumber=<n> sets the number by hand (a build from a shallow clone, whose commit count is only its depth) -->
+    <Exec Condition="'$(ViewerBuildNumber)' == ''" Command="git -C &quot;$(MSBuildProjectDirectory)&quot; rev-list --count HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" EchoOff="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_ViewerCommitCount" />
       <Output TaskParameter="ExitCode" PropertyName="_ViewerGitExit" />
     </Exec>
+    <Exec Condition="'$(ViewerBuildNumber)' == '' and '$(_ViewerGitExit)' == '0'" Command="git -C &quot;$(MSBuildProjectDirectory)&quot; rev-parse --is-shallow-repository" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ViewerShallow" />
+    </Exec>
+    <Warning Condition="'$(_ViewerShallow)' == 'true'" Text="This is a shallow clone: the version's build number is its depth, not the commit count. Set /p:ViewerBuildNumber=&lt;n&gt; for a release." />
     <PropertyGroup>
-      <ViewerBuildNumber Condition="'$(_ViewerGitExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_ViewerCommitCount)', '^\d+$'))">$(_ViewerCommitCount)</ViewerBuildNumber>
+      <ViewerBuildNumber Condition="'$(ViewerBuildNumber)' == '' and '$(_ViewerGitExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_ViewerCommitCount)', '^\d+$'))">$(_ViewerCommitCount)</ViewerBuildNumber>
       <ViewerBuildNumber Condition="'$(ViewerBuildNumber)' == ''">0</ViewerBuildNumber>
       <InformationalVersion>$(Version).$(ViewerBuildNumber)</InformationalVersion>
     </PropertyGroup>

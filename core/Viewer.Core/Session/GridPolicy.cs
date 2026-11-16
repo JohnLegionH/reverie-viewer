@@ -99,10 +99,14 @@ public static class GridPolicy
     {
         if (grid != GridKind.SecondLife)
             return Allows(ViewerFeature.Backup, grid);
-        return Allows(ViewerFeature.Backup, grid) && self != Guid.Empty && partCreators.Count > 0 && partCreators.All(c => c == self);
+        return Allows(ViewerFeature.Backup, grid) && OwnCreations(self, partCreators);
     }
 
     /// <summary>Whether objects from a file whose parts were made by <paramref name="partCreators"/> may be rezzed again by
     /// <paramref name="self"/> on this kind of grid: the same rule as <see cref="MayBackUp"/>.</summary>
-    public static bool MayRestore(GridKind grid, Guid self, IReadOnlyCollection<Guid> partCreators) => false;
+    public static bool MayRestore(GridKind grid, Guid self, IReadOnlyCollection<Guid> partCreators) =>
+        Allows(ViewerFeature.Restore, grid) && (grid != GridKind.SecondLife || OwnCreations(self, partCreators));
+
+    private static bool OwnCreations(Guid self, IReadOnlyCollection<Guid> partCreators) =>
+        self != Guid.Empty && partCreators.Count > 0 && partCreators.All(c => c == self);
 }

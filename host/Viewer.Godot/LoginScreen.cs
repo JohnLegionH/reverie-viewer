@@ -237,7 +237,7 @@ public partial class LoginScreen : Control
 
         // the version at the bottom left; Preferences and Help at the bottom right
         var release = new Label { Name = "release", ThemeTypeVariation = UiTheme.MutedLabel, MouseFilter = MouseFilterEnum.Ignore,
-            Text = AboutText.LoginRelease(strings, Viewer.Core.Identity.ViewerIdentity.Current) };
+            Text = AboutText.LoginRelease(strings, ShownIdentity.Current) };
         release.AccessibilityName = release.Text;
         release.AnchorTop = 1; release.AnchorBottom = 1;
         release.OffsetLeft = 32; release.OffsetTop = -40; release.OffsetBottom = -16;

@@ -60,7 +60,7 @@ public sealed class GridList
             {
                 var stored = JsonSerializer.Deserialize<Stored>(File.ReadAllText(path), Json);
                 foreach (var e in stored?.Grids ?? [])
-                    if (e is { Address: not null, Name: not null } && e.Key.Length > 0 && BuiltInOf(e.Key) is null && _entries.All(x => x.Key != e.Key))
+                    if (e is { Address: not null, Name: not null } && e.Key.Length > 0 && !IsSecondLifeAddress(e.Address) && _entries.All(x => x.Key != e.Key))
                         _entries.Add(e);
                 _selected = _entries.Any(e => e.Key == stored?.Selected) || BuiltInOf(stored?.Selected ?? "") is not null ? stored!.Selected : _entries.FirstOrDefault()?.Key;
                 return;
@@ -85,6 +85,9 @@ public sealed class GridList
     /// <summary>The person's grids, then the ones that come with the viewer: what the grid chooser shows.</summary>
     public IReadOnlyList<GridEntry> All => [.. _entries, .. BuiltInEntries];
 
+    private static bool IsSecondLifeAddress(string address) =>
+        Viewer.Core.Session.GridPolicy.KindOf(address) == Viewer.Core.Session.GridKind.SecondLife;
+
     private static GridEntry? BuiltInOf(string key) => key.Length == 0 ? null : Array.Find(BuiltInEntries, e => e.Key == key);
 
     /// <summary>The chosen grid, or null when none is.</summary>
@@ -93,10 +96,11 @@ public sealed class GridList
     /// <summary>Adds a grid, or replaces the one with the same key, saves the list and chooses it.</summary>
     public GridEntry Add(GridEntry entry)
     {
-        if (BuiltInOf(entry.Key) is { } builtIn)
+        if (IsSecondLifeAddress(entry.Address))
         {
-            Select(builtIn.Key);   // the built-in entry stays as it comes: adding its address chooses it
-            return builtIn;
+            // only the built-in entry stands for Second Life (its main grid, over https): adding any Linden Lab address chooses it
+            Select(SecondLife.Key);
+            return SecondLife;
         }
         int at = _entries.FindIndex(e => e.Key == entry.Key);
         if (at >= 0)
@@ -141,6 +145,8 @@ public sealed class GridList
     {
         if (string.IsNullOrWhiteSpace(gridOption) || GridAddress.Tidy(gridOption).Uri is not { } uri)
             return null;
+        if (IsSecondLifeAddress(uri.ToString()) && KeyOf(uri.ToString()) != SecondLife.Key)
+            return null;   // another Linden Lab address is not a grid of its own: the list has Second Life's main grid built in
         if (Find(uri.ToString()) is { } known)
         {
             Select(known.Key);

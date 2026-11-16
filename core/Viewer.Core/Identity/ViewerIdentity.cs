@@ -42,7 +42,11 @@ public sealed record ViewerIdentity(string Name, string Channel, string Version)
 
     /// <summary>This identity with the version's build number left off (major.minor.patch), for the test pictures, which must not
     /// change with every commit. Never sent to a grid.</summary>
-    public ViewerIdentity WithoutBuildNumber() => this;
+    public ViewerIdentity WithoutBuildNumber()
+    {
+        var parts = Version.Split('.');
+        return parts.Length > 3 ? this with { Version = string.Join('.', parts[..3]) } : this;
+    }
 
     /// <summary>HTTP user agent for the login and capability requests: a product token, so no spaces.</summary>
     public string UserAgent => Name.Replace(" ", "") + "/" + Version;

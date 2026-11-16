@@ -47,7 +47,7 @@
 ^core/Viewer\.Addons\.Api/|^addons/	ui
 ^fixtures/ui/	ui
 # Login, the session and the grid's services: the login pictures and the stock smoke.
-^host/Viewer\.Godot/(LoginScreen|LoginGridPanels|LoginDialogView|S1Smoke[.A-Za-z]*|Main\.LoginDialogs|TestRender\.LoginScreen)\.cs$	login
+^host/Viewer\.Godot/(LoginScreen|LoginGridPanels|ShownIdentity|LoginDialogView|S1Smoke[.A-Za-z]*|Main\.LoginDialogs|TestRender\.LoginScreen)\.cs$	login
 ^host/Viewer\.Shell/(Login[A-Za-z]*|GridAddress|RememberedLogins|LocationText|Reconnect/[A-Za-z]*|Grids/[A-Za-z]*)(\.cs)?	login
 ^host/Viewer\.Shell/Reconnect/	login
 ^core/Viewer\.Core/(Session|Net|Protocol|Identity)/	login

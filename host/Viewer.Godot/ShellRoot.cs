@@ -511,7 +511,7 @@ public partial class ShellRoot : Control
             // a wrapping label needs a width to wrap to, else its height is that of a one-letter-wide column
             float width = spec.MinSize.W - 24;
             var box = new VBoxContainer { Name = "about_content" };
-            var paragraphs = Viewer.Shell.AboutText.Paragraphs(_strings, Viewer.Core.Identity.ViewerIdentity.Current);
+            var paragraphs = Viewer.Shell.AboutText.Paragraphs(_strings, ShownIdentity.Current);
             var release = new Label { Name = "release", Text = paragraphs[0], ThemeTypeVariation = UiTheme.TitleLabel, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(width, 0) };
             release.AccessibilityName = release.Text;
             var about = new Label { Name = "body", Text = string.Join("\n\n", paragraphs.Skip(1).Take(paragraphs.Count - 2)), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(width, 0) };
