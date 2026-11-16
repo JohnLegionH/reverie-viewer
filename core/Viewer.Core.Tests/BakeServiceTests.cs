@@ -39,9 +39,9 @@ public sealed class BakeServiceTests
 
     private static LoopbackTextureServer Server() => new(_ => PartialFetchTests.Codestream.Value);
 
-    private static LmvTransport Transport(LoopbackTextureServer server, string? service, bool regionBakes = true)
+    private static LmvTransport Transport(LoopbackTextureServer server, string? service, bool regionBakes = true, ListSink? sink = null)
     {
-        var t = new LmvTransport(new OutboundPolicy(new OutboundOptions()), new CoreLog(new ListSink(), "bake"));
+        var t = new LmvTransport(new OutboundPolicy(new OutboundOptions()), new CoreLog(sink ?? new ListSink(), "bake"));
         t.TextureCapabilityOverride = () => new Uri(server.Base, "caps/viewerasset/");
         t.AppearanceServiceOverride = () => service;
         t.RegionBakesOverride = () => regionBakes;
@@ -145,6 +145,24 @@ public sealed class BakeServiceTests
         }
         Assert.Equal(BakeRoutes.Capacity, routes.Count);
         Assert.Equal(new Uri($"http://example.org/aa/texture/{stays:D}/head/{Bake(stays, 0):D}"), routes.UriFor(Bake(stays, 0), "http://example.org/aa/", true));
+    }
+
+    /// <summary>The session log says once where bakes come from, the first time one is asked of the appearance service, naming the service's host (never the path).</summary>
+    [Fact]
+    public async Task The_log_names_the_appearance_service_once_when_the_first_bake_is_asked_of_it()
+    {
+        using var server = Server();
+        var sink = new ListSink();
+        using var t = Transport(server, Service(server), sink: sink);
+        t.NoteAppearance(Look(Me));
+        await t.FetchTextureAsync(new Guid("cccccccc-0000-4000-8000-000000000003"), CancellationToken.None);
+        Assert.DoesNotContain(sink.Entries, e => e.Event == "texture.bake_source");
+        await t.FetchTextureAsync(Bake(Me, 0), CancellationToken.None);
+        await t.GetTextureRangeAsync(Bake(Me, 1), 0, 599, 1 << 20, CancellationToken.None);
+        var lines = sink.Entries.Where(e => e.Event == "texture.bake_source").ToList();
+        Assert.Single(lines);
+        Assert.Contains(lines[0].Fields, f => f.Key == "source" && f.Value == "appearance_service");
+        Assert.Contains(lines[0].Fields, f => f.Key == "host" && f.Value == "127.0.0.1");
     }
 
     [Fact]
