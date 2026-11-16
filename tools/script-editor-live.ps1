@@ -146,8 +146,8 @@ function DoubleClickAt([double]$x, [double]$y) {
 }
 function Typed([string]$text) { [void](In @{ kind = "text"; text = $text }); Start-Sleep -Milliseconds 300 }
 function ChatCount([string]$token) { $c = Api "chat" @{ action = "find"; token = $token }; @($c.nearby | Where-Object { $_.style -eq "Object" }).Count }
-$token = "SE" + (Get-Random -Minimum 100000 -Maximum 999999)
-$script1 = "default`n{`nstate_entry()`n{`nllSay(0, `"hello $token`");`n}`n}"
+$sayToken = "SE" + (Get-Random -Minimum 100000 -Maximum 999999)
+$script1 = "default`n{`nstate_entry()`n{`nllSay(0, `"hello $sayToken`");`n}`n}"
 
 # ---- 1. a box, selected, New Script in its Content tab, opened with Open ----
 $me = @((Obs).self.region_position)
@@ -161,6 +161,13 @@ Press "B" $true; Start-Sleep -Milliseconds 400
 $gp = (Edit @{ action = "screen"; x = $spot.x; y = $spot.y; z = $spot.z }).done
 if ($gp) { ClickAt ([double]$gp[0]) ([double]$gp[1]) }
 $box = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
+if (-not $box) {
+    # making the box is not what this check proves: when the click on the ground made none, the automation's create makes it
+    Note ("the click on the ground made no box (ground point {0}; region {1}): made by the automation's create" -f (@($gp) -join ","), (Obs).region.name)
+    Press "ESC"; Start-Sleep -Milliseconds 300
+    [void](Build @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z + 0.6 })
+    $box = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
+}
 if (-not $box) { Check "1 a box is made" $false "none"; [void](Invoke-Raw $script:port "quit" $script:token); exit 1 }
 Add-Rezzed ([uint32]$box.local); $boxLocal = [uint32]$box.local
 $oB = OwnObj $boxLocal
@@ -190,7 +197,7 @@ Typed $script1
 $typed = SState
 [void](ClickS "save")
 $saved = Wait-Until { $s = SState; if (-not $s.saving -and $s.status -eq "script.save_complete") { $s } } 30
-$said = Wait-Until { $n = ChatCount $token; if ($n -ge 1) { $n } } 20
+$said = Wait-Until { $n = ChatCount $sayToken; if ($n -ge 1) { $n } } 20
 Shot "saved"
 Check "2 the text typed and saved: Save complete, and the box says the line in nearby chat" ([bool]$saved -and [bool]$said -and $typed.dirty) ("dirty after typing {0}; status {1}; lines from the box {2}" -f $typed.dirty, (SState).status, $said)
 
@@ -200,31 +207,31 @@ Typed "`nx"
 [void](ClickS "save")
 $bad = Wait-Until { $s = SState; if (-not $s.saving -and @($s.errors).Count -gt 0) { $s } } 30
 Shot "error"
-Check "3a a mistake saved: the compiler's error is listed" ([bool]$bad) ("errors {0}; first at {1}" -f @($bad.errors).Count, $(if ($bad) { "{0},{1}" -f $bad.errors[0].line, $bad.errors[0].column } else { "-" }))
+Check "3a a mistake saved: the compiler's error is listed" ([bool]$bad) ("errors {0}; first at {1}" -f @($bad.errors).Count, $(if ($bad -and @($bad.errors).Count -gt 0) { "{0},{1}" -f $bad.errors[0].line, $bad.errors[0].column } else { "-" }))
 [void](ClickS "code"); Press "HOME" $true; Start-Sleep -Milliseconds 200
 $caretBefore = SState
 [void](ClickS "error:0"); Start-Sleep -Milliseconds 500
 $at = SState
-$expectLine = if ($bad) { [Math]::Min([int]$bad.errors[0].line, 7) } else { -1 }
+$expectLine = if ($bad -and @($bad.errors).Count -gt 0) { [Math]::Min([int]$bad.errors[0].line, 7) } else { -1 }
 Check "3b a click on the error puts the caret on its line" ($bad -and $caretBefore.caret[0] -eq 0 -and [int]$at.caret[0] -eq $expectLine) ("caret before {0}; after {1}; error line {2}" -f (@($caretBefore.caret) -join ","), (@($at.caret) -join ","), $expectLine)
 Press "END" $true; Press "BACKSPACE"; Press "BACKSPACE"
 [void](ClickS "save")
 $fixed = Wait-Until { $s = SState; if (-not $s.saving -and $s.status -eq "script.save_complete" -and @($s.errors).Count -eq 0) { $s } } 30
-$said2 = Wait-Until { $n = ChatCount $token; if ($n -ge 2) { $n } } 20
-Check "3c the mistake removed and saved: no error, and the line is said again" ([bool]$fixed -and [bool]$said2) ("status {0}; errors {1}; lines {2}" -f (SState).status, @((SState).errors).Count, (ChatCount $token))
+$said2 = Wait-Until { $n = ChatCount $sayToken; if ($n -ge 2) { $n } } 20
+Check "3c the mistake removed and saved: no error, and the line is said again" ([bool]$fixed -and [bool]$said2) ("status {0}; errors {1}; lines {2}" -f (SState).status, @((SState).errors).Count, (ChatCount $sayToken))
 
 # ---- 4. Running off and on, Reset: the line again ----
-$n0 = ChatCount $token
+$n0 = ChatCount $sayToken
 [void](ClickS "running")
 $off = Wait-Until { $s = SState; if ($s.running -eq $false) { $s } } 10
 Start-Sleep -Milliseconds 800
 [void](ClickS "reset"); Start-Sleep -Milliseconds 3000
-$quiet = ChatCount $token
+$quiet = ChatCount $sayToken
 [void](ClickS "running")
 $on = Wait-Until { $s = SState; if ($s.running -eq $true) { $s } } 10
 Start-Sleep -Milliseconds 800
 [void](ClickS "reset")
-$again = Wait-Until { $n = ChatCount $token; if ($n -gt $quiet) { $n } } 20
+$again = Wait-Until { $n = ChatCount $sayToken; if ($n -gt $quiet) { $n } } 20
 Shot "running"
 Check "4 Running unticked (a reset says nothing), ticked again, Reset: the line is said again" ([bool]$off -and [bool]$on -and $quiet -eq $n0 -and [bool]$again) ("off {0}; lines while stopped {1} (before {2}); on {3}; after Reset {4}" -f [bool]$off, $quiet, $n0, [bool]$on, $again)
 
