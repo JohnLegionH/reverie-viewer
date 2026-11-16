@@ -38,13 +38,14 @@ tar -xzf reverie-viewer-0.1.1-linux-x86_64.tar.gz
   `vulkan-tools`) shows what your driver offers.
 - glibc 2.34 or newer, and the ICU and OpenSSL 3 libraries, which desktop installs normally have.
 - A desktop install also has the display libraries the viewer loads. On a minimal install (a server image with a
-  desktop added later, for example), install everything it needs on Ubuntu 26.04 or 26.10 with:
+  desktop added later, for example), install what it needs to start and draw on Ubuntu 26.04 or 26.10 with:
 
   ```
   sudo apt install mesa-vulkan-drivers libicu78 libssl3t64 libx11-6 libxcursor1 libxext6 libxi6 libxinerama1 libxrandr2 libxrender1 libxkbcommon0 libwayland-client0 libwayland-cursor0 libfontconfig1
   ```
 
-  On other Ubuntu releases the ICU package has another number (`apt-cache search '^libicu[0-9]'` names it).
+  On other Ubuntu releases the ICU package has another number (`apt-cache search '^libicu[0-9]'` names it). For sound
+  the viewer uses PulseAudio (`libpulse0`) or ALSA, which a desktop has; without either it runs silent.
 - The viewer runs natively on Wayland and falls back to X11. To force X11, add `--display-driver x11`.
 - **Testers wanted:** the Linux builds have not yet been run on a real Linux desktop by the developers. If you try one,
   please report what happened, good or bad, on the issues page.
