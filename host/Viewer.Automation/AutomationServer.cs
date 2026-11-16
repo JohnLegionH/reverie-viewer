@@ -162,7 +162,8 @@ public sealed class AutomationServer : IDisposable
 /// submit): it never starts one to a grid where automation is not allowed (Second Life, <see cref="Viewer.Core.Session.ViewerFeature.Automation"/>).</summary>
 public static class AutomationLogin
 {
-    public static bool Refuses(string? loginUri) => false;   // RED STUB
+    public static bool Refuses(string? loginUri) =>
+        loginUri is not null && !Viewer.Core.Session.GridPolicy.Allows(Viewer.Core.Session.ViewerFeature.Automation, Viewer.Core.Session.GridPolicy.KindOf(loginUri));
 }
 
 /// <summary>The explicit enable flag. Nothing else turns the API on: no setting, no environment variable.</summary>

@@ -24,7 +24,7 @@ internal sealed partial class LmvTransport : IViewerStatsTransport
             return false;
         try
         {
-            await _client.HttpCapsClient.PostAsync(cap, OSDFormat.Xml, ToOsd(report), ct).ConfigureAwait(false);
+            await _client.HttpCapsClient.PostAsync(cap, OSDFormat.Xml, ForPosting(report, _client.Self.SessionID.Guid), ct).ConfigureAwait(false);
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -33,8 +33,13 @@ internal sealed partial class LmvTransport : IViewerStatsTransport
         }
     }
 
-    /// <summary>The report as posted (RED STUB).</summary>
-    internal static OSD ForPosting(IReadOnlyDictionary<string, object?> report, Guid sessionId) => ToOsd(report);
+    /// <summary>The report as posted: the session id is added here, as the official viewer adds it last, so it is never in anything logged.</summary>
+    internal static OSD ForPosting(IReadOnlyDictionary<string, object?> report, Guid sessionId)
+    {
+        var map = (OSDMap)ToOsd(report);
+        map["session_id"] = OSD.FromUUID(new LibreMetaverse.UUID(sessionId));
+        return map;
+    }
 
     internal static OSD ToOsd(object? value) => value switch
     {
@@ -45,7 +50,7 @@ internal sealed partial class LmvTransport : IViewerStatsTransport
         string s => OSD.FromString(s),
         bool b => OSD.FromBoolean(b),
         int i => OSD.FromInteger(i),
-        long l => OSD.FromReal(l),
+        long l => l is >= int.MinValue and <= int.MaxValue ? OSD.FromInteger((int)l) : OSD.FromReal(l),
         double d => OSD.FromReal(d),
         float f => OSD.FromReal(f),
         _ => OSD.FromString(value.ToString() ?? ""),

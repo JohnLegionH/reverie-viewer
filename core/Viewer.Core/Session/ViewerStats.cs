@@ -94,6 +94,7 @@ public static class ViewerStatsReport
             ["gpu_version"] = i.Figures.GpuVersion,
             ["opengl_version"] = "",
             ["shader_level"] = 5,
+            ["gl"] = new Dictionary<string, object?>(),
         };
         var t = i.Traffic;
         return new Dictionary<string, object?>
@@ -110,10 +111,15 @@ public static class ViewerStatsReport
                 },
                 ["failures"] = new Dictionary<string, object?>
                 {
-                    ["send_packet"] = 0, ["dropped"] = t.Dropped, ["resent"] = t.Resent, ["failed_resends"] = 0, ["off_circuit"] = 0, ["invalid"] = 0, ["missing_updater"] = false,
+                    ["send_packet"] = 0, ["dropped"] = t.Dropped, ["resent"] = t.Resent, ["failed_resends"] = 0, ["off_circuit"] = 0, ["invalid"] = 0, ["missing_updater"] = 0,
                 },
                 ["misc"] = new Dictionary<string, object?> { ["string_1"] = "Unused", ["string_2"] = "Unused", ["int_1"] = 0, ["int_2"] = 0 },
+                ["voice"] = new Dictionary<string, object?>(),
             },
+            // LLViewerStats::addToMessage
+            ["misc"] = new Dictionary<string, object?> { ["Version"] = true, ["Vertex Buffers Enabled"] = 1.0 },
+            ["AgentPositionSnaps"] = 0.0,
+            ["MinimalSkin"] = false,
             ["inventory"] = new Dictionary<string, object?> { ["usable"] = i.InventoryUsable, ["validation_info"] = new Dictionary<string, object?>() },
             ["ui"] = new Dictionary<string, object?>(),
             ["DisplayNamesEnabled"] = i.Figures.DisplayNamesEnabled,
@@ -136,12 +142,29 @@ public sealed class ViewerStatsSender : IDisposable
     private int _sending;
     private int _sent;
 
+    /// <param name="firstRetry">How soon the first report is tried again when the region's ViewerStats capability is not there yet (the
+    /// seed capabilities arrive after the login's answer).</param>
     public ViewerStatsSender(IViewerStatsTransport transport, Func<ViewerStatsReport.Inputs> inputs, TimeSpan? period = null, TimeSpan? firstRetry = null)
     {
         _transport = transport;
         _inputs = inputs;
-        var every = period ?? TimeSpan.FromSeconds(ViewerStatsReport.SendPeriodSeconds);
-        _timer = new Timer(_ => _ = SendAsync(), null, TimeSpan.Zero, every);
+        _period = period ?? TimeSpan.FromSeconds(ViewerStatsReport.SendPeriodSeconds);
+        _firstRetry = firstRetry ?? TimeSpan.FromSeconds(5);
+        _timer = new Timer(_ => _ = TickAsync(), null, TimeSpan.Zero, _period);
+    }
+
+    private readonly TimeSpan _period, _firstRetry;
+    private int _retries;
+
+    private async Task TickAsync()
+    {
+        bool ok = await SendAsync().ConfigureAwait(false);
+        // until the first report is through, try again soon (for up to about two minutes), then fall back to the period
+        if (!ok && Sent == 0 && !_stop.IsCancellationRequested && Interlocked.Increment(ref _retries) * _firstRetry < TimeSpan.FromMinutes(2))
+        {
+            try { _timer.Change(_firstRetry, _period); }
+            catch (ObjectDisposedException) { }
+        }
     }
 
     /// <summary>Reports sent so far.</summary>
@@ -167,9 +190,16 @@ public sealed class ViewerStatsSender : IDisposable
     /// <summary>The last report, on logout: the timer stops first, so nothing follows it.</summary>
     public async Task SendFinalAsync(TimeSpan wait)
     {
-        _timer.Change(Timeout.Infinite, Timeout.Infinite);
+        try { _timer.Change(Timeout.Infinite, Timeout.Infinite); }
+        catch (ObjectDisposedException) { return; }
+        var until = DateTime.UtcNow + wait;
+        // a periodic report still on its way finishes first, so the last one is not skipped
+        while (Volatile.Read(ref _sending) == 1 && DateTime.UtcNow < until)
+            await Task.Delay(50).ConfigureAwait(false);
         var send = SendAsync();
-        await Task.WhenAny(send, Task.Delay(wait)).ConfigureAwait(false);
+        var left = until - DateTime.UtcNow;
+        if (left > TimeSpan.Zero)
+            await Task.WhenAny(send, Task.Delay(left)).ConfigureAwait(false);
         Dispose();
     }
 

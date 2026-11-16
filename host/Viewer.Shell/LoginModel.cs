@@ -319,13 +319,13 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
                     lock (_gate) _mfaHashes[hashKey] = handedOut;
                     // kept in the protected store only when the person asked for the login to be remembered (saveMFAHash)
                     if (RememberPassword)
-                        vault?.SaveMfaHash(LoginUri, UserName, handedOut);
+                        KeepSafely(() => vault?.SaveMfaHash(LoginUri, UserName, handedOut));
                 }
                 else if (outcome.Code == "mfa_challenge" && extras.MfaHash is not null)
                 {
                     // the grid asked for a token although a hash was sent: it no longer accepts that hash, so it is forgotten
                     lock (_gate) _mfaHashes.Remove(hashKey);
-                    vault?.ForgetMfaHash(LoginUri, UserName);
+                    KeepSafely(() => vault?.ForgetMfaHash(LoginUri, UserName));
                     extras = extras with { MfaHash = null };
                 }
                 LastFailureCode = outcome.Ok ? null : outcome.Code ?? "failed";
@@ -363,6 +363,13 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     }
 
     private readonly Dictionary<string, Secret> _mfaHashes = new(StringComparer.Ordinal);
+
+    // a store that cannot be written (a locked file, an unreachable keyring) never stops the login: the hash is then asked again next time
+    private static void KeepSafely(Action write)
+    {
+        try { write(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException) { }
+    }
 
     private Secret? RunMfaHash(string key)
     {

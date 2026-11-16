@@ -526,6 +526,9 @@ public sealed class ViewerSession : IDisposable
     {
         if (!Allows(ViewerFeature.ViewerStatistics) || _transport is not IViewerStatsTransport stats)
             return;
+        lock (_lock)
+            if (_disposed || _ended)
+                return;
         var started = DateTimeOffset.UtcNow;
         Statistics = new ViewerStatsSender(stats, () =>
         {
@@ -1588,6 +1591,8 @@ public sealed class ViewerSession : IDisposable
             _ended = true;
             CancelGraceLocked();
         }
+        Statistics?.Dispose();   // a session that ends without a logout (dropped, kicked) sends no more reports
+        Statistics = null;
         RaiseEnded(reason);
     }
 
