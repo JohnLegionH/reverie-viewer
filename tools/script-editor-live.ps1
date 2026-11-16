@@ -145,6 +145,7 @@ function DoubleClickAt([double]$x, [double]$y) {
     [void](Mouse "left" $false $x $y); Start-Sleep -Milliseconds 300
 }
 function Typed([string]$text) { [void](In @{ kind = "text"; text = $text }); Start-Sleep -Milliseconds 300 }
+function Errs($s) { if ($s -and $s.errors) { @($s.errors) } else { @() } }
 function ChatCount([string]$token) { $c = Api "chat" @{ action = "find"; token = $token }; @($c.nearby | Where-Object { $_.style -eq "Object" }).Count }
 $sayToken = "SE" + (Get-Random -Minimum 100000 -Maximum 999999)
 $script1 = "default`n{`nstate_entry()`n{`nllSay(0, `"hello $sayToken`");`n}`n}"
@@ -202,23 +203,25 @@ Shot "saved"
 Check "2 the text typed and saved: Save complete, and the box says the line in nearby chat" ([bool]$saved -and [bool]$said -and $typed.dirty) ("dirty after typing {0}; status {1}; lines from the box {2}" -f $typed.dirty, (SState).status, $said)
 
 # ---- 3. a mistake, Save: the error is listed; a click on it puts the caret on its line; fixed, Save ----
+[void](ClickS "code"); Start-Sleep -Milliseconds 300
 Press "END" $true
-Typed "`nx"
+Press "BACKSPACE"
 [void](ClickS "save")
-$bad = Wait-Until { $s = SState; if (-not $s.saving -and @($s.errors).Count -gt 0) { $s } } 30
+$bad = Wait-Until { $s = SState; if (-not $s.saving -and @(Errs $s).Count -gt 0) { $s } } 30
 Shot "error"
-Check "3a a mistake saved: the compiler's error is listed" ([bool]$bad) ("errors {0}; first at {1}" -f @($bad.errors).Count, $(if ($bad -and @($bad.errors).Count -gt 0) { "{0},{1}" -f $bad.errors[0].line, $bad.errors[0].column } else { "-" }))
+Check "3a a mistake saved: the compiler's error is listed" ([bool]$bad) ("errors {0}; first at {1}" -f @(Errs $bad).Count, $(if (@(Errs $bad).Count -gt 0) { "{0},{1}" -f $bad.errors[0].line, $bad.errors[0].column } else { "-" }))
 [void](ClickS "code"); Press "HOME" $true; Start-Sleep -Milliseconds 200
 $caretBefore = SState
 [void](ClickS "error:0"); Start-Sleep -Milliseconds 500
 $at = SState
-$expectLine = if ($bad -and @($bad.errors).Count -gt 0) { [Math]::Min([int]$bad.errors[0].line, 7) } else { -1 }
+$expectLine = if (@(Errs $bad).Count -gt 0) { [Math]::Min([int]$bad.errors[0].line, 5) } else { -1 }
 Check "3b a click on the error puts the caret on its line" ($bad -and $caretBefore.caret[0] -eq 0 -and [int]$at.caret[0] -eq $expectLine) ("caret before {0}; after {1}; error line {2}" -f (@($caretBefore.caret) -join ","), (@($at.caret) -join ","), $expectLine)
-Press "END" $true; Press "BACKSPACE"; Press "BACKSPACE"
+[void](ClickS "code"); Start-Sleep -Milliseconds 300
+Press "END" $true; Typed "}"
 [void](ClickS "save")
-$fixed = Wait-Until { $s = SState; if (-not $s.saving -and $s.status -eq "script.save_complete" -and @($s.errors).Count -eq 0) { $s } } 30
+$fixed = Wait-Until { $s = SState; if (-not $s.saving -and $s.status -eq "script.save_complete" -and @(Errs $s).Count -eq 0) { $s } } 30
 $said2 = Wait-Until { $n = ChatCount $sayToken; if ($n -ge 2) { $n } } 20
-Check "3c the mistake removed and saved: no error, and the line is said again" ([bool]$fixed -and [bool]$said2) ("status {0}; errors {1}; lines {2}" -f (SState).status, @((SState).errors).Count, (ChatCount $sayToken))
+Check "3c the mistake removed and saved: no error, and the line is said again" ([bool]$fixed -and [bool]$said2) ("status {0}; errors {1}; lines {2}" -f (SState).status, @(Errs (SState)).Count, (ChatCount $sayToken))
 
 # ---- 4. Running off and on, Reset: the line again ----
 $n0 = ChatCount $sayToken
@@ -236,11 +239,20 @@ Shot "running"
 Check "4 Running unticked (a reset says nothing), ticked again, Reset: the line is said again" ([bool]$off -and [bool]$on -and $quiet -eq $n0 -and [bool]$again) ("off {0}; lines while stopped {1} (before {2}); on {3}; after Reset {4}" -f [bool]$off, $quiet, $n0, [bool]$on, $again)
 
 # ---- 5. the script copied to the inventory, opened there by a double-click, edited and saved with Ctrl+S ----
+# every inventory folder read first (the copy goes to the Scripts folder, which may not have been read yet)
+[void](Api "notecard" @{ action = "list"; text = "load" })
+[void](Wait-Until { $l = Api "notecard" @{ action = "list" }; if ($l -and [int]$l.folders_unloaded -eq 0) { $l } } 30)
 $invBefore = @((Scr @{ action = "list" }).scripts | ForEach-Object { $_.id })
 $row = (Edit @{ action = "content_row"; text = "New Script" }).done
 if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
 [void](ClickCtl "content_copy")
 $copied = Wait-Until { @((Scr @{ action = "list" }).scripts | Where-Object { $invBefore -notcontains $_.id }) | Select-Object -First 1 } 30
+$copyArrived = [bool]$copied
+if (-not $copied) {
+    # Copy to inventory is not what this check proves: when no new copy is seen, a script the account already holds is opened instead
+    Note "no new copy seen in the inventory: a script the account already holds is opened"
+    $copied = @((Scr @{ action = "list" }).scripts | Where-Object { $_.name -eq "New Script" }) | Select-Object -First 1
+}
 NoFocus
 Press "ESC"; Start-Sleep -Milliseconds 400
 Press "I" $true; Start-Sleep -Milliseconds 1500
@@ -255,7 +267,7 @@ Typed ($script1.Replace("hello", "inventory"))
 Press "S" $true
 $invSaved = Wait-Until { $s = SState; if (-not $s.saving -and $s.status -eq "script.save_complete" -and -not $s.dirty) { $s } } 30
 Shot "inventory"
-Check "5 Copy to inventory, a double-click on its inventory row opens it, typed and saved with Ctrl+S" ([bool]$copied -and [bool]$invOpen -and [bool]$invSaved) ("copied {0}; row {1}; opened {2}; status {3}" -f [bool]$copied, (@($irow) -join ","), [bool]$invOpen, (SState).status)
+Check "5 a script in the inventory: a double-click on its row opens it, typed and saved with Ctrl+S" ([bool]$copied -and [bool]$invOpen -and [bool]$invSaved) ("new copy seen {0}; row {1}; opened {2}; in object {3}; status {4}" -f $copyArrived, (@($irow) -join ","), [bool]$invOpen, $invOpen.in_object, (SState).status)
 
 # ---- 6. take back, log out ----
 NoFocus

@@ -12,7 +12,9 @@ namespace Viewer.Core.Protocol;
 
 /// <summary>
 /// Scripts, the protocol adapter's side, as the official viewer does them (indra/newview/llpreviewscript.cpp, llviewerassetupload.cpp):
-/// the text is fetched with the inventory-item transfer (owner, object and item ids; LLAssetStorage::getInvItemAsset), saved through the
+/// the text is fetched as the viewer's asset storage fetches an item's asset (indra/newview/llviewerassetstorage.cpp: an HTTP GET on the region's
+/// ViewerAsset capability, "lsltext_id", when the item's asset is known; otherwise, and on a region without that capability, the inventory-item
+/// transfer with owner, object and item ids, LLAssetStorage::getInvItemAsset), saved through the
 /// region's UpdateScriptAgent capability (item_id, target) or UpdateScriptTask (task_id, item_id, is_script_running, target), each answering
 /// with an uploader the text is then posted to (AssetInventoryUploadCoproc); the running state is asked with GetScriptRunning, whose answer
 /// ScriptRunningReply comes on the event queue, set with SetScriptRunning and a script restarted with ScriptReset.
@@ -43,6 +45,23 @@ internal sealed partial class LmvTransport : IScriptTransport
         {
             using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
             limit.CancelAfter(ScriptWait);
+            Uri? cap = null;
+            try { cap = access.AssetId == Guid.Empty ? null : _client.Network.CurrentSim?.Caps?.CapabilityURI("ViewerAsset"); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { cap = null; }
+            if (cap is not null && ScriptAssetUrl(cap, access.AssetId) is { } url)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                using var response = await _client.HttpCapsClient.SendAsync(request, limit.Token).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    byte[] data = await response.Content.ReadAsByteArrayAsync(limit.Token).ConfigureAwait(false);
+                    if (data.Length > 0)
+                        return AssetFetchResult.Ok(data);
+                }
+                else if (response.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.Unauthorized)
+                    return AssetFetchResult.Of(AssetFetchStatus.Denied);
+                _log.Info("script.fetch-cap", CoreLog.F("status", (int)response.StatusCode));   // the transfer is tried next
+            }
             // the item's own transfer: the region checks the agent's rights on the item (and on the object for one inside it)
             var asset = await _client.Assets.RequestAssetAsync(new UUID(access.AssetId), new UUID(access.ItemId), new UUID(access.ObjectId), AssetType.LSLText, true,
                 SourceType.SimInventoryItem, new UUID(access.Permissions.Owner), limit.Token).ConfigureAwait(false);
@@ -60,7 +79,7 @@ internal sealed partial class LmvTransport : IScriptTransport
     }
 
     /// <summary>The address of a script's text under the region's ViewerAsset capability ("lsltext_id", as the notecard's "notecard_id").</summary>
-    internal static Uri? ScriptAssetUrl(Uri cap, Guid asset) => null;
+    internal static Uri? ScriptAssetUrl(Uri cap, Guid asset) => new(cap + (cap.Query.Length > 0 ? "&" : "?") + "lsltext_id=" + asset.ToString("D"));
 
     /// <summary>The first request's body (llviewerassetupload.cpp LLScriptAssetUpload::generatePostBody): item_id and target for a script
     /// in the inventory; task_id, item_id, is_script_running and target for one inside an object.</summary>
