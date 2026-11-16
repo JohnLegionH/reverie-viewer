@@ -3,8 +3,10 @@
 
 namespace Viewer.Core.Session;
 
-/// <summary>One item inside an object (its task inventory). The masks use the protocol's permission bits; the owner is the object's owner.</summary>
-public sealed record TaskItem(Guid ItemId, string Name, int AssetType, int InvType, Guid OwnerId, uint OwnerMask, uint EveryoneMask);
+/// <summary>One item inside an object (its task inventory). The masks use the protocol's permission bits; the owner is the object's owner.
+/// The asset, creator and other masks are what the region lists for the item (the asset is empty where the region does not give it).</summary>
+public sealed record TaskItem(Guid ItemId, string Name, int AssetType, int InvType, Guid OwnerId, uint OwnerMask, uint EveryoneMask,
+    Guid AssetId = default, Guid CreatorId = default, uint BaseMask = 0, uint GroupMask = 0, uint NextOwnerMask = 0);
 
 /// <summary>The region's answer to a contents request: the items inside the object, or nothing when the request failed or timed out.</summary>
 public sealed record TaskInventoryReceived(Guid ObjectId, IReadOnlyList<TaskItem> Items, bool Ok = true) : TransportEvent;

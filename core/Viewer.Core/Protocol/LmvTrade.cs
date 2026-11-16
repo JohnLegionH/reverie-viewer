@@ -21,7 +21,8 @@ internal sealed partial class LmvTransport
     /// <summary>The core's record of an item inside an object.</summary>
     internal static TaskItem ToTaskItem(InventoryItem item) =>
         new(item.UUID.Guid, item.Name ?? "", (int)item.AssetType, (int)item.InventoryType, item.OwnerID.Guid,
-            (uint)item.Permissions.OwnerMask, (uint)item.Permissions.EveryoneMask);
+            (uint)item.Permissions.OwnerMask, (uint)item.Permissions.EveryoneMask, item.AssetUUID.Guid, item.CreatorID.Guid,
+            (uint)item.Permissions.BaseMask, (uint)item.Permissions.GroupMask, (uint)item.Permissions.NextOwnerMask);
 
     /// <summary>The pay-price answer as the core's record.</summary>
     internal static PayPriceReceived ToPayPrice(UUID objectId, int defaultPrice, int[]? buttons) =>
