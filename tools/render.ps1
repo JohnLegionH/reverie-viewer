@@ -549,10 +549,11 @@ function Invoke-BanLineCases {
 }
 
 function Invoke-ObjectCases {
-    # the highlight around a selected object and the floating text over one, each against its golden on each backend; the negative control
+    # the highlight around a selected object, the floating text over one, and the Select Face marker on three faces of two boxes (faces), each
+    # against its golden on each backend; the negative control
     # leaves the highlight or the text out and must FAIL the same diff. Eye and target in region coordinates (the box stands at 128,128).
     $look = ""   # the scene frames itself on the box
-    foreach ($kind in @("select", "text")) {
+    foreach ($kind in @("select", "text", "faces")) {
         foreach ($be in $Backends) {
             $golden = Join-Path $repo "fixtures\terrain\golden-$kind-$be.png"
             if (-not (Test-Path -LiteralPath $golden)) {
@@ -565,7 +566,7 @@ function Invoke-ObjectCases {
             }
             $r = Invoke-Render $be "$kind-$be" "`"--tr-fixture=$fixture`" `"--tr-golden=$golden`" --tr-interact=$kind $look"
             $b = if ($r.Json) { $r.Json.interact } else { $null }
-            $drawn = if ($kind -eq "select") { $b.pieces -gt 0 } else { $b.shown -gt 0 }
+            $drawn = if ($kind -eq "select") { $b.pieces -gt 0 } elseif ($kind -eq "faces") { $b.pieces -eq 3 } else { $b.shown -gt 0 }
             $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be -and $drawn
             Add-Case "${kind}_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary); pieces $($b.pieces), texts $($b.shown), ground $($b.ground), camera $($b.camera.X),$($b.camera.Y),$($b.camera.Z)$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
             $n = Invoke-Render $be "$kind-hidden-$be" "`"--tr-fixture=$fixture`" `"--tr-golden=$golden`" --tr-interact=$kind-hidden $look"
