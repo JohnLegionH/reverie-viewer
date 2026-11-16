@@ -134,6 +134,9 @@ public sealed partial class PreferencesPanel : VBoxContainer
         var navScroll = new ScrollContainer { Name = "categories_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, CustomMinimumSize = new Vector2(150, 0) };
         body.AddChild(navScroll);
         var nav = new VBoxContainer { Name = "categories", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        // the buttons sit with no gap between them, so every category fits the window's usual size whatever the theme's button padding
+        // (a theme with deeper buttons put the last one behind a scroll bar)
+        nav.AddThemeConstantOverride("separation", 0);
         nav.AccessibilityName = strings.Get("prefs.categories");
         navScroll.AddChild(nav);
         foreach (var id in Categories)
