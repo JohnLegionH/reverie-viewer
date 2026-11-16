@@ -19,6 +19,9 @@ public sealed class ParcelSoundMap
     /// <summary>The overlay's "sounds only within parcel" bit.</summary>
     public const byte SoundLocalBit = 0x20;
 
+    /// <summary>The squares one overlay packet carries.</summary>
+    public const int OverlayPacketSquares = 1024;
+
     /// <summary>The parcel the agent stands in: its region, whether it keeps its sounds in, its bitmap and the region's width in metres.</summary>
     public void SetAgentParcel(ulong regionHandle, bool soundLocal, byte[]? bitmap, int regionWidth = 256)
     {
@@ -28,15 +31,17 @@ public sealed class ParcelSoundMap
         _agentPerEdge = Math.Max(1, (int)(regionWidth / GridStep));
     }
 
-    /// <summary>One quarter of a region's overlay (chunks 0 to 3, row by row).</summary>
+    /// <summary>One packet of a region's overlay, row by row: a 256 m region sends 4, a larger one as many 1024-square packets as its
+    /// squares fill (the official viewer's and Firestorm's layout: width squared over 128 squared packets, llviewerparceloverlay.cpp).</summary>
     public void SetOverlay(ulong regionHandle, int chunk, byte[] data, int regionWidth = 256)
     {
         int perEdge = Math.Max(1, (int)(regionWidth / GridStep));
-        if (chunk < 0 || chunk > 3)
+        int chunks = Math.Max(1, perEdge * perEdge / OverlayPacketSquares);
+        if (chunk < 0 || chunk >= chunks)
             return;
         if (!_overlays.TryGetValue(regionHandle, out var o) || o.PerEdge != perEdge)
             _overlays[regionHandle] = o = (perEdge, new byte[perEdge * perEdge]);
-        int chunkBytes = o.Cells.Length / 4;
+        int chunkBytes = o.Cells.Length / chunks;
         Array.Copy(data, 0, o.Cells, chunk * chunkBytes, Math.Min(chunkBytes, data.Length));
     }
 

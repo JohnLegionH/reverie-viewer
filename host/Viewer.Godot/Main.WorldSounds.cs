@@ -224,6 +224,7 @@ public partial class Main
             LocateAvatar = id => session.World.AvatarOf(id) is { } a && session.Region is { } r
                 ? new SoundPlace(Handle(r), a.Position - session.World.OriginOffset) : null,
             ObjectMuted = id => session.Mutes.IsMuted(id, null),
+            RegionWidth = handle => session.Worlds.FirstOrDefault(w => w.Sim.Handle == handle)?.Region.SizeX ?? 256,
             OwnerSoundsMuted = id => session.Mutes.IsMuted(id, null, MuteFlag.ObjectSounds),
             TypingSound = () => TypingSound(settings),
             // our footstep (tuned or shipped), for a step whose official sound the grid lacks

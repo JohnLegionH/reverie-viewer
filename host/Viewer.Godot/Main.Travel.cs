@@ -57,7 +57,7 @@ public partial class Main
             world = wallRegion.World;
         var offset = new System.Numerics.Vector2(world.OriginOffset.X, world.OriginOffset.Y);
         _banWall.RegionOffset = offset;
-        _banWall.Update(state, at - offset, (x, y) => Presentation.BanWallLayer.GroundFrom(world, x, y), hub.Notices.Now);
+        _banWall.Update(state, at - offset, (x, y) => Presentation.BanWallLayer.GroundFrom(world, x, y), hub.Notices.Now, state.Cells);
     }
 
     private void FreeBanWall()
