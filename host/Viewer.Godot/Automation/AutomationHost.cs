@@ -441,7 +441,7 @@ public partial class AutomationHost : Node
             }
             case "script":   // {action: state|where|list, text?: "text" for the front window's text, control?}: the script editor's front window, where its controls stand, the inventory's scripts (development builds only)
                 return m.ScriptCall(Str(call.Body, "action") ?? "state", Str(call.Body, "text"), Str(call.Body, "control")) is { } script ? AutomationReply.Ok(script) : AutomationReply.Error(409, "no shell");
-            case "input":   // {kind: key|mouse|text|account|state, key?, button?: left|right|middle (none: a move), down?, shift?, ctrl?, alt?, x?, y?, text?, accounts_file?, account?, part?: name|password}: a key or mouse event through the engine's input path; text: each character typed as a key press; account: the account's name or password typed the same way, read here from the accounts file and never answered (development builds only)
+            case "input":   // {kind: key|mouse|text|account|state, key?, button?: left|right|middle (none: a move), down?, double?: the press is the second of a double-click (as the operating system marks it), shift?, ctrl?, alt?, x?, y?, text?, accounts_file?, account?, part?: name|password}: a key or mouse event through the engine's input path; text: each character typed as a key press; account: the account's name or password typed the same way, read here from the accounts file and never answered (development builds only)
             {
                 if (Str(call.Body, "kind") == "text")
                     return Str(call.Body, "text") is { } typedText ? AutomationReply.Ok(m.TypeText(typedText)) : AutomationReply.Error(400, "text is required");
@@ -459,7 +459,7 @@ public partial class AutomationHost : Node
                 }
                 bool Flag(string key) => call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty(key, out var fv) && fv.ValueKind == JsonValueKind.True;
                 float At(string key) => call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty(key, out var nv) && nv.ValueKind == JsonValueKind.Number ? (float)nv.GetDouble() : 0f;
-                return m.InputCall(Str(call.Body, "kind") ?? "state", Str(call.Body, "key"), Str(call.Body, "button"), Flag("down"), Flag("shift"), Flag("ctrl"), Flag("alt"), At("x"), At("y")) is { } sent
+                return m.InputCall(Str(call.Body, "kind") ?? "state", Str(call.Body, "key"), Str(call.Body, "button"), Flag("down"), Flag("shift"), Flag("ctrl"), Flag("alt"), At("x"), At("y"), Flag("double")) is { } sent
                     ? AutomationReply.Ok(sent) : AutomationReply.Error(400, "kind must be key (with a key name), mouse or state");
             }
             case "typing":   // {action: focus|release|text|key|state, text?, caret?, key?, down?}: the chat bar's text field and an arrow key sent as a pressed key (development builds only)

@@ -438,16 +438,17 @@ public partial class Main
                 >= 'a' and <= 'z' => (Key)char.ToUpperInvariant(c),
                 >= 'A' and <= 'Z' or >= '0' and <= '9' => (Key)c,
                 ' ' => Key.Space,
+                '\n' => Key.Enter,   // a new line is the Enter key, which carries no character
                 _ => Key.None,
             };
             bool shift = c is >= 'A' and <= 'Z';
-            global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = c, Pressed = true, ShiftPressed = shift });
+            global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = c == '\n' ? 0 : c, Pressed = true, ShiftPressed = shift });
             global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = 0, Pressed = false, ShiftPressed = shift });
         }
         return new { typed = text.Length };
     }
 
-    public object? InputCall(string kind, string? key, string? button, bool down, bool shift, bool ctrl, bool alt, float x, float y)
+    public object? InputCall(string kind, string? key, string? button, bool down, bool shift, bool ctrl, bool alt, float x, float y, bool doubleClick = false)
     {
         switch (kind)
         {
@@ -482,7 +483,7 @@ public partial class Main
                 else
                 {
                     if (index == MouseButton.Left) _injectedLeftDown = down;
-                    global::Godot.Input.ParseInputEvent(new InputEventMouseButton { Position = at, GlobalPosition = at, ButtonIndex = index, Pressed = down, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt, ButtonMask = down ? (MouseButtonMask)1 : 0 });
+                    global::Godot.Input.ParseInputEvent(new InputEventMouseButton { Position = at, GlobalPosition = at, ButtonIndex = index, Pressed = down, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt, ButtonMask = down ? (MouseButtonMask)1 : 0, DoubleClick = doubleClick && down });
                 }
                 _injectedAt = at;
                 break;
