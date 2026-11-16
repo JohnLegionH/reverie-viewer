@@ -96,6 +96,68 @@ public sealed class ShipExportScriptTests
         Assert.False(File.Exists(Path.Combine(r.Dst, "appdata", "override-cfg-1.moved")));
     }
 
+    /// <summary>
+    /// Starts a stand-in viewer: a copy of the system's ping program named Reverie.exe in <paramref name="folder"/>, so the
+    /// process is called Reverie and runs from that folder; it waits on its own for up to a minute and is ended by the test.
+    /// </summary>
+    private static System.Diagnostics.Process StartStandInViewer(string folder)
+    {
+        Directory.CreateDirectory(folder);
+        string exe = Path.Combine(folder, "Reverie.exe");
+        File.Copy(Path.Combine(Environment.SystemDirectory, "PING.EXE"), exe);
+        var psi = new System.Diagnostics.ProcessStartInfo(exe, "-n 60 127.0.0.1")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+        };
+        var p = System.Diagnostics.Process.Start(psi)!;
+        p.BeginOutputReadLine();
+        return p;
+    }
+
+    private static void EndStandIn(System.Diagnostics.Process p)
+    {
+        try { if (!p.HasExited) p.Kill(); p.WaitForExit(10_000); }
+        catch (InvalidOperationException) { }
+    }
+
+    [Fact]
+    public void A_viewer_running_from_another_folder_does_not_block_the_copy_and_is_listed_as_ignored()
+    {
+        var r = new Rig();
+        r.Write(r.Src, "Reverie.pck", "new pck");
+        r.Write(r.Dst, "Reverie.pck", "old pck");
+        // a folder whose name starts with the destination's: a test copy of the viewer started from beside it, not from inside it
+        var other = StartStandInViewer(r.Dst + "2");
+        try
+        {
+            var run = r.Ship("-WaitMinutes", "0");
+            Assert.Equal(0, run.ExitCode);
+            Assert.Equal("new pck", File.ReadAllText(Path.Combine(r.Dst, "Reverie.pck")));
+            Assert.Contains($"ignored: process {other.Id}", run.Output);
+        }
+        finally { EndStandIn(other); }
+    }
+
+    [Fact]
+    public void A_viewer_running_from_inside_the_destination_blocks_the_copy()
+    {
+        var r = new Rig();
+        r.Write(r.Src, "Reverie.pck", "new pck");
+        r.Write(r.Dst, "Reverie.pck", "old pck");
+        var inside = StartStandInViewer(Path.Combine(r.Dst, "sub"));
+        try
+        {
+            var run = r.Ship("-WaitMinutes", "0");
+            Assert.Equal(2, run.ExitCode);
+            Assert.Equal("old pck", File.ReadAllText(Path.Combine(r.Dst, "Reverie.pck")));
+            Assert.True(File.Exists(Path.Combine(r.Dst, "sub", "Reverie.exe")));
+            Assert.Contains($"process {inside.Id}", run.Output);
+        }
+        finally { EndStandIn(inside); }
+    }
+
     [Fact]
     public void Nothing_is_copied_or_moved_without_a_move_aside_tool()
     {
