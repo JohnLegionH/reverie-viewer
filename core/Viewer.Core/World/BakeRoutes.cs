@@ -53,7 +53,6 @@ public sealed class BakeRoutes
     public Uri? UriFor(Guid id, string? service, bool regionBakes)
     {
         if (!regionBakes || string.IsNullOrEmpty(service)) return null;
-        if (regionBakes) return null; // RED STUB
         (Guid Agent, string Slot) route;
         lock (_gate)
             if (!_routes.TryGetValue(id, out route)) return null;
