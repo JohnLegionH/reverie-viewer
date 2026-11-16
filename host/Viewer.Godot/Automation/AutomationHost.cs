@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #if NV_AUTOMATION
@@ -96,11 +96,11 @@ public partial class AutomationHost : Node
                     ? AutomationReply.Ok(mute) : AutomationReply.Error(409, "no session");
             case "reconnect":   // {action: state|click|cancel}: the drop notice, its Reconnect button and the wait for a held session
                 return AutomationReply.Ok(m.ReconnectCall(Str(call.Body, "action") ?? "state"));
-            case "login_screen":   // {action: state|submit, accounts_file?, account?, login_uri?, remember?, use_saved?}: the login screen filled and submitted with Enter, as a person does; remember password's state (never a hash) (development builds only)
+            case "login_screen":   // {action: state|submit|layout, accounts_file?, account?, login_uri?, remember?, use_saved?}: the login screen filled and submitted with Enter, as a person does; remember password's state (never a hash); layout: where the card's controls stand and what they show (never the password) (development builds only)
             {
                 string action = Str(call.Body, "action") ?? "state";
-                if (action is not ("state" or "submit"))
-                    return AutomationReply.Error(400, "action must be state or submit");
+                if (action is not ("state" or "submit" or "layout"))
+                    return AutomationReply.Error(400, "action must be state, submit or layout");
                 bool Flag(string key) => call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty(key, out var fv) && fv.ValueKind == JsonValueKind.True;
                 string? name = null;
                 Secret? password = null;
@@ -439,8 +439,22 @@ public partial class AutomationHost : Node
                 if (Str(call.Body, "reset_slices") == "1") FrameMeter.ResetLongest();   // the longest slice starts again; a light reading follows
                 return AutomationReply.Ok(Str(call.Body, "light") == "1" ? LiveSample.Light(m) : LiveSample.Take());
             }
-            case "input":   // {kind: key|mouse|state, key?, button?: left|right|middle (none: a move), down?, shift?, ctrl?, alt?, x?, y?}: a key or mouse event through the engine's input path (development builds only)
+            case "input":   // {kind: key|mouse|text|account|state, key?, button?: left|right|middle (none: a move), down?, shift?, ctrl?, alt?, x?, y?, text?, accounts_file?, account?, part?: name|password}: a key or mouse event through the engine's input path; text: each character typed as a key press; account: the account's name or password typed the same way, read here from the accounts file and never answered (development builds only)
             {
+                if (Str(call.Body, "kind") == "text")
+                    return Str(call.Body, "text") is { } typedText ? AutomationReply.Ok(m.TypeText(typedText)) : AutomationReply.Error(400, "text is required");
+                if (Str(call.Body, "kind") == "account")
+                {
+                    string? accountsFile = Str(call.Body, "accounts_file"), accountAlias = Str(call.Body, "account"), part = Str(call.Body, "part");
+                    if (accountsFile is null || accountAlias is null || !Path.IsPathFullyQualified(accountsFile) || part is not ("name" or "password"))
+                        return AutomationReply.Error(400, "accounts_file (absolute), account and part (name or password) are required");
+                    try
+                    {
+                        var typedAccount = AccountsFile.Load(accountsFile, accountAlias);
+                        return AutomationReply.Ok(m.TypeText(part == "name" ? typedAccount.First + " " + typedAccount.Last : typedAccount.Password.Reveal()));
+                    }
+                    catch (Exception) { return AutomationReply.Error(400, "account not available"); }
+                }
                 bool Flag(string key) => call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty(key, out var fv) && fv.ValueKind == JsonValueKind.True;
                 float At(string key) => call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty(key, out var nv) && nv.ValueKind == JsonValueKind.Number ? (float)nv.GetDouble() : 0f;
                 return m.InputCall(Str(call.Body, "kind") ?? "state", Str(call.Body, "key"), Str(call.Body, "button"), Flag("down"), Flag("shift"), Flag("ctrl"), Flag("alt"), At("x"), At("y")) is { } sent

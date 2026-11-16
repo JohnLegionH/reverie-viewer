@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 using System;
 using System.Collections.Generic;
@@ -21,6 +21,10 @@ public partial class TestRender
     private const int LoginWidth = 640, LoginHeight = 720;
     private const string ExampleGridAddress = "https://grid.example.org:8002/";
 
+    /// <summary>The example grid the login pictures show as chosen: a reserved example address and name, with sign-up and password pages.</summary>
+    private static Viewer.Shell.Grids.GridEntry ExampleGrid() => new(ExampleGridAddress, "Example Grid",
+        Viewer.Shell.Grids.GridInfo.Parse("<gridinfo><gridname>Example Grid</gridname><register>https://grid.example.org/join</register><password>https://grid.example.org/reset</password></gridinfo>"));
+
     private async Task<int> LoginScreenRun(string table, string? golden)
     {
         var strings = table switch
@@ -34,7 +38,7 @@ public partial class TestRender
         rig.Viewport.AddChild(shell);
         var login = new LoginScreen(strings, null);
         shell.MainView.AddChild(login);
-        ((LineEdit)login.ById["grid"]).Text = ExampleGridAddress;   // reserved example address: test data, not interface text
+        login.ShowExampleGrid(ExampleGrid());   // a reserved example grid, kept in memory only: test data, not interface text
         await Frames(8);
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);

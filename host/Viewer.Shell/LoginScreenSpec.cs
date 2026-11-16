@@ -9,7 +9,7 @@ public enum LoginControlKind { Text, Secret, Button, Status, Note, Choice, Check
 public sealed record LoginControl(string Id, LoginControlKind Kind, string LabelKey, string AccessibleNameKey, string? HintKey = null)
 {
     /// <summary>Whether Enter in this field logs in.</summary>
-    public bool EnterLogsIn => false;
+    public bool EnterLogsIn => Kind is LoginControlKind.Text or LoginControlKind.Secret;
 }
 
 /// <summary>
@@ -20,13 +20,17 @@ public static class LoginScreenSpec
 {
     public const string TitleKey = "login.title";
 
+    /// <summary>The login card, top to bottom: the grid chooser, the name, the password, the two remember ticks on one line, Start at
+    /// (last location, home or a region, with the region's field), Log in (Cancel while an attempt runs) and the status line.</summary>
     public static IReadOnlyList<LoginControl> Controls { get; } =
     [
-        new("grid", LoginControlKind.Text, "login.grid.label", "login.grid.label", "login.grid.hint"),
-        new("resolved", LoginControlKind.Note, "login.resolved.none", "login.resolved.label"),
+        new("grid", LoginControlKind.Choice, "login.grid.label", "login.grid.label"),
         new("username", LoginControlKind.Text, "login.username.label", "login.username.label", "login.username.hint"),
         new("password", LoginControlKind.Secret, "login.password.label", "login.password.label"),
-        new("start", LoginControlKind.Text, "login.start.label", "login.start.label", "login.start.hint"),
+        new("remember", LoginControlKind.Check, "login.remember", "login.remember"),
+        new("remember_password", LoginControlKind.Check, "login.remember_password", "login.remember_password"),
+        new("start", LoginControlKind.Choice, "login.start.label", "login.start.label"),
+        new("start_region", LoginControlKind.Text, "login.start.region.label", "login.start.region.label", "login.start.region.hint"),
         new("login", LoginControlKind.Button, "login.button.login", "login.button.login"),
         new("cancel", LoginControlKind.Button, "login.button.cancel", "login.button.cancel"),
         new("status", LoginControlKind.Status, "login.status.ready", "login.status.label"),

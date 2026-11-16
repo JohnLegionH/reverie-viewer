@@ -3,56 +3,83 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Viewer.Shell;
+using Viewer.Shell.Grids;
 
 namespace Viewer.Godot;
 
 /// <summary>
-/// The login screen, built in code from <see cref="LoginScreenSpec"/>: the grid's mark, name and tagline at the top left, the
-/// grid's news at the left when the grid published any, and the login card in the lower centre with the grid's address and whether
-/// it is secure, the account fields, remember-my-username, the start location, Log in, and the grid's own account links when it
-/// published them. A grid that published nothing gets the placeholder name; the background is the default picture under a scrim (the
-/// grid's own splash address is read but not fetched yet). Every visible text and
-/// every accessible name comes from the string table. The password field hands its text to the model once and is cleared.
+/// The login screen, built in code from <see cref="LoginScreenSpec"/>: the login picture with a compact card on its left. The card, top
+/// to bottom: the viewer's mark and name; Grid (the grids on the list, then Add a grid… and Manage grids…); Name (with the names saved
+/// for the chosen grid, each of which can be forgotten); Password (with a show/hide button inside the field); one line with Remember name
+/// and Remember password; Start at (Last location, Home, A region…, the last showing a region field); Log in; the status line; and the
+/// grid's own sign-up and forgot-password links when it publishes them. The version sits at the bottom left, Preferences and Help at the
+/// bottom right, and the grid's news (when it publishes any) at the right in a wide enough window. Enter in any text field logs in, as the
+/// official viewer's login panel does with its name and password fields (llpanellogin.cpp, setCommitCallback onClickConnect). Every
+/// visible text and every accessible name comes from the string table. The password field hands its text to the model once and is cleared.
 /// </summary>
 public partial class LoginScreen : Control
 {
+    /// <summary>The card's width.</summary>
+    public const float CardWidth = 360;
+    /// <summary>The news sits at the right only in a window wide enough for it beside the card.</summary>
+    private const float NewsMinWindow = 1200;
+    private const int AddItemId = 1_000_000, ManageItemId = 1_000_001, PlaceholderItemId = 1_000_002, ForgetBase = 10_000;
+
     private readonly StringTable _strings;
     private readonly LoginModel? _model;
     private readonly SettingsService? _settings;
+    private readonly GridList _grids;
+    private readonly SavedNames _names;
     private readonly ColorRect _background;
     private readonly ColorRect? _scrim;
     private readonly ColorRect _mark;
-    private readonly Label _gridName;
-    private readonly Label _tagline;
-    /// <summary>The news sits beside the card only in a window wide enough for both; a narrower one leaves it out.</summary>
-    private const float NewsMinWindow = 1200;
+    private readonly OptionButton _grid;
+    private readonly LineEdit _username;
+    private readonly MenuButton _savedNames;
+    private readonly LineEdit _password;
+    private readonly Button _reveal;
+    private readonly CheckBox _remember;
+    /// <summary>Remember password: keeps only the login hash, protected for this user (see <see cref="ILoginVault"/>); off by default.</summary>
+    private readonly CheckBox _rememberPassword;
+    /// <summary>The one line that says why remember password is not offered on this computer (shown in place of the tick).</summary>
+    private readonly Label _rememberPasswordNote = new() { Name = "remember_password_note", AutowrapMode = TextServer.AutowrapMode.WordSmart, Visible = false };
+    private readonly RvSegmented _start;
+    private readonly LineEdit _startRegion;
+    private readonly Button _login;
+    private readonly Button _cancel;
+    private readonly Label _status;
+    private bool _syncing;
     private bool _hasNews;
     private readonly PanelContainer _newsPanel;
     private readonly VBoxContainer _newsBox;
-    private readonly Label _connecting = new() { Name = "connecting", AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = UiTheme.CaptionLabel };
-    private readonly CheckBox _remember = new() { Name = "remember" };
-    /// <summary>Remember password: keeps only the login hash, protected for this user (see <see cref="ILoginVault"/>); off by default.</summary>
-    private readonly CheckBox _rememberPassword = new() { Name = "remember_password" };
-    /// <summary>The one line that says why remember password is not offered on this computer (shown in place of the tick).</summary>
-    private readonly Label _rememberPasswordNote = new() { Name = "remember_password_note", AutowrapMode = TextServer.AutowrapMode.WordSmart, Visible = false };
-    private bool _syncing;
     private readonly HBoxContainer _links;
     private readonly LinkButton _register;
     private readonly LinkButton _forgot;
+    private GridBranding _branding = GridBranding.None;
+    private LoginOverlay? _overlay;
+
     /// <summary>The dialogs of the login flow (terms, critical message, update, token, certificate) drawn over this screen.</summary>
     public readonly LoginDialogHost Dialogs;
     public readonly Dictionary<string, Control> ById = new();
     public readonly List<Label> Labels = new();
 
+    /// <summary>Raised when the Preferences button is pressed.</summary>
+    public event Action? PreferencesRequested;
+    /// <summary>Raised when the Help button is pressed, with the chosen grid's help page when it publishes one.</summary>
+    public event Action<Uri?>? HelpRequested;
+
     public LoginScreen() : this(StringTable.English(), null) { }
 
-    public LoginScreen(StringTable strings, LoginModel? model, SettingsService? settings = null)
+    public LoginScreen(StringTable strings, LoginModel? model, SettingsService? settings = null, GridList? grids = null, SavedNames? names = null)
     {
         _strings = strings;
         _model = model;
         _settings = settings;
+        _grids = grids ?? new GridList(null);
+        _names = names ?? new SavedNames(null);
         Dialogs = new LoginDialogHost(this);
         if (model is not null)
             model.Prompts = Dialogs;
@@ -62,9 +89,7 @@ public partial class LoginScreen : Control
         _background = new ColorRect { Name = "background", MouseFilter = MouseFilterEnum.Ignore };
         _background.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_background);
-
-        // the default background picture, covering the window with its proportions kept, under a scrim so the grid's mark and
-        // name stay readable over it; if the picture cannot be read the plain background stays
+        // the login picture, covering the window with its proportions kept, under a light scrim; if it cannot be read the plain background stays
         var splash = new Image();
         if (UiAssets.DefaultSplash() is { Length: > 0 } splashBytes && splash.LoadJpgFromBuffer(splashBytes) == Error.Ok)
         {
@@ -80,116 +105,128 @@ public partial class LoginScreen : Control
             AddChild(_scrim);
         }
 
-        // the grid's mark, name and tagline, top left
-        var brand = new VBoxContainer { Name = "brand", MouseFilter = MouseFilterEnum.Ignore };
-        brand.OffsetLeft = 24; brand.OffsetTop = 20; brand.OffsetRight = 460;
-        var brandRow = new HBoxContainer { Name = "brand_row", MouseFilter = MouseFilterEnum.Ignore };
-        _mark = new ColorRect { Name = "brand_mark", CustomMinimumSize = new Vector2(24, 24), SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
-        brandRow.AddChild(_mark);
-        _gridName = new Label { Name = "grid_name", ThemeTypeVariation = UiTheme.BrandLabel, Text = strings.Get("brand.default") };
-        _gridName.AccessibilityName = _gridName.Text;
-        brandRow.AddChild(_gridName);
-        brand.AddChild(brandRow);
-        _tagline = new Label { Name = "tagline", ThemeTypeVariation = UiTheme.MutedLabel, Visible = false, AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        brand.AddChild(_tagline);
-        AddChild(brand);
-
-        // the viewer's release name and version, top right, clear of the login card at every window size (the release name is the
-        // string table's brand entry, not the grid's)
-        var release = new Label { Name = "release", ThemeTypeVariation = UiTheme.MutedLabel, MouseFilter = MouseFilterEnum.Ignore,
-            HorizontalAlignment = HorizontalAlignment.Right, Text = AboutText.LoginRelease(strings, Viewer.Core.Identity.ViewerIdentity.Current) };
-        release.AccessibilityName = release.Text;
-        release.AnchorLeft = 1; release.AnchorRight = 1;
-        release.OffsetLeft = -184; release.OffsetRight = -24; release.OffsetTop = 20; release.OffsetBottom = 44;
-        release.GrowHorizontal = GrowDirection.Begin;   // a line longer than the box grows to the left, so its end stays on screen
-        AddChild(release);
-
-        // the grid's news, left, only when the grid published some
-        _newsPanel = new PanelContainer { Name = "news", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
-        _newsPanel.OffsetLeft = 24; _newsPanel.OffsetTop = 96; _newsPanel.OffsetRight = 340;
+        // the grid's news, right, only when the grid published some and the window is wide enough
+        _newsPanel = new PanelContainer { Name = "news", Visible = false, MouseFilter = MouseFilterEnum.Ignore, ThemeTypeVariation = ReverieStyle.Window };
+        _newsPanel.AnchorLeft = 1; _newsPanel.AnchorRight = 1;
+        _newsPanel.OffsetLeft = -348; _newsPanel.OffsetRight = -32; _newsPanel.OffsetTop = 32;
         _newsPanel.AccessibilityName = strings.Get("login.news.heading");
+        var newsMargin = Margins(new MarginContainer(), 16);
         _newsBox = new VBoxContainer { Name = "news_items" };
-        _newsPanel.AddChild(_newsBox);
+        newsMargin.AddChild(_newsBox);
+        _newsPanel.AddChild(newsMargin);
         AddChild(_newsPanel);
 
-        // the card, lower centre
-        var card = new PanelContainer { Name = "card" };
-        card.AnchorLeft = 0.5f; card.AnchorRight = 0.5f; card.AnchorTop = 1; card.AnchorBottom = 1;
-        card.GrowHorizontal = GrowDirection.Both; card.GrowVertical = GrowDirection.Begin;
-        card.OffsetBottom = -32;
+        // the card, at the left, centred top to bottom
+        var card = new PanelContainer { Name = "card", ThemeTypeVariation = ReverieStyle.Window };
+        card.AnchorTop = 0.5f; card.AnchorBottom = 0.5f;
+        card.OffsetLeft = 32; card.GrowVertical = GrowDirection.Both;
         AddChild(card);
-        var box = new VBoxContainer { CustomMinimumSize = new Vector2(520, 0) };
-        card.AddChild(box);
-        var title = new Label { Text = strings.Get(LoginScreenSpec.TitleKey), ThemeTypeVariation = UiTheme.TitleLabel };
-        title.AccessibilityName = strings.Get(LoginScreenSpec.TitleKey);
-        box.AddChild(title);
-        Labels.Add(title);
-        var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
-        foreach (var c in LoginScreenSpec.Controls)
+        var margin = Margins(new MarginContainer(), 20);
+        card.AddChild(margin);
+        var box = new VBoxContainer { Name = "card_box", CustomMinimumSize = new Vector2(CardWidth - 40, 0) };
+        box.AddThemeConstantOverride("separation", 6);
+        margin.AddChild(box);
+
+        // the viewer's mark and name
+        var brandRow = new HBoxContainer { Name = "brand_row", MouseFilter = MouseFilterEnum.Ignore };
+        brandRow.AddThemeConstantOverride("separation", 10);
+        _mark = new ColorRect { Name = "brand_mark", CustomMinimumSize = new Vector2(22, 22), SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
+        brandRow.AddChild(_mark);
+        var appName = new Label { Name = "app_name", Text = strings.Get("topbar.app"), ThemeTypeVariation = ReverieStyle.AppName };
+        appName.AccessibilityName = appName.Text;
+        brandRow.AddChild(appName);
+        box.AddChild(brandRow);
+        Labels.Add(appName);
+        box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6), MouseFilter = MouseFilterEnum.Ignore });
+
+        Control Field(LoginControl c)
         {
-            Control control;
-            switch (c.Kind)
-            {
-                case LoginControlKind.Text:
-                case LoginControlKind.Secret:
-                    var label = new Label { Text = strings.Get(c.LabelKey), ThemeTypeVariation = UiTheme.CaptionLabel };
-                    label.AccessibilityName = strings.Get(c.LabelKey);
-                    box.AddChild(label);
-                    Labels.Add(label);
-                    var edit = new LineEdit { Secret = c.Kind == LoginControlKind.Secret };
-                    if (c.HintKey is not null) edit.PlaceholderText = strings.Get(c.HintKey);
-                    if (c.Id == "start") edit.Text = model?.StartLocation ?? "last";
-                    if (c.Id == "grid") edit.Text = model?.LoginUri ?? "";
-                    box.AddChild(edit);
-                    control = edit;
-                    break;
-                case LoginControlKind.Button:
-                    control = new Button { Text = strings.Get(c.LabelKey) };
-                    if (c.Id == "login")
-                        ((Button)control).ThemeTypeVariation = UiTheme.PrimaryButton;
-                    buttons.AddChild(control);
-                    break;
-                case LoginControlKind.Note:
-                    var note = new Label { Text = strings.Get(c.LabelKey), AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = UiTheme.MutedLabel };
-                    box.AddChild(note);
-                    Labels.Add(note);
-                    control = note;
-                    if (c.Id == "resolved")
-                    {
-                        // under the grid field: the address that will be used and whether it is secure, then the address the last attempt used
-                        box.AddChild(_connecting);
-                        box.MoveChild(_connecting, note.GetIndex());
-                    }
-                    break;
-                default:
-                    var status = new Label { Text = strings.Get(c.LabelKey), AutowrapMode = TextServer.AutowrapMode.WordSmart };
-                    status.AccessibilityLive = AccessibilityServer.AccessibilityLiveMode.Polite;
-                    control = status;
-                    Labels.Add(status);
-                    break;
-            }
+            var label = new Label { Name = c.Id + "_label", Text = strings.Get(c.LabelKey), ThemeTypeVariation = UiTheme.CaptionLabel };
+            label.AccessibilityName = label.Text;
+            box.AddChild(label);
+            Labels.Add(label);
+            return label;
+        }
+        LoginControl Spec(string id) => LoginScreenSpec.Controls.Single(c => c.Id == id);
+        T Register<T>(T control, LoginControl c) where T : Control
+        {
             control.Name = c.Id;
             control.AccessibilityName = strings.Get(c.AccessibleNameKey);
             ById[c.Id] = control;
-            if (c.Id == "password")
-            {
-                _remember.Text = strings.Get("login.remember");
-                _remember.AccessibilityName = _remember.Text;
-                box.AddChild(_remember);
-                _rememberPassword.Text = strings.Get("login.remember_password");
-                _rememberPassword.AccessibilityName = _rememberPassword.Text;
-                box.AddChild(_rememberPassword);
-                _rememberPasswordNote.ThemeTypeVariation = UiTheme.MutedLabel;
-                box.AddChild(_rememberPasswordNote);
-                ById["remember_password"] = _rememberPassword;
-            }
-            if (c.Kind == LoginControlKind.Status)
-            {
-                box.AddChild(buttons);
-                box.AddChild(control);
-            }
+            return control;
         }
+
+        // Grid
+        Field(Spec("grid"));
+        _grid = Register(new OptionButton { Icon = ReverieIcons.Get(LucideIcons.Grid), SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = false, ClipText = true }, Spec("grid"));
+        box.AddChild(_grid);
+
+        // Name, with the names saved for the chosen grid
+        Field(Spec("username"));
+        var nameRow = new HBoxContainer();
+        _username = Register(new LineEdit { PlaceholderText = strings.Get(Spec("username").HintKey!), SizeFlagsHorizontal = SizeFlags.ExpandFill }, Spec("username"));
+        nameRow.AddChild(_username);
+        _savedNames = new MenuButton { Name = "saved_names", Icon = ReverieIcons.Get(LucideIcons.Down), Flat = false, FocusMode = FocusModeEnum.All, TooltipText = strings.Get("login.names.saved") };
+        _savedNames.AccessibilityName = strings.Get("login.names.saved");
+        ById["saved_names"] = _savedNames;
+        nameRow.AddChild(_savedNames);
+        box.AddChild(nameRow);
+
+        // Password, with show/hide inside the field
+        Field(Spec("password"));
+        _password = Register(new LineEdit { Secret = true, SizeFlagsHorizontal = SizeFlags.ExpandFill }, Spec("password"));
+        _reveal = new Button { Name = "reveal", Text = strings.Get("login.password.show"), Flat = true, FocusMode = FocusModeEnum.All, ThemeTypeVariation = ReverieStyle.Caption };
+        _reveal.AccessibilityName = _reveal.Text;
+        _reveal.SetAnchorsPreset(LayoutPreset.RightWide);
+        _reveal.GrowHorizontal = GrowDirection.Begin;
+        _reveal.OffsetRight = -4;
+        _password.AddChild(_reveal);
+        ById["reveal"] = _reveal;
+        _reveal.Pressed += () =>
+        {
+            _password.Secret = !_password.Secret;
+            _reveal.Text = strings.Get(_password.Secret ? "login.password.show" : "login.password.hide");
+            _reveal.AccessibilityName = _reveal.Text;
+        };
+        box.AddChild(_password);
+
+        // Remember name and Remember password, on one line
+        var ticks = new HBoxContainer { Name = "remember_row" };
+        ticks.AddThemeConstantOverride("separation", 16);
+        _remember = Register(new CheckBox { Text = strings.Get("login.remember") }, Spec("remember"));
+        _rememberPassword = Register(new CheckBox { Text = strings.Get("login.remember_password") }, Spec("remember_password"));
+        ticks.AddChild(_remember);
+        ticks.AddChild(_rememberPassword);
+        box.AddChild(ticks);
+        _rememberPasswordNote.ThemeTypeVariation = UiTheme.MutedLabel;
+        box.AddChild(_rememberPasswordNote);
+
+        // Start at
+        Field(Spec("start"));
+        _start = Register(new RvSegmented(strings.Get("login.start.label"),
+            [strings.Get("login.start.last"), strings.Get("login.start.home"), strings.Get("login.start.region")]), Spec("start"));
+        box.AddChild(_start);
+        _startRegion = Register(new LineEdit { PlaceholderText = strings.Get(Spec("start_region").HintKey!), Visible = false }, Spec("start_region"));
+        box.AddChild(_startRegion);
+        var (kind, region) = StartChoice.Parse(model?.StartLocation);
+        _start.Select((int)kind);
+        _startRegion.Text = region ?? "";
+        _startRegion.Visible = kind == StartKind.Region;
+        _start.Selected += i => _startRegion.Visible = i == (int)StartKind.Region;
+
+        box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6), MouseFilter = MouseFilterEnum.Ignore });
+        _login = Register(new RvButton(strings.Get("login.button.login"), primary: true) { SizeFlagsHorizontal = SizeFlags.ExpandFill }, Spec("login"));
+        box.AddChild(_login);
+        _cancel = Register(new RvButton(strings.Get("login.button.cancel")) { SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = false }, Spec("cancel"));
+        box.AddChild(_cancel);
+        _status = Register(new Label { Text = strings.Get("login.status.ready"), AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = ReverieStyle.Status }, Spec("status"));
+        _status.AccessibilityLive = AccessibilityServer.AccessibilityLiveMode.Polite;
+        _status.CustomMinimumSize = new Vector2(CardWidth - 40, 0);
+        box.AddChild(_status);
+        Labels.Add(_status);
+
         _links = new HBoxContainer { Name = "account_links", Visible = false };
+        _links.AddThemeConstantOverride("separation", 16);
         _register = new LinkButton { Name = "register", Text = strings.Get("login.register"), Visible = false };
         _register.AccessibilityName = _register.Text;
         _forgot = new LinkButton { Name = "forgot", Text = strings.Get("login.forgot"), Visible = false };
@@ -198,60 +235,276 @@ public partial class LoginScreen : Control
         _links.AddChild(_forgot);
         box.AddChild(_links);
 
-        var grid = (LineEdit)ById["grid"];
-        grid.TextChanged += _ => ShowConnecting();
-        grid.TextSubmitted += _ => AskBranding();
-        grid.FocusExited += AskBranding;
-        ShowConnecting();
+        // the version at the bottom left; Preferences and Help at the bottom right
+        var release = new Label { Name = "release", ThemeTypeVariation = UiTheme.MutedLabel, MouseFilter = MouseFilterEnum.Ignore,
+            Text = AboutText.LoginRelease(strings, Viewer.Core.Identity.ViewerIdentity.Current) };
+        release.AccessibilityName = release.Text;
+        release.AnchorTop = 1; release.AnchorBottom = 1;
+        release.OffsetLeft = 32; release.OffsetTop = -40; release.OffsetBottom = -16;
+        release.GrowVertical = GrowDirection.Begin;
+        AddChild(release);
+        Labels.Add(release);
+        var corner = new HBoxContainer { Name = "corner_buttons" };
+        corner.AnchorLeft = 1; corner.AnchorRight = 1; corner.AnchorTop = 1; corner.AnchorBottom = 1;
+        corner.OffsetRight = -32; corner.OffsetBottom = -16; corner.OffsetTop = -48;
+        corner.GrowHorizontal = GrowDirection.Begin; corner.GrowVertical = GrowDirection.Begin;
+        var prefs = new Button { Name = "preferences", Icon = IconCache.Get(UiIcons.Preferences, 18), ThemeTypeVariation = ReverieStyle.IconButton, TooltipText = strings.Get("login.preferences"), CustomMinimumSize = new Vector2(32, 32) };
+        prefs.AccessibilityName = prefs.TooltipText;
+        var help = new Button { Name = "help", Text = strings.Get("login.help.mark"), ThemeTypeVariation = ReverieStyle.IconButton, TooltipText = strings.Get("login.help"), CustomMinimumSize = new Vector2(32, 32) };
+        help.AccessibilityName = help.TooltipText;
+        corner.AddChild(prefs);
+        corner.AddChild(help);
+        AddChild(corner);
+        ById["preferences"] = prefs;
+        ById["help"] = help;
+        prefs.Pressed += () => PreferencesRequested?.Invoke();
+        help.Pressed += () => HelpRequested?.Invoke(_grids.Selected?.Info?.Help);
+
         Resized += () => _newsPanel.Visible = _hasNews && Size.X >= NewsMinWindow;
+        FillGrids();
+        _grid.ItemSelected += OnGridItem;
+        _savedNames.GetPopup().IdPressed += OnSavedName;
+        _savedNames.AboutToPopup += FillSavedNames;
+
+        // the remember ticks: the name tick follows the same setting Preferences edits; the password tick only while the name tick is on
+        _remember.SetPressedNoSignal(_settings?.Get(Settings.LoginRememberName) ?? false);
+        _remember.Toggled += on =>
+        {
+            if (!_syncing) _settings?.Set(Settings.LoginRememberName, on);
+            ShowPasswordTick();
+            if (!on && _rememberPassword.ButtonPressed)
+                _rememberPassword.ButtonPressed = false;   // as a click: unticking forgets
+        };
         if (_settings is not null)
         {
-            // the same settings Preferences edits: this switch writes at once, and follows a change made there
-            _remember.Toggled += on => { if (!_syncing) _settings.Set(Settings.LoginRememberName, on); };
-            string shownStart = ((LineEdit)ById["start"]).Text;
             _settings.Changed += key =>
             {
                 _syncing = true;
                 if (key == Settings.LoginRememberName.Key)
-                    _remember.SetPressedNoSignal(_settings.Get(Settings.LoginRememberName));
-                else if (key == Settings.LoginStartLocationKey && _settings.GetText(key) is { Length: > 0 } start)
-                {
-                    var edit = (LineEdit)ById["start"];
-                    if (edit.Text == shownStart || string.IsNullOrWhiteSpace(edit.Text))
-                        edit.Text = start;   // only a field the person has not typed in
-                    shownStart = start;
-                }
+                    _remember.ButtonPressed = _settings.Get(Settings.LoginRememberName);
+                else if (key == Settings.LoginStartLocationKey && _settings.GetText(key) is { Length: > 0 } start && _start.Current != (int)StartKind.Region)
+                    _start.Select((int)StartChoice.Parse(start).Kind);
                 _syncing = false;
             };
         }
-        if (_settings is not null && _settings.Get(Settings.LoginRememberName))
-        {
-            _remember.ButtonPressed = true;
-            ((LineEdit)ById["username"]).Text = LoginNames.Load(_settings);
-        }
+        ShowSavedNameForGrid();
+
         if (_model is not null)
         {
-            // Enter in the name or the password field logs in, as the official viewer's login panel does
-            ((LineEdit)ById["username"]).TextSubmitted += _ => OnLogin();
-            ((LineEdit)ById["password"]).TextSubmitted += _ => OnLogin();
+            // Enter in any text field of the card logs in
+            foreach (var c in LoginScreenSpec.Controls.Where(c => c.EnterLogsIn))
+                ((LineEdit)ById[c.Id]).TextSubmitted += _ => OnLogin();
             SetUpRememberPassword(_model);
-            ((Button)ById["login"]).Pressed += OnLogin;
-            ((Button)ById["cancel"]).Pressed += () => _model.Cancel();
-            _model.ResolvedChanged += text => Callable.From(() => ((Label)ById["resolved"]).Text = strings.Get("login.resolved.is", text)).CallDeferred();
-            _model.StatusChanged += text => Callable.From(() => ((Label)ById["status"]).Text = text).CallDeferred();
+            _login.Pressed += OnLogin;
+            _cancel.Pressed += () => _model.Cancel();
+            _model.StatusChanged += text => Callable.From(() => { _status.Text = text; ShowBusy(); }).CallDeferred();
             AskBranding();
         }
+        else
+            ShowPasswordTick();
         Restyle();
         ApplyBranding(GridBranding.None);
     }
 
-    /// <summary>Shows the grid's own name, tagline, news and account links (the placeholder look for <see cref="GridBranding.None"/>).</summary>
+    private static MarginContainer Margins(MarginContainer m, int px)
+    {
+        foreach (var side in new[] { "left", "right", "top", "bottom" })
+            m.AddThemeConstantOverride("margin_" + side, px);
+        return m;
+    }
+
+    /// <summary>The grids on the list, the chosen one shown; then Add a grid… and Manage grids…; an empty list shows "Choose a grid".</summary>
+    private void FillGrids()
+    {
+        _grid.Clear();
+        int selected = -1;
+        if (_grids.Entries.Count == 0)
+        {
+            _grid.AddItem(_strings.Get("login.grid.none"), PlaceholderItemId);
+            _grid.SetItemDisabled(0, true);
+            selected = 0;
+        }
+        for (int i = 0; i < _grids.Entries.Count; i++)
+        {
+            var e = _grids.Entries[i];
+            _grid.AddItem(e.Name, i);
+            _grid.SetItemMetadata(_grid.ItemCount - 1, e.Key);
+            _grid.SetItemTooltip(_grid.ItemCount - 1, e.Address);
+            if (e.Key == _grids.Selected?.Key)
+                selected = _grid.ItemCount - 1;
+        }
+        _grid.AddSeparator();
+        _grid.AddItem(_strings.Get("login.grid.add"), AddItemId);
+        _grid.AddItem(_strings.Get("login.grid.manage"), ManageItemId);
+        _grid.Select(selected);
+        _grid.AccessibilityName = _strings.Get("login.grid.label") + ": " + (_grids.Selected?.Name ?? _strings.Get("login.grid.none"));
+        if (_model is not null)
+            _model.LoginUri = _grids.Selected?.Address ?? "";
+        ShowLinks();
+    }
+
+    private void OnGridItem(long index)
+    {
+        int id = _grid.GetItemId((int)index);
+        if (id == AddItemId)
+        {
+            FillGrids();   // the chooser goes back to the chosen grid
+            OpenAddGrid(null);
+            return;
+        }
+        if (id == ManageItemId)
+        {
+            FillGrids();
+            OpenManageGrids();
+            return;
+        }
+        if (id == PlaceholderItemId)
+            return;
+        _grids.Select((string)_grid.GetItemMetadata((int)index));
+        FillGrids();
+        GridChanged();
+    }
+
+    private void GridChanged()
+    {
+        ShowSavedNameForGrid();
+        if (_model is not null)
+            ShowSaved(_model);
+        AskBranding();
+    }
+
+    /// <summary>Opens Add a grid (or Edit for a listed grid); Add grid puts it on the list and chooses it.</summary>
+    public void OpenAddGrid(GridEntry? editing, Action? afterwards = null)
+    {
+        var panel = new GridAddPanel(_strings, typed => _model?.LookUpGridAsync(typed) ?? System.Threading.Tasks.Task.FromResult(new GridLookupResult(null, "grid.add.no_answer", false)), editing);
+        panel.Done += entry =>
+        {
+            if (entry is not null)
+            {
+                if (editing is not null && editing.Key != entry.Key)
+                    _grids.Remove(editing.Key);
+                _grids.Add(entry);
+                FillGrids();
+                GridChanged();
+            }
+            _overlay = null;
+            afterwards?.Invoke();
+        };
+        ShowOverlay(panel);
+    }
+
+    /// <summary>Opens Manage grids.</summary>
+    public void OpenManageGrids()
+    {
+        GridManagePanel? panel = null;
+        panel = new GridManagePanel(_strings, _grids,
+            entry => _model?.RefreshGridAsync(entry) ?? System.Threading.Tasks.Task.FromResult(new GridLookupResult(null, "grid.add.no_answer", false)),
+            entry =>
+            {
+                panel!.Visible = false;
+                var edit = new GridAddPanel(_strings, typed => _model?.LookUpGridAsync(typed) ?? System.Threading.Tasks.Task.FromResult(new GridLookupResult(null, "grid.add.no_answer", false)), entry);
+                edit.Done += changed =>
+                {
+                    if (changed is not null)
+                    {
+                        string? chosen = _grids.Selected?.Key;
+                        if (entry.Key != changed.Key)
+                            _grids.Remove(entry.Key);
+                        _grids.Add(changed);
+                        if (chosen is not null && chosen != entry.Key)
+                            _grids.Select(chosen);   // editing a grid does not choose it
+                    }
+                    if (IsInstanceValid(panel))
+                    {
+                        panel.Visible = true;
+                        panel.Fill();
+                        _overlay = panel;
+                    }
+                    FillGrids();
+                    GridChanged();
+                };
+                _overlay = edit;
+                AddChild(edit);
+            });
+        panel.Changed += () => { FillGrids(); GridChanged(); };
+        panel.TreeExiting += () => { if (_overlay == panel) _overlay = null; };
+        ShowOverlay(panel);
+    }
+
+    private void ShowOverlay(LoginOverlay panel)
+    {
+        if (_overlay is { } old && IsInstanceValid(old))
+            old.QueueFree();
+        _overlay = panel;
+        AddChild(panel);
+    }
+
+    /// <summary>The panel over the screen now (Add a grid or Manage grids), if any.</summary>
+    internal LoginOverlay? Overlay => _overlay is { } o && IsInstanceValid(o) && o.IsInsideTree() ? o : null;
+
+    /// <summary>The saved names of the chosen grid, then Forget for each.</summary>
+    private void FillSavedNames()
+    {
+        var popup = _savedNames.GetPopup();
+        popup.Clear();
+        var names = _names.Names(_grids.Selected?.Address ?? "");
+        for (int i = 0; i < names.Count; i++)
+            popup.AddItem(names[i], i);
+        if (names.Count > 0)
+            popup.AddSeparator();
+        for (int i = 0; i < names.Count; i++)
+            popup.AddItem(_strings.Get("login.names.forget", names[i]), ForgetBase + i);
+    }
+
+    private void OnSavedName(long id)
+    {
+        string grid = _grids.Selected?.Address ?? "";
+        var names = _names.Names(grid);
+        if (id >= ForgetBase && id - ForgetBase < names.Count)
+        {
+            string gone = names[(int)(id - ForgetBase)];
+            _names.Forget(grid, gone, _model?.Vault);   // its saved password goes with it
+            if (string.Equals(_username.Text.Trim(), gone, StringComparison.OrdinalIgnoreCase))
+                _username.Clear();
+        }
+        else if (id >= 0 && id < names.Count)
+            _username.Text = names[(int)id];
+        if (_model is not null)
+            ShowSaved(_model);
+        ShowSavedNameButton();
+    }
+
+    /// <summary>The name field shows the latest name saved for the chosen grid while Remember name is on (an older version's one saved
+    /// name, when the grid has none yet).</summary>
+    private void ShowSavedNameForGrid()
+    {
+        if (_remember.ButtonPressed)
+        {
+            var names = _names.Names(_grids.Selected?.Address ?? "");
+            _username.Text = names.Count > 0 ? names[0] : _settings is not null ? LoginNames.Load(_settings) : "";
+        }
+        ShowSavedNameButton();
+    }
+
+    private void ShowSavedNameButton() => _savedNames.Disabled = _names.Names(_grids.Selected?.Address ?? "").Count == 0;
+
+    private void ShowPasswordTick()
+    {
+        bool enabled = StartChoice.PasswordTickEnabled(_remember.ButtonPressed);
+        _rememberPassword.Disabled = !enabled;
+    }
+
+    private void ShowBusy()
+    {
+        bool busy = _model?.Busy ?? false;
+        _login.Visible = !busy;
+        _cancel.Visible = busy;
+    }
+
+    /// <summary>Shows the grid's own name, news and account links (the placeholder look for <see cref="GridBranding.None"/>).</summary>
     public void ApplyBranding(GridBranding branding)
     {
-        _gridName.Text = branding.Name ?? _strings.Get("brand.default");
-        _gridName.AccessibilityName = _gridName.Text;
-        _tagline.Text = branding.Tagline ?? "";
-        _tagline.Visible = branding.Tagline is not null;
+        _branding = branding;
         foreach (var child in _newsBox.GetChildren())
         {
             _newsBox.RemoveChild(child);
@@ -277,10 +530,19 @@ public partial class LoginScreen : Control
                 _newsBox.AddChild(body);
             }
         }
-        _register.Visible = branding.Register is not null;
-        _register.Uri = branding.Register?.ToString() ?? "";
-        _forgot.Visible = branding.ForgotPassword is not null;
-        _forgot.Uri = branding.ForgotPassword?.ToString() ?? "";
+        ShowLinks();
+    }
+
+    /// <summary>"Create an account" and "Forgot password?", only when the grid gives those pages (its grid info as listed, else as just read).</summary>
+    private void ShowLinks()
+    {
+        var info = _grids.Selected?.Info;
+        var register = info?.Register ?? _branding.Register;
+        var forgot = info?.Password ?? _branding.ForgotPassword;
+        _register.Visible = register is not null;
+        _register.Uri = register?.ToString() ?? "";
+        _forgot.Visible = forgot is not null;
+        _forgot.Uri = forgot?.ToString() ?? "";
         _links.Visible = _register.Visible || _forgot.Visible;
     }
 
@@ -292,35 +554,22 @@ public partial class LoginScreen : Control
     {
         _background.Color = ShellTheme.C(UiTheme.Tokens.Bar.Opaque());
         if (_scrim is not null)
-            _scrim.Color = ShellTheme.C(UiTheme.Tokens.Scrim);
+            _scrim.Color = ShellTheme.C(UiTheme.Tokens.Scrim) with { A = 0.25f };
         _mark.Color = ShellTheme.C(UiTheme.Tokens.Accent);
-    }
-
-    /// <summary>Shows the address that will be used.</summary>
-    public void ShowConnecting()
-    {
-        string typed = ((LineEdit)ById["grid"]).Text;
-        var uri = GridAddress.Tidy(typed).Uri;
-        _connecting.Visible = uri is not null;
-        if (uri is null)
-            return;
-        string host = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
-        _connecting.Text = _strings.Get("login.connecting", host);
-        _connecting.AccessibilityName = _connecting.Text;
     }
 
     private void AskBranding()
     {
         if (_model is null)
             return;
-        _ = _model.RefreshBrandingAsync(((LineEdit)ById["grid"]).Text);
+        _ = _model.RefreshBrandingAsync(_grids.Selected?.Address ?? "");
     }
 
     /// <summary>The remember-password tick: offered only where the vault can keep a hash safely (else one line says why); ticked when the
-    /// grid and name typed have a saved hash, which an empty password field then uses; unticking forgets it.</summary>
+    /// grid and name have a saved hash, which an empty password field then uses; unticking forgets it.</summary>
     private void SetUpRememberPassword(LoginModel m)
     {
-        if (m.Vault is not { Available: true } vault)
+        if (m.Vault is not { Available: true })
         {
             _rememberPassword.Visible = false;
             _rememberPasswordNote.Text = m.Vault?.UnavailableKey is { } why ? _strings.Get(why) : _strings.Get("login.remember_password.unavailable");
@@ -328,7 +577,7 @@ public partial class LoginScreen : Control
             _rememberPasswordNote.Visible = true;
             return;
         }
-        _rememberPassword.SetPressedNoSignal(_settings?.Get(Settings.LoginRememberPassword) ?? false);
+        _rememberPassword.SetPressedNoSignal((_settings?.Get(Settings.LoginRememberPassword) ?? false) && _remember.ButtonPressed);
         _rememberPassword.Toggled += on =>
         {
             TakeFields(m);
@@ -336,8 +585,8 @@ public partial class LoginScreen : Control
             _settings?.Set(Settings.LoginRememberPassword, on);
             ShowSaved(m);
         };
-        ((LineEdit)ById["username"]).TextChanged += _ => ShowSaved(m);
-        ((LineEdit)ById["grid"]).TextChanged += _ => ShowSaved(m);
+        _username.TextChanged += _ => ShowSaved(m);
+        ShowPasswordTick();
         ShowSaved(m);
     }
 
@@ -345,39 +594,54 @@ public partial class LoginScreen : Control
     private void ShowSaved(LoginModel m)
     {
         TakeFields(m);
-        bool saved = _rememberPassword.Visible && m.HasSavedPassword;
+        bool saved = _rememberPassword.Visible && _remember.ButtonPressed && m.HasSavedPassword;
         if (saved && !_rememberPassword.ButtonPressed)
             _rememberPassword.SetPressedNoSignal(true);
-        ((LineEdit)ById["password"]).PlaceholderText = saved ? _strings.Get("login.password.saved") : "";
+        _password.PlaceholderText = saved ? _strings.Get("login.password.saved") : "";
     }
 
     private void TakeFields(LoginModel m)
     {
-        m.LoginUri = ((LineEdit)ById["grid"]).Text;
-        m.UserName = ((LineEdit)ById["username"]).Text;
+        m.LoginUri = _grids.Selected?.Address ?? "";
+        m.UserName = _username.Text;
     }
 
     /// <summary>Fills the name and password fields as typed and logs in as Enter does (the automation's screen login; development builds).</summary>
     internal void TypeAndSubmit(string userName, string password, bool rememberPassword)
     {
-        ((LineEdit)ById["username"]).Text = userName;
+        _username.Text = userName;
+        if (rememberPassword && !_remember.ButtonPressed)
+            _remember.ButtonPressed = true;
         ShowSaved(_model!);
         if (_rememberPassword.Visible && _rememberPassword.ButtonPressed != rememberPassword)
             _rememberPassword.ButtonPressed = rememberPassword;   // as a click: unticking forgets
-        var pw = (LineEdit)ById["password"];
-        pw.Text = password;
-        pw.GrabFocus();
-        pw.EmitSignal(LineEdit.SignalName.TextSubmitted, pw.Text);
+        _password.Text = password;
+        _password.GrabFocus();
+        _password.EmitSignal(LineEdit.SignalName.TextSubmitted, _password.Text);
     }
 
-    /// <summary>Puts an address in the grid field as typing it would (the automation's screen login).</summary>
-    internal void SetStart(string start) => ((LineEdit)ById["start"]).Text = start;
+    /// <summary>Sets Start at as the three-way control would (the automation's screen login).</summary>
+    internal void SetStart(string start)
+    {
+        var (kind, region) = StartChoice.Parse(start);
+        _start.Select((int)kind);
+        _startRegion.Text = region ?? "";
+    }
 
+    /// <summary>Chooses the grid at this address, adding it when it is not on the list, as --grid does (the automation's screen login).</summary>
     internal void SetGrid(string address)
     {
-        var grid = (LineEdit)ById["grid"];
-        grid.Text = address;
-        grid.EmitSignal(LineEdit.SignalName.TextChanged, address);
+        if (_grids.ApplyCommandLine(address) is null)
+            return;
+        FillGrids();
+        GridChanged();
+    }
+
+    /// <summary>Shows one example grid as chosen (the render cases: a list kept in memory only).</summary>
+    internal void ShowExampleGrid(GridEntry entry)
+    {
+        _grids.Add(entry);
+        FillGrids();
     }
 
     /// <summary>What the screen shows about remember password: offered, ticked, a saved hash in use (never the hash).</summary>
@@ -385,34 +649,91 @@ public partial class LoginScreen : Control
     {
         offered = _rememberPassword.Visible,
         ticked = _rememberPassword.ButtonPressed,
-        saved_hint = ((LineEdit)ById["password"]).PlaceholderText.Length > 0,
-        password_field_empty = ((LineEdit)ById["password"]).Text.Length == 0,
+        enabled = !_rememberPassword.Disabled,
+        saved_hint = _password.PlaceholderText.Length > 0,
+        password_field_empty = _password.Text.Length == 0,
         note = _rememberPasswordNote.Visible,
     };
+
+    /// <summary>The card's state and where its controls stand (viewport coordinates of their centres), for the automation's real-input checks.
+    /// Never the password.</summary>
+    internal object Layout()
+    {
+        var at = new Dictionary<string, object>();
+        void Put(string id, Control c)
+        {
+            if (!c.IsVisibleInTree())
+                return;
+            var r = c.GetGlobalRect();
+            at[id] = new { x = r.Position.X + r.Size.X / 2, y = r.Position.Y + r.Size.Y / 2, w = r.Size.X, h = r.Size.Y, disabled = c is BaseButton { Disabled: true } };
+        }
+        foreach (var (id, c) in ById)
+            Put(id, c);
+        for (int i = 0; i < _start.Segments.Count; i++)
+            Put("start_" + i, _start.Segments[i]);
+        if (Overlay is { } o)
+            foreach (var (id, c) in o.ById)
+                Put(id, c);
+        var popup = _grid.GetPopup();
+        var focused = GetViewport().GuiGetFocusOwner();
+        return new
+        {
+            controls = at,
+            focus = focused?.Name.ToString(),
+            grid = _grids.Selected?.Name,
+            grid_address = _grids.Selected?.Address,
+            grids = _grids.Entries.Select(e => e.Name).ToArray(),
+            grid_popup_open = popup.Visible,
+            grid_popup_focused = popup.Visible ? popup.GetFocusedItem() : -1,
+            grid_add_index = _grid.GetItemIndex(AddItemId),
+            grid_manage_index = _grid.GetItemIndex(ManageItemId),
+            names_popup_open = _savedNames.GetPopup().Visible,
+            names_popup_focused = _savedNames.GetPopup().Visible ? _savedNames.GetPopup().GetFocusedItem() : -1,
+            saved_names = _names.Names(_grids.Selected?.Address ?? "").ToArray(),
+            username = _username.Text,
+            password_typed = _password.Text.Length > 0,
+            remember = _remember.ButtonPressed,
+            start = _start.Current,
+            overlay = Overlay?.Name.ToString(),
+            add = (Overlay as GridAddPanel)?.State(),
+            manage = (Overlay as GridManagePanel)?.State(),
+            links = new { register = _register.Visible, forgot = _forgot.Visible },
+        };
+    }
 
     private async void OnLogin()
     {
         var m = _model!;
-        if (m.Busy)
+        if (m.Busy || Overlay is not null)
             return;
-        m.LoginUri = ((LineEdit)ById["grid"]).Text;
-        m.UserName = ((LineEdit)ById["username"]).Text;
-        m.StartLocation = ((LineEdit)ById["start"]).Text;
+        TakeFields(m);
+        m.StartLocation = StartChoice.ToStart((StartKind)_start.Current, _startRegion.Text);
+        bool rememberName = _remember.ButtonPressed;
         if (_settings is not null)
         {
             // the name is kept on this computer only when the person asked; the password never is
-            _settings.Set(Settings.LoginRememberName, _remember.ButtonPressed);
-            LoginNames.Save(_settings, _remember.ButtonPressed, m.UserName);
+            _settings.Set(Settings.LoginRememberName, rememberName);
+            LoginNames.Save(_settings, rememberName, m.UserName);
         }
-        var pw = (LineEdit)ById["password"];
-        bool remember = _rememberPassword.Visible && _rememberPassword.ButtonPressed;
+        bool remember = _rememberPassword.Visible && rememberName && _rememberPassword.ButtonPressed;
         if (_rememberPassword.Visible)
             m.SetRememberPassword(remember);
         // an empty field with a saved hash for this grid and name logs in with that hash; a typed password always wins
-        if (!(pw.Text.Length == 0 && remember && m.UseSavedPassword()))
-            m.SetPassword(pw.Text);
-        pw.Clear();   // the field does not keep it either
-        await m.LoginAsync();
-        Callable.From(() => ShowSaved(m)).CallDeferred();   // a refused saved hash is gone: the hint goes with it
+        if (!(_password.Text.Length == 0 && remember && m.UseSavedPassword()))
+            m.SetPassword(_password.Text);
+        _password.Clear();   // the field does not keep it either
+        string grid = m.LoginUri, name = m.UserName;
+        ShowBusy();
+        bool ok = await m.LoginAsync();
+        Callable.From(() =>
+        {
+            if (ok && rememberName)
+                _names.Remember(grid, name);
+            else if (ok)
+                _names.Forget(grid, name, null);   // logged in with Remember name off: the name is not kept for this grid
+            ShowSavedNameButton();
+            ShowBusy();
+            ShowSaved(m);   // a refused saved hash is gone: the hint goes with it
+        }).CallDeferred();
     }
 }

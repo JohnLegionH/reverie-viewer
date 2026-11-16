@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System;
@@ -111,9 +111,8 @@ public partial class TestRender
             case "login":
                 var login = new LoginScreen(strings, null);
                 shell.MainView.AddChild(login);
-                ((LineEdit)login.ById["grid"]).Text = ExampleGridAddress;
+                login.ShowExampleGrid(ExampleGrid());
                 login.ApplyBranding(ExampleBranding());
-                login.ShowConnecting();
                 break;
             case "reconnect":
                 var model = new LoginModel(strings, _ => throw new InvalidOperationException("no login in a render case"), null);

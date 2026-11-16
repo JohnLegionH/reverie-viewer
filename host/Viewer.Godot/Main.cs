@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System;
@@ -34,6 +34,8 @@ public partial class Main : Node
 
     private EngineLogger? _logger;
     private LoginScreen? _loginScreen;
+    private Viewer.Shell.Grids.GridList? _gridList;
+    private Viewer.Shell.Grids.SavedNames? _savedNames;
     private ShellRoot? _shell;
     private Node3D? _stage;
     // the root viewport's scenario, read from the engine once and kept (a World3D read back on each use is a fresh managed wrapper that
@@ -250,11 +252,15 @@ public partial class Main : Node
         model.StartLocation = StartLocationChoice(startSettings);
         // the screen starts with --grid=<address> when given, else the last successful login address
         string? gridOption = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--grid=", StringComparison.Ordinal))?["--grid=".Length..];
-        model.LoginUri = LoginModel.StartAddress(gridOption, settingsDir);
+        // the grid list in the viewer's own settings (empty at first: no grid ships with the viewer); --grid adds its grid when new and chooses it
+        _gridList = new Viewer.Shell.Grids.GridList(settingsDir);
+        _gridList.ApplyCommandLine(gridOption);
+        _savedNames = new Viewer.Shell.Grids.SavedNames(settingsDir);
+        model.LoginUri = _gridList.Selected?.Address ?? "";
         Model = model;
         _close = new CloseRequest(() => model.Session, model.Cancel, Log);
         GetTree().AutoAcceptQuit = false;   // the window's close request comes to _Notification, which logs out first
-        _loginScreen = new LoginScreen(strings, model, startSettings);
+        _loginScreen = new LoginScreen(strings, model, startSettings, _gridList, _savedNames);
         _shell = new ShellRoot(new ShellController(strings, RequestClose, new SettingsFloaterPlaces(startSettings)));   // every window's place, kept between runs
         AddChild(_shell);
         _shell.MainView.AddChild(_loginScreen);   // the shell holds the login screen; the world is drawn behind it
@@ -262,6 +268,9 @@ public partial class Main : Node
         _shell.Shell.Focus.DriverFocusedChanged += OnMovementAllowed;   // the avatar's controls: not while a text field has the keyboard, unless arrow keys always move
         _shell.Shell.Focus.MovementAllowedChanged += ReleaseLetterKeys;
         _preferences = PreferencesFeature.Install(_shell, startSettings, ClearContentCache, ClearSavedLoginNames);
+        _loginScreen.PreferencesRequested += () => _shell.Shell.Floaters.Open(PreferencesFeature.FloaterId);
+        // Help: the chosen grid's own help page when it publishes one, else About
+        _loginScreen.HelpRequested += page => { if (page is not null) OS.ShellOpen(page.ToString()); else _shell.Shell.Floaters.Open(ShellController.AboutFloaterId); };
         InstallSounds(startSettings);   // the interface sounds: clicks, windows, notifications, chat and travel events
         WireChrome(model, strings);
         // the screen is up; says whether the grid field came filled in and from where (never the address itself)

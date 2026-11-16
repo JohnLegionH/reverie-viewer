@@ -83,7 +83,7 @@ public class GridInfoParseTests
     [Fact]
     public void Page_links_that_are_not_web_addresses_are_dropped()
     {
-        var info = GridInfo.Parse("<gridinfo><gridname>G</gridname><register>javascript:alert(1)</register><password>file:///c:/x</password><help>http://u:p@grid.example.org/</help></gridinfo>");
+        var info = GridInfo.Parse("<gridinfo><gridname>G</gridname><register>javascript:alert(1)</register><password>ftp://grid.example.org/x</password><help>http://u:p@grid.example.org/</help></gridinfo>");
         Assert.NotNull(info);
         Assert.Equal("G", info!.Name);
         Assert.Null(info.Register);

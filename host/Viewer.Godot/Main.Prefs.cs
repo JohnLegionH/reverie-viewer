@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System;
@@ -205,6 +205,7 @@ public partial class Main
     internal bool ClearSavedLoginNames()
     {
         bool had = LoginNames.Clear(UserSettings(null));
+        had |= _savedNames?.ClearAll() ?? false;   // and the names saved for each grid
         Log.Info("login.names-cleared", CoreLog.F("had", had));
         return had;
     }
@@ -425,6 +426,27 @@ public partial class Main
     /// <summary>The input command (development builds only): sends a key or a mouse event through the engine's own input path, the way the
     /// operating system's arrives (the panels first, then the world), with the modifier keys held, and reports what the controls did: the
     /// avatar's heading, the keys held, the steering state and which panel has the keyboard. Answers values, never text.</summary>
+    /// <summary>Types the text into whatever has the keyboard, one key press and release per character through the engine's key input, as
+    /// the operating system's key events carry them (letters and digits with their key, every character with its text). Answers only how
+    /// many characters were typed.</summary>
+    public object TypeText(string text)
+    {
+        foreach (char c in text)
+        {
+            Key code = c switch
+            {
+                >= 'a' and <= 'z' => (Key)char.ToUpperInvariant(c),
+                >= 'A' and <= 'Z' or >= '0' and <= '9' => (Key)c,
+                ' ' => Key.Space,
+                _ => Key.None,
+            };
+            bool shift = c is >= 'A' and <= 'Z';
+            global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = c, Pressed = true, ShiftPressed = shift });
+            global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = 0, Pressed = false, ShiftPressed = shift });
+        }
+        return new { typed = text.Length };
+    }
+
     public object? InputCall(string kind, string? key, string? button, bool down, bool shift, bool ctrl, bool alt, float x, float y)
     {
         switch (kind)
@@ -434,7 +456,7 @@ public partial class Main
                 var code = key.ToUpperInvariant() switch
                 {
                     "LEFT" => Key.Left, "RIGHT" => Key.Right, "UP" => Key.Up, "DOWN" => Key.Down, "PGUP" => Key.Pageup, "PGDN" => Key.Pagedown,
-                    "HOME" => Key.Home, "END" => Key.End, "DELETE" => Key.Delete, "SPACE" => Key.Space, "ENTER" => Key.Enter, "ESC" => Key.Escape, "BACKSPACE" => Key.Backspace,
+                    "HOME" => Key.Home, "END" => Key.End, "TAB" => Key.Tab, "DELETE" => Key.Delete, "SPACE" => Key.Space, "ENTER" => Key.Enter, "ESC" => Key.Escape, "BACKSPACE" => Key.Backspace,
                     "." => Key.Period, "," => Key.Comma, "-" => Key.Minus,
                     { Length: 1 } letter when letter[0] is >= 'A' and <= 'Z' or >= '0' and <= '9' => (Key)letter[0],
                     _ => Key.None,

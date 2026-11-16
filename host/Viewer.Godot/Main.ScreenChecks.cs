@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Legion Builds
+﻿// Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using Godot;
@@ -20,6 +20,8 @@ public partial class Main
     {
         if (_loginScreen is not { } screen || Model is not { } model)
             return null;
+        if (action == "layout")
+            return screen.Visible ? screen.Layout() : new { hidden = true };
         if (action == "submit")
         {
             if (model.Busy || model.Session is { IsEnded: false })

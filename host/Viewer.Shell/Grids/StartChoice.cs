@@ -13,12 +13,25 @@ public enum StartKind { Last, Home, Region }
 public static class StartChoice
 {
     /// <summary>The control's state for a start text.</summary>
-    public static (StartKind Kind, string? Region) Parse(string? start) => (default, null);
+    public static (StartKind Kind, string? Region) Parse(string? start)
+    {
+        string t = (start ?? "").Trim();
+        if (t.Length == 0 || t.Equals("last", StringComparison.OrdinalIgnoreCase))
+            return (StartKind.Last, "");
+        if (t.Equals("home", StringComparison.OrdinalIgnoreCase))
+            return (StartKind.Home, "");
+        return (StartKind.Region, t);
+    }
 
     /// <summary>The start text the login sends: a region with no name typed starts at the last location.</summary>
-    public static string ToStart(StartKind kind, string? region) => "";
+    public static string ToStart(StartKind kind, string? region) => kind switch
+    {
+        StartKind.Home => "home",
+        StartKind.Region when !string.IsNullOrWhiteSpace(region) => region.Trim(),
+        _ => "last",
+    };
 
     /// <summary>Remember password is offered only while Remember name is ticked (llpanellogin.cpp, the remember_password tick is
     /// enabled only with remember_name).</summary>
-    public static bool PasswordTickEnabled(bool rememberName) => false;
+    public static bool PasswordTickEnabled(bool rememberName) => rememberName;
 }
