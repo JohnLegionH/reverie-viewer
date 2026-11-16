@@ -611,7 +611,7 @@ public partial class S1Smoke : Node
         await Mouse(outside, MouseButton.Left);
         if (!world.Buttons.Contains("Left+")) problems.Add("a click in the world with no menu open did not reach the world");
         // a click on another window's button closes the menu and does not press the button
-        var other = new Button { Name = "menu_other_window", Text = "other", Position = new Vector2(40, 300), Size = new Vector2(120, 40) };
+        var other = new Button { Name = "menu_other_window", Position = new Vector2(40, 300), Size = new Vector2(120, 40) };
         int otherPressed = 0;
         other.Pressed += () => otherPressed++;
         shell.MainView.AddChild(other);
@@ -631,7 +631,7 @@ public partial class S1Smoke : Node
         if (!world.Buttons.Contains("Right+")) problems.Add($"a right-click outside the menu did not go on to the world [{string.Join(",", world.Buttons)}]");
         // a menu of the inventory (the engine's own popup menu) closes on a click outside, and the click does nothing else
         var popup = new PopupMenu { Name = "menu_popup_check" };
-        popup.AddItem("one", 1);
+        popup.AddItem(table.Get("menu.help.about"), 1);
         int popupChosen = 0;
         popup.IdPressed += _ => popupChosen++;
         shell.AddChild(popup);
