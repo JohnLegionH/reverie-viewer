@@ -151,8 +151,8 @@ public partial class Main
         while (_textChanges.TryDequeue(out var c))
         {
             TrackText(sess.World, c);
-            if (c.Kind == WorldChangeKind.ObjectAdded && _newPrims is { Waiting: > 0 } made && sess.World.Object(c.Id) is { } added)
-                made.Arrived(added);
+            if (c.Kind == WorldChangeKind.ObjectAdded && _newPrims is { Waiting: > 0 } made && sess.World.Object(c.Id) is { } added && made.Arrived(added))
+                _edit?.Created(added.Id.LocalId);   // the new box becomes the selection (it arrived made selected)
         }
         ic.Tick();
         _seatMouseLook?.Update(ic.Sitting, ic.Seat is { ForceMouselook: true });   // a seat that asks for mouse-look puts the view into it

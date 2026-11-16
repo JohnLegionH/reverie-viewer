@@ -658,6 +658,7 @@
   "edit.tool.move": "Move",
   "edit.tool.edit": "Edit",
   "edit.tool.create": "Create",
+  "edit.keep_tool": "Keep Tool selected",
   "edit.linked": "Edit linked",
   "edit.stretch_both": "Stretch Both Sides",
   "edit.stretch_textures": "Stretch Textures",

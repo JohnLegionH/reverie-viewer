@@ -112,7 +112,8 @@ public partial class Main
                 var pick = PickAt(px);
                 bool placed = ic.Place(pick, Region(_camera.GlobalPosition), Region(-_camera.GlobalBasis.Z), Region(_camera.ProjectRayNormal(px)), _camera.Near);
                 if (!placed) ic.CancelCreate();
-                return new { chosen, placed, pick = pick.Kind.ToString(), sounds = RecentObjectSounds() };
+                else HandBackAfterCreate(ic);
+                return new { chosen, placed, pick = pick.Kind.ToString(), tool = _edit?.Tool.ToString(), sounds = RecentObjectSounds() };
             }
             case "rez":
             {
@@ -214,6 +215,18 @@ public partial class Main
         if (_camera is null)
             return;
         var at = -_camera.GlobalBasis.Z;
-        ic.Place(PickAt(screen), Region(_camera.GlobalPosition), Region(at), Region(_camera.ProjectRayNormal(screen)), _camera.Near);
+        if (ic.Place(PickAt(screen), Region(_camera.GlobalPosition), Region(at), Region(_camera.ProjectRayNormal(screen)), _camera.Near))
+            HandBackAfterCreate(ic);
+    }
+
+    /// <summary>After a placement: the tool hands back to Edit's Move, or with Keep Tool selected the create tool waits for the next click
+    /// (lltoolplacer.cpp, CreateToolKeepSelected).</summary>
+    private void HandBackAfterCreate(InteractionController ic)
+    {
+        if (_edit is not { BuildMode: true } e)
+            return;
+        if (e.Placed())
+            ic.BeginCreate();
+        _editPanel?.Refresh();
     }
 }
