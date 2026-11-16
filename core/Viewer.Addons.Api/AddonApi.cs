@@ -142,6 +142,19 @@ public interface IAddonInventory
     Task<string?> ReadNotecardTextAsync(Guid itemId) => Task.FromResult<string?>(null);
 }
 
+/// <summary>Which kind of grid the person is logged in to, as an add-on sees it.</summary>
+public enum AddonGridType
+{
+    /// <summary>Not logged in.</summary>
+    Unknown,
+
+    /// <summary>A grid that is not Second Life (OpenSim and its relatives).</summary>
+    OpenSim,
+
+    /// <summary>Second Life, where Linden Lab's Third-Party Viewer Policy applies.</summary>
+    SecondLife,
+}
+
 /// <summary>
 /// What the viewer gives one add-on. Each member checks the add-on's grant: using something not granted throws
 /// <see cref="AddonPermissionException"/>, and the viewer then switches the add-on off with a note to the user.
@@ -170,6 +183,10 @@ public interface IAddonContext
     event Action? Tick;
 
     // ---- events ----
+
+    /// <summary>Which kind of grid the user is logged in to (Unknown when not logged in). Needs no permission. The viewer decides
+    /// which of its features run on which grid; an add-on can read the grid type but cannot change that.</summary>
+    AddonGridType GridType => AddonGridType.Unknown;
 
     /// <summary>Whether the user is logged in now. Needs <see cref="AddonPermissions.Session"/>.</summary>
     bool LoggedInNow { get; }

@@ -202,6 +202,30 @@ public class AddonHostTests
     // ---------------- events and actions ----------------
 
     [Fact]
+    public void An_add_on_reads_the_grid_type_but_has_no_way_to_change_what_the_grid_allows()
+    {
+        var (host, _, _) = NewHost();
+        var probe = new Probe();
+        host.Register(Manifest("grid-reader"), () => probe, builtIn: true);   // no permission needed to read the grid type
+        host.StartEnabled();
+        Assert.NotNull(probe.Context);
+        Assert.Equal(AddonGridType.Unknown, probe.Context.GridType);
+
+        host.LoggedIn(Viewer.Core.Session.GridKind.SecondLife);
+        Assert.Equal(AddonGridType.SecondLife, probe.Context.GridType);
+        host.LoggedOut();
+        Assert.Equal(AddonGridType.Unknown, probe.Context.GridType);
+        host.LoggedIn(Viewer.Core.Session.GridKind.OpenSim);
+        Assert.Equal(AddonGridType.OpenSim, probe.Context.GridType);
+
+        // the grid's switch lives in the core; the add-on interface only reads the grid type
+        var gridMembers = typeof(IAddonContext).GetMembers().Where(m => m.Name.Contains("Grid", StringComparison.OrdinalIgnoreCase)
+            || m.Name.Contains("Policy", StringComparison.OrdinalIgnoreCase) || m.Name.Contains("Feature", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Assert.Equal(["get_GridType", "GridType"], gridMembers.Select(m => m.Name).Order().ToArray());
+        Assert.False(typeof(IAddonContext).GetProperty(nameof(IAddonContext.GridType))!.CanWrite);
+    }
+
+    [Fact]
     public void An_add_on_hears_login_logout_region_motion_animations_and_chat_it_was_granted()
     {
         var (host, _, _) = NewHost();

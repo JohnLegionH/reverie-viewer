@@ -468,6 +468,9 @@ public sealed class AddonHost : IActionVeto, IDisposable
     internal IAddonServices Services => _services;
     internal void RaiseScreenChanged() => ScreenChanged?.Invoke();
 
+    /// <summary>The user logged in to a grid of this kind.</summary>
+    public void LoggedIn(Viewer.Core.Session.GridKind grid) => LoggedIn();
+
     public void LoggedIn()
     {
         if (_loggedIn)

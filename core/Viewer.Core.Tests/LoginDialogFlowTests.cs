@@ -19,6 +19,13 @@ internal sealed class LoginFlow : ILoginPrompts
     private readonly Queue<Func<LoginDialog, LoginDialogResult>> _answers = new();
 
     public LoginFlow(string? settingsDir = null, CertificateTrust? trust = null, params Func<int, TransportLoginResult>[] script)
+        : this(null, "https://grid.example.org:8002/", settingsDir, trust, script) { }
+
+    /// <summary>A flow that resolves the address through <paramref name="fetcher"/> and logs in at <paramref name="loginUri"/>.</summary>
+    public static LoginFlow At(GridFetcher fetcher, string loginUri, params Func<int, TransportLoginResult>[] script) =>
+        new(fetcher, loginUri, null, null, script);
+
+    private LoginFlow(GridFetcher? fetcher, string loginUri, string? settingsDir, CertificateTrust? trust, Func<int, TransportLoginResult>[] script)
     {
         _script = script;
         Model = new LoginModel(StringTable.English(), opts =>
@@ -33,8 +40,8 @@ internal sealed class LoginFlow : ILoginPrompts
                 },
             };
             return new ViewerSession(opts, fake, new CoreLog(new ListSink(), "test"));
-        }, null, settingsDir)
-        { LoginUri = "https://grid.example.org:8002/", UserName = "Test User", Prompts = this, Trust = trust };
+        }, fetcher, settingsDir)
+        { LoginUri = loginUri, UserName = "Test User", Prompts = this, Trust = trust };
         Model.SetPassword("pw");
     }
 

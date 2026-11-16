@@ -73,11 +73,42 @@ public class LoginRequestFieldsTests(ITestOutputHelper output)
             output.WriteLine($"{name,-22} {(sent.ContainsKey(name) ? "sent" : "NOT sent")}");
         output.WriteLine("options: " + string.Join(", ", (List<string>)sent["options"]));
 
-        Assert.Equal(
-            ["address_size", "host_id", "last_exec_duration", "last_exec_session_id", "platform_string"],
-            official.Where(n => !sent.ContainsKey(n)).Order().ToArray());
+        // every field of the official request is sent: Second Life's login service reads them all
+        Assert.Empty(official.Where(n => !sent.ContainsKey(n)).Order().ToArray());
+        Assert.Equal("64", sent["address_size"]);
+        Assert.Equal("", sent["host_id"]);
+        Assert.Equal("0", sent["last_exec_event"]);
+        Assert.Equal("0", sent["last_exec_duration"]);
+        Assert.Equal(Guid.Empty.ToString(), sent["last_exec_session_id"]);
+        Assert.False(string.IsNullOrWhiteSpace((string)sent["platform_string"]));
         Assert.Equal("last", sent["start"]);
         Assert.Contains("inventory-root", (List<string>)sent["options"]);
+    }
+
+    [Fact]
+    public async Task The_device_ids_are_hashes_of_the_real_device_never_blank_or_made_up()
+    {
+        // Third-Party Viewer Policy 2.c: no masking of the MAC address. The official viewer sends an MD5 of the network card's
+        // address as "mac" and of the disk serial number as "id0" (lllogininstance.cpp, llHashedUniqueID and mSerialNumber).
+        var (_, server, _) = await LoginOnce(_ => LoginStubServer.Failure("key", "No."));
+        using var _ = server;
+        var sent = Assert.Single(server.Requests);
+        foreach (var name in new[] { "mac", "id0" })
+        {
+            string v = (string)sent[name];
+            output.WriteLine($"{name}: {v.Length} characters, all hex: {v.All(Uri.IsHexDigit)}");
+            Assert.Matches("^[0-9a-fA-F]{32}$", v);
+            Assert.NotEqual(new string('0', 32), v);
+        }
+        // the hash is of one of this machine's own network cards (LibreMetaverse sends the same hash as id0)
+        var real = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+            .Select(n => n.GetPhysicalAddress().GetAddressBytes()).Where(a => a.Length > 0)
+            .SelectMany(a => new[] { Convert.ToHexString(a), string.Join(":", a.Select(b => b.ToString("X2"))), string.Join("-", a.Select(b => b.ToString("X2"))) }
+                .SelectMany(t => new[] { t, t.ToLowerInvariant() }))
+            .SelectMany(t => new[] { Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.ASCII.GetBytes(t))) })
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        output.WriteLine($"network cards hashed: {real.Count}; the sent mac is one of them: {real.Contains((string)sent["mac"])}");
+        Assert.Contains((string)sent["mac"], real);
     }
 
     [Fact]

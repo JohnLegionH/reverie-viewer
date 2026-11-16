@@ -30,12 +30,33 @@ public class ViewerIdentityTests(ITestOutputHelper output)
     ];
 
     [Fact]
-    public void ViewerVersion_is_the_three_part_core_version()
+    public void ViewerVersion_is_the_core_version_and_a_build_number_unique_to_each_commit()
     {
+        // Third-Party Viewer Policy 1.b: a unique identifier for each version. The official viewer's version is
+        // major.minor.patch.build (llversioninfo.cpp); ours is the core's three-part version and the number of commits
+        // in the history the build was made from, so each commit on main has its own.
         var threePart = typeof(ViewerIdentity).Assembly.GetName().Version!.ToString(3);
-        Assert.NotEqual("0.1", ViewerIdentity.Current.Version);
-        Assert.Equal(threePart, ViewerIdentity.Current.Version);
-        Assert.DoesNotContain("+", ViewerIdentity.Current.Version);
+        string v = ViewerIdentity.Current.Version;
+        output.WriteLine("version: " + v);
+        Assert.Matches(@"^\d+\.\d+\.\d+\.\d+$", v);
+        Assert.StartsWith(threePart + ".", v);
+        Assert.Equal(CommitCount(), v[(threePart.Length + 1)..]);
+    }
+
+    /// <summary>The commit count of the checkout these tests were built from ("0" outside a git checkout, as the build does).</summary>
+    private static string CommitCount()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, ".git")) && !File.Exists(Path.Combine(dir.FullName, ".git")))
+            dir = dir.Parent;
+        if (dir is null)
+            return "0";
+        var psi = new System.Diagnostics.ProcessStartInfo("git", $"-C \"{dir.FullName}\" rev-list --count HEAD")
+        { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+        using var git = System.Diagnostics.Process.Start(psi)!;
+        string count = git.StandardOutput.ReadToEnd().Trim();
+        git.WaitForExit();
+        return git.ExitCode == 0 && count.Length > 0 ? count : "0";
     }
 
     [Fact]

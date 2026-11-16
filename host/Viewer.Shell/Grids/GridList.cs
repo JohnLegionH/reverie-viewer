@@ -13,6 +13,10 @@ public sealed record GridEntry(string Address, string Name, GridInfo? Info, bool
     [JsonIgnore]
     public string Key => GridList.KeyOf(Address);
 
+    /// <summary>Whether the entry comes with the viewer (Second Life): never saved to the list file, edited or removed.</summary>
+    [JsonIgnore]
+    public bool BuiltIn { get; init; }
+
     /// <summary>The name a grid has before its grid info is read: its host, with the port when it is not the scheme's own.</summary>
     public static string HostName(Uri address) => address.IsDefaultPort ? address.Host : address.Host + ":" + address.Port;
 }
@@ -64,6 +68,12 @@ public sealed class GridList
     }
 
     public IReadOnlyList<GridEntry> Entries => _entries;
+
+    /// <summary>The grids that come with the viewer.</summary>
+    public IReadOnlyList<GridEntry> BuiltIn => [];
+
+    /// <summary>The person's grids, then the ones that come with the viewer: what the grid chooser shows.</summary>
+    public IReadOnlyList<GridEntry> All => _entries;
 
     /// <summary>The chosen grid, or null when none is.</summary>
     public GridEntry? Selected => _entries.FirstOrDefault(e => e.Key == _selected);

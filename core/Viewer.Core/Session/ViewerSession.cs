@@ -89,6 +89,16 @@ public sealed class ViewerSession : IDisposable
 
     /// <summary>The login address this session logged in through (which grid it is on).</summary>
     public string LoginUri => _opts.LoginUri;
+
+    /// <summary>Which kind of grid this session is on, from its login address's host (<see cref="GridPolicy.KindOf"/>).</summary>
+    public GridKind Grid => GridKind.OpenSim;
+
+    /// <summary>Whether a feature beyond the official viewer may run on this session's grid (<see cref="GridPolicy.Allows"/>).</summary>
+    public bool Allows(ViewerFeature feature) => false;
+
+    /// <summary>Whether <paramref name="self"/> may save objects whose parts <paramref name="partCreators"/> made to a file on this
+    /// session's grid (<see cref="GridPolicy.MayBackUp"/>).</summary>
+    public bool MayBackUp(Guid self, IReadOnlyCollection<Guid> partCreators) => false;
     private readonly ISessionTransport _transport;
     private readonly OutboundPolicy _outbound;
     private readonly CoreLog _log;
