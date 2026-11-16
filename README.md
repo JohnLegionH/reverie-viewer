@@ -35,7 +35,8 @@ tar -xzf reverie-viewer-0.1.2-linux-x86_64.tar.gz
 
 `reverie` checks that a window can open and then starts the viewer (`Reverie.x86_64`, or `Reverie.arm64` on ARM64)
 with the same options. If there is no desktop session, or display libraries are missing, it says which and what to
-install, instead of starting.
+install, instead of starting. On a system that keeps its libraries outside the usual places, set
+`REVERIE_SKIP_DISPLAY_CHECK=1` to skip that check.
 
 - You need a graphics driver with **Vulkan 1.3**. On Ubuntu, the Mesa drivers (`mesa-vulkan-drivers`) cover AMD and Intel
   graphics; for NVIDIA, use the proprietary driver from "Additional Drivers". `vulkaninfo --summary` (package
@@ -56,7 +57,7 @@ install, instead of starting.
 
 ### Add your grid
 
-The grid list on the login screen starts with **Second Life**, which is built in. To add an OpenSimulator grid:
+Second Life is built in: it is always on the grid list on the login screen. To add an OpenSimulator grid:
 
 1. On the login screen, open the **Grid** list and choose **Add a grid…**.
 2. Type the grid's login address (your grid's website gives it, for example `https://grid.example.org:8002/`) and
@@ -65,7 +66,7 @@ The grid list on the login screen starts with **Second Life**, which is built in
 3. If the address starts with `http://`, the window warns that the connection isn't encrypted. Use the `https://`
    address when your grid offers one.
 4. Change the name shown if you like, then choose **Add grid**. The grid is now in the list, and the viewer remembers
-   it and the names you log in with on it.
+   it. With **Remember name** ticked at login, it also remembers the names you log in with on that grid.
 
 To change or remove a grid later, open the **Grid** list and choose **Manage grids…**: there you can refresh a grid's
 information, edit it or remove it.

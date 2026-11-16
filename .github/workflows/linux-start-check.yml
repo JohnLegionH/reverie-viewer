@@ -51,6 +51,8 @@ jobs:
           - { ubuntu: "26.04", mode: no-display-libs }
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Fetch the package from the release and check its checksum
         env:

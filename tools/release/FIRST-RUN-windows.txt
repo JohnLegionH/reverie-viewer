@@ -15,7 +15,8 @@ HOW TO START IT
 2. Double-click Reverie.exe.
    This build is not signed, so Windows may show "Windows protected your PC". Click "More info", then
    "Run anyway". Windows asks this once for each new version.
-3. Enter the grid's login address, your name and your password on the login screen.
+3. On the login screen, open the Grid list, choose "Add a grid…", type the grid's login address and choose
+   "Look up", then "Add grid". Second Life is already on the list. Then enter your name and your password.
 To see what the viewer logs while it runs, start Reverie.console.exe instead.
 
 SETTINGS AND LOGS

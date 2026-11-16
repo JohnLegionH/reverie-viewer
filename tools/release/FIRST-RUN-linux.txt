@@ -19,7 +19,8 @@ HOW TO START IT
        ./{PACKAGE}/reverie
    "reverie" checks that a window can open, then starts the viewer ({EXE}). Without a desktop session, or
    with display libraries missing, it says which and what to install.
-3. Enter the grid's login address, your name and your password on the login screen.
+3. On the login screen, open the Grid list, choose "Add a grid…", type the grid's login address and choose
+   "Look up", then "Add grid". Second Life is already on the list. Then enter your name and your password.
 To use X11 instead of Wayland, start it with:
        ./{PACKAGE}/reverie --display-driver x11
 

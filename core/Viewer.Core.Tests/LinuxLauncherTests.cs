@@ -58,7 +58,8 @@ public class LinuxLauncherTests : IDisposable
 
     private (int Exit, string Output) StartWith(Dictionary<string, string?> extraEnv, string[] libs, string? display, string? wayland, params string[] args)
     {
-        string list = string.Join("", libs.Select(l => $"\\t{l} (libc6,x86-64) => /usr/lib/x86_64-linux-gnu/{l}\\n"));
+        // a real cache lists the C library; a case with no libraries at all stands for a system whose cache is empty
+        string list = string.Join("", (libs.Length == 0 ? libs : libs.Prepend("libc.so.6")).Select(l => $"\\t{l} (libc6,x86-64) => /usr/lib/x86_64-linux-gnu/{l}\\n"));
         File.WriteAllText(Path.Combine(_dir, "bin", "ldconfig"), $"#!/bin/sh\nprintf '{list}'\n");
         string cmd = $"export PATH=\"{Unix(Path.Combine(_dir, "bin"))}:$PATH\"; exec sh \"{Unix(Path.Combine(_dir, "pkg", "reverie"))}\"" +
                      string.Concat(args.Select(a => $" '{a}'"));
@@ -122,6 +123,16 @@ public class LinuxLauncherTests : IDisposable
         var r = Start([], ":0", null);
         Assert.Equal(7, r.Exit);
         Assert.Contains("engine started", r.Output);
+    }
+
+    [Fact]
+    public void A_system_with_no_display_library_at_all_is_told_what_to_install()
+    {
+        var r = Start(["libc.so.6"], ":0", null);
+        Assert.Equal(1, r.Exit);
+        Assert.DoesNotContain("engine started", r.Output);
+        Assert.Contains("libX11.so.6", r.Output);
+        Assert.Contains("libxcursor1", r.Output);
     }
 
     [Fact]
