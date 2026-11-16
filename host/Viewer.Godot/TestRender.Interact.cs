@@ -41,7 +41,29 @@ public partial class TestRender
             default, default, default,
             Interaction: new PrimInteraction(0, 0, "Floating text\nsecond line", Viewer.Core.Interaction.HoverTextRules.Pack(255, 140, 0, 255)));
         int pieces = 0, shown = 0;
-        if (kind == "select" && !hidden)
+        if (kind == "faces")
+        {
+            // Select Face across two objects: the top and the south side of this box, and the east side of a second box to its left
+            var centre2 = centre + new System.Numerics.Vector3(-3.3f, -2.7f, 0f);
+            rig.Root.AddChild(new MeshInstance3D
+            {
+                Name = "interact-box-2", Mesh = new BoxMesh { Size = new Vector3(size.X, size.Z, size.Y) },
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.55f, 0.55f, 0.58f) },
+                Position = new Vector3(centre2.X, centre2.Z, -centre2.Y),
+            });
+            var prim2 = prim with { Id = new ObjectId(1, 2), FullId = Guid.Parse("00000002-0000-4000-8000-000000000002"), Position = centre2 };
+            if (!hidden)
+            {
+                var faces = new FaceHighlight { Name = "interact-faces" };
+                rig.Root.AddChild(faces);
+                faces.Update([
+                    new HighlightedFaces(new OutlinedPrim(prim, centre, System.Numerics.Quaternion.Identity, true), [0, 1]),
+                    new HighlightedFaces(new OutlinedPrim(prim2, centre2, System.Numerics.Quaternion.Identity, true), [2]),
+                ]);
+                pieces = faces.Pieces;
+            }
+        }
+        else if (kind == "select" && !hidden)
         {
             var outline = new SelectionOutline { Name = "interact-outline" };
             rig.Root.AddChild(outline);
@@ -56,6 +78,8 @@ public partial class TestRender
             shown = text.Shown;
         }
         _result["interact"] = new { kind = _interact, pieces, shown, ground, camera = new { rig.Camera.Position.X, rig.Camera.Position.Y, rig.Camera.Position.Z } };
+        if (kind == "faces" && !hidden && pieces != 3)
+            _failures.Add($"the face highlight drew {pieces} faces, 3 chosen");
         if (!hidden && ((kind == "select" && pieces == 0) || (kind == "text" && shown == 0)))
             _failures.Add("the interaction layer drew nothing");
     }

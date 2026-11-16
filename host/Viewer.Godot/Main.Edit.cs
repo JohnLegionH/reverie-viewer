@@ -41,6 +41,7 @@ public partial class Main
         _edit = new EditController(s.World, s.Actions.Submit, () => s.EditLimits,
             regions: () => s.Worlds.Select(w => new RegionArea(w.Offset.X, w.Offset.Y, w.Region.SizeX, w.Region.SizeY)).ToList());
         _edit.Changed += () => _editPanel?.Refresh();
+        _edit.KeepToolSelected = _settings?.Get(Viewer.Shell.Build.BuildSettings.KeepToolSelected) ?? false;
         _editDrag = null;
         // Create makes the box of the new-prim settings (Preferences, Building) and puts the rest of them on it when it arrives
         Viewer.Core.Building.NewPrimDefaults NewPrim() =>
@@ -54,6 +55,7 @@ public partial class Main
         bool InWorld() => _interactFor is { IsEnded: false } && _interact is not null;
         _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory);
         _editPanel.ToolChosen += ChooseTool;
+        _editPanel.KeepToolChanged += on => _settings?.Set(Viewer.Shell.Build.BuildSettings.KeepToolSelected, on);
         _shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), _editPanel);
         var timer = new global::Godot.Timer { Name = "edit_refresh", WaitTime = 0.25, Autostart = true };
         timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) _editPanel.Refresh(); };

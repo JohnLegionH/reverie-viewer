@@ -233,7 +233,9 @@ public partial class InventoryPickPopup : PopupPanel
     private readonly Action<Guid> _use;
     private readonly ItemList _list;
     private readonly LineEdit _search;
-    private List<InventoryItemData> _rows = new();
+    private readonly Viewer.Shell.Build.InventoryPickList _pick;
+    private readonly Label _empty;
+    private IReadOnlyList<InventoryItemData> _rows = [];
     private string _shown = "\0";
 
     public ItemList List => _list;
@@ -243,6 +245,7 @@ public partial class InventoryPickPopup : PopupPanel
         _model = model;
         _kind = kind;
         _use = use;
+        _pick = new Viewer.Shell.Build.InventoryPickList(model, kind);
         Name = "inventory_pick";
         var box = new VBoxContainer();
         _search = new LineEdit { Name = "pick_search", PlaceholderText = strings.Get("appearance.texture.search") };
@@ -252,6 +255,9 @@ public partial class InventoryPickPopup : PopupPanel
         _list.AccessibilityName = strings.Get("appearance.texture.list");
         _list.ItemActivated += i => Use((int)i);
         box.AddChild(_list);
+        // with none of the kind anywhere in the inventory, the list says so (materials)
+        _empty = new Label { Name = "pick_empty", Text = _pick.EmptyKey is { } k ? strings.Get(k) : "", Visible = false };
+        box.AddChild(_empty);
         var use_ = new Button { Name = "pick_use", Text = strings.Get("appearance.texture.pick") };
         use_.AccessibilityName = use_.Text;
         use_.Pressed += () => { var s = _list.GetSelectedItems(); if (s.Length > 0) Use(s[0]); };
@@ -263,28 +269,18 @@ public partial class InventoryPickPopup : PopupPanel
     {
         if (!Visible)
             return;
-        bool ready = true;
-        foreach (var f in _model.AllFolders())
-        {
-            bool holds = _kind == ItemKind.Texture ? f.Kind == FolderKind.Texture : f.Kind == FolderKind.Material;
-            if (!holds || _model.LoadState(f.Id) == FolderLoad.Loaded)
-                continue;
-            ready = false;
-            if (!_model.EnsureLoaded(f.Id))
-                _model.Retry(f.Id);
-        }
+        // every folder not yet loaded is fetched: an item can sit in any folder, not only its kind's own
+        bool ready = _pick.AllLoaded;
+        if (!ready)
+            _pick.Fetch();
         if (_shown != _search.Text || !ready || _rows.Count == 0)
             Fill();
+        _empty.Visible = ready && _rows.Count == 0 && _search.Text.Trim().Length == 0 && _pick.EmptyKey is not null;
     }
 
     private void Fill()
     {
-        string needle = _search.Text.Trim();
-        var trash = _model.FolderOfKind(FolderKind.Trash);
-        _rows = _model.AllItems()
-            .Where(i => i.Kind == _kind && i.AssetId is { } a && a != Guid.Empty && (needle.Length == 0 || i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase))
-                && !(trash != Guid.Empty && _model.IsDescendantOf(i.Id, trash)))
-            .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).Take(500).ToList();
+        _rows = _pick.Rows(_search.Text);
         _shown = _search.Text;
         _list.Clear();
         foreach (var r in _rows)
