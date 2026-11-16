@@ -434,13 +434,15 @@ public partial class Main
                 var code = key.ToUpperInvariant() switch
                 {
                     "LEFT" => Key.Left, "RIGHT" => Key.Right, "UP" => Key.Up, "DOWN" => Key.Down, "PGUP" => Key.Pageup, "PGDN" => Key.Pagedown,
-                    "HOME" => Key.Home, "SPACE" => Key.Space, "ENTER" => Key.Enter, "ESC" => Key.Escape,
+                    "HOME" => Key.Home, "END" => Key.End, "DELETE" => Key.Delete, "SPACE" => Key.Space, "ENTER" => Key.Enter, "ESC" => Key.Escape, "BACKSPACE" => Key.Backspace,
+                    "." => Key.Period, "," => Key.Comma, "-" => Key.Minus,
                     { Length: 1 } letter when letter[0] is >= 'A' and <= 'Z' or >= '0' and <= '9' => (Key)letter[0],
                     _ => Key.None,
                 };
                 if (code == Key.None) return null;
-                // a letter or digit without Ctrl or Alt carries its character, as the operating system's key event does (a text field types it)
-                char typed = !down || ctrl || alt || code is not (>= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9) ? '\0'
+                // a letter, digit, full stop, comma or minus without Ctrl or Alt carries its character, as the operating system's key event does
+                // (a text field types it)
+                char typed = !down || ctrl || alt || code is not (>= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9 or Key.Period or Key.Comma or Key.Minus) ? '\0'
                     : code is >= Key.A and <= Key.Z && !shift ? char.ToLowerInvariant((char)(long)code) : (char)(long)code;
                 global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = typed, Pressed = down, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt });
                 break;

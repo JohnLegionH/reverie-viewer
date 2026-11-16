@@ -31,7 +31,7 @@ public sealed class EditFeaturesTab
     private readonly Label _projector;
     private readonly OptionButton _shape, _material;
     private readonly List<Control> _flexControls = new(), _lightControls = new(), _physicsControls = new();
-    private Guid _projectorTexture;
+    private Guid _projectorTexture, _askedFor;
     private InventoryPickPopup? _picker;
     private bool _filling;
 
@@ -42,7 +42,7 @@ public sealed class EditFeaturesTab
         _inventory = inventory;
         _owner = owner;
 
-        _flexible = Check(page, "flexible", "edit.feat.flexible", on => _edit()?.SetFlexible(on, on ? Flex() : null));
+        _flexible = Check(page, "flexible", "edit.feat.flexible", on => _edit()?.SetFlexible(on));
         _softness = Spin(page, _flexControls, "softness", "edit.feat.softness", 0, 3, 1, SendFlex);
         _flexGravity = Spin(page, _flexControls, "flex_gravity", "edit.feat.gravity", -10, 10, 0.5, SendFlex);
         _drag = Spin(page, _flexControls, "drag", "edit.feat.drag", 0, 10, 0.5, SendFlex);
@@ -53,7 +53,7 @@ public sealed class EditFeaturesTab
         _forceZ = Spin(page, _flexControls, "force_z", "edit.feat.force_z", -10, 10, 0.01, SendFlex);
 
         page.AddChild(new HSeparator());
-        _light = Check(page, "light", "edit.feat.light", on => _edit()?.SetLight(on, on ? Light() : null, on ? Projector() : null));
+        _light = Check(page, "light", "edit.feat.light", on => _edit()?.SetLight(on));
         var colourRow = new HBoxContainer { Name = "light_colour_row" };
         _colour = new ColorPickerButton { Name = "light_colour", EditAlpha = false, CustomMinimumSize = new Vector2(64, 24) };
         _colour.AccessibilityName = strings.Get("edit.feat.light_colour");
@@ -72,7 +72,7 @@ public sealed class EditFeaturesTab
         page.AddChild(colourRow);
         _intensity = Spin(page, _lightControls, "intensity", "edit.feat.intensity", 0, 1, 0.05, SendLight);
         _fov = Spin(page, _lightControls, "fov", "edit.feat.fov", 0, 3, 0.1, SendLight);
-        _radius = Spin(page, _lightControls, "radius", "edit.feat.radius", 0, 20, 0.5, SendLight);
+        _radius = Spin(page, _lightControls, "light_radius", "edit.feat.radius", 0, 20, 0.5, SendLight);
         _focus = Spin(page, _lightControls, "focus", "edit.feat.focus", -20, 20, 0.5, SendLight);
         _falloff = Spin(page, _lightControls, "falloff", "edit.feat.falloff", 0, 2, 0.25, SendLight);
         _ambiance = Spin(page, _lightControls, "ambiance", "edit.feat.ambiance", 0, 1, 0.05, SendLight);
@@ -87,8 +87,8 @@ public sealed class EditFeaturesTab
         _shape.ItemSelected += _ => SendPhysics();
         page.AddChild(_shape);
         _physicsControls.Add(_shape);
-        page.AddChild(new Label { Name = "material_label", Text = strings.Get("edit.feat.material") });
-        _material = new OptionButton { Name = "material" };
+        page.AddChild(new Label { Name = "feat_material_label", Text = strings.Get("edit.feat.material") });
+        _material = new OptionButton { Name = "feat_material" };
         _material.AccessibilityName = strings.Get("edit.feat.material");
         for (int i = 0; i < FeatureRules.Materials.Count; i++)
             _material.AddItem(strings.Get("edit.feat.material." + FeatureRules.Materials[i]), i);
@@ -122,9 +122,10 @@ public sealed class EditFeaturesTab
     {
         var row = new HBoxContainer { Name = name + "_row" };
         row.AddChild(new Label { Name = name + "_label", Text = _s.Get(key), CustomMinimumSize = new Vector2(150, 0) });
+        // the arrows move by the official increment; a value shown or typed keeps its own decimals (a step of 0.5 would round gravity 0.3)
         var s = new SpinBox
         {
-            Name = name, MinValue = min, MaxValue = max, Step = step, AllowGreater = false, AllowLesser = false,
+            Name = name, MinValue = min, MaxValue = max, Step = step >= 1 ? step : 0.001, CustomArrowStep = step, AllowGreater = false, AllowLesser = false,
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, AccessibilityName = _s.Get(key),
         };
         s.ValueChanged += _ => { if (!_filling) changed(); };
@@ -173,11 +174,19 @@ public sealed class EditFeaturesTab
         _picker.PopupCentered(new Vector2I(360, 420));
     }
 
-    /// <summary>Shows the primary prim's features; the controls are off for a prim that may not be modified.</summary>
-    public void Refresh()
+    /// <summary>Shows the primary prim's features, asking the region for its physics values when the tab shows a prim it has not asked about;
+    /// the controls are off for a prim that may not be modified.</summary>
+    public void Refresh(bool shown)
     {
         var e = _edit();
         var o = e?.Object();
+        if (shown && o is not null && o.FullId != _askedFor)
+        {
+            _askedFor = o.FullId;
+            e!.RequestPhysics();
+        }
+        if (o is null)
+            _askedFor = Guid.Empty;
         var f = o is null ? null : e!.Features(o.Id.LocalId);
         bool modify = o is not null && e!.Access(o.Id.LocalId).CanModify;
         _filling = true;

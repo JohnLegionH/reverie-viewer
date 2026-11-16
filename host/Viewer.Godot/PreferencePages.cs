@@ -152,7 +152,10 @@ public sealed partial class PrefPageView : ScrollContainer
             case PrefKind.Real:
             {
                 bool whole = def.Kind == PrefKind.Whole;
-                var spin = new SpinBox { Name = "pref_" + def.Key, MinValue = def.Min, MaxValue = def.Max, Step = whole ? 1 : 0.1, Rounded = whole, CustomMinimumSize = new Vector2(110, 0) };
+                // a real number keeps the two decimals it is stored with: the engine snaps a value to its step counted from the minimum,
+                // so a step of 0.1 above a minimum of 0.01 made a typed 1.5 into 1.51; the arrows still move by 0.1
+                var spin = new SpinBox { Name = "pref_" + def.Key, MinValue = def.Min, MaxValue = def.Max, Step = whole ? 1 : 0.01, CustomArrowStep = whole ? 0 : 0.1,
+                    Rounded = whole, CustomMinimumSize = new Vector2(110, 0) };
                 spin.AccessibilityName = label;
                 spin.ValueChanged += v => Edit(def, whole ? (object)(int)Math.Round(v) : Math.Round(v, 2));
                 _sync[def.Key] = () =>

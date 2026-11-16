@@ -410,7 +410,7 @@ public partial class EditPanel : VBoxContainer
         }
         finally { _filling = false; }
         _textureTab.Refresh();
-        _featuresTab.Refresh();
+        _featuresTab.Refresh(Tabs.GetCurrentTabControl()?.Name == "features" && IsVisibleInTree());
         _contentTab.Refresh(Tabs.GetCurrentTabControl()?.Name == "content" && IsVisibleInTree());
     }
 

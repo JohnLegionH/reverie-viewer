@@ -270,7 +270,8 @@ public sealed partial class EditController
                 if (Object() is { } o && o.FullId == p.ObjectId)
                     Changed?.Invoke();
                 break;
-            case TaskInventoryReceived t when t.Ok && Object() is { } shown && shown.FullId == t.ObjectId:
+            // an answer with nothing in it is an empty list: a prim whose last item was deleted has no contents file, and its read ends empty
+            case TaskInventoryReceived t when (t.Ok || t.Items.Count == 0) && Object() is { } shown && shown.FullId == t.ObjectId:
                 _contents = (t.ObjectId, t.Items.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ThenBy(i => i.Name, StringComparer.Ordinal).ToArray());
                 Changed?.Invoke();
                 break;

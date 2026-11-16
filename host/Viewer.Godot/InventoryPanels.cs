@@ -226,6 +226,18 @@ public partial class InventoryTree : Tree
         return null;
     }
 
+    /// <summary>Where a shown row's name stands in the viewport, scrolled into view first; null when the row is not shown (for the live check's pointer).</summary>
+    public Vector2? PointOf(Guid id)
+    {
+        if (RowOf(id) is not { } item)
+            return null;
+        ScrollToItem(item, false);
+        var r = GetItemAreaRect(item, 0);
+        if (r.Size.Y <= 0)
+            return null;
+        return GetGlobalTransformWithCanvas() * new Vector2(r.Position.X + r.Size.X * 0.6f, r.Position.Y + r.Size.Y / 2);
+    }
+
     // a row's rectangle across the whole tree, in the tree's own coordinates; null when it is not drawn (scrolled away, or in a closed folder)
     private Rect2? RowArea(Guid id)
     {

@@ -29,6 +29,8 @@ public sealed class EditContentTab
     private readonly Label _status;
     private Guid _askedFor;
     private readonly List<Guid> _rows = new();
+    /// <summary>Folders dropped before their contents had been read from the grid: their items go in once they have.</summary>
+    private readonly List<Guid> _waitingFolders = new();
 
     public EditContentTab(StringTable strings, Func<EditController?> edit, Func<InventoryModel?> inventory, VBoxContainer page)
     {
@@ -74,11 +76,24 @@ public sealed class EditContentTab
                 e.DropItem(item.Id, item.Kind == ItemKind.Script);
             else if (inv.Folder(id) is { } folder)
             {
-                inv.EnsureLoaded(folder.Id);
-                int n = e.DropFolder(inv.ChildItems(folder.Id).Where(i => i.Kind is not (ItemKind.Link or ItemKind.LinkFolder)).Select(i => (i.Id, i.Kind == ItemKind.Script)));
-                _status.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture, _s.Get("edit.content.folder_queued"), n);
+                if (inv.LoadState(folder.Id) == FolderLoad.Loaded)
+                    QueueFolder(e, inv, folder.Id);
+                else
+                {
+                    // the folder's contents are read from the grid first (as when it is opened in the inventory window)
+                    inv.EnsureLoaded(folder.Id);
+                    if (!_waitingFolders.Contains(folder.Id))
+                        _waitingFolders.Add(folder.Id);
+                    _status.Text = _s.Get("edit.content.loading");
+                }
             }
         }
+    }
+
+    private void QueueFolder(EditController e, InventoryModel inv, Guid folder)
+    {
+        int n = e.DropFolder(inv.ChildItems(folder).Where(i => i.Kind is not (ItemKind.Link or ItemKind.LinkFolder)).Select(i => (i.Id, i.Kind == ItemKind.Script)));
+        _status.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture, _s.Get("edit.content.folder_queued"), n);
     }
 
     /// <summary>Shows the primary prim's items, asking the region for them when the tab shows a prim it has not asked about.</summary>
@@ -87,6 +102,14 @@ public sealed class EditContentTab
         var e = _edit();
         var o = e?.Object();
         bool modify = o is not null && e!.Access(o.Id.LocalId).CanModify;
+        if (e is not null && _inventory() is { } inv)
+            foreach (var folder in _waitingFolders.ToArray())
+                if (inv.LoadState(folder) is FolderLoad.Loaded or FolderLoad.Failed)
+                {
+                    _waitingFolders.Remove(folder);
+                    if (inv.LoadState(folder) == FolderLoad.Loaded)
+                        QueueFolder(e, inv, folder);
+                }
         if (shown && o is not null && o.FullId != _askedFor)
         {
             _askedFor = o.FullId;

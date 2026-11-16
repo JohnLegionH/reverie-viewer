@@ -347,6 +347,23 @@ public partial class Main
             // no material item to choose by hand
             case "material": done = Guid.TryParse(text, out var material) ? e.ApplyMaterial(material) : e.RemoveMaterial(); break;
             case "picker": done = _editPanel.TextureTab.Picker is { Visible: true } pk ? pk.Names : null; break;
+            // any shown control of the shell by name (Preferences, the folder chooser), a top-bar title by its text, the item of an open
+            // top-bar menu that has the keyboard, a row of the inventory window by id, a row of the Content tab or the folder chooser by its text
+            case "ui_point": done = UiPoint(text ?? ""); break;
+            case "menu_title":
+                if (_shell?.TopBar.Menus is { } tm && tm.Titles.FirstOrDefault(t => t.Text == text) is { } title)
+                    done = new[] { title.GetGlobalRect().GetCenter().X, title.GetGlobalRect().GetCenter().Y };
+                break;
+            case "menu_focus":
+                if (_shell?.TopBar.Menus.Popups.FirstOrDefault(m => m.Visible) is { } open && open.GetFocusedItem() is var fi && fi >= 0)
+                    done = open.GetItemText(fi);
+                break;
+            case "inventory_row":
+                if (Guid.TryParse(text, out var rowId) && _inventoryPanel?.TreeView.PointOf(rowId) is { } ip)
+                    done = new[] { ip.X, ip.Y };
+                break;
+            case "content_row": done = ListRow(_editPanel.ContentTab.List as ItemList, text); break;
+            case "folder_row": done = _takeFolder is { Visible: true } tf ? ListRow(tf.List, text, tf) : null; break;
             case "picker_row":
                 if (_editPanel.TextureTab.Picker is { Visible: true } pr && int.TryParse(text, out int row) && row >= 0 && row < pr.List.ItemCount)
                 {
@@ -408,6 +425,50 @@ public partial class Main
                 prims_in_linkset = s.World.Snapshot().Objects.Values.Count(o => o.Id.LocalId == prim.Id.LocalId || o.ParentLocalId == prim.Id.LocalId),
             },
             window = _editPanel.Texts(),
+            owned_only = e.SelectOwnedOnly,
+            pending = e.Pending,
+            contents = e.ContentsKnown ? e.Contents.Select(i => i.Name).ToArray() : null,
+            features = e.Features() is { } ft ? new
+            {
+                flexible = ft.Flexible is { } fx ? new[] { fx.Softness, fx.Gravity, fx.Drag, fx.Wind, fx.Tension } : null,
+                light = ft.Light is { } lt ? new[] { lt.Intensity, lt.Radius, lt.Falloff } : null,
+                physics = new[] { ft.Physics.ShapeType, ft.Physics.Gravity, ft.Physics.Friction, ft.Physics.Density, ft.Physics.Restitution },
+                material = ft.Material, can_flex = ft.CanFlex,
+            } : null,
+            folder_rows = _takeFolder is { Visible: true } tfr ? tfr.Paths : null,
+            animations_folder = s.Inventory.FolderOfKind(Viewer.Core.Inventory.FolderKind.Animation),
         };
+    }
+
+    /// <summary>A shown control of the shell by name, where its middle stands on screen (a spin box's text field; a control in a popup window
+    /// placed in that window).</summary>
+    private float[]? UiPoint(string name)
+    {
+        if (_shell?.FindChildren(name, "", true, false).OfType<Control>().FirstOrDefault(c => c.IsVisibleInTree()) is not { } ctl)
+            return null;
+        if (ctl is SpinBox sb)
+            ctl = sb.GetLineEdit();
+        var g = ctl.GetGlobalRect().GetCenter();
+        if (ctl.GetWindow() is { } win && win != GetWindow())
+            g += new Vector2(win.Position.X, win.Position.Y);
+        return [g.X, g.Y];
+    }
+
+    /// <summary>Where a list's row with this text stands on screen, scrolled into view first; null when there is none.</summary>
+    private static float[]? ListRow(ItemList? list, string? text, Window? popup = null)
+    {
+        if (list is null || !list.IsVisibleInTree())
+            return null;
+        for (int i = 0; i < list.ItemCount; i++)
+            if (list.GetItemText(i) == text)
+            {
+                list.EnsureCurrentIsVisible();
+                var r = list.GetItemRect(i);
+                var at = list.GetGlobalRect().Position + r.Position + r.Size / 2 - new Vector2(0, (float)list.GetVScrollBar().Value);
+                if (popup is not null)
+                    at += new Vector2(popup.Position.X, popup.Position.Y);
+                return [at.X, at.Y];
+            }
+        return null;
     }
 }

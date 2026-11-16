@@ -49,6 +49,18 @@ public class BuildContentTabTests
     }
 
     [Fact]
+    public void An_answer_with_nothing_in_it_shows_an_empty_list_even_one_the_region_could_not_read()
+    {
+        var r = Selected();
+        r.C.Receive(new TaskInventoryReceived(G(1), [Item(11, "card")]));
+        Assert.Equal(["card"], r.C.Contents.Select(i => i.Name));
+        // after the last item is deleted the region has no contents file for the prim, and the read ends with nothing
+        r.C.Receive(new TaskInventoryReceived(G(1), [], Ok: false));
+        Assert.True(r.C.ContentsKnown);
+        Assert.Empty(r.C.Contents);
+    }
+
+    [Fact]
     public void New_Script_goes_into_a_prim_that_may_be_modified_and_the_list_is_asked_for_again()
     {
         var r = Selected();

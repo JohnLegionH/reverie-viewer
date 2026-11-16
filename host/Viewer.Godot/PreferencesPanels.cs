@@ -62,7 +62,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
     private string _current = "general";
 
     /// <summary>The categories in the order shown: the official viewer's order, with the Interface page where its Colors tab is.</summary>
-    public static readonly string[] Categories = ["general", "graphics", "sound", "chat", "moveview", "interface", "privacy", "cache"];
+    public static readonly string[] Categories = ["general", "graphics", "sound", "chat", "moveview", "interface", "privacy", "cache", "building"];
 
     /// <summary>The category now shown.</summary>
     public string CurrentCategory => _current;
