@@ -25,6 +25,8 @@
   "login.grid.none": "Choose a grid",
   "login.password.show": "Show password",
   "login.password.hide": "Hide password",
+  "login.password.show.short": "Show",
+  "login.password.hide.short": "Hide",
   "login.names.saved": "Saved names",
   "login.names.forget": "Forget {0}",
   "login.preferences": "Preferences",

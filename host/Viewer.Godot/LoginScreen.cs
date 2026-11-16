@@ -158,7 +158,7 @@ public partial class LoginScreen : Control
 
         // Grid
         Field(Spec("grid"));
-        _grid = Register(new OptionButton { Icon = ReverieIcons.Get(LucideIcons.Grid), SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = false, ClipText = true }, Spec("grid"));
+        _grid = Register(new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = false, ClipText = true }, Spec("grid"));
         box.AddChild(_grid);
 
         // Name, with the names saved for the chosen grid
@@ -175,8 +175,8 @@ public partial class LoginScreen : Control
         // Password, with show/hide inside the field
         Field(Spec("password"));
         _password = Register(new LineEdit { Secret = true, SizeFlagsHorizontal = SizeFlags.ExpandFill }, Spec("password"));
-        _reveal = new Button { Name = "reveal", Text = strings.Get("login.password.show"), Flat = true, FocusMode = FocusModeEnum.All, ThemeTypeVariation = ReverieStyle.Caption };
-        _reveal.AccessibilityName = _reveal.Text;
+        _reveal = new Button { Name = "reveal", Text = strings.Get("login.password.show.short"), Flat = true, FocusMode = FocusModeEnum.All, ThemeTypeVariation = ReverieStyle.Caption };
+        _reveal.AccessibilityName = strings.Get("login.password.show");
         _reveal.SetAnchorsPreset(LayoutPreset.RightWide);
         _reveal.GrowHorizontal = GrowDirection.Begin;
         _reveal.OffsetRight = -4;
@@ -185,8 +185,8 @@ public partial class LoginScreen : Control
         _reveal.Pressed += () =>
         {
             _password.Secret = !_password.Secret;
-            _reveal.Text = strings.Get(_password.Secret ? "login.password.show" : "login.password.hide");
-            _reveal.AccessibilityName = _reveal.Text;
+            _reveal.Text = strings.Get(_password.Secret ? "login.password.show.short" : "login.password.hide.short");
+            _reveal.AccessibilityName = strings.Get(_password.Secret ? "login.password.show" : "login.password.hide");
         };
         box.AddChild(_password);
 
@@ -206,7 +206,7 @@ public partial class LoginScreen : Control
         _start = Register(new RvSegmented(strings.Get("login.start.label"),
             [strings.Get("login.start.last"), strings.Get("login.start.home"), strings.Get("login.start.region")]), Spec("start"));
         box.AddChild(_start);
-        _startRegion = Register(new LineEdit { PlaceholderText = strings.Get(Spec("start_region").HintKey!), Visible = false }, Spec("start_region"));
+        _startRegion = Register(new LineEdit { PlaceholderText = strings.Get(Spec("start_region").HintKey!), Visible = false, CustomMinimumSize = new Vector2(CardWidth - 40, 0) }, Spec("start_region"));
         box.AddChild(_startRegion);
         var (kind, region) = StartChoice.Parse(model?.StartLocation);
         _start.Select((int)kind);
@@ -320,14 +320,14 @@ public partial class LoginScreen : Control
         int selected = -1;
         if (_grids.Entries.Count == 0)
         {
-            _grid.AddItem(_strings.Get("login.grid.none"), PlaceholderItemId);
+            _grid.AddIconItem(ReverieIcons.Get(LucideIcons.Grid), _strings.Get("login.grid.none"), PlaceholderItemId);
             _grid.SetItemDisabled(0, true);
             selected = 0;
         }
         for (int i = 0; i < _grids.Entries.Count; i++)
         {
             var e = _grids.Entries[i];
-            _grid.AddItem(e.Name, i);
+            _grid.AddIconItem(ReverieIcons.Get(LucideIcons.Grid), e.Name, i);
             _grid.SetItemMetadata(_grid.ItemCount - 1, e.Key);
             _grid.SetItemTooltip(_grid.ItemCount - 1, e.Address);
             if (e.Key == _grids.Selected?.Key)
