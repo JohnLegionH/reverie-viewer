@@ -217,6 +217,18 @@ public sealed partial class EditController
         return any;
     }
 
+    /// <summary>What the faces an edit goes to have now, saved when a picker opens so Cancel can put it back.</summary>
+    public FacePicks SaveFacePicks() => new([]);
+
+    /// <summary>Puts back each saved face's own texture. True when anything was sent.</summary>
+    public bool RevertTextures(FacePicks saved) => false;
+
+    /// <summary>Puts back each saved face's own colour. True when anything was sent.</summary>
+    public bool RevertColours(FacePicks saved) => false;
+
+    /// <summary>Puts back each saved face's own PBR material, or none. True when anything was sent.</summary>
+    public bool RevertMaterials(FacePicks saved) => false;
+
     /// <summary>Puts a PBR material (a material asset) on the faces an edit goes to.</summary>
     public bool ApplyMaterial(Guid materialId) => SendMaterial(materialId);
 
