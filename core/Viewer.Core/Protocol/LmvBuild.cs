@@ -24,9 +24,9 @@ internal static class LmvBuild
 
     private static Vector3 L(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
-    /// <summary>The create tool's message for the default box: wood, square profile on a straight path, half a metre, made selected; the
-    /// placement's ray tells the region where it goes.</summary>
-    public static ObjectAddPacket ObjectAdd(UUID agent, UUID session, UUID group, Placement p) => new()
+    /// <summary>The create tool's message for a box: square profile on a straight path, of the size and material given (the default
+    /// half-metre wooden box unless the new-prim settings say otherwise), made selected; the placement's ray tells the region where it goes.</summary>
+    public static ObjectAddPacket ObjectAdd(UUID agent, UUID session, UUID group, Placement p, System.Numerics.Vector3 scale, byte material) => new()
     {
         AgentData = { AgentID = agent, SessionID = session, GroupID = group },
         ObjectData =

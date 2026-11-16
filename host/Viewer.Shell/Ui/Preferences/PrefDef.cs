@@ -4,7 +4,7 @@
 namespace Viewer.Shell;
 
 /// <summary>The pages of Preferences that hold ordinary settings (the Interface page is the theme and has its own logic).</summary>
-public enum PrefPage { General, Graphics, Sound, Chat, MoveView, Privacy, Cache }
+public enum PrefPage { General, Graphics, Sound, Chat, MoveView, Privacy, Cache, Building }
 
 /// <summary>When a changed setting takes effect.</summary>
 public enum PrefApply
@@ -21,7 +21,7 @@ public enum PrefApply
 public enum PrefScope { Global, PerAccount }
 
 /// <summary>What kind of control a setting needs.</summary>
-public enum PrefKind { Switch, Whole, Real, Choice, Folder }
+public enum PrefKind { Switch, Whole, Real, Choice, Folder, Text }
 
 /// <summary>
 /// One setting that appears on a Preferences page: where it is shown, its string-table key, its default and range, whether it is

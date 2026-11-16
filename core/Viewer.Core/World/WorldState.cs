@@ -601,7 +601,7 @@ public sealed class WorldState : IDisposable
                 FaceMaterials.WithRenderMaterials(prim.Materials, _renderMaterials.GetValueOrDefault(prim.LocalId)),
                 // glTF overrides arrive outside the object's updates: kept across them, or taken from those that came first
                 existing is not null ? existing.MaterialOverrides : _pendingOverrides.Remove(prim.LocalId, out var early) ? early : null,
-                prim.Light, prim.Projector, prim.Interaction, prim.AttachItemId == Guid.Empty ? null : prim.AttachItemId, prim.Material);
+                prim.Light, prim.Projector, prim.Interaction, prim.AttachItemId == Guid.Empty ? null : prim.AttachItemId, prim.Material, prim.Flexible);
             if (existing is not null && existing.AttachmentPoint is not null && attachPoint is null && existing.ParentLocalId == prim.ParentLocalId)
                 next = next with { AttachmentPoint = existing.AttachmentPoint, WearerAgentId = existing.WearerAgentId };
             if (existing == next)

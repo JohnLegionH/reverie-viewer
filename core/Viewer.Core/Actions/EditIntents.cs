@@ -143,3 +143,87 @@ public sealed record DuplicateObjectsIntent(IReadOnlyList<uint> Roots, Vector3 O
     public override IReadOnlyList<ActionIssue> Validate() => [.. EditText.Objects(Roots), .. (EditText.Finite(Offset) ? Array.Empty<ActionIssue>() : [new ActionIssue("edit.bad_number")])];
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
+
+/// <summary>Flexible Path on (with its settings) or off (<paramref name="Flexible"/> null) for one prim: the flexible block and the shape's
+/// path, as the official Features tab sends them (LLVOVolume::setIsFlexible).</summary>
+public sealed record SetFlexibleIntent(uint LocalId, FlexibleParams? Flexible) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => EditText.Object(LocalId);
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>A prim's light on (with its settings and, when given, its projector) or off (<paramref name="Light"/> null).</summary>
+public sealed record SetLightIntent(uint LocalId, LightParams? Light, ProjectorParams? Projector) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => EditText.Object(LocalId);
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>A prim's physics shape type, gravity, friction, density and restitution, sent with its flags as the official viewer does
+/// (ObjectFlagUpdate with its extra physics block).</summary>
+public sealed record SetPhysicsIntent(uint LocalId, PhysicsParams Physics, bool Physical, bool Temporary, bool Phantom) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => EditText.Object(LocalId);
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>A prim's material (Stone 0 to Rubber 6).</summary>
+public sealed record SetObjectMaterialIntent(uint LocalId, byte Material) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => [.. EditText.Object(LocalId), .. (Material > 6 ? [new ActionIssue("edit.bad_material")] : Array.Empty<ActionIssue>())];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Ask the region for the physics settings of some objects (its GetObjectPhysicsData capability).</summary>
+public sealed record RequestPhysicsIntent(IReadOnlyList<Guid> ObjectIds) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => ObjectIds.Count == 0 || ObjectIds.Any(i => i == Guid.Empty) ? [new("edit.no_object")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>The Content tab's New Script: the region makes its default script inside the prim (RezScript with no item).</summary>
+public sealed record NewScriptIntent(uint LocalId, Guid ObjectId, string Name) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 || ObjectId == Guid.Empty ? [new("edit.no_object")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>An inventory item dropped on the Content tab goes into the prim: a script as a script (RezScript), anything else as an item
+/// (UpdateTaskInventory). The region copies a copyable item and moves the others.</summary>
+public sealed record GiveItemToObjectIntent(uint LocalId, Guid ItemId, bool Script) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 || ItemId == Guid.Empty ? [new("edit.no_item")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Delete an item from a prim's contents (RemoveTaskInventory).</summary>
+public sealed record RemoveObjectItemIntent(uint LocalId, Guid ItemId) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 || ItemId == Guid.Empty ? [new("edit.no_item")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Copy an item out of a prim into the agent's inventory, into the folder for its type (MoveTaskInventory; the region copies a
+/// copyable item and moves the others).</summary>
+public sealed record CopyObjectItemIntent(uint LocalId, Guid ItemId, int AssetType) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 || ItemId == Guid.Empty ? [new("edit.no_item")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Take one object into a chosen inventory folder (DeRezObject, take into the agent's inventory, with that folder).</summary>
+public sealed record TakeIntoFolderIntent(uint LocalId, Guid FolderId) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 || FolderId == Guid.Empty ? [new("edit.no_folder")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}

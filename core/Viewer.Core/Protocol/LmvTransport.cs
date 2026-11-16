@@ -1991,7 +1991,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
 
     internal static PrimData ToPrimData(Primitive p) => new(
         p.LocalID, p.ID.Guid, p.ParentID, (int)p.PrimData.AttachmentPoint, V(p.Position), Q(p.Rotation), V(p.Scale), V(p.Velocity), V(p.AngularVelocity),
-        V(p.Acceleration), ToTextureAnim(p.TextureAnim), ToShape(p), ToColors(p.Textures), ToTextures(p.Textures), LmvMaterials.ToMaterials(p.Textures), ToLight(p), ToProjector(p), ToInteraction(p), AttachItemOf(p), (int)p.PrimData.Material);
+        V(p.Acceleration), ToTextureAnim(p.TextureAnim), ToShape(p), ToColors(p.Textures), ToTextures(p.Textures), LmvMaterials.ToMaterials(p.Textures), ToLight(p), ToProjector(p), ToInteraction(p), AttachItemOf(p), (int)p.PrimData.Material, ToFlexible(p));
 
     /// <summary>The inventory item a worn object was taken from: the object states it in its "AttachItemID" name-value pair (official viewer:
     /// llviewerobject.cpp, getAttachmentItemID). Empty when the object does not say.</summary>
@@ -2024,6 +2024,9 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// <summary>The prim's light block (colour and intensity, radius, falloff, cutoff); null when it has none.</summary>
     internal static PrimLight? ToLight(Primitive p) =>
         p.Light is { Radius: > 0f, Intensity: > 0f } l ? new PrimLight(new System.Numerics.Vector3(l.Color.R, l.Color.G, l.Color.B), l.Intensity, l.Radius, l.Falloff, l.Cutoff) : null;
+
+    /// <summary>The prim's flexible block (its softness and forces); null when it has none.</summary>
+    internal static Viewer.Core.Building.FlexibleParams? ToFlexible(Primitive p) => null;
 
     /// <summary>The prim's projector (light image block), only on a prim that also has a light and whose image names a texture.</summary>
     internal static PrimProjector? ToProjector(Primitive p) =>

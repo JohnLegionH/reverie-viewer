@@ -20,12 +20,13 @@ internal static class PlacementRules
     }
 }
 
-/// <summary>Make the default box where the ray says (Build, Create).</summary>
-public sealed record CreateBoxIntent(Placement Placement) : ActionIntent
+/// <summary>Make a box where the ray says (Build, Create): the default half-metre wooden box, or the size and material the new-prim
+/// settings give.</summary>
+public sealed record CreateBoxIntent(Placement Placement, Vector3? Scale = null, byte? Material = null) : ActionIntent
 {
     public override ActionKind Kind => ActionKind.CreateObject;
     public override IReadOnlyList<ActionIssue> Validate() => PlacementRules.Check(Placement, "create");
-    internal override TransportCommand? ToCommand() => new CreateObjectCommand(Placement);
+    internal override TransportCommand? ToCommand() => new CreateObjectCommand(Placement, Scale ?? DefaultBox.Scale, Material ?? DefaultBox.MaterialWood);
 }
 
 /// <summary>Rez an object from the agent's inventory where the ray says.</summary>

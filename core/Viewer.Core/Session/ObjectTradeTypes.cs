@@ -31,3 +31,6 @@ public sealed record RequestPayPriceCommand(uint LocalId, Guid ObjectId) : Trans
 
 /// <summary>Pay an object.</summary>
 public sealed record PayObjectCommand(Guid ObjectId, int Amount, string ObjectName) : TransportCommand;
+
+/// <summary>The region's physics settings for one object (its answer to GetObjectPhysicsData, or the ObjectPhysicsProperties it sends after a change).</summary>
+public sealed record ObjectPhysicsReceived(Guid ObjectId, uint LocalId, Viewer.Core.Building.PhysicsParams Physics) : TransportEvent;

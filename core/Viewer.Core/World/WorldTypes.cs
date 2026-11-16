@@ -36,7 +36,8 @@ public sealed record PrimData(
     PrimProjector? Projector = null,
     PrimInteraction? Interaction = null,
     Guid AttachItemId = default,
-    int Material = 0);
+    int Material = 0,
+    Viewer.Core.Building.FlexibleParams? Flexible = null);
 
 /// <summary>An avatar object as the protocol adapter reports it. <paramref name="ParentLocalId"/> is the object it sits on
 /// (0 when standing); while seated its position and rotation are relative to that object.</summary>
@@ -78,7 +79,8 @@ public sealed record ObjectState(
     PrimProjector? Projector = null,
     PrimInteraction? Interaction = null,
     Guid? AttachItemId = null,
-    int Material = 0)
+    int Material = 0,
+    Viewer.Core.Building.FlexibleParams? Flexible = null)
 {
     /// <summary>The angular velocity read as an llTargetOmega spin (axis + rate); null when not spinning.</summary>
     public TargetOmega? TargetOmega => MotionFields.OmegaOf(AngularVelocity);

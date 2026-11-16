@@ -9,6 +9,8 @@ namespace Viewer.Core.Interaction;
 public static class ObjectFlagBits
 {
     public const uint Physics = 1u << 0;
+    /// <summary>The object was just made by the agent's own create tool and arrives selected.</summary>
+    public const uint CreateSelected = 1u << 1;
     public const uint Modify = 1u << 2;
     public const uint Copy = 1u << 3;
     public const uint YouOwner = 1u << 5;

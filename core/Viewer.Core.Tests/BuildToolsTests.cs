@@ -324,7 +324,7 @@ public class BuildToolsTests
     {
         var target = Guid.NewGuid();
         var p = new Placement(new Vector3(1, 2, 3), new Vector3(4, 5, 6), target, false);
-        var m = LmvBuild.ObjectAdd(Agent, Session, UUID.Zero, p);
+        var m = LmvBuild.ObjectAdd(Agent, Session, UUID.Zero, p, DefaultBox.Scale, DefaultBox.MaterialWood);
         Assert.Equal(Agent, m.AgentData.AgentID);
         Assert.Equal(Session, m.AgentData.SessionID);
         var o = m.ObjectData;
@@ -347,7 +347,7 @@ public class BuildToolsTests
         Assert.Equal(0, o.BypassRaycast);
         Assert.Equal(0, o.RayEndIsIntersection);
         Assert.Equal(0, o.State);
-        Assert.Equal(1, LmvBuild.ObjectAdd(Agent, Session, UUID.Zero, p with { BypassRaycast = true }).ObjectData.BypassRaycast);
+        Assert.Equal(1, LmvBuild.ObjectAdd(Agent, Session, UUID.Zero, p with { BypassRaycast = true }, DefaultBox.Scale, DefaultBox.MaterialWood).ObjectData.BypassRaycast);
     }
 
     [Fact]
@@ -602,7 +602,7 @@ public class BuildToolsTests
         Assert.Empty(new RezItemIntent(Guid.NewGuid(), ok).Validate());
         Assert.NotEmpty(new DeleteObjectIntent(0).Validate());
         Assert.Equal(new DeleteObjectCommand(5), new DeleteObjectIntent(5).ToCommand());
-        Assert.True(LmvTransport.IsKnownCommand(new CreateObjectCommand(ok)));
+        Assert.True(LmvTransport.IsKnownCommand(new CreateObjectCommand(ok, DefaultBox.Scale, DefaultBox.MaterialWood)));
         Assert.True(LmvTransport.IsKnownCommand(new RezItemCommand(Guid.NewGuid(), ok)));
         Assert.True(LmvTransport.IsKnownCommand(new DeleteObjectCommand(5)));
     }

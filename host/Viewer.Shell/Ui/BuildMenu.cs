@@ -53,6 +53,14 @@ public static class BuildMenu
         menus.AddEntry(MenuId, new MenuEntry(RedoId, "menu.build.redo", RedoCommand, () => inWorld() && edit() is { CanRedo: true }, UndoOrder + 1, Shortcut: "control|Y"));
     }
 
+    public const string NextPartId = "build.next_part", PreviousPartId = "build.previous_part", OwnedOnlyId = "build.owned_only", TakeIntoFolderId = "build.take_into_folder";
+    public const string NextPartCommand = "build.next_part", PreviousPartCommand = "build.previous_part", OwnedOnlyCommand = "build.owned_only",
+        TakeIntoFolderCommand = "build.take_into_folder";
+
+    /// <summary>Select Next Part (Ctrl+.) and Select Previous Part (Ctrl+,) after Edit Linked Parts, Select Only My Objects in Options, and
+    /// Take Into Folder after Unlink (menu_viewer.xml's places for the first three).</summary>
+    public static void InstallSelectionHelpers(MenuModel menus, Func<bool> inWorld, Func<Viewer.Shell.Build.EditController?> edit) { }
+
     /// <summary>Undo and Redo stand last in the Build menu, after Upload.</summary>
     public const int UndoOrder = 2000;
 

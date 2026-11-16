@@ -68,6 +68,9 @@ public sealed class InteractionController
     /// <summary>Plays an interface sound (the object sounds of creating, rezzing, taking and deleting).</summary>
     public Action<global::Viewer.Shell.Sound.UiSoundSlot>? PlaySound { get; set; }
 
+    /// <summary>The new-prim settings Create uses (Preferences, Building); the default box when not given.</summary>
+    public Func<Viewer.Core.Building.NewPrimDefaults>? NewPrim { get; set; }
+
     /// <summary>Build, Create was chosen: the next left click in the world places the default box.</summary>
     public bool Placing { get; private set; }
 

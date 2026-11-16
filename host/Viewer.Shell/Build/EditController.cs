@@ -236,6 +236,7 @@ public sealed partial class EditController
             Deselect();
             return;
         }
+        ReceiveFeatures(e);
         if (e is ObjectPropertiesReceived p)
         {
             _properties[p.ObjectId] = p;
