@@ -12,7 +12,7 @@ namespace Viewer.Shell;
 /// </summary>
 public static class LoginDialogSamples
 {
-    public static readonly IReadOnlyList<string> Kinds = ["terms", "terms_page", "critical", "update", "mfa", "trust", "certificate_error", "certificate_unreadable", "unknown"];
+    public static readonly IReadOnlyList<string> Kinds = ["terms", "terms_page", "critical", "update", "mfa", "trust", "certificate_error", "certificate_unreadable", "unknown", "disclosure_first_run", "disclosure_second_life"];
 
     private static CertificateRefusal SampleCertificate(CertificateProblem kind) =>
         new("grid.example.org", "9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08", "RemoteCertificateChainErrors", "CN=grid.example.org, O=Example Grid", new DateTimeOffset(2027, 6, 1, 0, 0, 0, TimeSpan.Zero))
@@ -39,6 +39,8 @@ public static class LoginDialogSamples
         "certificate_error" => LoginDialogs.CertificateError(s, SampleCertificate(CertificateProblem.Expired)),
         "certificate_unreadable" => LoginDialogs.CertificateError(s, new CertificateRefusal("grid.example.org", "", "RemoteCertificateNotAvailable", "", null) { Kind = CertificateProblem.Unreadable }),
         "unknown" => LoginDialogs.Unknown(s),
+        "disclosure_first_run" => Disclosures.FirstRun(s),
+        "disclosure_second_life" => Disclosures.BeforeSecondLife(s),
         _ => null,
     };
 }

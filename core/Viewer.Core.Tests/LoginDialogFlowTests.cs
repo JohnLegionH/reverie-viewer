@@ -337,7 +337,7 @@ public class LoginDialogSamplesTests
     public void Every_sample_kind_makes_a_dialog_with_a_main_button_and_other_names_make_none()
     {
         var strings = StringTable.English();
-        Assert.Equal(9, LoginDialogSamples.Kinds.Count);
+        Assert.Equal(11, LoginDialogSamples.Kinds.Count);   // nine login-flow dialogs and the two disclosures
         foreach (var kind in LoginDialogSamples.Kinds)
         {
             var d = LoginDialogSamples.For(strings, kind);

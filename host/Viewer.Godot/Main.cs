@@ -278,10 +278,28 @@ public partial class Main : Node
             CoreLog.F("grid-source", GridAddress.Tidy(gridOption).Uri is not null ? "option" : model.LoginUri.Length > 0 ? "remembered" : "none"),
             CoreLog.F("grid-chars", model.LoginUri.Length), CoreLog.F("ms-since-engine-start", Time.GetTicksMsec()));   // the start-up time to the login screen
         WarmPipelines();
+        bool automation = false;
 #if NV_AUTOMATION
-        if (Viewer.Automation.AutomationArgs.Enabled(OS.GetCmdlineUserArgs()))
+        automation = Viewer.Automation.AutomationArgs.Enabled(OS.GetCmdlineUserArgs());
+        if (automation)
             AddChild(new AutomationHost(this));
 #endif
+        // the Third-Party Viewer Policy's disclosures (1.c, 4.b) at the first run; a development run driven by the automation API
+        // starts from an empty settings folder every time, so it is not stopped by them (its own command shows them)
+        if (!automation && Disclosures.FirstRunDue(startSettings))
+            _ = ShowFirstRunDisclosure(strings, startSettings);
+    }
+
+    /// <summary>The first-run disclosure over the login screen: accepted, it is kept and not shown again; refused, the viewer quits.</summary>
+    private async System.Threading.Tasks.Task ShowFirstRunDisclosure(StringTable strings, SettingsService settings)
+    {
+        if (_loginScreen is not { } screen)
+            return;
+        var answer = await screen.Dialogs.AskAsync(Disclosures.FirstRun(strings), System.Threading.CancellationToken.None);
+        if (answer.Confirmed)
+            Callable.From(() => Disclosures.FirstRunAccepted(settings)).CallDeferred();
+        else
+            Callable.From(RequestClose).CallDeferred();
     }
 
     /// <summary>The pipeline warm-up, off screen, in the login screen's first two frames (before anyone

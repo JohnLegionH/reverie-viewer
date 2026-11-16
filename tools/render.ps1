@@ -12,6 +12,8 @@
 # and the pacing guard on. NV_TEST_WINDOW_FULL=1 (or godot.ps1 -FullSizeWindow) restores the usual window for every run.
 #   golden_<backend>        synthetic 512x256 fixture (committed) vs its committed golden, backend asserted in the sidecar
 #   negative_<backend>      the same with a 40 m hill raised through the core: the diff MUST fail
+#   logincard_<what>_<backend>  the login card at 1152x648: SL's long refusal (card inside the window, above the release line) and the
+#                           two disclosures (panel inside the window), vs their goldens; logincard_long_negative: unbounded status MUST fail
 #   loginscreen_<backend>   the login screen inside the shell, with its theme and a reserved example address (fixtures/ui) vs its golden
 #                           (approved after viewing); loginscreen_negative_<backend>: the pseudo-localised strings, the diff MUST fail
 #   zoo_<backend>: the committed prim zoo (fixtures\prims) vs its golden (PROPOSED until approved after viewing)
@@ -935,6 +937,35 @@ function Invoke-LoginScreenCases {
     }
 }
 
+function Invoke-LoginCardCases {
+    # the login card at the test window's size (--tr-logincard): Second Life's long refusal on the status line (the card must lie inside the
+    # window and end above the release line), and the two disclosures over the login screen (their panel must lie inside the window); each
+    # against its golden. The negative control lets the status area grow with its text, as before it was bounded: its geometry check MUST fail.
+    foreach ($be in $Backends) {
+        foreach ($what in @("long", "disclosure_first_run", "disclosure_second_life")) {
+            $name = "logincard-" + $what.Replace("_", "-")
+            $golden = Join-Path $repo "fixtures\ui\golden-$name-$be.png"
+            if (-not (Test-Path -LiteralPath $golden)) {
+                $r = Invoke-Render $be "proposal-$name-$be" "--tr-logincard=$what"
+                $geometry = if ($r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) { "geometry PASS $($r.Json.logincard | ConvertTo-Json -Compress)" } else { "geometry FAIL (exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" }
+                if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
+                    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
+                    Copy-Item -LiteralPath (Join-Path $out "proposal-$name-$be.png") -Destination $golden
+                    Add-Case "$($name.Replace('-', '_'))_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it); $geometry" $r.Seconds
+                } else { Add-Case "$($name.Replace('-', '_'))_$be" "FAIL" "no committed golden $golden; $geometry" $r.Seconds }
+                continue
+            }
+            $r = Invoke-Render $be "$name-$be" "`"--tr-golden=$golden`" --tr-logincard=$what"
+            $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be
+            Add-Case "$($name.Replace('-', '_'))_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary); $($r.Json.logincard | ConvertTo-Json -Compress)$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
+        }
+        $n = Invoke-Render $be "logincard-long-unbounded-$be" "--tr-logincard=long --tr-alter=unbounded"
+        if ($n.Exit -eq 1 -and $n.Json -and $n.Json.logincard -and -not ($n.Json.logincard.inside -and $n.Json.logincard.above_release) -and $n.Json.backend.driver -eq $be) {
+            Add-Case "logincard_long_negative_$be" "PASS" "the unbounded status area was rejected: $($n.Json.failures -join ' | ')" $n.Seconds
+        } else { Add-Case "logincard_long_negative_$be" "FAIL" "the unbounded status area was not rejected (exit $($n.Exit))" $n.Seconds }
+    }
+}
+
 function Invoke-TimeOfDayCases {
     $skyScene = Join-Path $repo "fixtures\environment\water-sky-default.scene.json"
     foreach ($be in $Backends) {
@@ -1442,6 +1473,7 @@ if ($NeighboursOnly) {   # -NeighboursOnly: just the neighbour-region cases (to 
 
 if ($LoginOnly) {   # -LoginOnly: just the login-screen cases (to propose or check their goldens)
     Invoke-LoginScreenCases
+    Invoke-LoginCardCases
     Exit-Render 0
 }
 
@@ -2153,6 +2185,7 @@ Invoke-NeighbourWaterCases
 Invoke-SharedTextureCases
 Invoke-TeardownCases
 Invoke-LoginScreenCases
+Invoke-LoginCardCases
 Invoke-UiSceneCases
 Invoke-UiChromeCases
 Invoke-FloaterDragCases

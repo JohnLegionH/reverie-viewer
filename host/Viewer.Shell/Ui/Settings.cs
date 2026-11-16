@@ -75,6 +75,11 @@ public static class Settings
     /// <summary>Whether the login screen keeps the login hash of the next successful login (off by default, as the official viewer).</summary>
     public static readonly Setting<bool> LoginRememberPassword = new("login_remember_password", false, v => v);
 
+    /// <summary>Whether the disclosure shown at the first run was accepted (<see cref="Disclosures"/>).</summary>
+    public static readonly Setting<bool> DisclosureFirstRunAccepted = new("disclosure_first_run_accepted", false, v => v);
+    /// <summary>Whether the disclosure shown before the first Second Life login was accepted (<see cref="Disclosures"/>).</summary>
+    public static readonly Setting<bool> DisclosureSecondLifeAccepted = new("disclosure_second_life_accepted", false, v => v);
+
     /// <summary>The settings keys of the remembered username (kept only while <see cref="LoginRememberName"/> is on).</summary>
     public const string LoginFirstNameKey = "login_first", LoginLastNameKey = "login_last", LoginUserNameKey = "login_username";
 

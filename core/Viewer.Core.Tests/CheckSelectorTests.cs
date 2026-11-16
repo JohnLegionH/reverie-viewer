@@ -75,6 +75,8 @@ public class CheckSelectorTests
     [InlineData("host/Viewer.Shell/Grids/SavedNames.cs")]
     [InlineData("host/Viewer.Godot/LoginGridPanels.cs")]
     [InlineData("host/Viewer.Godot/ShownIdentity.cs")]   // the version the login screen and About show
+    [InlineData("host/Viewer.Shell/Disclosures.cs")]   // the disclosures before the first run and the first Second Life login
+    [InlineData("host/Viewer.Godot/TestRender.LoginCard.cs")]   // the login card pictures at the test window size
     public void The_grid_manager_files_are_login_files(string file)
     {
         var s = Select(file);
