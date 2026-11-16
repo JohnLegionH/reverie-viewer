@@ -33,7 +33,16 @@ public static class ScriptRules
 {
     private static uint Mask(ScriptAccess a) => a.Permissions.Owner == a.AgentId ? a.Permissions.OwnerMask : a.Permissions.EveryoneMask;
 
-    public static ScriptView ViewOf(ScriptAccess access) => ScriptView.Editable;
+    public static ScriptView ViewOf(ScriptAccess access)
+    {
+        uint mask = Mask(access);
+        bool copy = (mask & NotecardPermissions.Copy) != 0, modify = (mask & NotecardPermissions.Modify) != 0;
+        if (access.InObject)
+            return copy && modify ? ScriptView.Editable : ScriptView.NotAllowed;
+        if (!copy || !(modify || access.InLibrary))
+            return ScriptView.NotAllowed;
+        return modify && !access.InLibrary ? ScriptView.Editable : ScriptView.ReadOnly;
+    }
 }
 
 /// <summary>One line of the compiler's answer, with the place in the text it names (both counted from 0, as the grid sends them), or -1
@@ -46,7 +55,18 @@ public sealed record ScriptMessage(string Text, int Line, int Column)
     /// they are (both start at 0). Second Life sends "(12, 4) : ERROR : ..."; OpenSim's YEngine sends "(12,4) Error: ..." (its tokenizer
     /// counts lines from 0 too); Firestorm reads both with the same code and no adjustment.
     /// </summary>
-    public static ScriptMessage Parse(string text) => null!;
+    public static ScriptMessage Parse(string text)
+    {
+        text ??= "";
+        string clean = new(text.Where(c => c == '\t' || !char.IsControl(c)).ToArray());   // stripNonprintable
+        if (clean.Length < 2 || clean[0] != '(')
+            return new ScriptMessage(clean, -1, -1);
+        var rest = clean[1..].Replace(',', ' ').Replace(')', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (rest.Length >= 2 && int.TryParse(rest[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int line)
+            && int.TryParse(rest[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int col) && line >= 0 && col >= 0)
+            return new ScriptMessage(clean, line, col);
+        return new ScriptMessage(clean, -1, -1);
+    }
 }
 
 public enum ScriptSaveStatus { Saved, NoService, Failed }

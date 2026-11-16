@@ -170,6 +170,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 - **Changes:** rewritten in C#; the inventory is only read; sets are not edited, imported or saved; see the assembly's
   `NOTICE.md`.
 
+## Script editor keyword files (Second Life viewer and Firestorm, LGPL 2.1 only)
+
+- **Files:** `vendor/lsl-keywords/keywords_lsl_default.xml`, the Second Life viewer's LSL keyword file
+  (`indra/newview/app_settings/keywords_lsl_default.xml`, release 26.4), and `vendor/lsl-keywords/scriptlibrary_ossl.xml`,
+  Firestorm's OSSL keyword list (`indra/newview/app_settings/scriptlibrary_ossl.xml`, commit 895f65ab43). Both are kept
+  unchanged and embedded in the Viewer.Shell assembly; the script editor reads them for its word colours and tooltips.
+  `vendor/lsl-keywords/UPSTREAM.md` gives the sources.
+- **Licence:** Second Life Viewer Source Code (Copyright (C) Linden Research, Inc.) and the Firestorm viewer's source (The
+  Phoenix Firestorm Project, Inc.), each under the GNU Lesser General Public License, version 2.1 only; the licence text is
+  `ThirdPartyLicenses/LGPL-2.1-secondlife-viewer.txt`. Neither file carries a notice of its own.
+- **Changes:** none.
+
 ## Packages and binaries
 
 Package versions are pinned in `Directory.Packages.props` and the `packages.lock.json` files.

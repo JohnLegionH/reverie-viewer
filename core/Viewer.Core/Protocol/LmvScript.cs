@@ -61,17 +61,42 @@ internal sealed partial class LmvTransport : IScriptTransport
 
     /// <summary>The first request's body (llviewerassetupload.cpp LLScriptAssetUpload::generatePostBody): item_id and target for a script
     /// in the inventory; task_id, item_id, is_script_running and target for one inside an object.</summary>
-    internal static OSDMap ScriptUploadBody(ScriptAccess access, ScriptTarget target, bool running) => new();
+    internal static OSDMap ScriptUploadBody(ScriptAccess access, ScriptTarget target, bool running)
+    {
+        var body = new OSDMap
+        {
+            ["item_id"] = OSD.FromUUID(new UUID(access.ItemId)),
+            ["target"] = OSD.FromString(target == ScriptTarget.Mono ? "mono" : "lsl2"),
+        };
+        if (access.InObject)
+        {
+            body["task_id"] = OSD.FromUUID(new UUID(access.ObjectId));
+            body["is_script_running"] = OSD.FromBoolean(running);
+        }
+        return body;
+    }
 
     /// <summary>The uploader named by the first answer ("uploader"), or null.</summary>
-    internal static Uri? ScriptUploader(OSD answer) => null;
+    internal static Uri? ScriptUploader(OSD answer) =>
+        answer is OSDMap m && m["uploader"].AsString() is { Length: > 0 } u && Uri.TryCreate(u, UriKind.Absolute, out var uri) ? uri : null;
 
     /// <summary>
     /// The second answer as the editor's result. Saved only when "state" is "complete" (AssetInventoryUploadCoproc); "new_asset" is the stored
     /// text; "compiled" and "errors" as LLPreviewLSL::finishedLSLUpload and LLLiveLSLEditor's read them. OpenSim's answer for a script in the
     /// inventory has neither (it stores the text without compiling it): compiled is then unknown. A failure's "message" is its reason.
     /// </summary>
-    internal static ScriptSaveResult ParseScriptAnswer(OSD answer) => null!;
+    internal static ScriptSaveResult ParseScriptAnswer(OSD answer)
+    {
+        if (answer is not OSDMap m)
+            return ScriptSaveResult.Of(ScriptSaveStatus.Failed);
+        if (m["state"].AsString() != "complete")
+            return ScriptSaveResult.Of(ScriptSaveStatus.Failed, m.ContainsKey("message") ? m["message"].AsString() : null);
+        bool? compiled = m.ContainsKey("compiled") ? m["compiled"].AsBoolean() : null;
+        var messages = m["errors"] is OSDArray errors ? errors.Select(e => ScriptMessage.Parse(e.AsString())).ToArray() : [];
+        if (compiled is null && messages.Length > 0)
+            compiled = false;
+        return new ScriptSaveResult(ScriptSaveStatus.Saved, compiled, m["new_asset"].AsUUID().Guid, messages);
+    }
 
     public async Task<ScriptSaveResult> SaveScriptAsync(ScriptAccess access, byte[] text, ScriptTarget target, bool running, CancellationToken ct)
     {
@@ -136,7 +161,11 @@ internal sealed partial class LmvTransport : IScriptTransport
     }
 
     /// <summary>ScriptReset: AgentData and Script {ObjectID, ItemID} (llpreviewscript.cpp LLLiveLSLEditor::onReset).</summary>
-    internal static ScriptResetPacket ScriptReset(UUID agent, UUID session, Guid objectId, Guid itemId) => new();
+    internal static ScriptResetPacket ScriptReset(UUID agent, UUID session, Guid objectId, Guid itemId) => new()
+    {
+        AgentData = new ScriptResetPacket.AgentDataBlock { AgentID = agent, SessionID = session },
+        Script = new ScriptResetPacket.ScriptBlock { ObjectID = new UUID(objectId), ItemID = new UUID(itemId) },
+    };
 
     public bool ResetScript(ScriptAccess access)
     {
