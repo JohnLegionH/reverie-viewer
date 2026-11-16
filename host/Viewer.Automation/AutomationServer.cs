@@ -62,6 +62,19 @@ public sealed class AutomationServer : IDisposable
     }
 
     public int Port { get; }
+
+#pragma warning disable CS0649 // RED STUB
+    private volatile bool _off;
+#pragma warning restore CS0649
+
+    /// <summary>Whether the API has been turned off for this run (<see cref="TurnOffFor"/>). Once off it stays off: nothing turns it on again.</summary>
+    public bool IsOff => _off;
+
+    /// <summary>Turns the API off for the rest of the run when a login heads for a grid where the per-grid switch does not allow it
+    /// (<see cref="Viewer.Core.Session.ViewerFeature.Automation"/>); from then on every request is refused before it reaches the handler.
+    /// Returns <see cref="IsOff"/>.</summary>
+    public bool TurnOffFor(Viewer.Core.Session.GridKind grid) => _off;
+
     public IPAddress Address => ((IPEndPoint)_listener.LocalEndpoint).Address;
 
     /// <summary>The token as the token file carries it. Only <see cref="TokenFile"/> calls this.</summary>

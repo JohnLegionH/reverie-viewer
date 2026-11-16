@@ -144,6 +144,12 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     /// model keeps it in memory only).</summary>
     public event Action<LoginRecord>? Succeeded;
 
+    /// <summary>Raised with the kind of grid an attempt is about to log in to, after its login address is known and before anything is
+    /// sent to that address (the automation API turns itself off here on a grid where it is not allowed).</summary>
+#pragma warning disable CS0067 // RED STUB
+    public event Action<GridKind>? GridChosen;
+#pragma warning restore CS0067
+
     /// <summary>Raised (on the thread that changed it) whenever <see cref="Status"/> changes.</summary>
     public event Action<string>? StatusChanged;
 

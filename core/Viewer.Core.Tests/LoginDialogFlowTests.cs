@@ -25,6 +25,10 @@ internal sealed class LoginFlow : ILoginPrompts
     public static LoginFlow At(GridFetcher fetcher, string loginUri, params Func<int, TransportLoginResult>[] script) =>
         new(fetcher, loginUri, null, null, script);
 
+    /// <summary>A flow that logs in at a Second Life address (no grid info is ever fetched there).</summary>
+    public static LoginFlow SecondLifeAt(string loginUri, params Func<int, TransportLoginResult>[] script) =>
+        new(null, loginUri, null, null, script);
+
     private LoginFlow(GridFetcher? fetcher, string loginUri, string? settingsDir, CertificateTrust? trust, Func<int, TransportLoginResult>[] script)
     {
         _script = script;

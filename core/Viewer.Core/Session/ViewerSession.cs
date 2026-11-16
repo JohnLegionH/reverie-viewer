@@ -93,6 +93,16 @@ public sealed class ViewerSession : IDisposable
     /// <summary>Which kind of grid this session is on, from its login address's host (<see cref="GridPolicy.KindOf"/>).</summary>
     public GridKind Grid { get; }
 
+    /// <summary>The viewer statistics sender, while one runs: only on a grid whose policy allows the report
+    /// (<see cref="ViewerFeature.ViewerStatistics"/>) and whose transport can post it; from arrival until logout.</summary>
+    public ViewerStatsSender? Statistics { get; private set; }
+
+    /// <summary>The host's figures for the statistics report (frame rate, graphics adapter, language). Read on a worker thread.</summary>
+    public Func<ViewerStatsFigures>? StatsFigures { get; set; }
+
+    /// <summary>The period between statistics reports (the official five minutes unless a test sets it).</summary>
+    public TimeSpan? StatsPeriod { get; init; }
+
     /// <summary>Whether a feature beyond the official viewer may run on this session's grid (<see cref="GridPolicy.Allows"/>).</summary>
     public bool Allows(ViewerFeature feature) => GridPolicy.Allows(feature, Grid);
 

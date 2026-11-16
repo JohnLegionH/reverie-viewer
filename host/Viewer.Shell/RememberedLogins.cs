@@ -38,8 +38,18 @@ public interface ILoginVault
     string? UnavailableKey { get; }
     void Save(string grid, string name, Secret hash);
     Secret? Load(string grid, string name);
-    /// <summary>Forgets the entry for this grid and name. True when there was one.</summary>
+    /// <summary>Forgets the entry for this grid and name, and the multifactor hash kept with it. True when there was a saved password.</summary>
     bool Forget(string grid, string name);
+
+    /// <summary>Keeps the multifactor hash a grid handed out for this grid and name (lllogininstance.cpp saveMFAHash: the protected
+    /// store, beside the saved credentials).</summary>
+    void SaveMfaHash(string grid, string name, Secret hash) { }
+
+    /// <summary>The multifactor hash kept for this grid and name, or null.</summary>
+    Secret? LoadMfaHash(string grid, string name) => null;
+
+    /// <summary>Forgets the multifactor hash kept for this grid and name.</summary>
+    void ForgetMfaHash(string grid, string name) { }
 }
 
 /// <summary>

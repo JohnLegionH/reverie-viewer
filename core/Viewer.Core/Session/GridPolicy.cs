@@ -31,6 +31,10 @@ public enum ViewerFeature
 
     /// <summary>The restrained-life restriction set (RLV), which scripted objects the person wears drive.</summary>
     Restrictions = 5,
+
+    /// <summary>The viewer statistics report posted to the region's ViewerStats capability (llviewerstats.cpp send_viewer_stats). The
+    /// Third-Party Viewer Policy 2.h asks that it is not left out on Second Life; elsewhere it is not sent.</summary>
+    ViewerStatistics = 6,
 }
 
 /// <summary>Where a feature may run.</summary>
@@ -44,6 +48,9 @@ public enum FeatureReach
 
     /// <summary>On Second Life only for objects every part of which the person created; on everywhere else as before.</summary>
     OwnCreationsOnSecondLife,
+
+    /// <summary>On Second Life only; off everywhere else.</summary>
+    SecondLifeOnly,
 }
 
 /// <summary>
@@ -63,6 +70,7 @@ public static class GridPolicy
         [ViewerFeature.Automation] = FeatureReach.Everywhere,
         [ViewerFeature.Addons] = FeatureReach.Everywhere,
         [ViewerFeature.Restrictions] = FeatureReach.Everywhere,
+        [ViewerFeature.ViewerStatistics] = FeatureReach.Everywhere,
     };
 
     /// <summary>The kind of grid a login address belongs to: Second Life when its host is one of Linden Lab's.</summary>
