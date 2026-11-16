@@ -4,7 +4,7 @@
 
 # Runs every test suite in the repo. JUnit XML goes to tools/test-results/ (gitignored).
 # Node reuse and the shared compiler are off, so no MSBuild or VBCSCompiler process outlives the run.
-#     sh /d/native-viewer/tools/test.sh
+#     sh tools/test.sh    (from the repository's top folder; it finds the repository from its own path)
 set -e
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 results="$repo/tools/test-results"

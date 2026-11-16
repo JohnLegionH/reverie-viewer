@@ -4,7 +4,8 @@ Documents for people writing add-ons for Reverie Viewer or working on its code.
 
 | File | What |
 |---|---|
-| ADDONS.md | Add-ons: how to write, package and install one; the manifest, interface 0.1, permissions and jobs |
+| ADDONS.md | Add-ons: how to write, package and install one; the manifest, interface 0.5, permissions and jobs |
+| SPECS.md | System specs: the graphics floor, operating systems, memory and graphics cards |
 | ENVIRONMENT-SPEC.md | Water and environment: behaviour spec |
 | GLOW-SPEC.md | Glow: behaviour spec |
 | PROJECTOR-SPEC.md | Projected lights: behaviour spec |

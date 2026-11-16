@@ -1,7 +1,7 @@
 <!-- Copyright (c) 2026 Legion Builds -->
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-# Add-ons: how to write, package and install one (interface 0.4)
+# Add-ons: how to write, package and install one (interface 0.5)
 
 An add-on adds a feature to the viewer: an animation overrider, a restraint system, a chat tool. Anyone can write one, swap
 one for another, or improve one. Some come with the viewer (the animation overrider is the first); others are installed by
@@ -48,7 +48,7 @@ that describes the interface; it uses nothing else of the viewer. The viewer sup
 | `version` | yes | Shown in the Add-ons window. |
 | `author` | yes | Shown in the Add-ons window. |
 | `licence` | yes | The add-on's licence, shown in the Add-ons window. Add-ons may use any licence. |
-| `interface` | yes | The interface version it was built for, `major.minor`. The viewer loads it when the major version is the same and the minor version is no newer than its own (this viewer: 0.4). |
+| `interface` | yes | The interface version it was built for, `major.minor`. The viewer loads it when the major version is the same and the minor version is no newer than its own (this viewer: 0.5). |
 | `job` | no | The job it fills, if any (below). Same shape as `id`. |
 | `permissions` | no | What it asks for (below). An unknown permission makes the manifest unusable. |
 | `library` | yes | The `.dll` file name in the add-on's folder. |
@@ -62,7 +62,7 @@ A folder whose manifest cannot be read, or whose library is missing, is skipped 
 ## Where add-ons live
 
 - **Built-in add-ons** ship in the viewer's own `addons` folder, beside the viewer's libraries, one folder per add-on.
-  They are on unless the user turns them off.
+  They are on unless the user turns them off, or their manifest says `"default_on": false` (RLV does).
 - **Add-ons the user installs** go in the `Addons` folder of the viewer's user folder (the folder that holds the viewer's
   settings: on Windows `%APPDATA%\<the viewer's name>\Addons`), one folder per add-on, for example
   `Addons\hello-sample\add-on.json` and `Addons\hello-sample\HelloAddon.dll`. The viewer makes the `Addons` folder at
@@ -74,7 +74,7 @@ A folder whose manifest cannot be read, or whose library is missing, is skipped 
 
 ## The Add-ons window
 
-**Me > Add-ons** lists every add-on found: its name, version, author, licence, job and permissions, whether it comes
+**Me > Add-ons** (also **Add-ons...** in the viewer's own menu at the left of the top bar) lists every add-on found: its name, version, author, licence, job and permissions, whether it comes
 with the viewer, and a switch. For each job it shows which add-on fills it, and lets the user choose another (or none).
 When an add-on was switched off after an error, the window says why.
 
@@ -99,7 +99,10 @@ A job is a role only one add-on should play at a time: `ao` (the animation overr
 the job it fills in its manifest. Only one add-on per job is on at a time: turning one on turns the other off. A built-in
 add-on that fills a job is on by default; when the user chooses another for that job, the choice is kept.
 
-## Interface 0.4
+## Interface 0.5
+
+Version 0.5 adds, to everything 0.4 had: buttons on the viewer's dock (`AddDockItem`, see "The dock" below). An add-on
+built for 0.1, 0.2, 0.3 or 0.4 loads unchanged.
 
 Version 0.4 adds, to everything 0.3 had: the restraints handle (`IAddonContext.Restraints`, permission `restraints`), which
 is **not yet public**: only add-ons that come with the viewer are given it, and for any other add-on it throws
@@ -147,13 +150,34 @@ user action takes to the grid, so no other way round them exists inside the view
 viewer draws in its own style: `AddonLabel`, `AddonButton` (`Pressed`), `AddonToggle` (`Toggled`), `AddonChoice` (a list
 to pick from, `Chosen`), `AddonButtonRow`, `AddonTextField` (a one-line text box; `Value` is what the user typed) and
 `AddonDropZone` (a place the user drops rows dragged from the inventory window on; `Dropped` gives each animation or
-folder dropped, as `AddonDropped`: its id, whether it is a folder, and its name). Changing a control's `Text`, `Enabled`,
-`On`, `Items`, `Selected` or `Value` redraws it; `Insert`, `Remove` and `SetControls` change a window's controls. A long
-window scrolls. `AddMenuItem(label, action)` adds an item to the Me menu. Both need `window`.
+folder dropped, as `AddonDropped`: its id, whether it is a folder, and its name). A text field also raises `Submitted`
+when the user presses Enter in it and `Cancelled` on Esc, and its `Focus()` asks for the keyboard. Changing a control's
+`Text`, `Enabled`, `On`, `Items`, `Selected` or `Value` redraws it; `Insert`, `Remove` and `SetControls` change a
+window's controls. A long window scrolls. `AddMenuItem(label, action)` adds an item to the Me menu; a label of the form
+`"Group > Item"` puts the item in a submenu named `Group` (RLV adds `RLV > Restrictions…` this way). Both need `window`.
 
-`AddQuickControl(control)` puts a switch or a choice list at the end of the viewer's toolbar, beside its own quick
-buttons. **Not yet public:** only add-ons that come with the viewer may use it (the animation overrider puts its switch
-and its set picker there); for any other add-on it throws `AddonPermissionException`. Needs `window`.
+`AddQuickControl(control)` puts a switch or a choice list at the end of the viewer's toolbar row. **Not yet public:**
+only add-ons that come with the viewer may use it; for any other add-on it throws `AddonPermissionException`. Needs
+`window`.
+
+### The dock (0.5)
+
+`AddDockItem(id, label, kind, icon, tooltip, menu)` puts a button on the viewer's dock, in its Make group after Build, in
+the order the add-ons ask. An add-on cannot draw its own controls on the main screen; this is how it gets a place there.
+The animation overrider uses it for its AO button.
+
+- `kind`: `Action` (a click runs something), `Toggle` (on and off) or `ToggleWithMenu` (on and off, with a menu on the
+  button's chevron and on a right-click).
+- `label`: the name under the button, ten characters at most; a longer one is cut to nine and an ellipsis.
+- `icon`: the name of an icon from the viewer's set (the Lucide names in `host/Viewer.Shell/Ui/Reverie/LucideIcons.cs`, for example
+  `person-standing`), or the text of a single-colour SVG starting with `<svg` (drawn in the button's text colour where it
+  uses `currentColor`). Anything else, or none, shows the `plug` icon.
+- `menu`: `AddonDockMenuEntry` rows (a label, an optional icon name, an optional tick, or a separator).
+
+It answers null when refused: a third item from the same add-on, or an id it already used. The item it returns is the
+add-on's handle: `SetOn`, `SetAttention(on, count)` (a ring that pulses, with an optional count in the name), `SetMenu`
+and `Remove`; `Clicked` and `MenuChosen` (the entry's index) say what the user did. The add-on's items go the moment it
+is turned off. Needs `window`.
 
 ### Settings
 
@@ -203,7 +227,7 @@ An add-on may also implement `IAddonDiagnostics`; only development builds of the
 | `window` | add windows and menu items |
 | `inventory.read` | read the names and folders of your inventory |
 | `inventory.write` | make folders and links, rename folders and move things to the Trash, inside the one folder it names |
-| `restraints` | restrict what you can do, as RLV devices you wear ask (built-in add-ons only, for now) |
+| `restraints` | (no text of its own yet: the Add-ons window lists it by its name) restrict what you can do, as RLV devices you wear ask; built-in add-ons only, for now |
 
 Built-in add-ons are granted what they ask for. An installed add-on is granted its permissions only when the user turns
 it on and accepts them, all together.
@@ -260,8 +284,8 @@ add-ons, an add-on you install is like any program you install: turn on only add
 
 The viewer says this when you turn on an add-on you installed: the box reads that it "runs with full access to your
 computer, like any program you install — only turn on add-ons you trust", and lists its permissions as what it says it
-uses. Add-ons you installed are off until you turn them on. Add-ons that come with the viewer are on by default and show
-no box.
+uses. Add-ons you installed are off until you turn them on. Add-ons that come with the viewer are on by default (RLV is
+off until you turn it on) and show no box.
 
 ## Licences
 
@@ -272,5 +296,5 @@ no box.
 
 ## Versions of the interface
 
-The interface version is `0.4`. Additions that do not break existing add-ons raise the minor version; anything else
+The interface version is `0.5`. Additions that do not break existing add-ons raise the minor version; anything else
 raises the major version, and an add-on built for another major version is not loaded.
