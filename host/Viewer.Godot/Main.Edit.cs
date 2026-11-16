@@ -57,6 +57,9 @@ public partial class Main
         _editPanel.ToolChosen += ChooseTool;
         _editPanel.KeepToolChanged += on => _settings?.Set(Viewer.Shell.Build.BuildSettings.KeepToolSelected, on);
         _shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), _editPanel);
+        _editPanel.TextureTab.AttachPickers(_shell);
+        _takeFolder = new FolderPickPanel(shell.Strings, folder => _edit?.TakeIntoFolder(folder), () => shell.Floaters.Close(FolderPickPanel.FloaterId));
+        _shell.AddFloater(new FloaterSpec(FolderPickPanel.FloaterId, "edit.take_folder.title", new UiSize(380, 460), new UiSize(320, 340)), _takeFolder);
         var timer = new global::Godot.Timer { Name = "edit_refresh", WaitTime = 0.25, Autostart = true };
         timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) _editPanel.Refresh(); };
         _editPanel.AddChild(timer);
@@ -93,16 +96,18 @@ public partial class Main
     private FolderPickPanel? _takeFolder;
     private Viewer.Shell.Build.NewPrimTracker? _newPrims;
 
-    /// <summary>Build, Take Into Folder: a list of the inventory's folders; the chosen one receives the selected objects, one at a time.</summary>
+    /// <summary>Build, Take Into Folder: a window listing the inventory's folders, open until Take or Cancel; the chosen folder receives
+    /// the selected objects, one at a time.</summary>
     private void OpenTakeIntoFolder()
     {
-        if (_edit is not { Selection.Count: > 0 } || _interactFor?.Inventory is not { } inv || _editPanel is null || _shell is null)
+        if (_edit is not { Selection.Count: > 0 } || _interactFor?.Inventory is not { } inv || _takeFolder is null || _shell is null)
             return;
-        _takeFolder?.QueueFree();
-        _takeFolder = new FolderPickPanel(_shell.Shell.Strings, inv, folder => _edit?.TakeIntoFolder(folder));
-        _editPanel.AddChild(_takeFolder);
-        _takeFolder.PopupCentered(new Vector2I(360, 420));
+        _takeFolder.Begin(inv);
+        _shell.Shell.Floaters.Open(FolderPickPanel.FloaterId);
     }
+
+    /// <summary>True while the Take Into Folder window is open.</summary>
+    private bool TakeFolderOpen => _takeFolder is not null && (_shell?.Shell.Floaters.IsOpen(FolderPickPanel.FloaterId) ?? false);
 
     private void ToggleBuild()
     {
@@ -348,7 +353,11 @@ public partial class Main
             // a PBR material asset put on the selected faces by its id (text), or taken off (no text): for a grid whose inventory holds
             // no material item to choose by hand
             case "material": done = Guid.TryParse(text, out var material) ? e.ApplyMaterial(material) : e.RemoveMaterial(); break;
-            case "picker": done = _editPanel.TextureTab.Picker is { Visible: true } pk ? pk.Names : null; break;
+            case "picker": done = _editPanel.TextureTab.Picker is { } pk ? pk.Names : null; break;
+            // the picker windows: whether each is open, for the live check
+            case "pickers":
+                done = new { items = _editPanel.TextureTab.Pickers?.ItemsOpen ?? false, colour = _editPanel.TextureTab.Pickers?.ColoursOpen ?? false, folders = TakeFolderOpen };
+                break;
             // any shown control of the shell by name (Preferences, the folder chooser), a top-bar title by its text, the item of an open
             // top-bar menu that has the keyboard, a row of the inventory window by id, a row of the Content tab or the folder chooser by its text
             case "ui_point": done = UiPoint(text ?? ""); break;
@@ -365,13 +374,14 @@ public partial class Main
                     done = new[] { ip.X, ip.Y };
                 break;
             case "content_row": done = ListRow(_editPanel.ContentTab.List as ItemList, text); break;
-            case "folder_row": done = _takeFolder is { Visible: true } tf ? ListRow(tf.List, text, tf) : null; break;
+            case "folder_row": done = TakeFolderOpen ? ListRow(_takeFolder!.List, text) : null; break;
             case "picker_row":
-                if (_editPanel.TextureTab.Picker is { Visible: true } pr && int.TryParse(text, out int row) && row >= 0 && row < pr.List.ItemCount)
+                if (_editPanel.TextureTab.Picker is { } pr && int.TryParse(text, out int row) && row >= 0 && row < pr.List.ItemCount)
                 {
                     pr.List.EnsureCurrentIsVisible();
                     var rect = pr.List.GetItemRect(row);
-                    var at = pr.List.GetGlobalRect().Position + rect.Position + rect.Size / 2 + new Vector2(pr.Position.X, pr.Position.Y);
+                    // a window of the shell (no window offset); the rectangle is in the list's content, so its scroll is taken off, as in ListRow
+                    var at = pr.List.GetGlobalRect().Position + rect.Position + rect.Size / 2 - new Vector2(0, (float)pr.List.GetVScrollBar().Value);
                     done = new[] { at.X, at.Y };
                 }
                 break;
@@ -437,7 +447,7 @@ public partial class Main
                 physics = new[] { ft.Physics.ShapeType, ft.Physics.Gravity, ft.Physics.Friction, ft.Physics.Density, ft.Physics.Restitution },
                 material = ft.Material, can_flex = ft.CanFlex,
             } : null,
-            folder_rows = _takeFolder is { Visible: true } tfr ? tfr.Paths : null,
+            folder_rows = TakeFolderOpen ? _takeFolder!.Paths : null,
             animations_folder = s.Inventory.FolderOfKind(Viewer.Core.Inventory.FolderKind.Animation),
         };
     }

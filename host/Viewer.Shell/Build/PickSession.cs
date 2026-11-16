@@ -38,20 +38,28 @@ public sealed class PickSession<T>
     /// <summary>A choice: applied at once.</summary>
     public void Choose(T value)
     {
+        if (!Ended)
+            _apply(value);
     }
 
     /// <summary>OK: the choice stays.</summary>
     public void Ok()
     {
+        if (Ended)
+            return;
+        Ended = true;
+        Kept = true;
     }
 
     /// <summary>Cancel: what was there is put back.</summary>
     public void Cancel()
     {
+        if (Ended)
+            return;
+        Ended = true;
+        _revert();
     }
 
     /// <summary>The picker has closed (its close button, or anything else that closed it): without OK, what was there is put back.</summary>
-    public void Closed()
-    {
-    }
+    public void Closed() => Cancel();
 }

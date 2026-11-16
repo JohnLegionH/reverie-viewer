@@ -27,13 +27,14 @@ public sealed class EditTextureTab
     private readonly Func<InventoryModel?> _inventory;
     private readonly Control _owner;
     private readonly Label _texture, _material;
-    private readonly ColorPickerButton _colour;
+    private readonly Button _colour;
+    private readonly ColorPickerButton _swatch;
     private readonly SpinBox _transparency, _glow, _scaleU, _scaleV, _perMetre, _rotation, _offsetU, _offsetV;
     private readonly SpinBox _pbrScaleU, _pbrScaleV, _pbrOffsetU, _pbrOffsetV, _pbrRotation;
     private readonly CheckBox _fullbright;
     private readonly OptionButton _mapping;
     private readonly Button _paste;
-    private InventoryPickPopup? _picker;
+    private FacePickerWindows? _pickers;
     private bool _filling;
 
     public EditTextureTab(StringTable strings, Func<EditController?> edit, Func<InventoryModel?> inventory, VBoxContainer page, Control owner)
@@ -48,14 +49,19 @@ public sealed class EditTextureTab
         _texture = new Label { Name = "texture_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true };
         _texture.AccessibilityName = strings.Get("edit.tex.texture");
         texRow.AddChild(_texture);
-        var choose = Btn("texture_choose", "edit.tex.choose", () => Pick(ItemKind.Texture, id => _edit()?.EditFaces(new FaceChange(TextureId: id))));
+        var choose = Btn("texture_choose", "edit.tex.choose", () => OpenPicker(ItemKind.Texture));
         texRow.AddChild(choose);
         page.AddChild(texRow);
 
         page.AddChild(new Label { Name = "colour_label", Text = strings.Get("edit.tex.colour") });
-        _colour = new ColorPickerButton { Name = "colour", EditAlpha = false, CustomMinimumSize = new Vector2(64, 24) };
+        // the face's colour as a swatch; a press opens the colour picker window (which stays open), not the engine's own popup (which
+        // closes on a click elsewhere): the swatch takes no input, and a button that draws nothing lies over it
+        _colour = new Button { Name = "colour", Flat = true, CustomMinimumSize = new Vector2(64, 24) };
         _colour.AccessibilityName = strings.Get("edit.tex.colour");
-        _colour.ColorChanged += c => { if (!_filling) _edit()?.EditFaces(new FaceChange(Colour: new System.Numerics.Vector3(c.R, c.G, c.B))); };
+        _swatch = new ColorPickerButton { Name = "colour_swatch", EditAlpha = false, MouseFilter = Control.MouseFilterEnum.Ignore, FocusMode = Control.FocusModeEnum.None };
+        _swatch.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _colour.AddChild(_swatch);
+        _colour.Pressed += () => _pickers?.OpenColour(_swatch.Color);
         page.AddChild(_colour);
         _transparency = Spin(page, "transparency", "edit.tex.transparency", 0, 100, 1, v => new FaceChange(Transparency: (float)v));
         _glow = Spin(page, "glow", "edit.tex.glow", 0, 1, 0.01, v => new FaceChange(Glow: (float)v));
@@ -96,7 +102,7 @@ public sealed class EditTextureTab
         _material = new Label { Name = "material_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true };
         _material.AccessibilityName = strings.Get("edit.tex.material");
         matRow.AddChild(_material);
-        matRow.AddChild(Btn("material_choose", "edit.tex.material.choose", () => Pick(ItemKind.Material, id => _edit()?.ApplyMaterial(id))));
+        matRow.AddChild(Btn("material_choose", "edit.tex.material.choose", () => OpenPicker(ItemKind.Material)));
         matRow.AddChild(Btn("material_remove", "edit.tex.material.remove", () => _edit()?.RemoveMaterial()));
         page.AddChild(matRow);
         _pbrScaleU = Spin(page, "pbr_scale_u", "edit.tex.pbr_scale_u", -100, 100, 0.01, null);
@@ -138,21 +144,21 @@ public sealed class EditTextureTab
             (float)(_pbrRotation.Value * Math.PI / 180.0)));
     }
 
-    /// <summary>Opens the inventory picker for textures or materials (the account's and the Library's); the chosen item's asset is used.</summary>
-    private void Pick(ItemKind kind, Action<Guid> use)
+    /// <summary>Gives the tab its picker windows (a shell to put them in); without them the choose buttons and the swatch do nothing.</summary>
+    public void AttachPickers(ShellRoot shell) => _pickers ??= new FacePickerWindows(_s, shell, _edit);
+
+    /// <summary>The picker windows, for the automation and the live check.</summary>
+    public FacePickerWindows? Pickers => _pickers;
+
+    /// <summary>The texture or material picker's list while its window is open, for the automation and the live check.</summary>
+    public InventoryPickPanel? Picker => _pickers is { ItemsOpen: true } p ? p.Items : null;
+
+    /// <summary>Opens the inventory picker window for textures or materials (the account's and the Library's).</summary>
+    public void OpenPicker(ItemKind kind)
     {
-        if (_inventory() is not { } model)
-            return;
-        _picker?.QueueFree();
-        _picker = new InventoryPickPopup(_s, model, kind, use);
-        _owner.AddChild(_picker);
-        _picker.PopupCentered(new Vector2I(360, 420));
+        if (_inventory() is { } model)
+            _pickers?.OpenItems(model, kind);
     }
-
-    /// <summary>The picker, for the automation and the live check: open for textures or materials.</summary>
-    public InventoryPickPopup? Picker => _picker is { } p && GodotObject.IsInstanceValid(p) ? p : null;
-
-    public void OpenPicker(ItemKind kind) => Pick(kind, kind == ItemKind.Material ? id => _edit()?.ApplyMaterial(id) : id => _edit()?.EditFaces(new FaceChange(TextureId: id)));
 
     /// <summary>Shows the face the controller shows; a field being typed in keeps its text.</summary>
     public void Refresh()
@@ -166,7 +172,7 @@ public sealed class EditTextureTab
             _texture.Text = f is { } face ? NameOf(face.TextureId) : "";
             if (f is { } shown)
             {
-                _colour.Color = ShellTheme.DataColour(shown.Colour.R, shown.Colour.G, shown.Colour.B);   // the face's own colour, not a theme colour
+                _swatch.Color = ShellTheme.DataColour(shown.Colour.R, shown.Colour.G, shown.Colour.B);   // the face's own colour, not a theme colour
                 Set(_transparency, Math.Round((1 - shown.Colour.A) * 100));
                 Set(_glow, shown.Glow);
                 _fullbright.SetPressedNoSignal(shown.Fullbright);
@@ -184,6 +190,7 @@ public sealed class EditTextureTab
             _fullbright.Disabled = !editable;
             _mapping.Disabled = !editable;
             _colour.Disabled = !editable;
+            _swatch.Disabled = !editable;
             _paste.Disabled = !(e?.CanPasteFaces ?? false) || !editable;
             Guid material = e?.ShownMaterial ?? Guid.Empty;
             _material.Text = material == Guid.Empty ? _s.Get("edit.tex.material.none") : NameOf(material);
@@ -225,49 +232,61 @@ public sealed class EditTextureTab
     };
 }
 
-/// <summary>An inventory picker for one kind of item (textures or materials), the account's and the Library's, by name with a search.</summary>
-public partial class InventoryPickPopup : PopupPanel
+/// <summary>
+/// The list of an inventory picker for one kind of item (textures or materials), the account's and the Library's, by name with a search.
+/// A row chosen (clicked, or moved to with the keys) raises <see cref="Selected"/>; a row activated (double-clicked, or Enter) raises
+/// <see cref="Activated"/>. Shown in the texture picker window and in the Features tab's popup.
+/// </summary>
+public partial class InventoryPickPanel : VBoxContainer
 {
-    private readonly InventoryModel _model;
-    private readonly ItemKind _kind;
-    private readonly Action<Guid> _use;
+    private readonly StringTable _strings;
     private readonly ItemList _list;
     private readonly LineEdit _search;
-    private readonly Viewer.Shell.Build.InventoryPickList _pick;
     private readonly Label _empty;
+    private Viewer.Shell.Build.InventoryPickList? _pick;
     private IReadOnlyList<InventoryItemData> _rows = [];
     private string _shown = "\0";
 
     public ItemList List => _list;
 
-    public InventoryPickPopup(StringTable strings, InventoryModel model, ItemKind kind, Action<Guid> use)
+    /// <summary>A row was chosen: its asset.</summary>
+    public event Action<Guid>? Selected;
+
+    /// <summary>A row was activated: its asset.</summary>
+    public event Action<Guid>? Activated;
+
+    public InventoryPickPanel(StringTable strings)
     {
-        _model = model;
-        _kind = kind;
-        _use = use;
-        _pick = new Viewer.Shell.Build.InventoryPickList(model, kind);
+        _strings = strings;
         Name = "inventory_pick";
-        var box = new VBoxContainer();
+        SizeFlagsVertical = SizeFlags.ExpandFill;
         _search = new LineEdit { Name = "pick_search", PlaceholderText = strings.Get("appearance.texture.search") };
         _search.AccessibilityName = strings.Get("appearance.texture.search");
-        box.AddChild(_search);
-        _list = new ItemList { Name = "pick_list", CustomMinimumSize = new Vector2(320, 300) };
+        AddChild(_search);
+        _list = new ItemList { Name = "pick_list", CustomMinimumSize = new Vector2(320, 300), SizeFlagsVertical = SizeFlags.ExpandFill };
         _list.AccessibilityName = strings.Get("appearance.texture.list");
-        _list.ItemActivated += i => Use((int)i);
-        box.AddChild(_list);
+        _list.ItemSelected += i => { if (AssetAt((int)i) is { } a) Selected?.Invoke(a); };
+        _list.ItemActivated += i => { if (AssetAt((int)i) is { } a) Activated?.Invoke(a); };
+        AddChild(_list);
         // with none of the kind anywhere in the inventory, the list says so (materials)
-        _empty = new Label { Name = "pick_empty", Text = _pick.EmptyKey is { } k ? strings.Get(k) : "", Visible = false };
-        box.AddChild(_empty);
-        var use_ = new Button { Name = "pick_use", Text = strings.Get("appearance.texture.pick") };
-        use_.AccessibilityName = use_.Text;
-        use_.Pressed += () => { var s = _list.GetSelectedItems(); if (s.Length > 0) Use(s[0]); };
-        box.AddChild(use_);
-        AddChild(box);
+        _empty = new Label { Name = "pick_empty", Visible = false };
+        AddChild(_empty);
+    }
+
+    /// <summary>Shows the items of <paramref name="kind"/> from <paramref name="model"/>, from the top, with an empty search.</summary>
+    public void Begin(InventoryModel model, ItemKind kind)
+    {
+        _pick = new Viewer.Shell.Build.InventoryPickList(model, kind);
+        _empty.Text = _pick.EmptyKey is { } k ? _strings.Get(k) : "";
+        _search.Clear();
+        _shown = "\0";
+        _rows = [];
+        _list.Clear();
     }
 
     public override void _Process(double delta)
     {
-        if (!Visible)
+        if (_pick is null || !IsVisibleInTree())
             return;
         // every folder not yet loaded is fetched: an item can sit in any folder, not only its kind's own
         bool ready = _pick.AllLoaded;
@@ -280,23 +299,194 @@ public partial class InventoryPickPopup : PopupPanel
 
     private void Fill()
     {
+        if (_pick is null)
+            return;
+        // the chosen row stays chosen when the list is filled again (more folders arrived)
+        var chosen = _list.GetSelectedItems() is { Length: > 0 } sel && sel[0] < _rows.Count ? _rows[sel[0]].Id : (Guid?)null;
         _rows = _pick.Rows(_search.Text);
         _shown = _search.Text;
         _list.Clear();
-        foreach (var r in _rows)
-            _list.AddItem(r.Name);
+        for (int i = 0; i < _rows.Count; i++)
+        {
+            _list.AddItem(_rows[i].Name);
+            if (_rows[i].Id == chosen)
+                _list.Select(i);
+        }
     }
 
-    /// <summary>Uses the row at <paramref name="index"/>.</summary>
-    public bool Use(int index)
-    {
-        if (index < 0 || index >= _rows.Count || _rows[index].AssetId is not { } asset)
-            return false;
-        _use(asset);
-        Hide();
-        return true;
-    }
+    /// <summary>The asset of the row at <paramref name="index"/>, or null.</summary>
+    public Guid? AssetAt(int index) => index >= 0 && index < _rows.Count ? _rows[index].AssetId : null;
+
+    /// <summary>The asset of the chosen row, or null.</summary>
+    public Guid? SelectedAsset => _list.GetSelectedItems() is { Length: > 0 } s ? AssetAt(s[0]) : null;
 
     /// <summary>The rows' names (for the automation).</summary>
     public IReadOnlyList<string> Names => _rows.Select(r => r.Name).ToList();
+}
+
+/// <summary>An inventory picker as a popup (the Features tab's projector texture): the list, and a button that uses the chosen row.</summary>
+public partial class InventoryPickPopup : PopupPanel
+{
+    private readonly InventoryPickPanel _panel;
+    private readonly Action<Guid> _use;
+
+    public ItemList List => _panel.List;
+
+    public InventoryPickPopup(StringTable strings, InventoryModel model, ItemKind kind, Action<Guid> use)
+    {
+        _use = use;
+        Name = "inventory_pick_popup";
+        var box = new VBoxContainer();
+        _panel = new InventoryPickPanel(strings);
+        _panel.Begin(model, kind);
+        _panel.Activated += Use;
+        box.AddChild(_panel);
+        var use_ = new Button { Name = "pick_use", Text = strings.Get("appearance.texture.pick") };
+        use_.AccessibilityName = use_.Text;
+        use_.Pressed += () => { if (_panel.SelectedAsset is { } a) Use(a); };
+        box.AddChild(use_);
+        AddChild(box);
+    }
+
+    private void Use(Guid asset)
+    {
+        _use(asset);
+        Hide();
+    }
+
+    /// <summary>The rows' names (for the automation).</summary>
+    public IReadOnlyList<string> Names => _panel.Names;
+}
+
+/// <summary>
+/// The Build window's texture (or material) picker and colour picker, each a window of its own with a title bar and a close button, as the
+/// official LLFloaterTexturePicker and LLFloaterColorPicker are (floater_texture_ctrl.xml 1-13, floater_color_picker.xml 1-9): they stay
+/// open while the person clicks elsewhere. A choice is applied as it is made (the official Apply now, on by default: TextureLivePreview
+/// and ApplyColorImmediately, settings.xml 228-248); OK keeps it and closes (lltexturectrl.cpp 1059-1067, llfloatercolorpicker.cpp
+/// 406-420); Cancel, the close button, or the Build window closing puts back each face's texture, material or colour as it was when the
+/// picker opened (lltexturectrl.cpp 1047-1057, llfloatercolorpicker.cpp 391-403, llpanelface.cpp 3280-3283 and 2907-2910). Main thread only.
+/// </summary>
+public sealed class FacePickerWindows
+{
+    public const string ItemPickerId = "edit_item_picker";
+    public const string ColourPickerId = "edit_colour_picker";
+
+    private readonly StringTable _s;
+    private readonly ShellRoot _shell;
+    private readonly Func<EditController?> _edit;
+    private readonly InventoryPickPanel _items;
+    private readonly ColorPicker _colours;
+    private PickSession<Guid>? _itemSession;
+    private PickSession<Color>? _colourSession;
+    private ItemKind _itemKind;
+
+    public InventoryPickPanel Items => _items;
+    public ColorPicker Colours => _colours;
+
+    public FacePickerWindows(StringTable strings, ShellRoot shell, Func<EditController?> edit)
+    {
+        _s = strings;
+        _shell = shell;
+        _edit = edit;
+
+        var itemBox = new VBoxContainer { Name = "item_picker" };
+        _items = new InventoryPickPanel(strings);
+        _items.Selected += a => _itemSession?.Choose(a);
+        _items.Activated += a => { _itemSession?.Choose(a); EndItems(keep: true); };
+        itemBox.AddChild(_items);
+        itemBox.AddChild(Buttons("pick", () => EndItems(keep: true), () => EndItems(keep: false)));
+        shell.AddFloater(new FloaterSpec(ItemPickerId, "edit.picker.texture.title", new UiSize(380, 480), new UiSize(320, 360)), itemBox);
+
+        var colourBox = new VBoxContainer { Name = "colour_picker" };
+        _colours = new ColorPicker { Name = "colour_picker_control", EditAlpha = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        _colours.ColorChanged += c => _colourSession?.Choose(c);
+        colourBox.AddChild(_colours);
+        colourBox.AddChild(Buttons("colour", () => EndColour(keep: true), () => EndColour(keep: false)));
+        shell.AddFloater(new FloaterSpec(ColourPickerId, "edit.picker.colour.title", new UiSize(340, 560), new UiSize(300, 460)), colourBox);
+
+        shell.Shell.Floaters.Closed += id =>
+        {
+            if (id == ItemPickerId)
+                _itemSession?.Closed();
+            else if (id == ColourPickerId)
+                _colourSession?.Closed();
+            else if (id == EditPanel.FloaterId)
+            {
+                // the pickers belong to the Build window: they close with it, putting back what was not kept
+                _shell.Shell.Floaters.Close(ItemPickerId);
+                _shell.Shell.Floaters.Close(ColourPickerId);
+            }
+        };
+    }
+
+    private HBoxContainer Buttons(string prefix, Action ok, Action cancel)
+    {
+        var row = new HBoxContainer { Name = prefix + "_buttons", Alignment = BoxContainer.AlignmentMode.End };
+        var okButton = new Button { Name = prefix + "_ok", Text = _s.Get("edit.picker.ok") };
+        okButton.AccessibilityName = okButton.Text;
+        okButton.Pressed += ok;
+        var cancelButton = new Button { Name = prefix + "_cancel", Text = _s.Get("edit.picker.cancel") };
+        cancelButton.AccessibilityName = cancelButton.Text;
+        cancelButton.Pressed += cancel;
+        row.AddChild(okButton);
+        row.AddChild(cancelButton);
+        return row;
+    }
+
+    /// <summary>True while the texture (or material) picker is open.</summary>
+    public bool ItemsOpen => _shell.Shell.Floaters.IsOpen(ItemPickerId);
+
+    /// <summary>True while the colour picker is open.</summary>
+    public bool ColoursOpen => _shell.Shell.Floaters.IsOpen(ColourPickerId);
+
+    /// <summary>Opens the picker for textures or materials. Open already for the same kind, it comes to the front; for the other kind,
+    /// the open one ends as a close does (what it applied is put back) and the new one opens.</summary>
+    public void OpenItems(InventoryModel model, ItemKind kind)
+    {
+        if (_edit() is not { } e)
+            return;
+        if (ItemsOpen && _itemKind == kind && _itemSession is { Ended: false })
+        {
+            _shell.Shell.Floaters.Focus(ItemPickerId);
+            return;
+        }
+        _shell.Shell.Floaters.Close(ItemPickerId);
+        var saved = e.SaveFacePicks();
+        _itemKind = kind;
+        _itemSession = kind == ItemKind.Material
+            ? new PickSession<Guid>(id => _edit()?.ApplyMaterial(id), () => _edit()?.RevertMaterials(saved))
+            : new PickSession<Guid>(id => _edit()?.EditFaces(new FaceChange(TextureId: id)), () => _edit()?.RevertTextures(saved));
+        _items.Begin(model, kind);
+        _shell.SetFloaterTitle(ItemPickerId, _s.Get(kind == ItemKind.Material ? "edit.picker.material.title" : "edit.picker.texture.title"));
+        _shell.Shell.Floaters.Open(ItemPickerId);
+    }
+
+    /// <summary>Opens the colour picker at <paramref name="current"/>; open already, it comes to the front.</summary>
+    public void OpenColour(Color current)
+    {
+        if (_edit() is not { } e)
+            return;
+        if (ColoursOpen && _colourSession is { Ended: false })
+        {
+            _shell.Shell.Floaters.Focus(ColourPickerId);
+            return;
+        }
+        var saved = e.SaveFacePicks();
+        _colourSession = new PickSession<Color>(c => _edit()?.EditFaces(new FaceChange(Colour: new System.Numerics.Vector3(c.R, c.G, c.B))),
+            () => _edit()?.RevertColours(saved));
+        _colours.Color = current;   // setting it raises no change
+        _shell.Shell.Floaters.Open(ColourPickerId);
+    }
+
+    private void EndItems(bool keep)
+    {
+        if (keep) _itemSession?.Ok(); else _itemSession?.Cancel();
+        _shell.Shell.Floaters.Close(ItemPickerId);
+    }
+
+    private void EndColour(bool keep)
+    {
+        if (keep) _colourSession?.Ok(); else _colourSession?.Cancel();
+        _shell.Shell.Floaters.Close(ColourPickerId);
+    }
 }
