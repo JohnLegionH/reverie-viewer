@@ -63,9 +63,7 @@ public sealed class AutomationServer : IDisposable
 
     public int Port { get; }
 
-#pragma warning disable CS0649 // RED STUB
     private volatile bool _off;
-#pragma warning restore CS0649
 
     /// <summary>Whether the API has been turned off for this run (<see cref="TurnOffFor"/>). Once off it stays off: nothing turns it on again.</summary>
     public bool IsOff => _off;
@@ -73,7 +71,15 @@ public sealed class AutomationServer : IDisposable
     /// <summary>Turns the API off for the rest of the run when a login heads for a grid where the per-grid switch does not allow it
     /// (<see cref="Viewer.Core.Session.ViewerFeature.Automation"/>); from then on every request is refused before it reaches the handler.
     /// Returns <see cref="IsOff"/>.</summary>
-    public bool TurnOffFor(Viewer.Core.Session.GridKind grid) => _off;
+    public bool TurnOffFor(Viewer.Core.Session.GridKind grid)
+    {
+        if (!Viewer.Core.Session.GridPolicy.Allows(Viewer.Core.Session.ViewerFeature.Automation, grid) && !_off)
+        {
+            _off = true;
+            _log("automation.off_for_grid");
+        }
+        return _off;
+    }
 
     public IPAddress Address => ((IPEndPoint)_listener.LocalEndpoint).Address;
 
@@ -106,7 +112,7 @@ public sealed class AutomationServer : IDisposable
                 using var read = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
                 read.CancelAfter(TimeSpan.FromSeconds(5));
                 var req = await RawRequest.ReadAsync(stream, read.Token).ConfigureAwait(false);
-                var verdict = AutomationGuard.Check(req, Port, _token);
+                var verdict = _off ? new GuardVerdict(403, "off-on-this-grid") : AutomationGuard.Check(req, Port, _token);
                 if (verdict is not null)
                 {
                     _log("automation.refused." + verdict.Reason);

@@ -53,8 +53,7 @@ public static class ViewerStatsReport
         double PingMs, double MetersTravelled, int RegionsVisited, double MemoryKb, long RamKb, (string Mac, string Id0) DeviceIds,
         ViewerStatsTraffic Traffic, bool InventoryUsable);
 
-    public static Dictionary<string, object?> Build(Inputs i) => new();   // RED STUB
-    private static Dictionary<string, object?> BuildReal(Inputs i)
+    public static Dictionary<string, object?> Build(Inputs i)
     {
         double fps = i.Figures.Fps;
         var agent = new Dictionary<string, object?>

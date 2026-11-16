@@ -100,6 +100,7 @@ public class SecondLifePolicyTests
     {
         public readonly Dictionary<string, string> Kept = new();
         public readonly Dictionary<string, string> Mfa = new();
+        public int MfaSaves;
         public bool Available => true;
         public string? UnavailableKey => null;
         public void Save(string grid, string name, Secret hash) => Kept[RememberPassword.EntryKey(grid, name)] = hash.Reveal();
@@ -110,7 +111,11 @@ public class SecondLifePolicyTests
             Mfa.Remove(RememberPassword.EntryKey(grid, name));
             return Kept.Remove(RememberPassword.EntryKey(grid, name));
         }
-        public void SaveMfaHash(string grid, string name, Secret hash) => Mfa[RememberPassword.EntryKey(grid, name)] = hash.Reveal();
+        public void SaveMfaHash(string grid, string name, Secret hash)
+        {
+            MfaSaves++;
+            Mfa[RememberPassword.EntryKey(grid, name)] = hash.Reveal();
+        }
         public Secret? LoadMfaHash(string grid, string name) =>
             Mfa.TryGetValue(RememberPassword.EntryKey(grid, name), out var h) ? new Secret(h, SensitiveKind.Token) : null;
         public void ForgetMfaHash(string grid, string name) => Mfa.Remove(RememberPassword.EntryKey(grid, name));
@@ -151,6 +156,7 @@ public class SecondLifePolicyTests
         f.Model.SetRememberPassword(false);
         Assert.True(await f.Model.LoginAsync());
         Assert.Empty(v.Mfa);
+        Assert.Equal(0, v.MfaSaves);   // not even for a moment
     }
 
     [Fact]

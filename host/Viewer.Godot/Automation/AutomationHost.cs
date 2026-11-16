@@ -54,10 +54,38 @@ public partial class AutomationHost : Node
         }, e => Main.Log.Info(e));
         _tokenPath = _server.WriteTokenFile(TokenFile.DefaultDirectory(DataDirectories.ForCurrentUser()));
         Main.Log.Info("automation.enabled", CoreLog.F("bind", "loopback"));
+        // the per-grid switch: a login heading for a grid where automation is not allowed (Second Life) turns it off for the rest of
+        // the run, before anything is sent to that grid; the listener and the token file then go on the next frame
+        if (_main?.Model is { } model)
+            model.GridChosen += grid =>
+            {
+                if (_server?.TurnOffFor(grid) == true)
+                    _closeForGrid = true;
+            };
+    }
+
+    private volatile bool _closeForGrid;
+
+    /// <summary>Closes the listener and removes the token file once the API is off for this run's grid. It is never started again.</summary>
+    private void CloseForGrid()
+    {
+        _closeForGrid = false;
+        if (_server is null)
+            return;
+        _server.Dispose();
+        _server = null;
+        if (_tokenPath is not null)
+        {
+            TokenFile.Remove(_tokenPath);
+            _tokenPath = null;
+        }
+        Main.Log.Info("automation.off", CoreLog.F("reason", "grid"));
     }
 
     public override void _Process(double delta)
     {
+        if (_closeForGrid)
+            CloseForGrid();
         while (_calls.TryDequeue(out var item))
             _ = Answer(item.Call, item.Reply);
         if (_quitIn > 0 && --_quitIn == 0)

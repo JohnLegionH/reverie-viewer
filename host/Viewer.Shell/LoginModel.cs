@@ -146,9 +146,7 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
 
     /// <summary>Raised with the kind of grid an attempt is about to log in to, after its login address is known and before anything is
     /// sent to that address (the automation API turns itself off here on a grid where it is not allowed).</summary>
-#pragma warning disable CS0067 // RED STUB
     public event Action<GridKind>? GridChosen;
-#pragma warning restore CS0067
 
     /// <summary>Raised (on the thread that changed it) whenever <see cref="Status"/> changes.</summary>
     public event Action<string>? StatusChanged;
@@ -164,7 +162,10 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     {
         RememberPassword = on;
         if (!on)
+        {
             Vault?.Forget(LoginUri, UserName);
+            Vault?.ForgetMfaHash(LoginUri, UserName);   // the multifactor hash is kept only with a remembered login
+        }
     }
 
     /// <summary>Whether a hash is saved for the grid and name now typed.</summary>
@@ -300,9 +301,12 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
                 login = resolved.Login;
             }
             SetResolved(login.ToString());
-            // the multifactor hash the grid handed out earlier in this run for this account (kept in memory only, never on disk)
+            GridChosen?.Invoke(GridPolicy.KindOf(login.ToString()));   // before anything is sent to the grid
+            // the multifactor hash the grid handed out earlier in this run for this account, else the one kept with a remembered login
+            // (lllogininstance.cpp: read from the protected store for every login)
             string hashKey = (login + "|" + FirstName.Trim() + " " + LastName.Trim()).ToLowerInvariant();
-            var extras = new LoginExtras(MfaHash: RunMfaHash(hashKey));
+            var vault = Vault is { Available: true } v ? v : null;
+            var extras = new LoginExtras(MfaHash: RunMfaHash(hashKey) ?? vault?.LoadMfaHash(LoginUri, UserName));
             var pinnedNow = new HashSet<string>();
             while (true)
             {
@@ -311,7 +315,19 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
                 session.StageChanged += OnStage;
                 var outcome = await session.LoginAsync(new LoginCredentials(FirstName.Trim(), LastName.Trim(), password, extras), attempt.Token).ConfigureAwait(false);
                 if (outcome.Reply?.MfaHash is { } handedOut)
+                {
                     lock (_gate) _mfaHashes[hashKey] = handedOut;
+                    // kept in the protected store only when the person asked for the login to be remembered (saveMFAHash)
+                    if (RememberPassword)
+                        vault?.SaveMfaHash(LoginUri, UserName, handedOut);
+                }
+                else if (outcome.Code == "mfa_challenge" && extras.MfaHash is not null)
+                {
+                    // the grid asked for a token although a hash was sent: it no longer accepts that hash, so it is forgotten
+                    lock (_gate) _mfaHashes.Remove(hashKey);
+                    vault?.ForgetMfaHash(LoginUri, UserName);
+                    extras = extras with { MfaHash = null };
+                }
                 LastFailureCode = outcome.Ok ? null : outcome.Code ?? "failed";
                 if (outcome.Ok)
                 {
