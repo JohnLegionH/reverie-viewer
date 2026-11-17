@@ -262,12 +262,12 @@ public partial class TestRender
                 g.Convert(Image.Format.Rgba8);
                 var diff = g.GetWidth() != UiWidth || g.GetHeight() != UiHeight
                     ? new DiffResult(false, g.GetWidth(), g.GetHeight(), 0, 0, 0, 0, "golden size differs")
-                    : ImageDiff.Compare(img.GetData(), g.GetData(), UiWidth, UiHeight, 4, DiffTolerance.Terrain);
+                    : ImageDiff.Compare(img.GetData(), g.GetData(), UiWidth, UiHeight, 4, DiffTolerance.Ui);
                 _result["diff"] = new Dictionary<string, object?>
                 {
                     ["golden"] = Path.GetFileName(golden), ["pass"] = diff.Pass, ["differing"] = diff.Differing,
                     ["differing_fraction"] = diff.DifferingFraction, ["mean_abs_error"] = Math.Round(diff.MeanAbsError, 4),
-                    ["max_channel_error"] = diff.MaxChannelError, ["tolerance"] = DiffTolerance.Terrain, ["summary"] = diff.ToString(),
+                    ["max_channel_error"] = diff.MaxChannelError, ["tolerance"] = DiffTolerance.Ui, ["summary"] = diff.ToString(),
                 };
                 if (!diff.Pass)
                     _failures.Add("diff " + diff);

@@ -112,7 +112,9 @@ public class UiDiffToleranceTests
     [Fact]
     public void The_script_dialog_case_diffs_with_the_ui_tolerance_and_terrain_cases_keep_theirs()
     {
-        Assert.Contains("_dialogButtons > 0 ? DiffTolerance.Ui : DiffTolerance.Terrain", Source("TestRender.cs"));
+        var main = Source("TestRender.cs");
+        Assert.Contains("var tolerance = _dialogButtons > 0 ? DiffTolerance.Ui : DiffTolerance.Terrain;", main);
+        Assert.Contains("ImageDiff.Compare(img.GetData(), g.GetData(), pw, ph, 4, tolerance)", main);
         foreach (var world in new[] { "TestRender.Trees.cs", "TestRender.Neighbours.cs", "TestRender.Avatars.cs", "TestRender.Busy.cs", "TestRender.EditLook.cs" })
         {
             Assert.Contains("DiffTolerance.Terrain", Source(world));
