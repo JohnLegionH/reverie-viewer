@@ -25,7 +25,9 @@ param(
     [Parameter(Mandatory = $true)][string[]]$PathPrefix,
     [string]$StopFile = "",
     [int]$Seconds = 7200,
-    [int]$IntervalMs = 250
+    [int]$IntervalMs = 250,
+    [int]$Samples = 0,   # stub (red)
+    [switch]$Replay   # stub (red)
 )
 $ErrorActionPreference = "Stop"
 $prefixes = @($PathPrefix | ForEach-Object { $_ -split ',' } | Where-Object { $_ } | ForEach-Object { [IO.Path]::GetFullPath($_).TrimEnd('\') + '\' })

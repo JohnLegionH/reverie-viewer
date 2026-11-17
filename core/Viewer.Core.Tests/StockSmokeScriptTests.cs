@@ -209,8 +209,42 @@ public sealed class StockSmokeScriptTests
         Assert.False(Directory.Exists(s.Sandbox), "the check starts nothing and writes no evidence folder");
     }
 
+    /// <summary>A program name no process on the machine carries, for the script's check that no viewer that can log in is running:
+    /// these tests must not depend on the viewers other sessions on the same machine run.</summary>
+    private static string NoViewerName() => "nv-no-viewer-" + Guid.NewGuid().ToString("N") + "*.exe";
+
+    /// <summary>The script refuses to start while a viewer that can log in (its program name matched, --automation on its command line)
+    /// is running. The running viewer is a stand-in: a copy of the command interpreter under a name of this test's own, so no other
+    /// session's viewer counts and no other session's check sees this one.</summary>
+    [Fact]
+    public void A_viewer_that_can_log_in_already_running_blocks_the_run()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var s = NewSetup();
+        string name = "nv-standin-" + Guid.NewGuid().ToString("N");
+        string standin = Path.Combine(s.Root, name + ".exe");
+        File.Copy(Path.Combine(Environment.SystemDirectory, "cmd.exe"), standin);
+        using var running = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(standin, "/c ping -n 60 127.0.0.1 >nul & rem --automation")
+            { UseShellExecute = false, CreateNoWindow = true })!;
+        try
+        {
+            var args = new List<string> { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", Script, "-Sandbox", s.Sandbox,
+                "-Credentials", s.Accounts, "-Exe", s.Exe, "-GridInfoUrl", s.GridInfo, "-ServerControl", s.Control,
+                "-Region", "Example Region", "-AccountA", "alpha1", "-AccountB", "beta1", "-StartSeconds", "3", "-ViewerProcessName", name + "*.exe" };
+            var environment = SettingNames.ToDictionary(n => n, _ => (string?)null);
+            environment["NV_STOCK_SETTINGS"] = null;
+            var r = ChildProcess.Run("powershell.exe", args, TimeSpan.FromMinutes(2), environment);
+            _out.WriteLine($"exit {r.ExitCode}\n{r.Output}");
+            Assert.Equal(3, r.ExitCode);
+            Assert.Contains("BLOCKED: a viewer that can log in is already running (1)", r.Output);
+            Assert.False(Directory.Exists(s.Sandbox), "a blocked run starts nothing and writes no evidence folder");
+        }
+        finally { running.Kill(entireProcessTree: true); }
+    }
+
     /// <summary>A run that fails early (viewer A never writes its automation token) still stops every viewer it started. The viewer is
-    /// a stand-in that only waits, and the server a stand-in control script; the claim guard is off (its settings are cleared).</summary>
+    /// a stand-in that only waits, and the server a stand-in control script; the claim guard is off (its settings are cleared). The
+    /// check for a viewer already running looks for a name nothing carries, so other sessions' viewers on the machine do not block it.</summary>
     [Fact]
     public void A_run_that_fails_while_a_viewer_starts_leaves_no_viewer_running()
     {
@@ -219,7 +253,7 @@ public sealed class StockSmokeScriptTests
         File.WriteAllText(viewer, "@echo off\r\nping -n 40 127.0.0.1 >nul\r\n");
         var args = new List<string> { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", Script, "-Sandbox", s.Sandbox,
             "-Credentials", s.Accounts, "-Exe", viewer, "-GridInfoUrl", s.GridInfo, "-ServerControl", s.Control,
-            "-Region", "Example Region", "-AccountA", "alpha1", "-AccountB", "beta1", "-StartSeconds", "3" };
+            "-Region", "Example Region", "-AccountA", "alpha1", "-AccountB", "beta1", "-StartSeconds", "3", "-ViewerProcessName", NoViewerName() };
         var environment = SettingNames.ToDictionary(n => n, _ => (string?)null);
         environment["NV_STOCK_SETTINGS"] = null;
         var r = ChildProcess.Run("powershell.exe", args, TimeSpan.FromMinutes(2), environment);

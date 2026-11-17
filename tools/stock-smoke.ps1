@@ -49,6 +49,7 @@ param(
     [string]$Views = $env:NV_STOCK_VIEWS,   # a folder (made when needed): after step 4b each viewer's picture of the other avatar from 3 m, seen-by-A.png and seen-by-B.png
     [string]$Exe = "",   # default: the development export, host\Viewer.Godot\build\dev\Reverie.console.exe
     [string]$Settings = "",   # a settings file (NAME=VALUE lines) for every setting above that is not given; default NV_STOCK_SETTINGS (tools\stock-settings.ps1)
+    [string]$ViewerProcessName = "Reverie*.exe",   # stub (red)
     [int]$StartSeconds = 150,   # the wait for each viewer's automation token; the same as the wait for the world after a login
     [switch]$DryRun,
     [switch]$CheckClaimsOnly
