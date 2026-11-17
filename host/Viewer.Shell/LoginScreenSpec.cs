@@ -35,4 +35,12 @@ public static class LoginScreenSpec
         new("cancel", LoginControlKind.Button, "login.button.cancel", "login.button.cancel"),
         new("status", LoginControlKind.Status, "login.status.ready", "login.status.label"),
     ];
+
+    /// <summary>The password field's show/hide button: a 16-unit eye icon with 6 units of padding each side, set this far in from
+    /// the field's right edge.</summary>
+    public const int RevealButtonWidth = 28, RevealButtonInset = 4;
+
+    /// <summary>The space the password field keeps on its right for its text: the button, its inset and the field's own padding, so
+    /// typed text (or its dots) stops before the button and scrolls, and the button never covers it.</summary>
+    public static int PasswordTextRightMargin(int fieldPadding) => fieldPadding;
 }

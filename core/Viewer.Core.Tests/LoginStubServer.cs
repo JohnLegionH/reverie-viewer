@@ -36,6 +36,9 @@ internal sealed class LoginStubServer : IDisposable
     public string Md5 { get; } = "";
     public int CompletedHandshakes => Volatile.Read(ref _handshakes);
 
+    /// <summary>The grid-info document a GET of get_grid_info is answered with; null: such a GET is not found.</summary>
+    public string? GridInfo { get; set; }
+
     /// <summary>The login requests received so far, as field name to value (a string, or a list of strings for "options").</summary>
     public IReadOnlyList<Dictionary<string, object>> Requests { get { lock (_requests) return _requests.ToList(); } }
 
@@ -109,7 +112,9 @@ internal sealed class LoginStubServer : IDisposable
                 buf.AddRange(one.AsSpan(0, n).ToArray());
             }
             string response;
-            if (!head.StartsWith("POST", StringComparison.Ordinal))
+            if (head.StartsWith("GET", StringComparison.Ordinal) && GridInfo is { } info && head.Contains("/get_grid_info", StringComparison.Ordinal))
+                response = $"HTTP/1.1 200 OK\r\nContent-Type: application/xml\r\nContent-Length: {Encoding.UTF8.GetByteCount(info)}\r\nConnection: close\r\n\r\n{info}";
+            else if (!head.StartsWith("POST", StringComparison.Ordinal))
                 response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
             else
             {

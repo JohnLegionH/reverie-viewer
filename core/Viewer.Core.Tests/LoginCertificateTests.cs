@@ -263,6 +263,25 @@ public class LoginCertificateTests
         var after = await GridAddress.HttpFetcher(new OutboundPolicy(new OutboundOptions()), log, null, trust)(uri, CancellationToken.None);
         Assert.Equal(404, after.Status);
     }
+
+    [Fact]
+    public async Task At_login_a_certificate_that_differs_from_the_one_pinned_is_refused_with_its_own_message_and_not_offered()
+    {
+        using var server = new LoginStubServer(StubCertificate.SelfSigned, (_, _) => LoginStubServer.Failure("key", "No."));
+        var trust = new CertificateTrust(NewStore());
+        trust.Trust(new CertificateRefusal(server.Host, "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF", "RemoteCertificateChainErrors", "CN=old", null)
+            { Kind = CertificateProblem.UnknownAuthority });
+        var (model, prompts) = RealModel(server, trust, Trust);
+
+        Assert.False(await model.LoginAsync());
+
+        var d = Assert.Single(prompts.Shown);
+        Assert.Equal(LoginDialogKind.CertificateError, d.Kind);
+        Assert.NotEqual("login.cert.changed", StringTable.English().Get("login.cert.changed"));
+        Assert.Contains(StringTable.English().Get("login.cert.changed"), d.Body);
+        Assert.False(trust.IsTrusted(server.Host, server.Sha256));
+        Assert.Equal(server.Sha256, Bare(d.Fields.Single(f => f.Label == "SHA-256 Fingerprint").Value));
+    }
 }
 
 /// <summary>The saved choice: where it lives, that a later run reads it, and that it holds nothing but the pinned certificates.</summary>

@@ -22,7 +22,7 @@ public class ReverieAssetsTests
     [
         "message-square", "messages-square", "users", "map-pin", "map", "compass", "package", "shirt", "user", "person-standing",
         "pencil-ruler", "plug", "bell", "arrow-left", "house", "star", "globe", "chevron-down", "face-slightly-smiling", "mic", "undo-2",
-        "search", "list-filter", "folder", "trash-2", "plus", "minus", "x", "lock", "triangle-alert",
+        "search", "list-filter", "folder", "trash-2", "plus", "minus", "x", "lock", "triangle-alert", "eye", "eye-off", "circle-question-mark",
     ];
 
     [Fact]

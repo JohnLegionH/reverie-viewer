@@ -4,8 +4,8 @@
 namespace Viewer.Shell.Grids;
 
 /// <summary>What looking up an address found: the grid to add (null when nothing usable answered), the string-table key of the plain
-/// message that says why not, and whether the address is plain http.</summary>
-public sealed record GridLookupResult(GridEntry? Entry, string? ProblemKey, bool PlainHttp);
+/// message that says why not, whether the address is plain http, and the server certificate that was refused when that is why.</summary>
+public sealed record GridLookupResult(GridEntry? Entry, string? ProblemKey, bool PlainHttp, Viewer.Core.Net.CertificateRefusal? Certificate = null);
 
 /// <summary>
 /// Add a grid's Look up: reads the grid-info document at the address typed (Firestorm's grid manager does the same,

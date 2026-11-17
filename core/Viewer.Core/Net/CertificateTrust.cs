@@ -46,6 +46,15 @@ public sealed class CertificateTrust
             return _entries.Any(e => string.Equals(e.Host, host, StringComparison.OrdinalIgnoreCase) && string.Equals(e.Sha256, sha256, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Whether the host has a pinned certificate and this fingerprint is not it: the server's certificate changed since the
+    /// person trusted it, which is refused rather than offered for trust again.</summary>
+    public bool IsChanged(string host, string sha256) => false;
+
+    /// <summary>Forgets every certificate pinned for the host (the grid was taken off the list), and saves the choice.</summary>
+    public void Forget(string host)
+    {
+    }
+
     /// <summary>Trusts the certificate for the host from now on, and saves the choice.</summary>
     public void Trust(CertificateRefusal certificate)
     {

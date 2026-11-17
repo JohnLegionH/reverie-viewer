@@ -10,8 +10,9 @@ namespace Viewer.Shell;
 /// <summary>The outcome of tidying a typed grid address: the address, or the string-table key of what is wrong with it.</summary>
 public sealed record TidyResult(Uri? Uri, string? ProblemKey);
 
-/// <summary>What fetching one address got: the HTTP status (null when nothing answered), the body, and a short failure reason.</summary>
-public sealed record GridFetch(int? Status, string? Body, string? Failure);
+/// <summary>What fetching one address got: the HTTP status (null when nothing answered), the body, a short failure reason, and the
+/// server certificate that was refused when that is why nothing answered.</summary>
+public sealed record GridFetch(int? Status, string? Body, string? Failure, CertificateRefusal? Refused = null);
 
 /// <summary>The one GET the resolver makes (injected so tests can use a loopback server and the shipping build uses the session's outbound rules).</summary>
 public delegate Task<GridFetch> GridFetcher(Uri uri, CancellationToken ct);
