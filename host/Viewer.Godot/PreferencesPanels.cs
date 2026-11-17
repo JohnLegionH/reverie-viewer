@@ -391,6 +391,52 @@ public sealed partial class PreferencesPanel : VBoxContainer
         SyncViews();
     }
 
+    /// <summary>Shows the page a setting is on, scrolled to its row, with the keyboard on its control so the row is highlighted (the
+    /// command list's settings results open here). False when no page shows that setting.</summary>
+    public bool ShowSetting(string key)
+    {
+        if (PreferenceCatalog.Find(key) is not { } def)
+            return false;
+        ShowCategory(def.Page.ToString().ToLowerInvariant());
+        if (ControlFor(key) is not { } control)
+            return false;
+        // once the row shows (the window may open in the same frame, and takes the keyboard as it opens), for at most ten frames
+        var tree = GetTree();
+        int frames = 0;
+        void Step()
+        {
+            tree.ProcessFrame -= Step;
+            frames++;
+            if (!control.IsVisibleInTree() || frames < 2)
+            {
+                if (frames < 10)
+                    tree.ProcessFrame += Step;
+                return;
+            }
+            for (Node? n = control.GetParent(); n is not null; n = n.GetParent())
+                if (n is ScrollContainer scroll)
+                {
+                    scroll.EnsureControlVisible(control);
+                    break;
+                }
+            // the row's control, or the part of it that takes the keyboard (a number box's text field)
+            if (Focusable(control) is { } target)
+                target.GrabFocus();
+        }
+        static Control? Focusable(Control c)
+        {
+            if (c.FocusMode != FocusModeEnum.None && c.Visible)
+                return c;
+            foreach (var child in c.GetChildren(includeInternal: true))
+                if (child is Control k && Focusable(k) is { } found)
+                    return found;
+            return null;
+        }
+        if (tree is not null)
+            tree.ProcessFrame += Step;
+        return true;
+    }
+
     private PrefPage? CurrentPage => Enum.TryParse<PrefPage>(_current, ignoreCase: true, out var page) ? page : null;
 
     private void SyncViews()

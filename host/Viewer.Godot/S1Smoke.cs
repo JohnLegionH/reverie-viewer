@@ -81,6 +81,7 @@ public partial class S1Smoke : Node
                 await ShellCheck();
                 await KeysCheck();
                 await MenuChoiceCheck();
+                await CommandListCheck();
                 FontCheck();
                 await ChatCheck();
                 await PeopleCheck();
@@ -1127,7 +1128,8 @@ public partial class S1Smoke : Node
             Viewer.Shell.EnvironmentMenu.Install(model.Menus, model.Commands, envChoice, () => { });
             await Frames(2);
             var world = model.Menus.Menus.FirstOrDefault(m => m.Id == "world");
-            if (world is null || world.Entries.Count != 6) problems.Add($"the World menu holds {world?.Entries.Count ?? 0} entries, expected 6");
+            // Teleport, Go home, Set home, World map, Mini-map, About Land and the Environment submenu
+            if (world is null || world.Entries.Count != 7) problems.Add($"the World menu holds {world?.Entries.Count ?? 0} entries, expected 7");
             // the Environment submenu: its own popup with the official items, a check on the one in force, the choice made through the command
             int worldIndex = shell.Menu.Menus.ToList().FindIndex(m => m.Id == "world");
             PopupMenu? Env() => worldIndex < 0 ? null : shell.Menu.Filled(worldIndex).GetNodeOrNull<PopupMenu>("world_environment");   // as the menu opens

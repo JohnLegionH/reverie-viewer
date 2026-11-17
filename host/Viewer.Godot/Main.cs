@@ -272,6 +272,7 @@ public partial class Main : Node
         _shell.Shell.Focus.DriverFocusedChanged += OnMovementAllowed;   // the avatar's controls: not while a text field has the keyboard, unless arrow keys always move
         _shell.Shell.Focus.MovementAllowedChanged += ReleaseLetterKeys;
         _preferences = PreferencesFeature.Install(_shell, startSettings, ClearContentCache, ClearSavedLoginNames);
+        CommandListFeature.Install(_shell, startSettings, _preferences);   // Ctrl+Shift+K and the top bar's search box
         _loginScreen.PreferencesRequested += () => _shell.Shell.Floaters.Open(PreferencesFeature.FloaterId);
         // Help: the chosen grid's own help page when it publishes one, else About
         _loginScreen.HelpRequested += page => { if (page is not null) OS.ShellOpen(page.ToString()); else _shell.Shell.Floaters.Open(ShellController.AboutFloaterId); };

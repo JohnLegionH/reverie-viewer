@@ -63,7 +63,7 @@ public static class FeatureMap
             rows.Add(new FeatureRow(row, Cell("area"), Cell("feature"), Cell("reverie_status"), Cell("sl_menu_path"), Cell("sl_shortcut"),
                 Cell("fs_location"), CommandText.Places(Cell("aliases"))));
         }
-        return [];
+        return rows;
     }
 }
 
@@ -89,7 +89,7 @@ public sealed record CommandTargets(IReadOnlyDictionary<int, IReadOnlyList<strin
             else if (cells.Length >= 2 && int.TryParse(cells[0], out int row))
                 byRow[row] = cells[1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
         }
-        return new CommandTargets(new Dictionary<int, IReadOnlyList<string>>(), sl);
+        return new CommandTargets(byRow, sl);
     }
 }
 
@@ -106,7 +106,7 @@ public static class CommandText
     /// <summary>The places of a cell ("A > B ; C"), without "none" and without automatic behaviour.</summary>
     public static IReadOnlyList<string> Places(string? cell) =>
         string.IsNullOrWhiteSpace(cell) ? [] :
-        Array.Empty<string>().Select(p => p.Trim())
+        cell.Split(" ; ").Select(p => p.Trim())
             .Where(p => p.Length > 0 && !p.Equals("none", StringComparison.OrdinalIgnoreCase) && !p.StartsWith("automatic", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
@@ -124,7 +124,7 @@ public static class CommandText
             leaf = leaf[button.Length..];
         if (leaf.EndsWith(')') && leaf.IndexOf(" (", StringComparison.Ordinal) is var open and > 0)
             leaf = leaf[..open];
-        return "";
+        return leaf.Trim().Trim('"').TrimEnd('.', '…').Trim();
     }
 
     /// <summary>Lower case, "[APP_NAME]" removed, anything but letters and digits made a space, spaces collapsed.</summary>
@@ -174,7 +174,7 @@ public static class CommandText
     /// <summary>A shortcut as the menus write it ("control|shift|K") as a person reads it ("Ctrl+Shift+K"); null for none.</summary>
     public static string? ShortcutText(string? shortcut)
     {
-        if (shortcut is null || shortcut.Length >= 0)
+        if (string.IsNullOrEmpty(shortcut))
             return null;
         return string.Join("+", shortcut.Split('|').Select(p => p.ToLowerInvariant() switch
         {
@@ -314,7 +314,7 @@ public sealed class CommandIndex
                 Terms = terms.Select(t => (CommandText.Normalize(t.Item1), t.Item2)).Where(t => t.Item1.Length > 0).ToArray(),
             });
         }
-        return new CommandIndex([], map);
+        return new CommandIndex(items, map);
     }
 
     /// <summary>The result that opens <paramref name="target"/>, or null when the viewer has none now.</summary>
@@ -459,12 +459,12 @@ public sealed class CommandListState(CommandIndex index, CommandRecents recents)
         {
             case "Up": Move(-1); return (CommandListAction.None, null);
             case "Down": Move(1); return (CommandListAction.None, null);
-            case "Escape": return (CommandListAction.None, null);
+            case "Escape": return (CommandListAction.Close, null);
             case "Enter":
                 if (Current is not { } item || (!control && !item.Enabled))
                     return (CommandListAction.None, null);
                 recents.Add(item.Target);
-                return (CommandListAction.None, item);
+                return (control ? CommandListAction.ShowPlace : CommandListAction.Open, item);
             default: return (CommandListAction.None, null);
         }
     }

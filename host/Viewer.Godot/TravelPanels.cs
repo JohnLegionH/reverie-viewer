@@ -56,6 +56,8 @@ public static class TravelFeature
         s.Menus.AddEntry("world", new MenuEntry("world.set_home", "menu.world.set_home", "travel.set_home"));
         s.Menus.AddEntry("world", new MenuEntry("world.map", "menu.world.map", "floater.map"));
         s.Menus.AddEntry("world", new MenuEntry("world.minimap", "menu.world.minimap", "floater.minimap"));
+        // World > About land, as the official menu has it (menu_viewer.xml "About land"); its command comes with the interaction windows
+        s.Menus.AddEntry("world", new MenuEntry("world.about_land", "menu.world.about_land", "floater.about_land"));
         s.Toolbar.Add(new ToolbarButton("toolbar_teleport", "toolbar.teleport", "floater.teleport", UiIcons.Teleport, TeleportId));
         s.Toolbar.Add(new ToolbarButton("toolbar_map", "toolbar.map", "floater.map", UiIcons.Map, MapId));
         s.Toolbar.Add(new ToolbarButton("toolbar_minimap", "toolbar.minimap", "floater.minimap", UiIcons.MiniMap, MiniMapId));

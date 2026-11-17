@@ -51,7 +51,7 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
-        "script", "script-error", "script-readonly",
+        "script", "script-error", "script-readonly", "commandlist", "commandlist-search", "commandlist-setting",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -204,6 +204,8 @@ public partial class TestRender
                 var prefs = PreferencesFeature.Install(shell, settings, () => 0, () => false);
                 if (scene.StartsWith("preferences", StringComparison.Ordinal))
                     prefs.ShowCategory(scene == "preferences" ? "interface" : scene["preferences-".Length..]);   // "preferences" is the Interface page
+                if (scene.StartsWith("commandlist", StringComparison.Ordinal))
+                    ExampleCommandList(shell, settings, prefs, scene);
                 open = scene switch
                 {
                     "inworld" => "",
@@ -220,9 +222,19 @@ public partial class TestRender
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
                     "build" => EditPanel.FloaterId,
+                    "commandlist" or "commandlist-search" or "commandlist-setting" => "",
                     _ => PreferencesFeature.FloaterId,
                 };
                 break;
+        }
+        if (scene.StartsWith("commandlist", StringComparison.Ordinal))
+        {
+            shell.ShowWorldRows(true);
+            shell.SetConnected(true);
+            shell.SetBrand(ExampleBranding().Name);
+            shell.SetLocation(new LocationParts(null, "Example Region", "128, 128, 30"));
+            await Frames(2);
+            shell.PlaceCommandList();
         }
         if (scene == "inworld")
         {
@@ -276,6 +288,24 @@ public partial class TestRender
         shell.QueueFree();
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         return _failures.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// The command list in the world frame: "commandlist", the field empty with three recent picks; "commandlist-search", a search for
+    /// "about land"; "commandlist-setting", a search for "draw distance" (a setting result). The About Land command is wired as the viewer
+    /// wires it in the world.
+    /// </summary>
+    private static void ExampleCommandList(ShellRoot shell, SettingsService settings, PreferencesPanel prefs, string scene)
+    {
+        var s = shell.Shell;
+        s.Commands.Register("floater.about_land", () => s.Floaters.Open(InteractFeature.LandId));
+        settings.SetText(CommandRecents.Key, string.Join('\n', "menu:world.about_land", "pref:draw_distance", "menu:content.inventory"));
+        var window = CommandListFeature.Install(shell, settings, prefs);
+        window.Open();
+        if (scene == "commandlist-search")
+            window.Type("about land");
+        else if (scene == "commandlist-setting")
+            window.Type("draw distance");
     }
 
     /// <summary>A grid's branding made of reserved example values.</summary>
