@@ -599,7 +599,8 @@ public partial class EditPanel : VBoxContainer
             ShapeName: o.Shape is { } sh ? _s.Get("edit.type." + ShapeRules.KindOf(sh).ToString().ToLowerInvariant()) : null,
             Hollow: (o.Shape?.ProfileHollow ?? 0) * 100, TwistDegrees: o.Shape is { } tw ? (tw.PathTwist - tw.PathTwistBegin) * ShapeRules.TwistDegreesRange(tw) : 0,
             FacesPicked: e.SelectedFaces.Count, SelectFaces: e.SelectFaces,
-            Texture: shown is not null ? _textureTab.TextureName : null,
+            // a texture is named only by its inventory name; one known only by its id is left out of the line
+            Texture: shown is not null && !Guid.TryParse(_textureTab.TextureName, out _) ? _textureTab.TextureName : null,
             Name: props?.Name, Locked: e.Access(o.Id.LocalId).Locked, Physical: (flags & Viewer.Core.Interaction.ObjectFlagBits.Physics) != 0,
             Temporary: (flags & TemporaryOnRez) != 0, Phantom: (flags & Phantom) != 0,
             Flexible: f?.Flexible is not null, Light: f?.Light is not null,
