@@ -364,7 +364,7 @@ public partial class EditPanel : VBoxContainer
             if (IsInstanceValid(c)) c.Visible = true;
         _hiddenBySearch.Clear();
         foreach (var b in _tools.Values.Concat(_manips.Values).Append(_faceMode).Append(_undo).Append(_redo))
-            b.Modulate = Colors.White;
+            b.Modulate = b.Modulate with { A = 1f };
         var hits = BuildLayout.Search(query, _s);
         if (query.Trim().Length == 0)
         {
@@ -399,7 +399,7 @@ public partial class EditPanel : VBoxContainer
         foreach (var (id, b) in _tools.Select(kv => ("tool_" + kv.Key.ToString().ToLowerInvariant(), kv.Value))
                      .Concat(_manips.Select(kv => ("manip_" + kv.Key.ToString().ToLowerInvariant(), kv.Value)))
                      .Append(("manip_face", _faceMode)).Append(("undo", _undo)).Append(("redo", _redo)))
-            b.Modulate = toolHits.Count > 0 && !found.Contains(id) ? new Color(1, 1, 1, 0.45f) : Colors.White;
+            b.Modulate = b.Modulate with { A = toolHits.Count > 0 && !found.Contains(id) ? 0.45f : 1f };
         _searchStatus.Visible = true;
         _searchStatus.Text = hits.Count == 0 ? _s.Get("edit.search.none", query.Trim())
             : toolHits.Count > 0 ? _s.Get("edit.search.tools", string.Join(", ", toolHits.Select(h => _s.Get(h.LabelKey))))

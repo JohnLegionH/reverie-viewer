@@ -23,7 +23,7 @@ public static class ColourMath
         h = (h % 1f + 1f) % 1f * 6f;
         float c = v * s, x = c * (1 - MathF.Abs(h % 2f - 1)), m = v - c;
         var (r, g, b) = Sector(h, c, x);
-        return new UiColour(r + m, g + m, b + m, a);
+        return new(r + m, g + m, b + m, a);
     }
 
     /// <summary>Hue (0 to 1), saturation and lightness (0 to 1) of a colour.</summary>
@@ -40,7 +40,7 @@ public static class ColourMath
         h = (h % 1f + 1f) % 1f * 6f;
         float c = (1 - MathF.Abs(2 * l - 1)) * s, x = c * (1 - MathF.Abs(h % 2f - 1)), m = l - c / 2;
         var (r, g, b) = Sector(h, c, x);
-        return new UiColour(r + m, g + m, b + m, a);
+        return new(r + m, g + m, b + m, a);
     }
 
     private static float Hue(UiColour c, float max, float d)
@@ -73,7 +73,7 @@ public static class ColourMath
             return false;
         if (t.Length == 6)
             v = v << 8 | 0xFF;
-        colour = new UiColour((v >> 24 & 0xFF) / 255f, (v >> 16 & 0xFF) / 255f, (v >> 8 & 0xFF) / 255f, (v & 0xFF) / 255f);
+        colour = new((v >> 24 & 0xFF) / 255f, (v >> 16 & 0xFF) / 255f, (v >> 8 & 0xFF) / 255f, (v & 0xFF) / 255f);
         return true;
     }
 

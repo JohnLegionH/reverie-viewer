@@ -12,7 +12,7 @@ namespace Viewer.Godot;
 /// <summary>A small button that shows one colour; the picker's swatches and the parts of a <see cref="ColourButton"/> are made of it.</summary>
 public partial class ColourChip : Button
 {
-    private Color _colour = Colors.White;
+    private Color _colour = ColourPickerWindow.Data(1, 1, 1);
 
     public Color Colour
     {
@@ -43,7 +43,7 @@ public partial class ColourChip : Button
                 {
                     bool dark = ((int)(x / cell) + (int)(y / cell)) % 2 == 1;
                     var r = new Rect2(inner.Position + new Vector2(x, y), new Vector2(MathF.Min(cell, inner.Size.X - x), MathF.Min(cell, inner.Size.Y - y)));
-                    DrawRect(r, dark ? new Color(0.4f, 0.4f, 0.4f) : new Color(0.8f, 0.8f, 0.8f));
+                    DrawRect(r, dark ? ColourPickerWindow.Data(0.4f, 0.4f, 0.4f) : ColourPickerWindow.Data(0.8f, 0.8f, 0.8f));
                 }
         }
         DrawRect(inner, Disabled ? _colour.Darkened(0.55f) : _colour);
@@ -134,6 +134,7 @@ public partial class ColourPickerWindow : VBoxContainer
     private float _h, _sat, _val, _alpha = 1f;
     private bool _filling;
     private PickOverlay? _overlay;
+    private ViewportTexture? _screen;
 
     /// <summary>The window of the shell <paramref name="inside"/> belongs to, made the first time it is asked for; null outside a shell.</summary>
     public static ColourPickerWindow? For(Node inside)
@@ -156,6 +157,11 @@ public partial class ColourPickerWindow : VBoxContainer
     }
 
     public static UiColour ToUi(Color c) => new(c.R, c.G, c.B, c.A);
+
+    // the picker draws colours as data (the colour chosen, the square and strip it is chosen on, the marks on them, the check behind a
+    // see-through colour), not theme colours: black and white marks show on any colour
+    internal static Color Data(float r, float g, float b) => ShellTheme.DataColour(r, g, b);
+    private static UiColour Ui(float r, float g, float b, float a) => new(r, g, b, a);
     public static Color ToGodot(UiColour c) => ShellTheme.DataColour(c.R, c.G, c.B) with { A = c.A };   // the chosen colour itself, not a theme colour
 
     private ColourPickerWindow(ShellRoot shell)
@@ -203,7 +209,7 @@ public partial class ColourPickerWindow : VBoxContainer
         _sField = Field(fields, "colour_s", "colour.s", 100);
         _lField = Field(fields, "colour_l", "colour.l", 100);
         foreach (var f in new[] { _r, _g, _b })
-            f.ValueChanged += _ => { if (!_filling) Set(new UiColour((float)_r.Value / 255f, (float)_g.Value / 255f, (float)_b.Value / 255f, _alpha)); };
+            f.ValueChanged += _ => { if (!_filling) Set(Ui((float)_r.Value / 255f, (float)_g.Value / 255f, (float)_b.Value / 255f, _alpha)); };
         foreach (var f in new[] { _hField, _sField, _lField })
             f.ValueChanged += _ => { if (!_filling) Set(ColourMath.FromHsl((float)_hField.Value / 360f, (float)_sField.Value / 100f, (float)_lField.Value / 100f, _alpha)); };
         AddChild(fields);
@@ -444,13 +450,14 @@ public partial class ColourPickerWindow : VBoxContainer
         _overlay = new PickOverlay { Name = "colour_pick_overlay" };
         _overlay.Picked += at =>
         {
-            var img = GetViewport().GetTexture().GetImage();
+            _screen ??= GetViewport().GetTexture();   // read once and kept (ReadBackScanTests)
+            var img = _screen.GetImage();
             var view = GetViewport().GetVisibleRect().Size;
             int x = Math.Clamp((int)(at.X * img.GetWidth() / view.X), 0, img.GetWidth() - 1);
             int y = Math.Clamp((int)(at.Y * img.GetHeight() / view.Y), 0, img.GetHeight() - 1);
             var c = img.GetPixel(x, y);
             StopPick();
-            Set(new UiColour(c.R, c.G, c.B, _alpha));
+            Set(Ui(c.R, c.G, c.B, _alpha));
         };
         _overlay.Stopped += StopPick;
         _shell.AddChild(_overlay);
@@ -522,7 +529,7 @@ public partial class ColourPickerWindow : VBoxContainer
                     for (int x = 0; x < Cells; x++)
                     {
                         var c = ColourMath.FromHsv(h, x / (float)(Cells - 1), 1 - y / (float)(Cells - 1));
-                        img.SetPixel(x, y, new Color(c.R, c.G, c.B));
+                        img.SetPixel(x, y, ToGodot(c));
                     }
                 if (_tex is null) _tex = ImageTexture.CreateFromImage(img); else _tex.Update(img);
             }
@@ -534,8 +541,8 @@ public partial class ColourPickerWindow : VBoxContainer
         {
             if (_tex is not null) DrawTextureRect(_tex, new Rect2(Vector2.Zero, Size), false);
             var at = new Vector2(_s * Size.X, (1 - _v) * Size.Y);
-            DrawArc(at, 6, 0, MathF.Tau, 20, Colors.Black, 2);
-            DrawArc(at, 4, 0, MathF.Tau, 20, Colors.White, 2);
+            DrawArc(at, 6, 0, MathF.Tau, 20, Data(0, 0, 0), 2);
+            DrawArc(at, 4, 0, MathF.Tau, 20, Data(1, 1, 1), 2);
         }
 
         public override void _GuiInput(InputEvent e)
@@ -572,13 +579,13 @@ public partial class ColourPickerWindow : VBoxContainer
                 for (int x = 0; x < 180; x++)
                 {
                     var c = ColourMath.FromHsv(x / 179f, 1, 1);
-                    img.SetPixel(x, 0, new Color(c.R, c.G, c.B));
+                    img.SetPixel(x, 0, ToGodot(c));
                 }
                 _strip = ImageTexture.CreateFromImage(img);
             }
             DrawTextureRect(_strip, new Rect2(Vector2.Zero, Size), false);
             float x0 = _hue * Size.X;
-            DrawRect(new Rect2(x0 - 2, 0, 4, Size.Y), Colors.White, false, 2);
+            DrawRect(new Rect2(x0 - 2, 0, 4, Size.Y), Data(1, 1, 1), false, 2);
         }
 
         public override void _GuiInput(InputEvent e)
