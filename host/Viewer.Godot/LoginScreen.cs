@@ -453,7 +453,7 @@ public partial class LoginScreen : Control
                 AddChild(edit);
             });
         panel.Changed += () => { FillGrids(); GridChanged(); };
-        panel.Removed += entry => _model?.ForgetGridCertificates(entry.Address);
+        panel.Removed += entry => _model?.ForgetGridCertificates(entry.Address, entry.Info?.Login);
         panel.TreeExiting += () => { if (_overlay == panel) _overlay = null; };
         ShowOverlay(panel);
     }

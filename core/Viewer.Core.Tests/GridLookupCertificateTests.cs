@@ -145,6 +145,33 @@ public class GridLookupCertificateTests
     }
 
     [Fact]
+    public async Task Refresh_info_offers_the_same_trust_choice_and_keeps_the_name_given()
+    {
+        using var server = new LoginStubServer(StubCertificate.SelfSigned, (_, _) => "") { GridInfo = Info };
+        var trust = new CertificateTrust(TestTemp.NewFolderPath("trust"));
+        var (model, prompts) = Model(trust, Trust);
+        var entry = new GridEntry(Address(server), "My name", null, true, DateTimeOffset.UtcNow);
+
+        var found = await model.RefreshGridAsync(entry);
+
+        Assert.Equal(LoginDialogKind.TrustCertificate, Assert.Single(prompts.Shown).Kind);
+        Assert.True(trust.IsTrusted(server.Host, server.Sha256));
+        Assert.Equal("My name", found.Entry?.Name);
+    }
+
+    [Fact]
+    public void Forgetting_a_grid_also_forgets_the_pin_of_the_login_address_its_grid_info_names()
+    {
+        var trust = new CertificateTrust(null);
+        trust.Trust(new CertificateRefusal("login.example.org", "AB12", "RemoteCertificateChainErrors", "CN=x", null) { Kind = CertificateProblem.UnknownAuthority });
+        var (model, _) = Model(trust, Trust, (_, _) => Task.FromResult(new GridFetch(null, null, null)));
+
+        model.ForgetGridCertificates("https://grid.example.org/", new Uri("https://login.example.org:8002/"));
+
+        Assert.Equal(0, trust.Count);
+    }
+
+    [Fact]
     public void Forgetting_a_grid_forgets_its_pinned_certificate_in_a_later_run_too()
     {
         string store = TestTemp.NewFolderPath("trust");

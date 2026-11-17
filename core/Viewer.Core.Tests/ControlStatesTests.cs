@@ -88,6 +88,10 @@ public class ControlStatesTests
         Assert.DoesNotMatch(@"font_disabled_color""\s*,\s*\w+\s*,\s*muted", shell);   // the secondary colour is not a disabled colour
         Assert.Contains("ControlStates.Button(", shell);
         Assert.Contains("ControlStates.DisabledStrength", files[2].Item2);
+        // the classic controls' disabled face is the faded one, not the normal face
+        Assert.Contains("var disabled = Box(t, states.Disabled.Fill, states.Disabled.Border, 6);", shell);
+        Assert.Contains("theme.SetStylebox(\"disabled\", type, disabled);", shell);
+        Assert.Contains("theme.SetColor(\"font_disabled_color\", type, C(states.Disabled.Text));", shell);
     }
 
     [Fact]
@@ -111,6 +115,9 @@ public class ControlStatesTests
     public void The_password_field_keeps_room_for_its_show_button_so_the_button_never_covers_text(int padding)
     {
         int margin = LoginScreenSpec.PasswordTextRightMargin(padding);
+        // the theme's password field keeps that margin and the login screen's password field takes it (on screen: the login render case)
+        Assert.Contains("room.ContentMarginRight = LoginScreenSpec.PasswordTextRightMargin(", Source("host", "Viewer.Godot", "ShellTheme.cs"));
+        Assert.Contains("ThemeTypeVariation = UiTheme.PasswordField", Source("host", "Viewer.Godot", "LoginScreen.cs"));
         Assert.True(margin >= LoginScreenSpec.RevealButtonWidth + LoginScreenSpec.RevealButtonInset + padding,
             $"the text stops {margin} from the right edge; the button takes {LoginScreenSpec.RevealButtonWidth + LoginScreenSpec.RevealButtonInset}");
     }

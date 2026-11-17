@@ -114,11 +114,14 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
         catch (OperationCanceledException) { return new(null, "grid.add.no_answer", false); }
     }
 
-    /// <summary>Manage grids' Remove: forgets the certificates pinned for the grid's server, so adding it again asks afresh.</summary>
-    public void ForgetGridCertificates(string address)
+    /// <summary>Manage grids' Remove: forgets the certificates pinned for the grid's server and for the login address its grid info
+    /// names (the login may be pinned there), so adding it again asks afresh.</summary>
+    public void ForgetGridCertificates(string address, Uri? login = null)
     {
         if (GridAddress.Tidy(address).Uri is { } uri)
             Trust?.Forget(uri.Host);
+        if (login is not null)
+            Trust?.Forget(login.Host);
     }
 
     /// <summary>Manage grids' Refresh info for one grid, as <see cref="LookUpGridAsync"/>.</summary>

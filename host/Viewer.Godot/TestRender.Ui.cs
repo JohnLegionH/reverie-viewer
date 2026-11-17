@@ -159,6 +159,7 @@ public partial class TestRender
         shell.MainView.AddChild(backdrop);
 
         string open = "";
+        LoginScreen? loginShown = null;
         switch (scene)
         {
             case "login":
@@ -166,6 +167,8 @@ public partial class TestRender
                 shell.MainView.AddChild(login);
                 login.ShowExampleGrid(ExampleGrid());
                 login.ApplyBranding(ExampleBranding());
+                ((LineEdit)login.ById["password"]).Text = new string('x', 64);   // a long password: its dots must stop before the show button
+                loginShown = login;
                 break;
             case "reconnect":
                 var model = new LoginModel(strings, _ => throw new InvalidOperationException("no login in a render case"), null);
@@ -235,6 +238,15 @@ public partial class TestRender
         else if (open.Length > 0)
             shell.Shell.Floaters.Open(open);
         await Frames(10);
+        if (loginShown is not null && loginShown.ById["password"] is LineEdit field && loginShown.ById["reveal"] is Control eye)
+        {
+            // the field's text area ends where its face's right margin begins; the show button must start at or after it
+            float textEnd = field.GetGlobalRect().End.X - field.GetThemeStylebox("normal").ContentMarginRight;
+            float eyeStart = eye.GetGlobalRect().Position.X;
+            _result["password_room"] = new { textEnd, eyeStart };
+            if (textEnd > eyeStart + 0.5f)
+                _failures.Add($"the password field's text runs under its show button: text to {textEnd:F1}, button from {eyeStart:F1}");
+        }
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);
         Directory.CreateDirectory(_out);
