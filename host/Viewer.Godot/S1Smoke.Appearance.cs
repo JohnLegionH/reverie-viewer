@@ -115,12 +115,12 @@ public partial class S1Smoke
             await panel.OpenAsync(ids.Shirt);
             panel.Tabs.CurrentTab = 1;
             panel.Rebuild();
-            var colour = Descendants(panel.Body).OfType<ColorPickerButton>().FirstOrDefault();
+            var colour = Descendants(panel.Body).OfType<ColourButton>().FirstOrDefault();
             if (colour is null) problems.Add("the shirt has no colour button");
             else
             {
-                colour.Color = new Color(0.1f, 0.2f, 0.3f);
-                colour.EmitSignal(ColorPickerButton.SignalName.ColorChanged, colour.Color);
+                colour.Open();
+                if (ColourPickerWindow.For(colour) is { } shared) { shared.Set(new UiColour(0.1f, 0.2f, 0.3f)); shared.Session?.Ok(); shell.Shell.Floaters.Close(ColourPickerWindow.FloaterId); }
                 var (r, g, b) = panel.Editing!.Editor!.Colour(WearableKinds.Swatches(WearableType.Shirt)[0]);
                 if (Math.Abs(r - 0.1f) > 0.01f || Math.Abs(g - 0.2f) > 0.01f || Math.Abs(b - 0.3f) > 0.01f) problems.Add("a picked colour did not reach the editor");
             }
@@ -155,7 +155,7 @@ public partial class S1Smoke
             if (Descendants(panel.Body).OfType<HSlider>().Any(s => s.Editable)) problems.Add("a slider is editable on an item that may not be modified");
 
             // every control has a name, and no string is missing
-            foreach (var c in Descendants(frame).OfType<Control>().Where(c => c is Label or Button or LineEdit or ItemList or HSlider or ColorPickerButton or TabContainer))
+            foreach (var c in Descendants(frame).OfType<Control>().Where(c => c is Label or Button or LineEdit or ItemList or HSlider or ColourButton or TabContainer))
                 if (string.IsNullOrWhiteSpace(c.AccessibilityName)) problems.Add($"appearance {c.Name}: no accessible name");
             foreach (var t in Descendants(frame).OfType<Control>().Select(c => c is Label l ? l.Text : c is Button b ? b.Text : "").Where(s => s.Contains("[[")))
                 problems.Add("a missing string is shown: " + t);

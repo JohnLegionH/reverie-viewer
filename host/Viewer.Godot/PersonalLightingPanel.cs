@@ -57,13 +57,13 @@ public sealed partial class PersonalLightingPanel : VBoxContainer
 
     private readonly PersonalLighting _model;
     private readonly Func<SkyFrame?> _frame;
-    private readonly Dictionary<PersonalField, ColorPickerButton> _pickers = new();
+    private readonly Dictionary<PersonalField, ColourButton> _pickers = new();
     private readonly Dictionary<PersonalField, (HSlider Slider, Label Value)> _sliders = new();
     private bool _syncing;
 
     public Button ResetButton { get; }
 
-    public IReadOnlyDictionary<PersonalField, ColorPickerButton> Pickers => _pickers;
+    public IReadOnlyDictionary<PersonalField, ColourButton> Pickers => _pickers;
 
     public IReadOnlyDictionary<PersonalField, (HSlider Slider, Label Value)> SliderRows => _sliders;
 
@@ -79,7 +79,7 @@ public sealed partial class PersonalLightingPanel : VBoxContainer
             var row = new HBoxContainer { Name = "row_" + field };
             var label = new Label { Name = "label_" + field, Text = strings.Get(key), CustomMinimumSize = new Vector2(130, 0) };
             label.AccessibilityName = label.Text;
-            var picker = new ColorPickerButton { Name = "swatch_" + field, CustomMinimumSize = new Vector2(64, 28), EditAlpha = false };
+            var picker = new ColourButton { Name = "swatch_" + field, CustomMinimumSize = new Vector2(64, 28), TooltipText = strings.Get("colour.swatch.tip") };
             picker.AccessibilityName = label.Text;
             var f = field;
             picker.ColorChanged += c => { if (!_syncing) _model.SetColour(f, new System.Numerics.Vector3(c.R, c.G, c.B)); };

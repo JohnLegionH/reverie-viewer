@@ -27,7 +27,7 @@ public sealed class EditFeaturesTab
     private readonly SpinBox _softness, _flexGravity, _drag, _wind, _tension, _forceX, _forceY, _forceZ;
     private readonly SpinBox _intensity, _fov, _radius, _focus, _falloff, _ambiance;
     private readonly SpinBox _gravity, _friction, _density, _restitution;
-    private readonly ColorPickerButton _colour;
+    private readonly ColourButton _colour;
     private readonly Label _projector;
     private readonly OptionButton _shape, _material;
     private readonly List<Control> _flexControls = new(), _lightControls = new(), _physicsControls = new();
@@ -55,7 +55,8 @@ public sealed class EditFeaturesTab
         page.AddChild(new HSeparator());
         _light = Check(page, "light", "edit.feat.light", on => _edit()?.SetLight(on));
         var colourRow = new HBoxContainer { Name = "light_colour_row" };
-        _colour = new ColorPickerButton { Name = "light_colour", EditAlpha = false, CustomMinimumSize = new Vector2(64, 24) };
+        // the light's colour opens the shared colour picker; its changes are sent as they are made and Cancel sends the old colour again
+        _colour = new ColourButton { Name = "light_colour", TitleKey = "edit.feat.light_colour", TooltipText = strings.Get("colour.swatch.tip") };
         _colour.AccessibilityName = strings.Get("edit.feat.light_colour");
         _colour.ColorChanged += _ => SendLight();
         colourRow.AddChild(_colour);

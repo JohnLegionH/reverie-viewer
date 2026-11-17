@@ -138,10 +138,11 @@ public class BuildLayoutTests
     public void Every_row_label_is_in_the_string_table_and_every_id_is_unique()
     {
         Assert.Equal(BuildLayout.Rows.Count, BuildLayout.Rows.Select(r => r.Id).Distinct().Count());
+        // a missing key comes back as "[[key]]"
         foreach (var row in BuildLayout.Rows)
-            Assert.NotEqual(row.LabelKey, S.Get(row.LabelKey));
+            Assert.DoesNotContain("[[", S.Get(row.LabelKey));
         foreach (var section in BuildLayout.Sections)
-            Assert.NotEqual(BuildLayout.TitleKey(section), S.Get(BuildLayout.TitleKey(section)));
+            Assert.DoesNotContain("[[", S.Get(BuildLayout.TitleKey(section)));
     }
 
     // ---------------- hint line ----------------
@@ -190,6 +191,11 @@ public class BuildLayoutTests
         string all = Host("EditPanel.cs") + Host("EditTextureTab.cs") + Host("EditFeaturesTab.cs") + Host("EditContentTab.cs");
         foreach (var row in BuildLayout.Rows)
         {
+            // the tool and mode buttons are named from their enums ("tool_" + the tool, "manip_" + the mode)
+            if (row.Id.StartsWith("tool_", StringComparison.Ordinal) && Enum.TryParse<BuildTool>(row.Id[5..], true, out _) && all.Contains("\"tool_\" + tool"))
+                continue;
+            if (row.Id.StartsWith("manip_", StringComparison.Ordinal) && Enum.TryParse<ManipMode>(row.Id[6..], true, out _) && all.Contains("\"manip_\" + mode"))
+                continue;
             string id = row.Id.EndsWith("_row", StringComparison.Ordinal) && !all.Contains('"' + row.Id + '"') ? row.Id[..^4] : row.Id;
             Assert.True(all.Contains('"' + id + '"'), $"no control named {row.Id}");
         }

@@ -214,7 +214,7 @@ public class ColourPickerTests
         foreach (string name in Callers)
         {
             string text = File.ReadAllText(Path.Combine(RepoRoot(), "host", "Viewer.Godot", name));
-            Assert.True(text.Contains("ColourSwatch", StringComparison.Ordinal), $"{name} has no shared colour swatch");
+            Assert.True(text.Contains("new ColourButton", StringComparison.Ordinal), $"{name} makes no shared colour button");
         }
         string window = File.ReadAllText(Path.Combine(RepoRoot(), "host", "Viewer.Godot", "ColourPickerWindow.cs"));
         foreach (string part in new[] { "ColourSession", "ColourPalette", "\"pick\"", "\"hex\"", "\"transparency\"", "\"apply_as_i_choose\"", "\"save_colour\"" })

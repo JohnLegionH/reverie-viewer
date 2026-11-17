@@ -51,7 +51,7 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
-        "script", "script-error", "script-readonly",
+        "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -105,9 +105,10 @@ public partial class TestRender
             panel.ShowAnswer(new Viewer.Core.Inventory.ScriptSaveResult(Viewer.Core.Inventory.ScriptSaveStatus.Saved, true, G(22), []));
     }
 
-    /// <summary>The Build window with an example box selected: the Edit tool, the Object tab with its place, size, rotation and a hollowed,
-    /// twisted box's shape fields, on an in-memory world with no session or grid.</summary>
-    private static Viewer.Shell.Build.EditController ExampleBuild(ShellRoot shell, StringTable strings)
+    /// <summary>The Build window with an example box selected (the Edit tool; a hollowed, twisted box), on an in-memory world with no
+    /// session or grid. <paramref name="scene"/>: "build" every section closed (each shows its summary); "build-look" only Look open;
+    /// "build-search" a search for "hollow" (the Shape section open on its two rows); the colour picker scenes as "build".</summary>
+    private static Viewer.Shell.Build.EditController ExampleBuild(ShellRoot shell, StringTable strings, string scene = "build")
     {
         static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         var world = new Viewer.Core.World.WorldState(new Viewer.Core.Diagnostics.CoreLog(new DiscardSink(), "render"));
@@ -123,9 +124,12 @@ public partial class TestRender
         edit.SelectMany([1], shift: false);
         edit.Receive(new Viewer.Core.Session.ObjectPropertiesReceived(G(31), "Floor", "Plank floor", G(32), G(32), Guid.Empty, null,
             0x7fffffff, 0, 1u << 19 | 1u << 15 | 1u << 13, 0, false));
-        var panel = new EditPanel(strings, () => edit);
+        var panel = new EditPanel(strings, () => edit, null, new SettingsService(null));
         shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
-        panel.Tabs.CurrentTab = 1;
+        foreach (var section in Viewer.Shell.Build.BuildLayout.Sections)
+            panel.SetOpen(section, scene == "build-look" && section == Viewer.Shell.Build.BuildSection.Look);
+        if (scene == "build-search")
+            panel.SearchText = "hollow";
         panel.Refresh();
         return edit;
     }
@@ -199,8 +203,12 @@ public partial class TestRender
                 NotificationFeature.Install(shell);
                 InteractFeature.Install(shell);
                 PersonalLightingFeature.Install(shell, new Viewer.Core.World.PersonalLighting(), () => null);
-                if (scene == "build")
-                    ExampleBuild(shell, strings);
+                if (scene.StartsWith("build", StringComparison.Ordinal) || scene == "colourpicker")
+                {
+                    ExampleBuild(shell, strings, scene);
+                    if (scene == "colourpicker")
+                        ColourPickerWindow.Install(shell).Open(new ColourRequest("edit.picker.colour.title", new UiColour(0.8f, 0.3f, 0.2f), false, _ => { }));
+                }
                 var prefs = PreferencesFeature.Install(shell, settings, () => 0, () => false);
                 if (scene.StartsWith("preferences", StringComparison.Ordinal))
                     prefs.ShowCategory(scene == "preferences" ? "interface" : scene["preferences-".Length..]);   // "preferences" is the Interface page
@@ -219,7 +227,8 @@ public partial class TestRender
                     "inspect" => InteractFeature.InspectId,
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
-                    "build" => EditPanel.FloaterId,
+                    "build" or "build-look" or "build-search" => EditPanel.FloaterId,
+                    "colourpicker" => "",
                     _ => PreferencesFeature.FloaterId,
                 };
                 break;

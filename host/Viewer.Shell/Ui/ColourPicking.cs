@@ -12,19 +12,36 @@ public static class ColourMath
 {
     /// <summary>Hue (0 to 1), saturation and value (0 to 1) of a colour.</summary>
     public static (float H, float S, float V) ToHsv(UiColour c)
-    { return (0,0,0); }
+    {
+        float max = MathF.Max(c.R, MathF.Max(c.G, c.B)), min = MathF.Min(c.R, MathF.Min(c.G, c.B)), d = max - min;
+        return (Hue(c, max, d), max <= 0 ? 0 : d / max, max);
+    }
 
     /// <summary>The colour of a hue, saturation and value (0 to 1 each).</summary>
     public static UiColour FromHsv(float h, float s, float v, float a = 1f)
-    { return default; }
+    {
+        h = (h % 1f + 1f) % 1f * 6f;
+        float c = v * s, x = c * (1 - MathF.Abs(h % 2f - 1)), m = v - c;
+        var (r, g, b) = Sector(h, c, x);
+        return new UiColour(r + m, g + m, b + m, a);
+    }
 
     /// <summary>Hue (0 to 1), saturation and lightness (0 to 1) of a colour.</summary>
     public static (float H, float S, float L) ToHsl(UiColour c)
-    { return (0,0,0); }
+    {
+        float max = MathF.Max(c.R, MathF.Max(c.G, c.B)), min = MathF.Min(c.R, MathF.Min(c.G, c.B)), d = max - min, l = (max + min) / 2;
+        float s = d <= 0 ? 0 : d / (1 - MathF.Abs(2 * l - 1));
+        return (Hue(c, max, d), Math.Clamp(s, 0, 1), l);
+    }
 
     /// <summary>The colour of a hue, saturation and lightness (0 to 1 each).</summary>
     public static UiColour FromHsl(float h, float s, float l, float a = 1f)
-    { return default; }
+    {
+        h = (h % 1f + 1f) % 1f * 6f;
+        float c = (1 - MathF.Abs(2 * l - 1)) * s, x = c * (1 - MathF.Abs(h % 2f - 1)), m = l - c / 2;
+        var (r, g, b) = Sector(h, c, x);
+        return new UiColour(r + m, g + m, b + m, a);
+    }
 
     private static float Hue(UiColour c, float max, float d)
     {
@@ -41,7 +58,9 @@ public static class ColourMath
     private static int Byte(float v) => (int)MathF.Round(Math.Clamp(v, 0, 1) * 255);
 
     /// <summary>"#RRGGBB", or "#RRGGBBAA" with <paramref name="alpha"/>.</summary>
-    public static string ToHex(UiColour c, bool alpha = false) => "";
+    public static string ToHex(UiColour c, bool alpha = false) =>
+        "#" + Byte(c.R).ToString("X2", CultureInfo.InvariantCulture) + Byte(c.G).ToString("X2", CultureInfo.InvariantCulture)
+        + Byte(c.B).ToString("X2", CultureInfo.InvariantCulture) + (alpha ? Byte(c.A).ToString("X2", CultureInfo.InvariantCulture) : "");
 
     /// <summary>Reads "#RGB", "#RRGGBB" or "#RRGGBBAA" (the # may be left out); false for anything else.</summary>
     public static bool TryParseHex(string? text, out UiColour colour)
@@ -77,7 +96,6 @@ public sealed class ColourSession
     private readonly ColourRequest _request;
     private readonly ColourPalette _palette;
     private bool _applied;
-    internal bool AppliedForStub => _applied;
 
     public ColourSession(ColourRequest request, ColourPalette palette, bool applyAsIChoose)
     {
@@ -115,7 +133,13 @@ public sealed class ColourSession
 
     /// <summary>A colour chosen in the window (square, strip, field, swatch or Pick).</summary>
     public void Choose(UiColour colour)
-    {  }
+    {
+        if (Ended)
+            return;
+        New = AllowAlpha ? colour : colour with { A = 1f };
+        if (ApplyAsIChoose)
+            Push(New);
+    }
 
     private void Push(UiColour c)
     {
@@ -125,11 +149,25 @@ public sealed class ColourSession
 
     /// <summary>OK: the target keeps the new colour, which joins the recent colours.</summary>
     public void Ok()
-    { Ended = true; }
+    {
+        if (Ended)
+            return;
+        if (!ApplyAsIChoose || !_applied)
+            Push(New);
+        Ended = true;
+        Kept = true;
+        _palette.AddRecent(New);
+    }
 
     /// <summary>Cancel: the old colour is put back on the target (only when something was applied).</summary>
     public void Cancel()
-    { Ended = true; }
+    {
+        if (Ended)
+            return;
+        Ended = true;
+        if (_applied)
+            (_request.Revert ?? _request.Apply)(Was);
+    }
 
     /// <summary>The window closed without OK or Cancel: the same as Cancel.</summary>
     public void Closed() => Cancel();
@@ -171,11 +209,14 @@ public sealed class ColourPalette(SettingsService settings)
 
     /// <summary>"+": saves a colour to My colours (once; the oldest goes when there are more than <see cref="SavedLimit"/>).</summary>
     public void Save(UiColour c)
-    {  }
+    {
+        var list = Saved.Where(x => !ColourMath.Same(x, c)).Append(c).ToList();
+        Write(SavedKey, list.Skip(Math.Max(0, list.Count - SavedLimit)));
+    }
 
     /// <summary>Takes a colour off My colours.</summary>
-    public void Forget(UiColour c) { }
+    public void Forget(UiColour c) => Write(SavedKey, Saved.Where(x => !ColourMath.Same(x, c)));
 
     /// <summary>A colour chosen with OK goes to the front of the recent colours.</summary>
-    public void AddRecent(UiColour c) { }
+    public void AddRecent(UiColour c) => Write(RecentKey, Recent.Where(x => !ColourMath.Same(x, c)).Prepend(c).Take(RecentCount));
 }

@@ -172,7 +172,20 @@ public static class BuildLayout
     /// <summary>The rows a search finds: every word of the query appears in the row's label, its other names or its section's title
     /// (case and accents of the query ignored). An empty query finds nothing.</summary>
     public static IReadOnlyList<BuildRow> Search(string? query, StringTable strings)
-    { return []; }
+    {
+        var words = (query ?? "").Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+            return [];
+        var hits = new List<BuildRow>();
+        foreach (var row in Rows)
+        {
+            string hay = (strings.Get(row.LabelKey) + " " + string.Join(" ", row.Aliases)
+                + (row.Section is { } s ? " " + strings.Get(TitleKey(s)) : "")).ToLowerInvariant();
+            if (words.All(w => hay.Contains(w, StringComparison.Ordinal)))
+                hits.Add(row);
+        }
+        return hits;
+    }
 
     /// <summary>The sections a search opens: those holding a row it found.</summary>
     public static IReadOnlyList<BuildSection> SectionsOf(IEnumerable<BuildRow> hits) =>
@@ -182,12 +195,68 @@ public static class BuildLayout
 
     /// <summary>A closed section's one line about the selection; with nothing selected, "nothing selected".</summary>
     public static string Summary(BuildSection section, BuildFacts? f, StringTable s)
-    { return ""; }
+    {
+        if (f is null)
+            return s.Get("edit.summary.none");
+        switch (section)
+        {
+            case BuildSection.Placement:
+                return f.Position is { } p && f.Size is { } z
+                    ? s.Get("edit.summary.placement", $"{N(p.X)}, {N(p.Y)}, {N(p.Z)}", $"{N(z.X)} × {N(z.Y)} × {N(z.Z)}")
+                    : s.Get("edit.summary.none");
+            case BuildSection.Shape:
+            {
+                var parts = new List<string> { f.ShapeName ?? s.Get("edit.summary.unknown") };
+                if (f.Hollow > 0) parts.Add(s.Get("edit.summary.hollow", Math.Round(f.Hollow).ToString(CultureInfo.InvariantCulture)));
+                if (Math.Abs(f.TwistDegrees) > 0.001) parts.Add(s.Get("edit.summary.twisted"));
+                return string.Join(", ", parts);
+            }
+            case BuildSection.Look:
+            {
+                string faces = f.SelectFaces && f.FacesPicked > 0
+                    ? (f.FacesPicked == 1 ? s.Get("edit.summary.face_one") : s.Get("edit.summary.faces", f.FacesPicked))
+                    : s.Get("edit.summary.faces_all");
+                return f.Texture is { Length: > 0 } t ? faces + ", " + t : faces;
+            }
+            case BuildSection.Object:
+            {
+                var parts = new List<string> { f.Name is { Length: > 0 } n ? n : s.Get("edit.summary.unnamed") };
+                if (f.Locked) parts.Add(s.Get("edit.locked"));
+                if (f.Physical) parts.Add(s.Get("edit.physical"));
+                if (f.Temporary) parts.Add(s.Get("edit.temporary"));
+                if (f.Phantom) parts.Add(s.Get("edit.phantom"));
+                return string.Join(", ", parts);
+            }
+            case BuildSection.Behaviour:
+            {
+                var parts = new List<string>();
+                if (f.Flexible) parts.Add(s.Get("edit.feat.flexible"));
+                if (f.Light) parts.Add(s.Get("edit.feat.light"));
+                if (f.PhysicsShape is { Length: > 0 } ps) parts.Add(ps);
+                return parts.Count == 0 ? s.Get("edit.summary.plain") : string.Join(", ", parts);
+            }
+            case BuildSection.Contents:
+                return f.ContentCount is { } c ? (c == 0 ? s.Get("edit.content.empty") : s.Get("edit.summary.items", c)) : s.Get("edit.content.loading");
+        }
+        return "";
+    }
 
     /// <summary>The hint line under the tools: what the mouse does with the current tool, and what Ctrl and Ctrl+Shift change. A held
     /// modifier switches the Grab and Edit tools' mode while it is held, as in the official viewer, and the line follows it.</summary>
     public static string Hint(BuildTool tool, ManipMode manip, bool selectFaces, bool ctrl, bool shift, StringTable s)
-    { return ""; }
+    {
+        switch (tool)
+        {
+            case BuildTool.Focus: return s.Get(ctrl ? (shift ? "edit.hint.focus.pan" : "edit.hint.focus.orbit") : "edit.hint.focus");
+            case BuildTool.Move: return s.Get(ctrl ? (shift ? "edit.hint.grab.spin" : "edit.hint.grab.lift") : "edit.hint.grab");
+            case BuildTool.Create: return s.Get("edit.hint.create");
+            case BuildTool.Land: return s.Get("edit.hint.land");
+        }
+        if (selectFaces && !ctrl)
+            return s.Get("edit.hint.face");
+        var shown = ctrl ? (shift ? ManipMode.Scale : ManipMode.Rotate) : manip;
+        return s.Get(shown switch { ManipMode.Rotate => "edit.hint.rotate", ManipMode.Scale => "edit.hint.stretch", _ => "edit.hint.move" });
+    }
 }
 
 /// <summary>Which Build window sections are open, kept in the user's settings so the window opens the way it was left.</summary>
@@ -208,9 +277,15 @@ public sealed class BuildSectionMemory(SettingsService settings)
     }
 
     /// <summary>Whether a section is open.</summary>
-    public bool IsOpen(BuildSection section) => false;
+    public bool IsOpen(BuildSection section) => Read().Contains(section);
 
     /// <summary>Opens or closes a section and keeps the choice.</summary>
     public void Set(BuildSection section, bool open)
-    {  }
+    {
+        var all = Read();
+        if (open ? !all.Add(section) : !all.Remove(section))
+            if (settings.GetText(Key) is not null)
+                return;
+        settings.SetText(Key, string.Join(",", BuildLayout.Sections.Where(all.Contains).Select(BuildLayout.NameOf)));
+    }
 }

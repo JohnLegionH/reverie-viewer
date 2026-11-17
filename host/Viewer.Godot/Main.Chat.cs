@@ -30,6 +30,7 @@ public partial class Main
         if (_settings is not null)
             return _settings;
         _settings = new SettingsService(settingsDir is null ? null : new SettingsFile(settingsDir));
+        ColourPickerWindow.Settings = _settings;   // the colour picker keeps My colours, the recent colours and Apply as I choose here
         if (_settings.MigrateGraphicsDefaults() is { } was)
             Log.Info("settings.draw-distance-reset", CoreLog.F("was", was), CoreLog.F("now", Settings.DrawDistance.Default));
         return _settings;

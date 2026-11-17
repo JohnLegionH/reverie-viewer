@@ -255,7 +255,7 @@ public partial class TestRender
         }
         async Task PressButton(string name)
         {
-            pickers.OpenColour(new Color(0.8f, 0.3f, 0.2f));
+            pickers.Colours.Open(new ColourRequest("edit.picker.colour.title", new UiColour(0.8f, 0.3f, 0.2f), false, _ => { }));
             await Frames(4);
             if (shell.FindChild(name, true, false) is not Control button || !button.IsVisibleInTree())
             {

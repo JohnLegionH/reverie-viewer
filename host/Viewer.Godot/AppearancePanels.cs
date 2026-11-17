@@ -52,7 +52,7 @@ public partial class AppearancePanel : VBoxContainer
     private readonly Dictionary<int, HSlider> _sliders = new();
     private readonly Dictionary<int, Label> _sliderValues = new();
     private readonly Dictionary<int, Button> _slotButtons = new();
-    private readonly Dictionary<ColourSwatch, ColorPickerButton> _swatches = new();
+    private readonly Dictionary<ColourSwatch, ColourButton> _swatches = new();
     private InventoryModel? _model;
     private Func<Guid, Guid> _textureAssetOf = _ => Guid.Empty;
     private Func<Guid, bool>? _textureUsable;
@@ -482,7 +482,7 @@ public partial class AppearancePanel : VBoxContainer
         var label = new Label { Text = _strings.Get("appearance.colour"), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         label.AccessibilityName = _strings.Get("appearance.colour");
         var (r, g, b) = editor.Colour(swatch);
-        var pick = new ColorPickerButton { Name = "colour_" + swatch.Slot, Color = ShellTheme.DataColour(r, g, b), EditAlpha = false, CustomMinimumSize = new Vector2(96, 28), Disabled = !editor.CanModify };
+        var pick = new ColourButton { Name = "colour_" + swatch.Slot, Color = ShellTheme.DataColour(r, g, b), CustomMinimumSize = new Vector2(96, 28), Disabled = !editor.CanModify };
         pick.AccessibilityName = _strings.Get("appearance.colour.named", SlotTitleOfSwatch(editor.Type, swatch));
         pick.ColorChanged += c => { if (!_syncing) editor.SetColour(swatch, c.R, c.G, c.B); };
         row.AddChild(label);

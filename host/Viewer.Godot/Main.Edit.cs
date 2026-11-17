@@ -53,7 +53,7 @@ public partial class Main
             return;
         var shell = _shell.Shell;
         bool InWorld() => _interactFor is { IsEnded: false } && _interact is not null;
-        _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory);
+        _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory, _settings);
         _editPanel.ContentTab.OpenRequested = OpenContentScript;
         _editPanel.ToolChosen += ChooseTool;
         _editPanel.KeepToolChanged += on => _settings?.Set(Viewer.Shell.Build.BuildSettings.KeepToolSelected, on);
