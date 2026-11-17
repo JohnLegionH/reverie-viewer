@@ -61,6 +61,8 @@ public static class ViewerShortcuts
         ("control|alt|Q", "Develop menu"),
     ];
 
+    public static string? SourceOf(string entryId) => ByEntry.ContainsKey(entryId) ? "official" : null;
+
     /// <summary>The entry with its official shortcut when it has none of its own.</summary>
     public static MenuEntry WithOfficial(MenuEntry entry) =>
         entry.Shortcut is null && ByEntry.TryGetValue(entry.Id, out var official) ? entry with { Shortcut = official } : entry;
