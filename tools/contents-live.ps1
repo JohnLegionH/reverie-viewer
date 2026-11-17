@@ -181,6 +181,7 @@ if (-not (@($sel.selection) -contains $boxLocal)) { Note "the click did not sele
 [void](Wait-Until { $c = Edit @{ action = "state" }; if ($null -ne $c.contents) { $c } } 15)
 [void](ClickCtl "new_script")
 $listed = Wait-Until { $c = @((Edit @{ action = "state" }).contents); if ($c -contains "New Script") { $c } } 20
+[void](Edit @{ action = "content_row"; text = "New Script" }); Start-Sleep -Milliseconds 300   # scrolls the list into view
 $row = (Edit @{ action = "content_row"; text = "New Script" }).done
 if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
 [void](ClickCtl "content_open")
@@ -201,6 +202,7 @@ Shot "saved"
 Check "2 the text typed and saved: Save complete, and the box says the line in nearby chat" ([bool]$saved -and [bool]$said -and $typed.dirty) ("dirty after typing {0}; status {1}; lines from the box {2}" -f $typed.dirty, (SState).status, $said)
 
 function State() { Edit @{ action = "state" } }
+function Row([string]$name) { [void](Edit @{ action = "content_row"; text = $name }); Start-Sleep -Milliseconds 300; (Edit @{ action = "content_row"; text = $name }).done }
 function NoId([string]$t) { $t -and $t -notmatch '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-' -and $t -notmatch 'Loading' }
 function DragFromTo($from, $to) {
     [void](MoveTo ([double]$from[0]) ([double]$from[1])); Start-Sleep -Milliseconds 150
@@ -239,7 +241,7 @@ Check "4 Build > Scripts > Recompile Scripts (Mono): the official lines, 1 done 
 [void](ClickUi "queue_close")
 
 # ---- 5. Properties on the script's row: creator and owner by name ----
-$row = (Edit @{ action = "content_row"; text = "New Script" }).done
+$row = Row "New Script"
 if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
 [void](ClickCtl "content_properties")
 $props = Wait-Until { $p = @((State).content_props); if ($p.Count -ge 2 -and (NoId ([string]$p[0])) -and (NoId ([string]$p[1]))) { $p } } 20
@@ -254,10 +256,11 @@ if (-not $card6) { Note "the account has no notecard in its Notecards folder: st
 else {
     NoFocus
     Press "I" $true; Start-Sleep -Milliseconds 1500
-    $top = (Edit @{ action = "ui_top"; text = "inventory_panel" }).done
+    $top = (Edit @{ action = "floater_title"; text = "inventory" }).done
+    Note ("the inventory title bar at {0}" -f (@($top) -join ","))
     if ($top) {
         # the inventory window opens over the Build window: it is dragged aside by its title bar first, as a person would
-        $title = @(([double]$top[0]), ([double]$top[1] - 14))
+        $title = @(([double]$top[0]), ([double]$top[1]))
         [void](MoveTo $title[0] $title[1]); Start-Sleep -Milliseconds 120
         [void](Mouse "left" $true $title[0] $title[1]); Start-Sleep -Milliseconds 120
         for ($i = 1; $i -le 8; $i++) { [void](MoveTo ($title[0] + 70 * $i) $title[1]); Start-Sleep -Milliseconds 60 }
@@ -271,7 +274,7 @@ else {
     if ($from -and $to) { DragFromTo $from $to }
     $in = Wait-Until { $c = @((State).contents); if ($c -contains [string]$card6.name) { $c } } 30
     Shot "notecard-in"
-    $cr = (Edit @{ action = "content_row"; text = [string]$card6.name }).done
+    $cr = Row ([string]$card6.name)
     $fr = (Edit @{ action = "inventory_row"; text = $ncFolder }).done
     if ($cr -and $fr) { DragFromTo $cr $fr }
     $out = Wait-Until { $n = [int](State).notecards_in_folder; if ($n -gt $countBefore) { $n } } 30

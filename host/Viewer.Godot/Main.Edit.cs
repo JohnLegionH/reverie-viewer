@@ -475,12 +475,12 @@ public partial class Main
                 break;
             // the Contents list is scrolled into the Build window's view first, so the row's point is on screen
             case "content_row": _editPanel.ScrollTo("contents"); done = ListRow(_editPanel.ContentTab.List as ItemList, text); break;
-            // the middle of the top edge of a shown control of the shell by name (a window's content: its title bar is just above)
-            case "ui_top":
-                if (_shell?.FindChildren(text ?? "", "", true, false).OfType<Control>().FirstOrDefault(c => c.IsVisibleInTree()) is { } topOf)
+            // a point on a window's title bar by the window's id (a third of the way along, clear of its buttons), to drag it as a person would
+            case "floater_title":
+                if (_shell is not null && _shell.Frames.TryGetValue(text ?? "", out var frame) && frame.IsVisibleInTree())
                 {
-                    var tr = topOf.GetGlobalRect();
-                    done = new[] { tr.Position.X + tr.Size.X / 2, tr.Position.Y };
+                    var tr = frame.TitleBar.GetGlobalRect();
+                    done = new[] { tr.Position.X + tr.Size.X / 3, tr.Position.Y + tr.Size.Y / 2 };
                 }
                 break;
             case "folder_row": done = TakeFolderOpen ? ListRow(_takeFolder!.List, text) : null; break;
