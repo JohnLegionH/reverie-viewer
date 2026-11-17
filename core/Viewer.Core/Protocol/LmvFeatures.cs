@@ -5,6 +5,7 @@ using LibreMetaverse;
 using LibreMetaverse.Packets;
 using LibreMetaverse.StructuredData;
 using Viewer.Core.Building;
+using Viewer.Core.Session;
 
 namespace Viewer.Core.Protocol;
 
@@ -97,6 +98,22 @@ internal static class LmvFeatures
         InventoryData = new RemoveTaskInventoryPacket.InventoryDataBlock { LocalID = local, ItemID = item },
     };
 
+    /// <summary>An item inside a prim changed (its name or description): UpdateTaskInventory with key 0 (an item, not a whole file) and every
+    /// other field as the region listed it, the prim's id as the folder (llviewerobject.cpp updateInventory, TASK_INVENTORY_ITEM_KEY).</summary>
+    public static UpdateTaskInventoryPacket UpdateItem(UUID agent, UUID session, uint local, UUID objectId, TaskItem item) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        UpdateData = new UpdateTaskInventoryPacket.UpdateDataBlock { LocalID = local, Key = 0 },
+        InventoryData = new UpdateTaskInventoryPacket.InventoryDataBlock
+        {
+            ItemID = new UUID(item.ItemId), FolderID = objectId, CreatorID = new UUID(item.CreatorId), OwnerID = new UUID(item.OwnerId),
+            GroupID = new UUID(item.GroupId), BaseMask = item.BaseMask, OwnerMask = item.OwnerMask, GroupMask = item.GroupMask,
+            EveryoneMask = item.EveryoneMask, NextOwnerMask = item.NextOwnerMask, GroupOwned = item.GroupOwned, TransactionID = UUID.Zero,
+            Type = (sbyte)item.AssetType, InvType = (sbyte)item.InvType, Flags = item.Flags, SaleType = (byte)item.SaleType, SalePrice = item.SalePrice,
+            Name = Utils.StringToBytes(item.Name), Description = Utils.StringToBytes(item.Description), CreationDate = item.CreationDate, CRC = 0,
+        },
+    };
+
     /// <summary>The message an edit of the Features and Content tabs, or a take into a folder, becomes; null for one that is not theirs or that
     /// needs the agent's inventory (an item put into a prim, an item copied out).</summary>
     public static Packet? Packet(UUID agent, UUID session, UUID group, Viewer.Core.Actions.ActionIntent edit) => edit switch
@@ -107,6 +124,7 @@ internal static class LmvFeatures
         Viewer.Core.Actions.SetObjectMaterialIntent m => Material(agent, session, m.LocalId, m.Material),
         Viewer.Core.Actions.NewScriptIntent n => NewScript(agent, session, group, n.LocalId, new UUID(n.ObjectId), n.Name),
         Viewer.Core.Actions.RemoveObjectItemIntent r => Remove(agent, session, r.LocalId, new UUID(r.ItemId)),
+        Viewer.Core.Actions.UpdateObjectItemIntent u => UpdateItem(agent, session, u.LocalId, new UUID(u.ObjectId), u.Item),
         Viewer.Core.Actions.TakeIntoFolderIntent t => LmvBuild.DeRez(agent, session, t.LocalId, BuildRules.DeRezTakeIntoInventory, new UUID(t.FolderId), UUID.Random()),
         _ => null,
     };

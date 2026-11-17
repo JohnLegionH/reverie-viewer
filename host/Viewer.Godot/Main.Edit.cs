@@ -53,8 +53,11 @@ public partial class Main
             return;
         var shell = _shell.Shell;
         bool InWorld() => _interactFor is { IsEnded: false } && _interact is not null;
-        _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory, _settings);
-        _editPanel.ContentTab.OpenRequested = OpenContentScript;
+        // people on the card and in the Contents section are named through the session's name cache (asked for in the next name request)
+        _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory, _settings,
+            () => _interactFor?.AgentId ?? Guid.Empty, id => _interactFor is { IsEnded: false } named ? named.Names.Get(id) : null);
+        _editPanel.ContentTab.OpenRequested = OpenContentItem;
+        _editPanel.ContentTab.Deleted = ContentItemDeleted;
         _editPanel.ToolChosen += ChooseTool;
         _editPanel.KeepToolChanged += on => _settings?.Set(Viewer.Shell.Build.BuildSettings.KeepToolSelected, on);
         _shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), _editPanel);
@@ -88,10 +91,61 @@ public partial class Main
         shell.Commands.Register(BuildMenu.PreviousPartCommand, () => _edit?.SelectNextPart(false));
         shell.Commands.Register(BuildMenu.OwnedOnlyCommand, () => { if (_edit is { } e) { e.SelectOwnedOnly = !e.SelectOwnedOnly; _editPanel?.Refresh(); } });
         shell.Commands.Register(BuildMenu.TakeIntoFolderCommand, OpenTakeIntoFolder);
+        // Build › Scripts: on while something the agent may modify is chosen (EditableSelected)
+        BuildMenu.InstallScripts(shell.Menus, InWorld, () => _edit is { } chosen && chosen.Selection.Any(l => chosen.Access(l).CanModify));
+        shell.Commands.Register(BuildMenu.RecompileMonoCommand, () => StartScriptQueue(ScriptQueueAction.CompileMono));
+        shell.Commands.Register(BuildMenu.RecompileLslCommand, () => StartScriptQueue(ScriptQueueAction.CompileLsl));
+        shell.Commands.Register(BuildMenu.ResetScriptsCommand, () => StartScriptQueue(ScriptQueueAction.Reset));
+        shell.Commands.Register(BuildMenu.SetRunningCommand, () => StartScriptQueue(ScriptQueueAction.SetRunning));
+        shell.Commands.Register(BuildMenu.SetNotRunningCommand, () => StartScriptQueue(ScriptQueueAction.SetNotRunning));
+        _queueWindow = new ScriptQueueWindow(shell.Strings, () => shell.Floaters.Close(ScriptQueueWindow.FloaterId));
+        _shell.AddFloater(new FloaterSpec(ScriptQueueWindow.FloaterId, "queue.title.compile", new UiSize(300, 400), new UiSize(240, 240)), _queueWindow.Root);
+        var queueTimer = new global::Godot.Timer { Name = "script_queue_refresh", WaitTime = 0.25, Autostart = true };
+        queueTimer.Timeout += () => { if (_queueWindow.Root.IsVisibleInTree()) _queueWindow.Refresh(); };
+        _queueWindow.Root.AddChild(queueTimer);
         // folder drops and takes into a folder go one at a time, at Firestorm's Z-take pace (0.66 s)
         var pump = new global::Godot.Timer { Name = "edit_queues", WaitTime = 0.66, Autostart = true };
         pump.Timeout += () => _edit?.PumpQueues();
         _editPanel.AddChild(pump);
+    }
+
+    private ScriptQueueWindow? _queueWindow;
+    private ScriptQueue? _scriptQueue;
+    private System.Threading.CancellationTokenSource? _scriptQueueStop;
+
+    /// <summary>Build › Scripts: the queue for the chosen objects runs off the main thread and its window shows the lines as they come
+    /// (llviewermenu.cpp LLToolsSelectedScriptAction and queue_actions); a selection with no script, or none the agent may modify, gets the
+    /// official refusal instead. A new queue stops the one before.</summary>
+    private void StartScriptQueue(ScriptQueueAction action)
+    {
+        if (_edit is not { } e || _interactFor is not { IsEnded: false } s || _shell is null || _queueWindow is null)
+            return;
+        _scriptQueueStop?.Cancel();
+        var strings = _shell.Shell.Strings;
+        _shell.SetFloaterTitle(ScriptQueueWindow.FloaterId, strings.Get(ScriptQueue.TitleKey(action)));
+        var (objects, refusal) = e.ScriptQueueObjects();
+        if (refusal is { } why)
+        {
+            _scriptQueue = null;
+            _queueWindow.ShowRefusal(strings.Get(ScriptQueue.RefusalKey(action, why)));
+            _shell.Shell.Floaters.Open(ScriptQueueWindow.FloaterId);
+            Log.Info("script.queue-refused", Viewer.Core.Diagnostics.CoreLog.F("action", action.ToString()), Viewer.Core.Diagnostics.CoreLog.F("why", why.ToString()));
+            return;
+        }
+        var stop = new System.Threading.CancellationTokenSource();
+        _scriptQueueStop = stop;
+        var queue = new ScriptQueue(action, objects, s.AgentId, s.Actions.Submit, s.Scripts);
+        _scriptQueue = queue;
+        _queueWindow.Show(queue);
+        _shell.Shell.Floaters.Open(ScriptQueueWindow.FloaterId);
+        Log.Info("script.queue", Viewer.Core.Diagnostics.CoreLog.F("action", action.ToString()), Viewer.Core.Diagnostics.CoreLog.F("objects", objects.Count));
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            try { await queue.RunAsync(stop.Token).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { Log.Warn("script.queue-failed", Viewer.Core.Diagnostics.CoreLog.F("error", ex.GetType().Name)); }
+            if (queue.Done)
+                Log.Info("script.queue-done", Viewer.Core.Diagnostics.CoreLog.F("handled", queue.Handled), Viewer.Core.Diagnostics.CoreLog.F("failed", queue.Failed));
+        });
     }
 
     private FolderPickPanel? _takeFolder;

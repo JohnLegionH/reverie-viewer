@@ -60,7 +60,8 @@ internal sealed partial class LmvTransport : INotecardTransport
                 byte[] data = await response.Content.ReadAsByteArrayAsync(limit.Token).ConfigureAwait(false);
                 return data.Length > 0 ? AssetFetchResult.Ok(data) : AssetFetchResult.Of(AssetFetchStatus.NotFound);
             }
-            var asset = await _client.Assets.RequestAssetAsync(new UUID(access.AssetId), new UUID(access.ItemId), UUID.Zero, AssetType.Notecard, true,
+            // a card inside an object is asked for with the object's id (llpreviewnotecard.cpp loadAsset, the task id)
+            var asset = await _client.Assets.RequestAssetAsync(new UUID(access.AssetId), new UUID(access.ItemId), new UUID(access.ObjectId), AssetType.Notecard, true,
                 SourceType.SimInventoryItem, new UUID(access.Permissions.Owner), limit.Token).ConfigureAwait(false);
             return asset?.AssetData is { Length: > 0 } bytes ? AssetFetchResult.Ok(bytes) : AssetFetchResult.Of(AssetFetchStatus.NotFound);
         }

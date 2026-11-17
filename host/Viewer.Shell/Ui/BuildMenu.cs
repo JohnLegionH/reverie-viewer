@@ -71,6 +71,30 @@ public static class BuildMenu
         menus.AddSubEntry(OptionsId, new MenuEntry(OwnedOnlyId, "menu.build.owned_only", OwnedOnlyCommand, inWorld, 5, () => edit()?.SelectOwnedOnly ?? false));
     }
 
+    public const string ScriptsId = "build.scripts", RecompileMonoId = "build.scripts.mono", RecompileLslId = "build.scripts.lsl",
+        ResetScriptsId = "build.scripts.reset", SetRunningId = "build.scripts.running", SetNotRunningId = "build.scripts.not_running";
+    public const string RecompileMonoCommand = "build.scripts.mono", RecompileLslCommand = "build.scripts.lsl", ResetScriptsCommand = "build.scripts.reset",
+        SetRunningCommand = "build.scripts.running", SetNotRunningCommand = "build.scripts.not_running";
+
+    /// <summary>Scripts stands after Link and Take Into Folder, before Options (menu_viewer.xml's Scripts list).</summary>
+    public const int ScriptsOrder = 700;
+
+    /// <summary>Build › Scripts: Recompile Scripts (Mono), Recompile Scripts (LSL), Reset Scripts, Set Scripts to Running and Set Scripts to
+    /// Not Running, each on while something editable is chosen (the official EditableSelected and EditableSelectedMono; this viewer always
+    /// offers Mono, which OpenSim's YEngine and Second Life both take).</summary>
+    public static void InstallScripts(MenuModel menus, Func<bool> inWorld, Func<bool> editableSelected)
+    {
+        if (!menus.Menus.Any(m => m.Id == MenuId))
+            menus.AddMenu(MenuId, "menu.build");
+        bool On() => inWorld() && editableSelected();
+        menus.AddSubmenu(MenuId, ScriptsId, "menu.build.scripts", ScriptsOrder);
+        menus.AddSubEntry(ScriptsId, new MenuEntry(RecompileMonoId, "menu.build.scripts.mono", RecompileMonoCommand, On, 10));
+        menus.AddSubEntry(ScriptsId, new MenuEntry(RecompileLslId, "menu.build.scripts.lsl", RecompileLslCommand, On, 20));
+        menus.AddSubEntry(ScriptsId, new MenuEntry(ResetScriptsId, "menu.build.scripts.reset", ResetScriptsCommand, On, 30));
+        menus.AddSubEntry(ScriptsId, new MenuEntry(SetRunningId, "menu.build.scripts.running", SetRunningCommand, On, 40));
+        menus.AddSubEntry(ScriptsId, new MenuEntry(SetNotRunningId, "menu.build.scripts.not_running", SetNotRunningCommand, On, 50));
+    }
+
     /// <summary>Undo and Redo stand last in the Build menu, after Upload.</summary>
     public const int UndoOrder = 2000;
 

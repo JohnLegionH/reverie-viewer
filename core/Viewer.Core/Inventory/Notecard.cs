@@ -403,7 +403,8 @@ public static class NotecardLinks
 
 /// <summary>What the viewer knows about a notecard item before reading it: whose it is and what its masks allow.</summary>
 /// <param name="InLibrary">The item is in the shared library, not the user's own inventory.</param>
-public sealed record NotecardAccess(Guid ItemId, Guid AssetId, Guid AgentId, NotecardPermissions Permissions, bool InLibrary);
+/// <param name="ObjectId">The object the card is in (its contents); empty for a card in the inventory.</param>
+public sealed record NotecardAccess(Guid ItemId, Guid AssetId, Guid AgentId, NotecardPermissions Permissions, bool InLibrary, Guid ObjectId = default);
 
 /// <summary>
 /// The official viewer's rules for notecards (indra/newview/llpreviewnotecard.cpp loadAsset, llviewertexteditor.cpp copyInventory),
@@ -422,7 +423,7 @@ public static class NotecardRules
     }
 
     public static bool CanCopyOut(NotecardAccess notecard, NotecardEmbeddedItem item) =>
-        CanRead(notecard) && !notecard.InLibrary && (item.Permissions.OwnerMask & NotecardPermissions.Transfer) != 0;
+        CanRead(notecard) && !notecard.InLibrary && notecard.ObjectId == Guid.Empty && (item.Permissions.OwnerMask & NotecardPermissions.Transfer) != 0;
 }
 
 /// <summary>Reads notecards from the grid. Implemented by the protocol adapter.</summary>

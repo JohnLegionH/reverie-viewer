@@ -81,6 +81,30 @@ public sealed class NotecardFeature
         }, TaskScheduler.Default);
     }
 
+    /// <summary>Opens a notecard inside an object, read-only (llpanelobjectinventory.cpp LLTaskNotecardBridge::openItem), or brings its
+    /// window to the front.</summary>
+    public void OpenTask(Viewer.Core.Session.TaskItem item, Guid objectId, Guid agent, bool objectModify, INotecardTransport? transport)
+    {
+        if (_reader is null)
+            return;
+        if (!Show(item.ItemId, item.Name, out var panel))
+            return;
+        panel.ShowLoading();
+        var token = _cancel.Token;
+        _ = NotecardReader.OpenTaskAsync(transport, item, objectId, agent, objectModify, token).ContinueWith(t =>
+        {
+            if (t.IsCompletedSuccessfully && !token.IsCancellationRequested)
+                Callable.From(() => Shown(item.ItemId, t.Result)).CallDeferred();
+        }, TaskScheduler.Default);
+    }
+
+    /// <summary>Closes an item's window when one is open (the item was deleted).</summary>
+    public void CloseItem(Guid itemId)
+    {
+        if (_slotOf.ContainsKey(itemId))
+            Close(itemId);
+    }
+
     /// <summary>Shows a card already read (the development automation's fixtures), in its own window.</summary>
     public void ShowOpened(NotecardOpenResult opened)
     {

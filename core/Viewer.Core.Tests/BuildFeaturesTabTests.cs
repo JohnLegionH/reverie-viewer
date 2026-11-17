@@ -27,7 +27,7 @@ namespace Viewer.Core.Tests;
 public class BuildFeaturesTabTests
 {
     private static readonly SimRef Sim = new(256000UL << 32 | 256000UL, "Here");
-    private static readonly Guid Me = Guid.Parse("4b1d2e3f-5a6b-4c7d-8e9f-0a1b2c3d4e01");
+    internal static readonly Guid Me = Guid.Parse("4b1d2e3f-5a6b-4c7d-8e9f-0a1b2c3d4e01");
     private static Guid G(uint n) => new((int)n, 0, 0, new byte[8]);
     private const uint Own = ObjectFlagBits.YouOwner | ObjectFlagBits.Modify | ObjectFlagBits.Move | ObjectFlagBits.Copy | ObjectFlagBits.Transfer;
     private static readonly UUID Agent = new("1a2b3c4d-0000-4000-8000-000000000001"), Session = new("1a2b3c4d-0000-4000-8000-000000000002");

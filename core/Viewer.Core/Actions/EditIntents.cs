@@ -211,12 +211,22 @@ public sealed record RemoveObjectItemIntent(uint LocalId, Guid ItemId) : ActionI
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
 
-/// <summary>Copy an item out of a prim into the agent's inventory, into the folder for its type (MoveTaskInventory; the region copies a
-/// copyable item and moves the others).</summary>
-public sealed record CopyObjectItemIntent(uint LocalId, Guid ItemId, int AssetType) : ActionIntent
+/// <summary>Copy an item out of a prim into the agent's inventory (MoveTaskInventory; the region copies a copyable item and moves the
+/// others): into <paramref name="FolderId"/> when one is given (the folder it was dragged onto), otherwise into the folder for its type.</summary>
+public sealed record CopyObjectItemIntent(uint LocalId, Guid ItemId, int AssetType, Guid FolderId = default) : ActionIntent
 {
     public override ActionKind Kind => ActionKind.EditObject;
     public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 || ItemId == Guid.Empty ? [new("edit.no_item")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Change an item inside a prim, its name or description (UpdateTaskInventory with the item's other fields as the region listed
+/// them; llpanelobjectinventory.cpp LLTaskInvFVBridge::renameItem sends the whole item with the new name).</summary>
+public sealed record UpdateObjectItemIntent(uint LocalId, Guid ObjectId, Viewer.Core.Session.TaskItem Item) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() =>
+        LocalId == 0 || ObjectId == Guid.Empty || Item.ItemId == Guid.Empty ? [new("edit.no_item")] : Item.Name.Trim().Length == 0 ? [new("edit.no_name")] : [];
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
 

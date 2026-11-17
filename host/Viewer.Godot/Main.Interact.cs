@@ -147,6 +147,7 @@ public partial class Main
             if (e is ObjectPropertiesReceived named) _objectNames[named.ObjectId] = named.Name;   // (the development probe reads these)
             ic.Receive(e);
             _edit?.Receive(e);
+            _scriptQueue?.Receive(e);
         }
         while (_textChanges.TryDequeue(out var c))
         {

@@ -104,7 +104,8 @@ internal sealed partial class LmvTransport
             {
                 // the folder for the item's type (llpanelobjectinventory.cpp's move into the folder for the asset type), else the inventory's top
                 var type = (FolderType)copy.AssetType;
-                UUID folder = Enum.IsDefined(type) && type != FolderType.None ? inv.FindFolderForType(type) : UUID.Zero;
+                UUID folder = copy.FolderId != Guid.Empty ? new UUID(copy.FolderId)
+                    : Enum.IsDefined(type) && type != FolderType.None ? inv.FindFolderForType(type) : UUID.Zero;
                 if (folder == UUID.Zero)
                     folder = inv.Store?.RootFolder?.UUID ?? UUID.Zero;
                 if (folder == UUID.Zero)

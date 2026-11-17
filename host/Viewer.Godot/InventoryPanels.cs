@@ -302,8 +302,17 @@ public partial class InventoryTree : Tree
     private static IReadOnlyList<Guid> DraggedIds(Variant data) =>
         data.VariantType == Variant.Type.String ? InventoryDragSet.Decode(data.AsString()) : Array.Empty<Guid>();
 
+    /// <summary>An item dragged out of an object's contents dropped on a row: the drag and the row's id (the panel finds the folder).</summary>
+    public Func<Viewer.Shell.Build.TaskDrag, Guid, bool>? CanTakeTaskItem;
+    public event Action<Viewer.Shell.Build.TaskDrag, Guid>? TaskItemDropped;
+
+    private static Viewer.Shell.Build.TaskDrag? TaskDragOf(Variant data) =>
+        data.VariantType == Variant.Type.String ? Viewer.Shell.Build.TaskDrag.Decode(data.AsString()) : null;
+
     public override bool _CanDropData(Vector2 atPosition, Variant data)
     {
+        if (TaskDragOf(data) is { } task)
+            return IdOf(GetItemAtPosition(atPosition)) is var row && row != Guid.Empty && (CanTakeTaskItem?.Invoke(task, row) ?? false);
         var dragged = DraggedIds(data);
         var target = IdOf(GetItemAtPosition(atPosition));
         // the drop is offered when any dragged row may go there; each is checked again when it lands
@@ -312,6 +321,12 @@ public partial class InventoryTree : Tree
 
     public override void _DropData(Vector2 atPosition, Variant data)
     {
+        if (TaskDragOf(data) is { } task)
+        {
+            if (IdOf(GetItemAtPosition(atPosition)) is var row && row != Guid.Empty)
+                TaskItemDropped?.Invoke(task, row);
+            return;
+        }
         var dragged = DraggedIds(data);
         var target = IdOf(GetItemAtPosition(atPosition));
         if (dragged.Count > 0 && target != Guid.Empty)

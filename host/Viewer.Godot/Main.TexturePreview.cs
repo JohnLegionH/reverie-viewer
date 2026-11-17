@@ -30,6 +30,21 @@ public partial class Main
             item = target;
         if (item is not { Kind: ItemKind.Texture } texture)
             return false;
+        ShowTexturePreview(texture.Id, texture.Name, texture.Description, texture.AssetId);
+        return true;
+    }
+
+    /// <summary>Opens the preview for a texture inside an object (llpanelobjectinventory.cpp LLTaskTextureBridge::openItem): its image is the
+    /// item's asset, which the region lists only to those who may see it; otherwise the preview says it could not be loaded.</summary>
+    private void OpenTaskTexturePreview(Viewer.Core.Session.TaskItem item) =>
+        ShowTexturePreview(item.ItemId, item.Name, item.Description, item.AssetId == Guid.Empty ? null : item.AssetId);
+
+    /// <summary>Shows a texture in the preview, fetched and decoded off the main thread.</summary>
+    private void ShowTexturePreview(Guid shownItem, string name, string description, Guid? assetId)
+    {
+        if (_shell is null || _strings is null)
+            return;
+        var texture = (Id: shownItem, Name: name, Description: description, AssetId: assetId);
         if (_texturePreview is null)
         {
             _texturePreview = new TexturePreviewPanel(_strings);
@@ -43,7 +58,7 @@ public partial class Main
         if (texture.AssetId is not { } asset || asset == Guid.Empty || _textureTransport is not { } transport)
         {
             _texturePreview.Failed();
-            return true;
+            return;
         }
         Guid shown = texture.Id;
         _ = Task.Run(async () =>
@@ -67,7 +82,6 @@ public partial class Main
                     _texturePreview.ShowImage(Image.CreateFromData(decoded.Width, decoded.Height, false, Image.Format.Rgba8, decoded.Rgba), decoded.FullWidth, decoded.FullHeight);
             }).CallDeferred();
         });
-        return true;
     }
 
     /// <summary>Opens the inventory's selected row as Enter or a double-click does.</summary>

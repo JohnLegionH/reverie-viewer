@@ -178,6 +178,75 @@ public sealed partial class EditController
     public bool CopyItemToInventory(Guid itemId) =>
         Object() is { } o && Listed(itemId) is { } item && Send(new CopyObjectItemIntent(o.Id.LocalId, itemId, item.AssetType));
 
+    /// <summary>A listed item of the primary prim, or null.</summary>
+    public TaskItem? ContentItem(Guid itemId) => Listed(itemId);
+
+    /// <summary>An item dragged out of the primary prim and dropped on an inventory folder: copied (or moved) into that folder, when the
+    /// official drag rules let it leave (llpanelobjectinventory.cpp LLTaskInvFVBridge::startDrag).</summary>
+    public bool CopyItemToFolder(Guid itemId, Guid folder, Guid agent)
+    {
+        if (Object() is not { } o || Listed(itemId) is not { } item || folder == Guid.Empty)
+            return false;
+        bool youOwn = ((o.Interaction?.Flags ?? 0) & ObjectFlagBits.YouOwner) != 0;
+        bool attachment = o.AttachmentPoint is not null || Find(RootOf(o.Id.LocalId))?.AttachmentPoint is not null;
+        if (!TaskItemRules.CanDragOut(item, agent, youOwn, attachment))
+            return false;
+        return Send(new CopyObjectItemIntent(o.Id.LocalId, itemId, item.AssetType, folder));
+    }
+
+    /// <summary>Rename or a new description for a listed item of the primary prim, when the item may be modified and so may the prim
+    /// (LLTaskInvFVBridge::renameItem; the region's UpdateTaskInventory needs the prim's contents to be editable). Null leaves a field as is.</summary>
+    public bool UpdateItemText(Guid itemId, string? name, string? description, Guid agent)
+    {
+        if (ContentTarget() is not { } o || Listed(itemId) is not { } item || !TaskItemRules.CanRename(item, agent))
+            return false;
+        string newName = name is null ? item.Name : Cut(name.Trim(), TaskItemRules.MaxName);
+        string newDescription = description is null ? item.Description : Cut(description, TaskItemRules.MaxDescription);
+        if (newName.Length == 0)
+            return false;
+        if (newName == item.Name && newDescription == item.Description)
+            return true;
+        if (!Send(new UpdateObjectItemIntent(o.Id.LocalId, o.FullId, item with { Name = newName, Description = newDescription })))
+            return false;
+        RequestContents();
+        return true;
+    }
+
+    private static string Cut(string text, int max) => text.Length <= max ? text : text[..max];
+
+    /// <summary>Whether the primary prim's contents may be changed (New Script, Delete, rename, items dropped in).</summary>
+    public bool ContentsEditable => ContentTarget() is not null;
+
+    /// <summary>The prims Build › Scripts works on: every chosen prim (and with Edit Linked off every prim of each chosen linkset) that
+    /// has a script and may be modified, as the official queue_actions takes them; the refusal when none does.</summary>
+    public (IReadOnlyList<ScriptQueueObject> Objects, ScriptQueueRefusal? Refusal) ScriptQueueObjects()
+    {
+        var prims = new List<uint>();
+        foreach (var l in _selection)
+        {
+            if (!prims.Contains(l))
+                prims.Add(l);
+            if (!_editLinked)
+                foreach (var child in _world.Snapshot().Objects.Values.Where(o => o.ParentLocalId == l).Select(o => o.Id.LocalId).OrderBy(x => x))
+                    if (!prims.Contains(child))
+                        prims.Add(child);
+        }
+        var objects = new List<ScriptQueueObject>();
+        bool anyScripted = false;
+        foreach (var l in prims)
+        {
+            if (Find(l) is not { } o)
+                continue;
+            bool scripted = ((o.Interaction?.Flags ?? 0) & ObjectFlagBits.Scripted) != 0;
+            anyScripted |= scripted;
+            if (scripted && Access(l).CanModify)
+                objects.Add(new ScriptQueueObject(l, o.FullId, PropertiesOf(l)?.Name ?? ""));
+        }
+        if (objects.Count > 0)
+            return (objects, null);
+        return ([], anyScripted ? ScriptQueueRefusal.NoPermission : ScriptQueueRefusal.NoScripts);
+    }
+
     // ---------------- selection helpers ----------------
 
     /// <summary>Select Only My Objects (SelectOwnedOnly, off by default): a click or drag-select passes over objects the agent does not own.</summary>
