@@ -96,6 +96,40 @@ public class ReleaseGuardTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void With_tracked_only_the_logo_guard_judges_the_files_git_tracks_and_skips_untracked_and_ignored_output()
+    {
+        Assert.True(OperatingSystem.IsWindows(), "the guard runs under Windows PowerShell");
+        string repo = TestTemp.NewFolder("logo-guard-git");
+        void Git(params string[] a)
+        {
+            var r = ChildProcess.Run("git", ["-C", repo, .. a], TimeSpan.FromMinutes(1));
+            Assert.True(r.ExitCode == 0, "git " + string.Join(" ", a) + ": " + r.Output);
+        }
+        Git("init", "-q");
+        File.WriteAllText(Path.Combine(repo, ".gitignore"), "results/\n");
+        Directory.CreateDirectory(Path.Combine(repo, "art"));
+        Directory.CreateDirectory(Path.Combine(repo, "results"));
+        File.WriteAllBytes(Path.Combine(repo, "art", "button.png"), [1, 2, 3]);
+        Git("add", ".gitignore", "art/button.png");
+        // a render run's proposal picture (ignored) and a stray untracked picture, both named for Second Life
+        File.WriteAllBytes(Path.Combine(repo, "results", "proposal-logincard-second-life.png"), [4, 5, 6]);
+        File.WriteAllBytes(Path.Combine(repo, "art", "secondlife-draft.png"), [7, 8, 9]);
+
+        var (exit, text) = Run("assert-no-logo.ps1", "-Path", repo, "-TrackedOnly");
+        Assert.Equal(0, exit);
+        Assert.Contains("LOGO GUARD OK: 1 images checked", text);
+        // without the switch the same folder fails, so the switch is what skips them
+        Assert.Equal(1, Run("assert-no-logo.ps1", "-Path", repo).ExitCode);
+
+        // a tracked logo is still refused, even under the switch
+        File.WriteAllBytes(Path.Combine(repo, "art", "SL_Logo.png"), [10, 11, 12]);
+        Git("add", "art/SL_Logo.png");
+        (exit, text) = Run("assert-no-logo.ps1", "-Path", Path.Combine(repo, "art"), "-TrackedOnly");
+        Assert.Equal(1, exit);
+        Assert.Contains("SL_Logo.png", text);
+    }
+
+    [Fact]
     public void The_logo_guard_refuses_the_official_viewers_icon_under_another_name()
     {
         Assert.True(OperatingSystem.IsWindows(), "the guard runs under Windows PowerShell");
@@ -120,7 +154,8 @@ public class ReleaseGuardTests(ITestOutputHelper output)
         // one -Path argument with the folders separated by ";" (powershell -File cannot pass an array)
         var folders = new[] { "host", "core", "tools", "fixtures", "Docs", "ThirdPartyLicenses", "native" }
             .Select(d => Path.Combine(TestPaths.RepoRoot, d)).Where(Directory.Exists);
-        var args = new List<string> { "-Path", string.Join(";", folders) };
+        // tracked files only: a render run leaves proposal pictures in ignored folders, and they are not in the repository
+        var args = new List<string> { "-Path", string.Join(";", folders), "-TrackedOnly" };
         if (OfficialNewview() is { } newview) { args.Add("-Reference"); args.Add(newview); }
         var (exit, text) = Run("assert-no-logo.ps1", args.ToArray());
         Assert.Equal(0, exit);
