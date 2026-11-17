@@ -11,8 +11,8 @@ namespace Viewer.Core.Tests;
 
 /// <summary>
 /// The fitted interface sounds and the per-grid choice: the generator fits two candidates to each measured target, the same every run;
-/// the committed recipes are the chosen candidates of the committed targets, one per official UISnd* event, each at its target's
-/// loudness with the peak no higher than -1 dBFS and the target's length; the loudness measure reads a known tone as BS.1770 does; and
+/// the committed recipes are the chosen candidates of the committed targets, one per official UISnd* event the generator still makes
+/// (the others are recordings, <see cref="UiSoundRecordings"/>), each at its target's loudness with the peak no higher than -1 dBFS and the target's length; the loudness measure reads a known tone as BS.1770 does; and
 /// on Second Life every slot plays the grid's sound by its official id, elsewhere our own. Reads two committed files under tools/ui-sounds;
 /// nothing is written or shared, so the class runs in parallel.
 /// </summary>
@@ -66,12 +66,14 @@ public class UiSoundFitTests
     }
 
     [Fact]
-    public void Every_event_but_the_silent_one_plays_a_sound_fitted_to_its_official_setting()
+    public void Every_event_the_generator_still_makes_plays_a_sound_fitted_to_its_official_setting()
     {
         var targets = Targets();
         Assert.Equal(22, targets.Count);   // 15 measured settings and the 7 that were not cached
         Assert.Equal(7, targets.Count(t => !t.Reference));
-        foreach (var info in UiSoundCatalog.All.Where(i => i.Slot != UiSoundSlot.ObjectRezOut))
+        var generated = UiSoundCatalog.All.Where(i => UiSoundSynth.Recipes.Any(r => r.File == i.File)).ToList();
+        Assert.Equal(6, generated.Count);
+        foreach (var info in generated)
         {
             string setting = UiSoundCatalog.OfficialName(info.Slot);
             var recipe = UiSoundSynth.Recipes.Single(r => r.File == info.File);
@@ -86,7 +88,8 @@ public class UiSoundFitTests
     {
         Assert.True(File.Exists(Tool("sl-choices.txt")), "the committed choices are missing");
         var chosen = UiSoundFit.ParseChoices(File.ReadAllText(Tool("sl-choices.txt")));
-        var targets = Targets();
+        var targets = Targets().Where(t => !UiSoundRecordings.IsRecorded(UiSoundFit.FileOf(t.Setting))).ToList();
+        Assert.Equal(6, chosen.Count);   // one per event the generator still makes
         Assert.Equal(targets.Select(t => t.Setting).Order(), chosen.Keys.Order());
         foreach (var t in targets)
         {
@@ -100,7 +103,7 @@ public class UiSoundFitTests
     public void Fitted_sounds_reach_their_loudness_or_the_minus_1_dbfs_ceiling_and_keep_their_targets_length()
     {
         var targets = Targets();
-        Assert.Equal(22, UiSoundSynth.Recipes.Count(r => r.Lufs != 0));
+        Assert.Equal(6, UiSoundSynth.Recipes.Count(r => r.Lufs != 0));
         foreach (var r in UiSoundSynth.Recipes.Where(r => r.Lufs != 0))
         {
             var s = UiSoundSynth.Render(r);

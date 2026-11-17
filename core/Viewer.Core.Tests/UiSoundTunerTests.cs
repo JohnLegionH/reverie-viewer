@@ -14,7 +14,8 @@ namespace Viewer.Core.Tests;
 /// </summary>
 public class UiSoundTunerTests
 {
-    private const string Alert = "ui-alert.wav", Click = "ui-click.wav";
+    // two sounds the generator still makes: an FM voice and a noise band
+    private const string Bell = "ui-health-reduction-m.wav", Noisy = "ui-typing.wav";
 
     private static SoundRecipe Committed(string file)
     {
@@ -31,8 +32,8 @@ public class UiSoundTunerTests
         throw new InvalidOperationException("no repository root above the test");
     }
 
-    // a two-bell chime, fixed here (the committed alert is fitted, and its numbers change when it is refitted)
-    private static readonly SoundRecipe Chime = new(Alert, 390, 6000, 0.5, 40, 15,
+    // a two-bell chime, fixed here (the committed sounds are fitted, and their numbers change when they are refitted)
+    private static readonly SoundRecipe Chime = new(Bell, 390, 6000, 0.5, 40, 15,
     [
         new Layer(Wave.Fm, 0, 2, 260, 1, Hz: 784, Ratio: 2, Index: 1.2),
         new Layer(Wave.Fm, 90, 2, 280, 0.8, Hz: 1047, Ratio: 2, Index: 1),
@@ -49,7 +50,7 @@ public class UiSoundTunerTests
         Assert.Contains(p, x => x.Key == "0.Index");
         Assert.DoesNotContain(p, x => x.Key == "0.LowHz");   // a bell has no noise band
         Assert.All(p, x => Assert.InRange(x.Value, x.Min, x.Max));
-        var noise = UiSoundParams.Of(Committed(Click));
+        var noise = UiSoundParams.Of(Committed(Noisy));
         Assert.Contains(noise, x => x.Key == "0.LowHz");
         Assert.DoesNotContain(noise, x => x.Key == "0.Ratio");
     }
@@ -72,7 +73,7 @@ public class UiSoundTunerTests
     public void The_viewer_plays_exactly_the_shipped_files_untuned_and_a_tuned_sound_from_the_shared_synthesizer()
     {
         var tuning = new UiSoundTuning(null);
-        Assert.Equal(24, UiSoundSynth.Recipes.Count);   // the 23 interface sounds and our footstep
+        Assert.Equal(7, UiSoundSynth.Recipes.Count);   // the 6 generated interface sounds and our footstep
         foreach (var r in UiSoundSynth.Recipes)
         {
             var shipped = UiSoundFiles.Read(r.File);
@@ -81,15 +82,15 @@ public class UiSoundTunerTests
             Assert.Equal(shipped, UiSoundSynth.Wav(UiSoundSynth.Render(r)));
         }
         // a fitted sound is brought to its loudness target, so a change of length, not of level, is what makes new bytes
-        var louder = UiSoundParams.With(Committed(Click), "0.DecayMs", 20);
+        var louder = UiSoundParams.With(Committed(Noisy), "0.DecayMs", 20);
         string? changed = null;
         tuning.Changed += f => changed = f;
         tuning.Set(louder);
-        Assert.Equal(Click, changed);
-        Assert.True(tuning.IsTuned(Click));
-        Assert.Equal(louder, tuning.Current(Click));
-        Assert.Equal(UiSoundSynth.Wav(UiSoundSynth.Render(louder)), tuning.WavFor(Click));
-        Assert.NotEqual(UiSoundFiles.Read(Click), tuning.WavFor(Click));
+        Assert.Equal(Noisy, changed);
+        Assert.True(tuning.IsTuned(Noisy));
+        Assert.Equal(louder, tuning.Current(Noisy));
+        Assert.Equal(UiSoundSynth.Wav(UiSoundSynth.Render(louder)), tuning.WavFor(Noisy));
+        Assert.NotEqual(UiSoundFiles.Read(Noisy), tuning.WavFor(Noisy));
     }
 
     [Fact]
@@ -98,21 +99,21 @@ public class UiSoundTunerTests
         var folder = TestTemp.NewFolder("tuner");
         var path = Path.Combine(folder, UiSoundTuning.FileName);
         var tuning = new UiSoundTuning(path);
-        var tuned = UiSoundParams.With(Committed(Alert), "0.Hz", 700);
+        var tuned = UiSoundParams.With(Committed(Bell), "0.Hz", 700);
         tuning.Set(tuned);
         Assert.True(tuning.Save());
         Assert.True(File.Exists(path));
 
         var again = new UiSoundTuning(path);
-        Assert.True(again.IsTuned(Alert));
-        Assert.Equal(tuned, again.Current(Alert));
-        Assert.False(again.IsTuned(Click));
+        Assert.True(again.IsTuned(Bell));
+        Assert.Equal(tuned, again.Current(Bell));
+        Assert.False(again.IsTuned(Noisy));
 
-        again.Reset(Alert);
-        Assert.False(again.IsTuned(Alert));
-        Assert.Equal(Committed(Alert), again.Current(Alert));
-        Assert.Equal(UiSoundFiles.Read(Alert), again.WavFor(Alert));
-        Assert.False(new UiSoundTuning(path).IsTuned(Alert));   // the reset was saved
+        again.Reset(Bell);
+        Assert.False(again.IsTuned(Bell));
+        Assert.Equal(Committed(Bell), again.Current(Bell));
+        Assert.Equal(UiSoundFiles.Read(Bell), again.WavFor(Bell));
+        Assert.False(new UiSoundTuning(path).IsTuned(Bell));   // the reset was saved
         TestTemp.Delete(folder);
     }
 
@@ -121,14 +122,14 @@ public class UiSoundTunerTests
     {
         Assert.Empty(UiSoundTuning.Parse("not json"));
         Assert.Empty(UiSoundTuning.Parse(null));
-        var json = UiSoundTuning.ToJson([UiSoundParams.With(Committed(Click), "Ms", 45), Committed(Alert) with { File = "ui-nothing.wav" }]);
+        var json = UiSoundTuning.ToJson([UiSoundParams.With(Committed(Noisy), "Ms", 45), Committed(Bell) with { File = "ui-nothing.wav" }]);
         var parsed = UiSoundTuning.Parse(json);
-        Assert.Equal([Click, "ui-nothing.wav"], parsed.Keys.Order().ToArray());
-        Assert.Equal(45, parsed[Click].Ms);
+        Assert.Equal([Noisy, "ui-nothing.wav"], parsed.Keys.Order().ToArray());
+        Assert.Equal(45, parsed[Noisy].Ms);
         var folded = UiSoundTable.Fold(UiSoundSynth.Recipes, parsed);
-        Assert.Equal(24, folded.Count);   // the 23 interface sounds and our footstep
-        Assert.Equal(45, folded.Single(r => r.File == Click).Ms);
-        Assert.Equal(Committed(Alert), folded.Single(r => r.File == Alert));
+        Assert.Equal(7, folded.Count);   // the 6 generated interface sounds and our footstep
+        Assert.Equal(45, folded.Single(r => r.File == Noisy).Ms);
+        Assert.Equal(Committed(Bell), folded.Single(r => r.File == Bell));
         Assert.DoesNotContain(folded, r => r.File == "ui-nothing.wav");
     }
 
@@ -141,11 +142,11 @@ public class UiSoundTunerTests
         Assert.NotNull(block);
         Assert.Equal(block, UiSoundTable.Format(UiSoundSynth.Recipes, nl));
 
-        var tuned = new Dictionary<string, SoundRecipe> { [Click] = UiSoundParams.With(Committed(Click), "Ms", 45) };
+        var tuned = new Dictionary<string, SoundRecipe> { [Noisy] = UiSoundParams.With(Committed(Noisy), "Ms", 45) };
         var rewritten = UiSoundTable.ReplaceBlock(source, UiSoundTable.Format(UiSoundTable.Fold(UiSoundSynth.Recipes, tuned), nl));
         Assert.NotNull(rewritten);
-        string lufs = Committed(Click).Lufs.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-        Assert.Contains("\"ui-click.wav\", " + (Committed(Click).Lufs != 0 ? lufs + ", " : "") + "45, ", rewritten);
+        string lufs = Committed(Noisy).Lufs.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Contains("\"" + Noisy + "\", " + (Committed(Noisy).Lufs != 0 ? lufs + ", " : "") + "45, ", rewritten);
         Assert.Equal(source.Length - block!.Length, rewritten!.Length - UiSoundTable.BlockOf(rewritten)!.Length);
         Assert.Null(UiSoundTable.ReplaceBlock("no markers here", "x"));
     }

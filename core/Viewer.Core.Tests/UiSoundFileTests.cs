@@ -8,8 +8,9 @@ using Xunit;
 namespace Viewer.Core.Tests;
 
 /// <summary>
-/// Our interface sound files: the generator makes every slot's file, the same bytes each run, as 16-bit mono 44.1 kHz WAVs peaking at
-/// about -6 dBFS with soft ends and the lengths the interface calls for; the files shipped in the shell assembly are exactly its output;
+/// Our interface sound files: the generator makes the file of every slot that is not a recording (and our footstep), the same bytes
+/// each run, as 16-bit mono 44.1 kHz WAVs peaking at about -6 dBFS (or at their loudness target under -1 dBFS) with soft ends; every
+/// slot ships a file of the length the interface calls for; the generated files shipped in the shell assembly are exactly its output;
 /// and the shell reads them back. Plain .NET, nothing shared, so the class runs in parallel.
 /// </summary>
 public class UiSoundFileTests
@@ -23,18 +24,29 @@ public class UiSoundFileTests
 
     private static short[] Samples(UiSoundSlot slot) => UiSoundSynth.Render(Recipe(slot));
 
-    private static double Ms(short[] s) => s.Length * 1000.0 / UiSoundSynth.Rate;
+    // the shipped file's length, whether the generator made it or it is a recording
+    private static double ShippedMs(UiSoundSlot slot)
+    {
+        var wav = WavFile.Parse(UiSoundFiles.Read(UiSoundCatalog.Of(slot).File) ?? []);
+        Assert.True(wav is not null, slot + " ships no WAV");
+        return wav!.Seconds * 1000;
+    }
 
     [Fact]
-    public void The_generator_has_one_recipe_for_each_slots_file_and_one_for_our_footstep()
+    public void The_generator_has_one_recipe_for_each_generated_slots_file_and_one_for_our_footstep()
     {
-        Assert.Equal(UiSoundCatalog.All.Select(i => i.File).Append("world-footstep.wav").Order(), UiSoundSynth.Recipes.Select(r => r.File).Order());
+        string[] generated =
+        [
+            "ui-chat-ping.wav", "ui-health-reduction-f.wav", "ui-health-reduction-m.wav", "ui-restart.wav", "ui-snapshot.wav",
+            "ui-typing.wav", "world-footstep.wav",
+        ];
+        Assert.Equal(generated.Order(), UiSoundSynth.Recipes.Select(r => r.File).Order());
     }
 
     [Fact]
     public void Two_runs_of_the_generator_give_byte_identical_files()
     {
-        Assert.Equal(24, UiSoundSynth.Recipes.Count);
+        Assert.Equal(7, UiSoundSynth.Recipes.Count);
         foreach (var r in UiSoundSynth.Recipes)
         {
             var a = UiSoundSynth.Wav(UiSoundSynth.Render(r));
@@ -47,7 +59,7 @@ public class UiSoundFileTests
     [Fact]
     public void Every_sound_without_a_loudness_target_peaks_at_about_minus_6_dbfs_and_every_sound_starts_and_ends_softly()
     {
-        Assert.Equal(24, UiSoundSynth.Recipes.Count);
+        Assert.Equal(7, UiSoundSynth.Recipes.Count);
         foreach (var r in UiSoundSynth.Recipes)
         {
             var s = UiSoundSynth.Render(r);
@@ -68,17 +80,18 @@ public class UiSoundFileTests
     public void Clicks_are_short_windows_under_250_ms_and_nothing_is_longer_than_the_official_teleport()
     {
         foreach (var slot in new[] { UiSoundSlot.Click, UiSoundSlot.ClickRelease })
-            Assert.InRange(Ms(Samples(slot)), 10, 60);
+            Assert.InRange(ShippedMs(slot), 10, 60);
         foreach (var slot in new[] { UiSoundSlot.WindowOpen, UiSoundSlot.WindowClose, UiSoundSlot.BadKeystroke })
-            Assert.InRange(Ms(Samples(slot)), 30, 250);
-        Assert.InRange(Ms(Samples(UiSoundSlot.TeleportOut)), 4000, 4100);   // the official teleport sound is about 4 s
-        Assert.All(UiSoundSynth.Recipes, r => Assert.InRange(Ms(UiSoundSynth.Render(r)), 10, 4100));
+            Assert.InRange(ShippedMs(slot), 30, 250);
+        Assert.InRange(ShippedMs(UiSoundSlot.TeleportOut), 4000, 4100);   // the official teleport sound is about 4 s
+        Assert.All(UiSoundCatalog.All, i => Assert.InRange(ShippedMs(i.Slot), 10, 4100));
+        Assert.All(UiSoundSynth.Recipes, r => Assert.InRange(UiSoundSynth.Render(r).Length * 1000.0 / UiSoundSynth.Rate, 10, 4100));
     }
 
     [Fact]
     public void A_wav_is_16_bit_mono_at_44100_and_reads_back_to_the_same_samples()
     {
-        var samples = Samples(UiSoundSlot.Alert);
+        var samples = Samples(UiSoundSlot.Typing);
         var wav = UiSoundSynth.Wav(samples);
         var parsed = WavFile.Parse(wav);
         Assert.NotNull(parsed);
@@ -90,15 +103,13 @@ public class UiSoundFileTests
     }
 
     [Fact]
-    public void The_files_the_viewer_ships_are_exactly_the_generators_output()
+    public void Every_slot_ships_a_file_and_the_generated_ones_are_exactly_the_generators_output()
     {
         Assert.Equal(23, UiSoundCatalog.All.Count);
         foreach (var info in UiSoundCatalog.All)
-        {
-            var shipped = UiSoundFiles.Read(info.File);
-            Assert.True(shipped is not null, info.File + " is not shipped");
-            Assert.Equal(UiSoundSynth.Wav(Samples(info.Slot)), shipped);
-        }
+            Assert.True(UiSoundFiles.Read(info.File) is not null, info.File + " is not shipped");
+        foreach (var r in UiSoundSynth.Recipes)
+            Assert.Equal(UiSoundSynth.Wav(UiSoundSynth.Render(r)), UiSoundFiles.Read(r.File));
         Assert.Null(UiSoundFiles.Read("ui-nothing.wav"));
     }
 }
