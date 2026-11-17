@@ -107,7 +107,8 @@ public static class UiSoundTable
         var sb = new StringBuilder();
         foreach (var r in recipes)
         {
-            sb.Append("        R(").Append(Text(r.Note)).Append(", ").Append(Text(r.File)).Append(", ")
+            sb.Append(r.Lufs != 0 ? "        L(" : "        R(").Append(Text(r.Note)).Append(", ").Append(Text(r.File)).Append(", ")
+                .Append(r.Lufs != 0 ? N(r.Lufs) + ", " : "")
                 .Append(string.Join(", ", N(r.Ms), N(r.LowPassHz), N(r.FadeInMs), N(r.FadeOutMs), r.Seed.ToString(CultureInfo.InvariantCulture))).Append(',').Append(newline);
             for (int i = 0; i < r.Layers.Count; i++)
                 sb.Append("            ").Append(Call(r.Layers[i])).Append(i == r.Layers.Count - 1 ? ")," : ",").Append(newline);

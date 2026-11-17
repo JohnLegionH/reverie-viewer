@@ -7,6 +7,32 @@ and a test (`UiSoundFileTests`) fails if they differ from what the generator mak
 The recipes and the synthesizer live in the shell, `host/Viewer.Shell/Sound/UiSoundSynth.cs`; this tool compiles those same
 files, and the viewer's Sound Tuner uses them too, so the tuner, the generator and the shipped files make the same bytes.
 
+## Fitting the sounds to measured targets
+
+The interface sounds are fitted to measurements of the official viewer's interface sounds: numbers only (length, pitch and
+strongest partials, attack, decay to -20 and -40 dB, spectral centroid, tonal share, integrated loudness in LUFS, pitch
+movement, number of bursts), kept in `sl-targets.json`. No audio from anywhere is read. Seven settings have no measurement;
+`UiSoundFit.Unmeasured` derives each one's target from a neighbour's, and its recipe's note says "no SL reference".
+
+1. Write both candidates of every target into a folder (nothing in the repository changes):
+
+   ```
+   dotnet run --project tools/ui-sounds/UiSoundGen.csproj -c Release -- --fit tools/ui-sounds/sl-targets.json --candidates <folder>
+   ```
+
+   Candidate A is plain sines on the measured partials (tonal) or noise in a fixed band (noisy); candidate B is an FM bell
+   (tonal) or noise in a gliding band with a low thump (noisy). The folder also gets `targets.json`, the targets as fitted.
+2. Measure both candidates and choose the one closer to its target; write the choices as `Setting=A` or `Setting=B` lines
+   into `sl-choices.txt`.
+3. Fold the chosen candidates into the committed table and write the sounds:
+
+   ```
+   dotnet run --project tools/ui-sounds/UiSoundGen.csproj -c Release -- --fit tools/ui-sounds/sl-targets.json --choose tools/ui-sounds/sl-choices.txt
+   ```
+
+A fitted recipe (`L(...)` in the table) is brought to its target loudness with its peak no higher than -1 dBFS; the others
+(`R(...)`) to a -6 dBFS peak.
+
 ## Changing a sound with the Sound Tuner
 
 1. In the viewer, open Preferences > Sound and press **Tune…**.
@@ -25,8 +51,8 @@ files, and the viewer's Sound Tuner uses them too, so the tuner, the generator a
 ## Changing a sound by hand
 
 1. Change the numbers of its entry between the `recipes:begin` and `recipes:end` lines of `UiSoundSynth.cs` (lengths in
-   milliseconds, pitches in hertz, levels relative to the other voices of the same sound; every sound is brought to a -6 dBFS
-   peak afterwards).
+   milliseconds, pitches in hertz, levels relative to the other voices of the same sound; an `R(...)` sound is brought to a -6 dBFS
+   peak afterwards, an `L(...)` sound to its loudness target).
 2. Run the generator from the repository root:
 
    ```

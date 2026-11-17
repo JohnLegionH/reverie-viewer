@@ -17,6 +17,9 @@
     <Compile Include="..\..\host\Viewer.Shell\Sound\UiSoundSynth.cs" Link="Shared\UiSoundSynth.cs" />
     <Compile Include="..\..\host\Viewer.Shell\Sound\UiSoundTuning.cs" Link="Shared\UiSoundTuning.cs" />
     <Compile Include="..\..\host\Viewer.Shell\Sound\WavFile.cs" Link="Shared\WavFile.cs" />
+    <Compile Include="..\..\host\Viewer.Shell\Sound\Loudness.cs" Link="Shared\Loudness.cs" />
+    <Compile Include="..\..\host\Viewer.Shell\Sound\UiSoundFit.cs" Link="Shared\UiSoundFit.cs" />
+    <Compile Include="..\..\host\Viewer.Shell\Sound\UiSoundCatalog.cs" Link="Shared\UiSoundCatalog.cs" />
   </ItemGroup>
 
 </Project>

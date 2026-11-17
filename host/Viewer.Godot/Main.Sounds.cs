@@ -88,6 +88,10 @@ public partial class Main
         bool inWorld = session is not null && !session.IsEnded && session.AgentId != Guid.Empty;
         if (sounds.InWorld != inWorld)
             sounds.InWorld = inWorld;
+        // the per-grid switch: on Second Life the interface plays the grid's own sounds by their ids
+        var gridKind = inWorld ? session!.Grid : Viewer.Core.Session.GridKind.OpenSim;
+        if (sounds.Grid != gridKind)
+            sounds.Grid = gridKind;
         if (_soundGridFor != (inWorld ? session : null))
         {
             _soundGridFor = inWorld ? session : null;

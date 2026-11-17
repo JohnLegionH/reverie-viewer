@@ -45,7 +45,7 @@ public class UiSoundFileTests
     }
 
     [Fact]
-    public void Every_sound_peaks_at_about_minus_6_dbfs_without_clipping_and_starts_and_ends_softly()
+    public void Every_sound_without_a_loudness_target_peaks_at_about_minus_6_dbfs_and_every_sound_starts_and_ends_softly()
     {
         Assert.Equal(24, UiSoundSynth.Recipes.Count);
         foreach (var r in UiSoundSynth.Recipes)
@@ -54,7 +54,10 @@ public class UiSoundFileTests
             Assert.True(s.Length > 0, r.File);
             int peak = s.Max(v => Math.Abs((int)v));
             double dbfs = 20 * Math.Log10(peak / 32767.0);
-            Assert.InRange(dbfs, -6.2, -5.8);
+            if (r.Lufs == 0)
+                Assert.InRange(dbfs, -6.2, -5.8);
+            else
+                Assert.InRange(dbfs, -60, -0.95);
             Assert.True(Math.Abs((int)s[0]) < 100 && Math.Abs((int)s[^1]) < 100, r.File + " ends hard");
             Assert.True(s.Take(10).All(v => Math.Abs((int)v) < 2000), r.File + " starts with a jump");
             Assert.True(s.TakeLast(10).All(v => Math.Abs((int)v) < 2000), r.File + " stops with a jump");
@@ -62,15 +65,14 @@ public class UiSoundFileTests
     }
 
     [Fact]
-    public void Clicks_are_short_windows_and_alerts_are_under_400_ms_and_the_teleport_under_1200_ms()
+    public void Clicks_are_short_windows_under_250_ms_and_nothing_is_longer_than_the_official_teleport()
     {
         foreach (var slot in new[] { UiSoundSlot.Click, UiSoundSlot.ClickRelease })
             Assert.InRange(Ms(Samples(slot)), 10, 60);
-        foreach (var slot in new[] { UiSoundSlot.WindowOpen, UiSoundSlot.WindowClose, UiSoundSlot.Alert, UiSoundSlot.InvalidOp, UiSoundSlot.BadKeystroke,
-                     UiSoundSlot.ChatMention, UiSoundSlot.ChatPing, UiSoundSlot.NewIncomingIMSession, UiSoundSlot.StartIM, UiSoundSlot.Restart })
-            Assert.InRange(Ms(Samples(slot)), 30, 400);
-        Assert.InRange(Ms(Samples(UiSoundSlot.TeleportOut)), 600, 1200);
-        Assert.All(UiSoundSynth.Recipes, r => Assert.InRange(Ms(UiSoundSynth.Render(r)), 10, 1200));
+        foreach (var slot in new[] { UiSoundSlot.WindowOpen, UiSoundSlot.WindowClose, UiSoundSlot.BadKeystroke })
+            Assert.InRange(Ms(Samples(slot)), 30, 250);
+        Assert.InRange(Ms(Samples(UiSoundSlot.TeleportOut)), 4000, 4100);   // the official teleport sound is about 4 s
+        Assert.All(UiSoundSynth.Recipes, r => Assert.InRange(Ms(UiSoundSynth.Render(r)), 10, 4100));
     }
 
     [Fact]

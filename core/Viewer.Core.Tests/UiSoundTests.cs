@@ -137,12 +137,12 @@ public class UiSoundTests
     }
 
     [Fact]
-    public void Every_slot_defaults_to_our_file_except_the_two_pain_voices_which_default_to_the_grids()
+    public void Every_slot_defaults_to_our_file_off_second_life_including_the_two_pain_sounds()
     {
         Assert.Equal(23, UiSoundCatalog.All.Count);
         foreach (var info in UiSoundCatalog.All)
         {
-            var want = info.Slot is UiSoundSlot.HealthReductionF or UiSoundSlot.HealthReductionM ? UiSoundSource.Grid : UiSoundSource.Ours;
+            var want = UiSoundSource.Ours;
             Assert.Equal(want, info.DefaultSource);
             Assert.Equal(want, UiSoundSettings.Source(new SettingsService(new MemoryStore()), info.Slot));
         }

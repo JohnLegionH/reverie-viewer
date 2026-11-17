@@ -50,6 +50,16 @@ public static class UiSoundSettings
     public static UiSoundSource Source(SettingsService settings, UiSoundSlot slot) =>
         Parse(settings.GetText(SourceKey(slot))) ?? UiSoundCatalog.Of(slot).DefaultSource;
 
+    /// <summary>The source a slot plays from on this kind of grid. Where the per-grid switch does not allow this viewer's own sounds
+    /// (Second Life), every slot that is not switched off plays the grid's sound by its official id, as the official viewer does;
+    /// elsewhere the slot's chosen source.</summary>
+    public static UiSoundSource SourceOn(SettingsService settings, UiSoundSlot slot, Viewer.Core.Session.GridKind grid)
+    {
+        var source = Source(settings, slot);
+        return source == UiSoundSource.Ours && !Viewer.Core.Session.GridPolicy.Allows(Viewer.Core.Session.ViewerFeature.OwnInterfaceSounds, grid)
+            ? UiSoundSource.Grid : source;
+    }
+
     public static bool SetSource(SettingsService settings, UiSoundSlot slot, UiSoundSource source) => settings.SetText(SourceKey(slot), IdOf(source));
 
     /// <summary>Puts every slot on one source.</summary>

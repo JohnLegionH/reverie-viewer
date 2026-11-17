@@ -1,0 +1,24 @@
+# The chosen candidate of each fitted interface sound (A or B), closer to its target by measurement.
+# The numbers after # are each candidate's distance to its target (smaller is closer).
+UISndAlert=B  # A 2.41, B 2.39
+UISndBadKeystroke=B  # A 3.10, B 2.16
+UISndChatMention=A  # A 1.85, B 3.14, no SL reference (UISndNewIncomingIMSession)
+UISndChatPing=A  # A 1.86, B 3.08, no SL reference (UISndNewIncomingIMSession)
+UISndClick=A  # A 1.28, B 2.23
+UISndClickRelease=A  # A 1.63, B 1.98
+UISndHealthReductionF=B  # A 2.66, B 2.65, no SL reference (UISndHealthReductionM)
+UISndHealthReductionM=B  # A 2.94, B 2.82
+UISndInvalidOp=A  # A 3.70, B 3.83
+UISndMoneyChangeDown=A  # A 2.13, B 2.31, no SL reference (UISndAlert)
+UISndMoneyChangeUp=A  # A 2.19, B 2.22, no SL reference (UISndAlert)
+UISndNewIncomingIMSession=A  # A 1.84, B 3.16
+UISndObjectCreate=A  # A 5.54, B 12.52
+UISndObjectDelete=A  # A 5.41, B 11.71, no SL reference (UISndObjectCreate)
+UISndObjectRezIn=B  # A 2.72, B 2.68
+UISndRestart=A  # A 3.80, B 4.12, no SL reference (UISndInvalidOp)
+UISndSnapshot=B  # A 3.37, B 2.76
+UISndStartIM=A  # A 2.27, B 2.37
+UISndTeleportOut=A  # A 1.81, B 9.65
+UISndTyping=A  # A 3.47, B 10.80
+UISndWindowClose=A  # A 2.93, B 3.26
+UISndWindowOpen=A  # A 2.34, B 2.70

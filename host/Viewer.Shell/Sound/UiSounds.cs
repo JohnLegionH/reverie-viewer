@@ -178,6 +178,9 @@ public sealed class UiSounds
             grid.Changed += OnGridChanged;
     }
 
+    /// <summary>The kind of grid the session is on: on Second Life every slot plays the grid's sound (see <see cref="UiSoundSettings.SourceOn"/>).</summary>
+    public Viewer.Core.Session.GridKind Grid { get; set; }
+
     /// <summary>Whether a session is in the world (the grid's sounds can be fetched). False on the login screen.</summary>
     public bool InWorld { get; set; }
 
@@ -201,7 +204,7 @@ public sealed class UiSounds
     /// <summary>What the Preferences page shows beside a slot set to the grid.</summary>
     public UiSoundStatus StatusOf(UiSoundSlot slot)
     {
-        if (UiSoundSettings.Source(_settings, slot) != UiSoundSource.Grid)
+        if (UiSoundSettings.SourceOn(_settings, slot, Grid) != UiSoundSource.Grid)
             return UiSoundStatus.Fine;
         var id = UiSoundCatalog.Of(slot).GridId;
         if (id == Guid.Empty)
@@ -220,7 +223,7 @@ public sealed class UiSounds
         if (!InWorld || _grid is null)
             return;
         foreach (var info in UiSoundCatalog.All)
-            if (UiSoundSettings.Source(_settings, info.Slot) == UiSoundSource.Grid)
+            if (UiSoundSettings.SourceOn(_settings, info.Slot, Grid) == UiSoundSource.Grid)
                 _grid.Request(info.GridId);
     }
 
@@ -243,7 +246,7 @@ public sealed class UiSounds
             return UiSoundOutcome.MutedAll;
         if (_settings.Get(UiSoundSettings.MuteWhenMinimized) && _minimized())
             return UiSoundOutcome.MutedMinimized;
-        var source = UiSoundSettings.Source(_settings, slot);
+        var source = UiSoundSettings.SourceOn(_settings, slot, Grid);
         if (source == UiSoundSource.Off)
             return UiSoundOutcome.Off;
         if (!audition && !_settings.Get(UiSoundSettings.EnabledOf(slot)))

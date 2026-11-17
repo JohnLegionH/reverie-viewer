@@ -31,10 +31,17 @@ public class UiSoundTunerTests
         throw new InvalidOperationException("no repository root above the test");
     }
 
+    // a two-bell chime, fixed here (the committed alert is fitted, and its numbers change when it is refitted)
+    private static readonly SoundRecipe Chime = new(Alert, 390, 6000, 0.5, 40, 15,
+    [
+        new Layer(Wave.Fm, 0, 2, 260, 1, Hz: 784, Ratio: 2, Index: 1.2),
+        new Layer(Wave.Fm, 90, 2, 280, 0.8, Hz: 1047, Ratio: 2, Index: 1),
+    ], "a two-note chime");
+
     [Fact]
     public void A_bell_recipes_sliders_are_its_sound_numbers_then_each_voices_numbers_with_ranges_holding_the_values()
     {
-        var p = UiSoundParams.Of(Committed(Alert));
+        var p = UiSoundParams.Of(Chime);
         Assert.Equal(["Ms", "LowPassHz", "FadeInMs", "FadeOutMs"], p.Take(4).Select(x => x.Key).ToArray());
         Assert.Equal(390, p.Single(x => x.Key == "Ms").Value);
         Assert.Equal(1047, p.Single(x => x.Key == "1.Hz").Value);
@@ -50,7 +57,7 @@ public class UiSoundTunerTests
     [Fact]
     public void Moving_one_slider_changes_that_number_only_and_is_clamped_to_its_range()
     {
-        var alert = Committed(Alert);
+        var alert = Chime;
         var changed = UiSoundParams.With(alert, "1.Hz", 1200);
         Assert.Equal(1200, changed.Layers[1].Hz);
         Assert.Equal(alert.Layers[0], changed.Layers[0]);
@@ -73,7 +80,8 @@ public class UiSoundTunerTests
             Assert.Equal(shipped, tuning.WavFor(r.File));
             Assert.Equal(shipped, UiSoundSynth.Wav(UiSoundSynth.Render(r)));
         }
-        var louder = UiSoundParams.With(Committed(Click), "0.Level", 0.9);
+        // a fitted sound is brought to its loudness target, so a change of length, not of level, is what makes new bytes
+        var louder = UiSoundParams.With(Committed(Click), "0.DecayMs", 20);
         string? changed = null;
         tuning.Changed += f => changed = f;
         tuning.Set(louder);
@@ -136,7 +144,8 @@ public class UiSoundTunerTests
         var tuned = new Dictionary<string, SoundRecipe> { [Click] = UiSoundParams.With(Committed(Click), "Ms", 45) };
         var rewritten = UiSoundTable.ReplaceBlock(source, UiSoundTable.Format(UiSoundTable.Fold(UiSoundSynth.Recipes, tuned), nl));
         Assert.NotNull(rewritten);
-        Assert.Contains("\"ui-click.wav\", 45, ", rewritten);
+        string lufs = Committed(Click).Lufs.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Contains("\"ui-click.wav\", " + (Committed(Click).Lufs != 0 ? lufs + ", " : "") + "45, ", rewritten);
         Assert.Equal(source.Length - block!.Length, rewritten!.Length - UiSoundTable.BlockOf(rewritten)!.Length);
         Assert.Null(UiSoundTable.ReplaceBlock("no markers here", "x"));
     }

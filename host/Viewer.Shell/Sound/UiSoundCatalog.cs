@@ -26,9 +26,9 @@ public sealed record UiSoundInfo(UiSoundSlot Slot, Guid GridId, UiSoundSource De
 }
 
 /// <summary>
-/// The slots in the official order with the sound ids the official viewer's settings give them. Every slot plays our file by default,
-/// except the two pain voices, which play the grid's (this viewer does not make voices). The mention sound starts switched off, as
-/// the official viewer's mention sound does (its PlaySoundChatMention is off by default).
+/// The slots in the official order with the sound ids the official viewer's settings give them. Every slot plays our file by default
+/// (on Second Life the grid's instead, by the per-grid switch: <see cref="UiSoundSettings.SourceOn"/>). The mention sound starts
+/// switched off, as the official viewer's mention sound does (its PlaySoundChatMention is off by default).
 /// </summary>
 public static class UiSoundCatalog
 {
@@ -43,8 +43,8 @@ public static class UiSoundCatalog
         S(UiSoundSlot.ChatPing, "7dd36df6-2624-5438-f988-fdf8588a0ad9", "ui-chat-ping.wav"),
         S(UiSoundSlot.Click, "4c8c3c77-de8d-bde2-b9b8-32635e0fd4a6", "ui-click.wav"),
         S(UiSoundSlot.ClickRelease, "4c8c3c77-de8d-bde2-b9b8-32635e0fd4a6", "ui-click-release.wav"),
-        S(UiSoundSlot.HealthReductionF, "219c5d93-6c09-31c5-fb3f-c5fe7495c115", "ui-health-reduction-f.wav", UiSoundSource.Grid),
-        S(UiSoundSlot.HealthReductionM, "e057c244-5768-1056-c37e-1537454eeb62", "ui-health-reduction-m.wav", UiSoundSource.Grid),
+        S(UiSoundSlot.HealthReductionF, "219c5d93-6c09-31c5-fb3f-c5fe7495c115", "ui-health-reduction-f.wav"),
+        S(UiSoundSlot.HealthReductionM, "e057c244-5768-1056-c37e-1537454eeb62", "ui-health-reduction-m.wav"),
         S(UiSoundSlot.InvalidOp, "4174f859-0d3d-c517-c424-72923dc21f65", "ui-invalid-op.wav"),
         S(UiSoundSlot.MoneyChangeDown, "104974e3-dfda-428b-99ee-b0d4e748d3a3", "ui-money-change-down.wav"),
         S(UiSoundSlot.MoneyChangeUp, "77a018af-098e-c037-51a6-178f05877c6f", "ui-money-change-up.wav"),

@@ -28,26 +28,33 @@ public sealed record Layer(Wave Wave, double StartMs, double AttackMs, double De
 
 /// <summary>One sound: its file, its length, the gentle low-pass over the whole of it, its fades at both ends, the seed of its noise,
 /// its voices, and a short note on what it is.</summary>
-public sealed record SoundRecipe(string File, double Ms, double LowPassHz, double FadeInMs, double FadeOutMs, int Seed, IReadOnlyList<Layer> Layers, string Note = "")
+public sealed record SoundRecipe(string File, double Ms, double LowPassHz, double FadeInMs, double FadeOutMs, int Seed, IReadOnlyList<Layer> Layers, string Note = "",
+    double Lufs = 0)
 {
     // a record's own equality compares the list by reference; two recipes are the same when their numbers are
     public bool Equals(SoundRecipe? other) => other is not null && File == other.File && Ms == other.Ms && LowPassHz == other.LowPassHz
-        && FadeInMs == other.FadeInMs && FadeOutMs == other.FadeOutMs && Seed == other.Seed && Note == other.Note && Layers.SequenceEqual(other.Layers);
+        && FadeInMs == other.FadeInMs && FadeOutMs == other.FadeOutMs && Seed == other.Seed && Note == other.Note && Lufs == other.Lufs
+        && Layers.SequenceEqual(other.Layers);
 
     public override int GetHashCode() => HashCode.Combine(File, Ms, LowPassHz, Seed, Layers.Count);
 }
 
 /// <summary>
 /// Makes the viewer's interface sounds from the recipes below, entirely from code: nothing is sampled or traced from another sound.
-/// Short and soft: clicks under 60 ms, window and alert sounds under 400 ms, the teleport whoosh under 1.2 s, each with fades at both
-/// ends, a gentle low-pass, and its peak brought to -6 dBFS. Written as 16-bit mono 44.1 kHz WAV. The same recipes give the same bytes
-/// every run (the noise comes from a seeded generator, not the system's random source).
+/// The interface sounds are written by the generator's fit (tools/ui-sounds, <c>--fit</c>) from measured numbers of the official
+/// viewer's sounds (length, pitch and partials, attack and decay, brightness, loudness); only numbers are used, never the sounds
+/// themselves. Each has fades at both ends and a gentle low-pass. A recipe with a loudness target (<see cref="SoundRecipe.Lufs"/>) is
+/// brought to that integrated loudness, its peak never above -1 dBFS; one without is brought to a -6 dBFS peak. Written as 16-bit mono
+/// 44.1 kHz WAV. The same recipes give the same bytes every run (the noise comes from a seeded generator, not the system's random source).
 /// To change a sound, change its numbers in <see cref="Recipes"/> and run the generator again.
 /// </summary>
 public static class UiSoundSynth
 {
     public const int Rate = 44100;
     public const double PeakDbfs = -6;
+
+    /// <summary>The highest peak a recipe with a loudness target may reach.</summary>
+    public const double CeilingDbfs = -1;
 
     private static Layer Sine(double startMs, double attackMs, double decayMs, double level, double hz, double endHz = 0) =>
         new(Wave.Sine, startMs, attackMs, decayMs, level, Hz: hz, EndHz: endHz);
@@ -64,6 +71,10 @@ public static class UiSoundSynth
     private static SoundRecipe R(string note, string file, double ms, double lowPassHz, double fadeInMs, double fadeOutMs, int seed, params Layer[] layers) =>
         new(file, ms, lowPassHz, fadeInMs, fadeOutMs, seed, layers, note);
 
+    // a recipe with a loudness target (LUFS) instead of the -6 dBFS peak
+    private static SoundRecipe L(string note, string file, double lufs, double ms, double lowPassHz, double fadeInMs, double fadeOutMs, int seed, params Layer[] layers) =>
+        new(file, ms, lowPassHz, fadeInMs, fadeOutMs, seed, layers, note, lufs);
+
     /// <summary>
     /// The sounds. Each line: file, length (ms), low-pass (Hz), fade in and fade out (ms), noise seed, then the voices.
     /// Sine(start, attack, decay, level, Hz[, end Hz]); Bell(start, attack, decay, level, Hz, ratio, index);
@@ -72,82 +83,131 @@ public static class UiSoundSynth
     public static IReadOnlyList<SoundRecipe> Recipes { get; } =
     [
         // recipes:begin (this block is written by the generator's --fold; keep one recipe per R(...) entry)
-        R("a soft tick: a short band of noise and a quick high blip", "ui-click.wav", 40, 7000, 1, 4, 11,
-            Noise(0, 0.8, 12, 0.45, 1500, 6000),
-            Sine(0, 0.8, 26, 0.8, 2200, 1800)),
-        R("the release: the same idea, a little lower and softer", "ui-click-release.wav", 36, 6000, 1, 4, 12,
-            Noise(0, 0.8, 10, 0.35, 1200, 5000),
-            Sine(0, 0.8, 22, 0.7, 1700, 1500)),
-        R("a refused key: a dull low knock", "ui-bad-keystroke.wav", 140, 2500, 0.5, 15, 13,
-            Sine(0, 2, 110, 1, 180, 150),
-            Sine(0, 2, 80, 0.4, 270, 225),
-            Noise(0, 1, 20, 0.2, 200, 1500)),
-        R("not allowed: two soft falling tones", "ui-invalid-op.wav", 270, 3000, 0.5, 25, 14,
-            Sine(0, 3, 110, 1, 466),
-            Sine(110, 3, 150, 1, 349)),
-        R("an alert: a soft two-note chime", "ui-alert.wav", 390, 6000, 0.5, 40, 15,
-            Bell(0, 2, 260, 1, 784, 2, 1.2),
-            Bell(90, 2, 280, 0.8, 1047, 2, 1)),
-        R("a window opening: a short rising swish under a rising tone", "ui-window-open.wav", 230, 5000, 1, 30, 16,
-            Swish(0, 60, 160, 0.5, 500, 3500),
-            Sine(0, 30, 180, 0.5, 520, 780)),
-        R("a window closing: the same, falling", "ui-window-close.wav", 210, 5000, 1, 30, 17,
-            Swish(0, 30, 150, 0.5, 3000, 600),
-            Sine(0, 20, 160, 0.5, 700, 470)),
-        R("a mention: a clear bell ding", "ui-chat-mention.wav", 380, 7000, 0.5, 40, 18,
-            Bell(0, 1.5, 330, 1, 1175, 3.5, 1.5),
-            Sine(0, 1, 120, 0.15, 2350)),
-        R("a ping: a smaller, higher ding", "ui-chat-ping.wav", 320, 7000, 0.5, 40, 19,
-            Bell(0, 1.5, 280, 1, 1397, 2.76, 1)),
-        R("a new conversation: a soft bell ding with an upper partial", "ui-new-incoming-im-session.wav", 390, 6500, 0.5, 40, 20,
-            Bell(0, 2, 340, 1, 880, 3.5, 2),
-            Bell(0, 2, 250, 0.5, 1320, 3.5, 1.2)),
-        R("starting a conversation: a short ding", "ui-start-im.wav", 280, 7000, 0.5, 35, 21,
-            Bell(0, 2, 230, 1, 1047, 3.5, 1.4)),
-        R("money in: light coin chimes going up", "ui-money-change-up.wav", 440, 8000, 0.5, 40, 22,
-            Bell(0, 1, 250, 0.8, 1568, 3.5, 1.2),
-            Bell(60, 1, 250, 0.8, 2093, 3.5, 1.2),
-            Bell(120, 1, 280, 0.9, 2637, 3.5, 1.2)),
-        R("money out: the coin chimes going down", "ui-money-change-down.wav", 440, 8000, 0.5, 40, 23,
-            Bell(0, 1, 250, 0.9, 2093, 3.5, 1.2),
-            Bell(60, 1, 250, 0.8, 1568, 3.5, 1.2),
-            Bell(120, 1, 280, 0.8, 1175, 3.5, 1.2)),
-        R("a camera shutter: two clicks of noise with a little body", "ui-snapshot.wav", 190, 8000, 1, 20, 24,
-            Noise(0, 0.8, 18, 1, 1500, 7000),
-            Noise(65, 0.8, 30, 0.9, 800, 5000),
-            Sine(0, 1, 40, 0.3, 120, 90)),
-        R("typing: a short soft patter of keys", "ui-typing.wav", 330, 6000, 1, 20, 25,
-            Noise(0, 0.8, 14, 0.7, 1200, 5000),
-            Sine(0, 0.5, 12, 0.3, 1100),
-            Noise(75, 0.8, 14, 0.5, 1200, 5000),
-            Sine(75, 0.5, 12, 0.2, 1000),
-            Noise(140, 0.8, 14, 0.8, 1200, 5000),
-            Sine(140, 0.5, 12, 0.3, 1150),
-            Noise(230, 0.8, 14, 0.6, 1200, 5000),
-            Sine(230, 0.5, 12, 0.25, 1050)),
-        R("an object made: a small soft pop", "ui-object-create.wav", 150, 4000, 0.5, 20, 26,
-            Sine(0, 1, 90, 1, 700, 220),
-            Noise(0, 0.5, 15, 0.25, 300, 3000)),
-        R("an object deleted: a lower pop with a puff of noise", "ui-object-delete.wav", 180, 3000, 0.5, 25, 27,
-            Sine(0, 1, 130, 1, 380, 110),
-            Noise(0, 1, 40, 0.35, 150, 1500)),
-        R("an object rezzed: a small pop", "ui-object-rez-in.wav", 150, 4000, 0.5, 20, 28,
-            Sine(0, 1, 100, 1, 520, 180),
-            Noise(0, 0.5, 15, 0.25, 300, 3000)),
+        L("fitted to the measured UISndClick, noisy, candidate A", "ui-click.wav", -24.458, 46, 12872.112, 1, 3.68, 104,
+            Noise(0, 0.5, 67.5, 1, 805, 3218)),
+        L("fitted to the measured UISndClickRelease, noisy, candidate A", "ui-click-release.wav", -24.458, 46, 12872.112, 1, 3.68, 105,
+            Noise(0, 0.5, 67.5, 1, 805, 3218)),
+        L("fitted to the measured UISndBadKeystroke, tonal, candidate B", "ui-bad-keystroke.wav", -18.663, 130, 2000, 1, 10.4, 101,
+            new Layer(Wave.Fm, 0, 5, 180, 1, Hz: 172.3, EndHz: 183.78334547303666, Ratio: 5.56, Index: 0.48325014509576314, LowHz: 0, HighHz: 0, SweepFromHz: 0)),
+        L("fitted to the measured UISndInvalidOp, tonal, candidate A", "ui-invalid-op.wav", -4.895, 441, 2000, 1, 35.28, 108,
+            Sine(0, 140, 307.5, 1, 204.6),
+            Sine(0, 140, 261.375, 0.8, 366.1),
+            Sine(0, 140, 215.25, 0.6, 3165.4),
+            Sine(0, 140, 169.125, 0.3999999999999999, 990.5),
+            Noise(0, 140, 153.75, 0.18161000000000002, 181, 722)),
+        L("fitted to the measured UISndAlert, tonal, candidate B", "ui-alert.wav", -17.483, 601, 18000, 1, 48.08, 100,
+            new Layer(Wave.Fm, 0, 0.5, 772.5, 1, Hz: 7278.2, EndHz: 3186.924915425876, Ratio: 1.18, Index: 0.5602219642219229, LowHz: 0, HighHz: 0, SweepFromHz: 0)),
+        L("fitted to the measured UISndWindowOpen, noisy, candidate A", "ui-window-open.wav", -20.083, 206, 2000, 1, 16.48, 122,
+            Noise(0, 0.5, 126, 1, 37, 147),
+            Sine(0, 0.5, 88.19999999999999, 0.12, 183),
+            Noise(105, 0.5, 126, 0.85, 37, 147),
+            Sine(105, 0.5, 88.19999999999999, 0.102, 183)),
+        L("fitted to the measured UISndWindowClose, noisy, candidate A", "ui-window-close.wav", -20.099, 206, 2000, 1, 16.48, 121,
+            Noise(0, 0.5, 126, 1, 37, 147),
+            Sine(0, 0.5, 88.19999999999999, 0.12, 183),
+            Noise(105, 0.5, 126, 0.85, 37, 147),
+            Sine(105, 0.5, 88.19999999999999, 0.102, 183)),
+        L("no SL reference; in the style of UISndNewIncomingIMSession, fitted to UISndChatMention, tonal, candidate A", "ui-chat-mention.wav", -21.538, 568, 14120, 1, 45.44, 102,
+            Sine(0, 0.5, 343.2, 1, 4897.2, 1224.3),
+            Sine(0, 0.5, 291.71999999999997, 0.8, 854.7, 213.675),
+            Sine(0, 0.5, 240.23999999999998, 0.6, 10595, 2648.75),
+            Sine(0, 0.5, 188.76000000000002, 0.3999999999999999, 2645.4, 661.35),
+            Noise(0, 0.5, 171.6, 0.27796000000000004, 1765, 7060),
+            Sine(286, 0.5, 343.2, 0.85, 4897.2, 1224.3),
+            Sine(286, 0.5, 291.71999999999997, 0.68, 854.7, 213.675),
+            Sine(286, 0.5, 240.23999999999998, 0.51, 10595, 2648.75),
+            Sine(286, 0.5, 188.76000000000002, 0.3399999999999999, 2645.4, 661.35),
+            Noise(286, 0.5, 171.6, 0.23626600000000003, 1765, 7060)),
+        L("no SL reference; in the style of UISndNewIncomingIMSession, fitted to UISndChatPing, tonal, candidate A", "ui-chat-ping.wav", -21.538, 426, 16808, 1, 34.08, 103,
+            Sine(0, 0.5, 257.4, 1, 5830, 1457.5),
+            Sine(0, 0.5, 218.78999999999996, 0.8, 1017.4, 254.35),
+            Sine(0, 0.5, 180.17999999999998, 0.6, 12613.1, 3153.275),
+            Sine(0, 0.5, 141.57, 0.3999999999999999, 3149.2, 787.3),
+            Noise(0, 0.5, 128.7, 0.27796000000000004, 2101, 8404),
+            Sine(214.5, 0.5, 257.4, 0.85, 5830, 1457.5),
+            Sine(214.5, 0.5, 218.78999999999996, 0.68, 1017.4, 254.35),
+            Sine(214.5, 0.5, 180.17999999999998, 0.51, 12613.1, 3153.275),
+            Sine(214.5, 0.5, 141.57, 0.3399999999999999, 3149.2, 787.3),
+            Noise(214.5, 0.5, 128.7, 0.23626600000000003, 2101, 8404)),
+        L("fitted to the measured UISndNewIncomingIMSession, tonal, candidate A", "ui-new-incoming-im-session.wav", -21.538, 710, 11206.608, 1, 56.800000000000004, 111,
+            Sine(0, 0.5, 429, 1, 3886.7, 971.675),
+            Sine(0, 0.5, 364.65, 0.8, 678.3, 169.575),
+            Sine(0, 0.5, 300.29999999999995, 0.6, 8408.7, 2102.175),
+            Sine(0, 0.5, 235.95000000000002, 0.3999999999999999, 2099.5, 524.875),
+            Noise(0, 0.5, 214.5, 0.27796000000000004, 1401, 5603),
+            Sine(357.5, 0.5, 429, 0.85, 3886.7, 971.675),
+            Sine(357.5, 0.5, 364.65, 0.68, 678.3, 169.575),
+            Sine(357.5, 0.5, 300.29999999999995, 0.51, 8408.7, 2102.175),
+            Sine(357.5, 0.5, 235.95000000000002, 0.3399999999999999, 2099.5, 524.875),
+            Noise(357.5, 0.5, 214.5, 0.23626600000000003, 1401, 5603)),
+        L("fitted to the measured UISndStartIM, tonal, candidate A", "ui-start-im.wav", -23.333, 232, 2271.928, 1, 18.56, 118,
+            Sine(0, 0.5, 112.5, 1, 333.8, 240.6440281011188),
+            Sine(0, 0.5, 95.625, 0.8, 463, 333.7872528784242),
+            Sine(0, 0.5, 78.75, 0.6, 656.8, 473.5020900443823),
+            Sine(0, 0.5, 61.87500000000001, 0.3999999999999999, 990.5, 714.0740258662618),
+            Noise(0, 0.5, 56.25, 0.09259, 284, 1136)),
+        L("no SL reference; in the style of UISndAlert, fitted to UISndMoneyChangeUp, tonal, candidate A", "ui-money-change-up.wav", -17.483, 601, 18000, 1, 48.08, 110,
+            Sine(0, 0.5, 772.5, 1, 7278.2, 9715.231426620345),
+            Sine(0, 0.5, 656.625, 0.8, 8785.5, 11727.235538810837),
+            Sine(0, 0.5, 540.75, 0.6, 12963, 17303.529029606154),
+            Sine(0, 0.5, 424.87500000000006, 0.3999999999999999, 8581, 11454.260788633064)),
+        L("no SL reference; in the style of UISndAlert, fitted to UISndMoneyChangeDown, tonal, candidate A", "ui-money-change-down.wav", -17.483, 601, 18000, 1, 48.08, 109,
+            Sine(0, 0.5, 772.5, 1, 5458.6, 4089.329504919527),
+            Sine(0, 0.5, 656.625, 0.8, 6589.1, 4936.247580124072),
+            Sine(0, 0.5, 540.75, 0.6, 9722.2, 7283.420531405237),
+            Sine(0, 0.5, 424.87500000000006, 0.3999999999999999, 6435.8, 4821.402342681474)),
+        L("fitted to the measured UISndSnapshot, noisy, candidate B", "ui-snapshot.wav", -16.828, 973, 13687.392, 1, 77.84, 117,
+            Swish(0, 245, 378, 1, 1711, 6844),
+            Swish(315, 245, 378, 0.85, 1711, 6844),
+            Swish(630, 245, 378, 0.7, 1711, 6844)),
+        L("fitted to the measured UISndTyping, noisy, candidate A", "ui-typing.wav", -24.335, 1050, 2286.16, 1, 84, 120,
+            Noise(0, 10, 242.39999999999998, 1, 143, 572),
+            Sine(0, 10, 169.67999999999998, 0.12, 107.7),
+            Noise(202, 10, 242.39999999999998, 0.85, 143, 572),
+            Sine(202, 10, 169.67999999999998, 0.102, 107.7),
+            Noise(404, 10, 242.39999999999998, 0.7, 143, 572),
+            Sine(404, 10, 169.67999999999998, 0.08399999999999999, 107.7),
+            Noise(606, 10, 242.39999999999998, 0.55, 143, 572),
+            Sine(606, 10, 169.67999999999998, 0.066, 107.7),
+            Noise(808, 10, 242.39999999999998, 0.4, 143, 572),
+            Sine(808, 10, 169.67999999999998, 0.048, 107.7)),
+        L("fitted to the measured UISndObjectCreate, noisy, candidate A", "ui-object-create.wav", -21.477, 2291, 2000, 1, 120, 112,
+            Noise(0, 550, 1368, 1, 94, 374),
+            Sine(0, 550, 957.5999999999999, 0.12, 376.8),
+            Noise(1140, 550, 1368, 0.85, 94, 374),
+            Sine(1140, 550, 957.5999999999999, 0.102, 376.8)),
+        L("no SL reference; in the style of UISndObjectCreate, fitted to UISndObjectDelete, noisy, candidate A", "ui-object-delete.wav", -21.477, 1146, 2000, 1, 91.68, 113,
+            Noise(0, 275, 684, 1, 94, 374),
+            Sine(0, 275, 478.79999999999995, 0.12, 376.8),
+            Noise(570, 275, 684, 0.85, 94, 374),
+            Sine(570, 275, 478.79999999999995, 0.102, 376.8)),
+        L("fitted to the measured UISndObjectRezIn, noisy, candidate B", "ui-object-rez-in.wav", -22.992, 1797, 18000, 1, 120, 114,
+            Swish(0, 135, 721.9999999999999, 1, 2895, 7000),
+            Swish(601.6666666666666, 135, 721.9999999999999, 0.85, 2895, 7000),
+            Swish(1203.3333333333333, 135, 721.9999999999999, 0.7, 2895, 7000)),
         R("an object taken: the pop turned upwards", "ui-object-rez-out.wav", 150, 4000, 1, 20, 29,
             Sine(0, 3, 100, 1, 200, 600)),
-        R("a region restart warning: two calm falling notes", "ui-restart.wav", 400, 4500, 0.5, 40, 30,
-            Bell(0, 3, 160, 1, 523, 1, 0.8),
-            Bell(180, 3, 200, 1, 392, 1, 0.8)),
-        R("a teleport: a whoosh of noise rising through its band, with a rising tone under it", "ui-teleport-out.wav", 1100, 6000, 2, 120, 31,
-            Swish(0, 350, 700, 1, 300, 4000),
-            Sine(0, 300, 750, 0.35, 180, 900)),
-        R("pain: our file is a soft knock, not a voice (the grid's voice is the default for these two)", "ui-health-reduction-f.wav", 190, 3000, 0.5, 25, 32,
-            Sine(0, 3, 140, 1, 330, 260),
-            Sine(0, 3, 80, 0.3, 660, 520)),
-        R("pain, the lower one: a lower soft knock", "ui-health-reduction-m.wav", 190, 3000, 0.5, 25, 33,
-            Sine(0, 3, 140, 1, 200, 160),
-            Sine(0, 3, 80, 0.3, 400, 320)),
+        L("no SL reference; in the style of UISndInvalidOp, fitted to UISndRestart, tonal, candidate A", "ui-restart.wav", -4.895, 706, 2168, 1, 56.480000000000004, 116,
+            Sine(0, 140, 492, 1, 306.9, 258.07110984136494),
+            Sine(0, 140, 418.2, 0.8, 549.2, 461.82031125734005),
+            Sine(0, 140, 344.4, 0.6, 4748.1, 3992.6602692661622),
+            Sine(0, 140, 270.6, 0.3999999999999999, 1485.8, 1249.403893783969),
+            Noise(0, 140, 246, 0.18161000000000002, 271, 1084)),
+        L("fitted to the measured UISndTeleportOut, noisy, candidate A", "ui-teleport-out.wav", -20.683, 4048, 11306.984, 1, 120, 119,
+            Noise(0, 830, 2408.9999999999995, 1, 707, 2827),
+            Sine(0, 830, 1686.2999999999995, 0.12, 204.6),
+            Noise(2007.4999999999998, 830, 2408.9999999999995, 0.85, 707, 2827),
+            Sine(2007.4999999999998, 830, 1686.2999999999995, 0.102, 204.6)),
+        L("no SL reference; in the style of UISndHealthReductionM, fitted to UISndHealthReductionF, tonal, candidate B", "ui-health-reduction-f.wav", -10.65, 557, 3440, 1, 44.56, 106,
+            new Layer(Wave.Fm, 0, 200, 333, 1, Hz: 499.5, EndHz: 713.5764540760407, Ratio: 2.97, Index: 0.8608608608608609, LowHz: 0, HighHz: 0, SweepFromHz: 0),
+            Noise(0, 200, 166.5, 0.29897999999999997, 430, 1720),
+            new Layer(Wave.Fm, 277.5, 200, 333, 0.85, Hz: 499.5, EndHz: 713.5764540760407, Ratio: 2.97, Index: 0.8608608608608609, LowHz: 0, HighHz: 0, SweepFromHz: 0),
+            Noise(277.5, 200, 166.5, 0.25413299999999994, 430, 1720)),
+        L("fitted to the measured UISndHealthReductionM, tonal, candidate B", "ui-health-reduction-m.wav", -10.65, 557, 2149.364, 1, 44.56, 107,
+            new Layer(Wave.Fm, 0, 200, 333, 1, Hz: 312.2, EndHz: 446.00314106614593, Ratio: 2.97, Index: 0.8605717488789238, LowHz: 0, HighHz: 0, SweepFromHz: 0),
+            Noise(0, 200, 166.5, 0.29897999999999997, 269, 1075),
+            new Layer(Wave.Fm, 277.5, 200, 333, 0.85, Hz: 312.2, EndHz: 446.00314106614593, Ratio: 2.97, Index: 0.8605717488789238, LowHz: 0, HighHz: 0, SweepFromHz: 0),
+            Noise(277.5, 200, 166.5, 0.25413299999999994, 269, 1075)),
         R("a footstep, for a grid without the step sounds: a soft low thud with a short scuff of noise", "world-footstep.wav", 120, 2500, 1, 30, 34,
             Sine(0, 2, 60, 1, 110, 70),
             Noise(0, 3, 35, 0.6, 200, 1800)),
@@ -184,6 +244,13 @@ public static class UiSoundSynth
 
         double peak = mix.Max(Math.Abs);
         double scale = peak > 0 ? Math.Pow(10, PeakDbfs / 20) / peak : 0;
+        if (recipe.Lufs != 0 && peak > 0)
+        {
+            // to the target loudness, but never past the ceiling
+            double now = Loudness.Integrated(mix, Rate);
+            scale = double.IsFinite(now) ? Math.Pow(10, (recipe.Lufs - now) / 20) : 0;
+            scale = Math.Min(scale, Math.Pow(10, CeilingDbfs / 20) / peak);
+        }
         var samples = new short[n];
         for (int i = 0; i < n; i++)
             samples[i] = (short)Math.Round(mix[i] * scale * 32767, MidpointRounding.AwayFromZero);
