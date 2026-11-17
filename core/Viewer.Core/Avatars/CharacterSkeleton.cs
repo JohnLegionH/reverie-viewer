@@ -153,6 +153,6 @@ public sealed class CharacterSkeleton
     public static Quaternion PointRotation(Vector3 degrees)
     {
         var r = degrees * (MathF.PI / 180f);
-        return Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitX, r.X) * Quaternion.CreateFromAxisAngle(Vector3.UnitY, r.Y) * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, r.Z));
+        return Quaternion.Normalize(OfficialMath.FromEuler(r.X, r.Y, r.Z));
     }
 }
