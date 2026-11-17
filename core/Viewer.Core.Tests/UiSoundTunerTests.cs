@@ -118,6 +118,21 @@ public class UiSoundTunerTests
     }
 
     [Fact]
+    public void A_saved_tuning_of_a_sound_that_is_now_a_recording_is_ignored_and_the_recording_plays()
+    {
+        var folder = TestTemp.NewFolder("tuner-recorded");
+        var path = Path.Combine(folder, UiSoundTuning.FileName);
+        // a user file saved when the click was still generated
+        var oldClick = new SoundRecipe("ui-click.wav", 46, 12000, 1, 3.68, 104, [new Layer(Wave.Noise, 0, 0.5, 67.5, 1, LowHz: 805, HighHz: 3218)], "old click");
+        File.WriteAllText(path, UiSoundTuning.ToJson([oldClick]));
+        var tuning = new UiSoundTuning(path);
+        Assert.True(UiSoundRecordings.IsRecorded("ui-click.wav"));
+        Assert.False(tuning.IsTuned("ui-click.wav"));
+        Assert.Equal(UiSoundFiles.Read("ui-click.wav"), tuning.WavFor("ui-click.wav"));
+        TestTemp.Delete(folder);
+    }
+
+    [Fact]
     public void A_tuned_file_that_is_not_a_list_of_recipes_counts_as_no_tuning_and_unknown_files_are_ignored()
     {
         Assert.Empty(UiSoundTuning.Parse("not json"));

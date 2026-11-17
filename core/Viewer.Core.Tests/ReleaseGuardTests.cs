@@ -130,6 +130,26 @@ public class ReleaseGuardTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void With_tracked_only_a_tracked_logo_with_a_non_ascii_name_is_still_refused()
+    {
+        Assert.True(OperatingSystem.IsWindows(), "the guard runs under Windows PowerShell");
+        string repo = TestTemp.NewFolder("logo-guard-git-utf8");
+        void Git(params string[] a)
+        {
+            var r = ChildProcess.Run("git", ["-C", repo, .. a], TimeSpan.FromMinutes(1));
+            Assert.True(r.ExitCode == 0, "git " + string.Join(" ", a) + ": " + r.Output);
+        }
+        Git("init", "-q");
+        // git quotes such a name in its listing unless asked not to; the guard must still find the file it names
+        File.WriteAllBytes(Path.Combine(repo, "secondlife-été.png"), [1, 2, 3]);
+        File.WriteAllBytes(Path.Combine(repo, "button.png"), [4, 5, 6]);
+        Git("add", ".");
+        var (exit, text) = Run("assert-no-logo.ps1", "-Path", repo, "-TrackedOnly");
+        Assert.Equal(1, exit);
+        Assert.Contains("LOGO GUARD FAIL: 1 finding(s)", text);
+    }
+
+    [Fact]
     public void The_logo_guard_refuses_the_official_viewers_icon_under_another_name()
     {
         Assert.True(OperatingSystem.IsWindows(), "the guard runs under Windows PowerShell");
