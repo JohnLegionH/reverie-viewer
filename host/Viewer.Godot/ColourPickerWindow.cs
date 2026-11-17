@@ -269,9 +269,14 @@ public partial class ColourPickerWindow : VBoxContainer
         shell.AddFloater(new FloaterSpec(FloaterId, "colour.title", new UiSize(380, 640), new UiSize(340, 520)), this, buttons);
         shell.Shell.Floaters.Closed += id =>
         {
-            if (id != FloaterId) return;
-            StopPick();
-            _session?.Closed();
+            if (id == FloaterId)
+            {
+                StopPick();
+                _session?.Closed();
+                return;
+            }
+            // the picker belongs to the colour that opened it: when that colour's window closes, the picker closes too (its old colour goes back)
+            Callable.From(CloseIfSourceGone).CallDeferred();
         };
     }
 
@@ -302,6 +307,9 @@ public partial class ColourPickerWindow : VBoxContainer
             open.Closed();
         }
         _source = source;
+        // a colour that leaves the screen (its window rebuilt or freed) takes its picker with it, before it is gone
+        if (source is not null)
+            source.TreeExiting += () => { if (_source == source) CloseNow(); };
         _session = new ColourSession(request, Palette, Settings.Get(ColourPalette.ApplyAsIChoose));
         _shell.SetFloaterTitle(FloaterId, _s.Get(request.TitleKey));
         _alphaRow.Visible = request.AllowAlpha;
@@ -311,6 +319,21 @@ public partial class ColourPickerWindow : VBoxContainer
         Show(_session.Was);
         FillLists();
         _shell.Shell.Floaters.Open(FloaterId);
+    }
+
+    private void CloseNow()
+    {
+        if (Session is not null)
+            _shell.Shell.Floaters.Close(FloaterId);
+        if (Session is { } s)
+            s.Closed();   // closed already: the session still ends, so nothing more reaches the target
+        _source = null;
+    }
+
+    private void CloseIfSourceGone()
+    {
+        if (Session is not null && _source is Control c && (!IsInstanceValid(c) || !c.IsVisibleInTree()))
+            CloseNow();
     }
 
     /// <summary>Closes the window if the open session came from <paramref name="source"/> or a control inside it (its old colour goes back).</summary>

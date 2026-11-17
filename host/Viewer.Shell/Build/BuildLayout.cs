@@ -236,7 +236,8 @@ public static class BuildLayout
                 return parts.Count == 0 ? s.Get("edit.summary.plain") : string.Join(", ", parts);
             }
             case BuildSection.Contents:
-                return f.ContentCount is { } c ? (c == 0 ? s.Get("edit.content.empty") : s.Get("edit.summary.items", c)) : s.Get("edit.content.loading");
+                // the contents are asked for only while the section is open: until then the line says how to see them
+                return f.ContentCount is { } c ? (c == 0 ? s.Get("edit.content.empty") : s.Get("edit.summary.items", c)) : s.Get("edit.summary.contents_closed");
         }
         return "";
     }

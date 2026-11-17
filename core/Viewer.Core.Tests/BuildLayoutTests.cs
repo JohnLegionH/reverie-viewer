@@ -56,6 +56,9 @@ public class BuildLayoutTests
         Assert.Equal("Floor, Locked, Phantom", BuildLayout.Summary(BuildSection.Object, Floor, S));
         Assert.Equal("Light, Prim", BuildLayout.Summary(BuildSection.Behaviour, Floor, S));
         Assert.Equal("3 items", BuildLayout.Summary(BuildSection.Contents, Floor, S));
+        // not asked for yet (the section has been closed): it says how to see them, not that they are loading
+        Assert.Equal(S.Get("edit.summary.contents_closed"), BuildLayout.Summary(BuildSection.Contents, Floor with { ContentCount = null }, S));
+        Assert.DoesNotContain("[[", S.Get("edit.summary.contents_closed"));
     }
 
     [Fact]

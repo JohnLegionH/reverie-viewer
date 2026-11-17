@@ -33,6 +33,7 @@ public partial class EditPanel : VBoxContainer
     private readonly Dictionary<BuildTool, Button> _tools = new();
     private readonly Dictionary<ManipMode, Button> _manips = new();
     private readonly HBoxContainer _manipRow;
+    private readonly PanelContainer _manipTrack;
     private readonly Button _faceMode, _undo, _redo;
     private readonly CheckBox _linked, _snap, _both, _stretchTex, _ownedOnly;
     private readonly Label _status, _hint, _cardName, _cardPicked, _cardOwner, _searchStatus;
@@ -118,8 +119,8 @@ public partial class EditPanel : VBoxContainer
         // Move, Rotate, Stretch or Face: which handles the Edit and Grab tools show (floater_tools.xml's radio group; Ctrl and Ctrl+Shift
         // switch while held); Face is the official Select Face
         _manipRow = new HBoxContainer { Name = "manip" };
-        var manipTrack = new PanelContainer { Name = "manip_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        manipTrack.AccessibilityName = strings.Get("edit.modes");
+        _manipTrack = new PanelContainer { Name = "manip_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _manipTrack.AccessibilityName = strings.Get("edit.modes");
         var manips = new HBoxContainer();
         manips.AddThemeConstantOverride("separation", 2);
         foreach (var (mode, key) in new[] { (ManipMode.Move, "edit.manip.move"), (ManipMode.Rotate, "edit.manip.rotate"), (ManipMode.Scale, "edit.manip.scale") })
@@ -132,17 +133,18 @@ public partial class EditPanel : VBoxContainer
         _faceMode = Segment("manip_face", "edit.manip.face");
         _faceMode.Pressed += () => { if (_edit() is { } e) e.SelectFaces = true; Refresh(); };
         manips.AddChild(_faceMode);
-        manipTrack.AddChild(manips);
-        _manipRow.AddChild(manipTrack);
+        _manipTrack.AddChild(manips);
+        _manipRow.AddChild(_manipTrack);
         _undo = new Button { Name = "undo", Text = strings.Get("edit.undo"), TooltipText = strings.Get("edit.undo.tip"), Icon = ReverieIcons.Get(LucideIcons.Return) };
         _undo.AccessibilityName = strings.Get("edit.undo.tip");
         _undo.Pressed += () => { _edit()?.Undo(); Refresh(); };
         _redo = new Button { Name = "redo", Text = strings.Get("edit.redo"), TooltipText = strings.Get("edit.redo.tip") };
         _redo.AccessibilityName = strings.Get("edit.redo.tip");
         _redo.Pressed += () => { _edit()?.Redo(); Refresh(); };
+        AddChild(_manipRow);
+        // Undo and Redo stay beside the modes, and stay shown with every tool (the modes row hides for Focus and Create)
         _manipRow.AddChild(_undo);
         _manipRow.AddChild(_redo);
-        AddChild(_manipRow);
 
         // the Create tool's option: after a placement the tool stays Create instead of handing back to Edit (floater_tools.xml "checkbox sticky",
         // CreateToolKeepSelected); shown only while Create is the tool, as the official window shows it
@@ -380,6 +382,9 @@ public partial class EditPanel : VBoxContainer
             var p = _sections[section];
             HideIf(p.Header.GetParent().GetParent<Control>(), !show);
             if (!show) continue;
+            // shown open for this search only; the kept choice is not changed
+            p.Header.SetPressedNoSignal(true);
+            p.Header.Icon = ReverieIcons.Get(LucideIcons.Down);
             p.Body.Visible = true;
             p.Summary.Visible = false;
             foreach (var row in BuildLayout.Rows.Where(r => r.Section == section))
@@ -598,6 +603,8 @@ public partial class EditPanel : VBoxContainer
             Name: props?.Name, Locked: e.Access(o.Id.LocalId).Locked, Physical: (flags & Viewer.Core.Interaction.ObjectFlagBits.Physics) != 0,
             Temporary: (flags & TemporaryOnRez) != 0, Phantom: (flags & Phantom) != 0,
             Flexible: f?.Flexible is not null, Light: f?.Light is not null,
+            PhysicsShape: f?.Physics is { ShapeType: var st } && st != FeatureRules.ShapePrim
+                ? _s.Get(st == FeatureRules.ShapeNone ? "edit.feat.shape_type.none" : "edit.feat.shape_type.convex") : null,
             ContentCount: e.ContentsKnown ? e.Contents.Count : null);
     }
 
@@ -623,7 +630,7 @@ public partial class EditPanel : VBoxContainer
             _redo.Disabled = !(e?.CanRedo ?? false);
             foreach (var (what, b) in _pasteButtons)
                 b.Disabled = !(e?.CanPaste(what) ?? false);
-            _manipRow.Visible = e is null || e is { Tool: BuildTool.Edit or BuildTool.Move };
+            _manipTrack.Visible = e is null || e is { Tool: BuildTool.Edit or BuildTool.Move };
             _createRow.Visible = e is { BuildMode: true, Tool: BuildTool.Create };
             _keepTool.SetPressedNoSignal(e?.KeepToolSelected ?? false);
             _linked.SetPressedNoSignal(e?.EditLinked ?? false);

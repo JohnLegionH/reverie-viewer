@@ -1746,5 +1746,6 @@
   "colour.apply_as_i_choose.tip": "Show each change on the target at once (Cancel puts back the old colour)",
   "colour.ok": "OK",
   "colour.cancel": "Cancel",
-  "colour.swatch.tip": "Click to choose a colour"
+  "colour.swatch.tip": "Click to choose a colour",
+  "edit.summary.contents_closed": "Open to list the contents"
 }

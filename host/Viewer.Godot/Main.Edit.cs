@@ -380,7 +380,7 @@ public partial class Main
                 break;
             // a point in the colour picker's square of saturation and value, at the given fractions of its width and height (text "0.75,0.25")
             case "picker_colour_point":
-                if (_editPanel.TextureTab.Pickers is { ColoursOpen: true } pc && ColourSquareOf(pc.Colours) is { } square)
+                if (_editPanel.TextureTab.Pickers is { ColoursOpen: true } pc && pc.Colours.Square is { } square)
                 {
                     var parts = (text ?? "0.75,0.25").Split(',');
                     float partX = parts.Length == 2 && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var shareX) ? shareX : 0.75f;
