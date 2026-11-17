@@ -145,7 +145,14 @@ public sealed class CharacterSkeleton
         return Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, r.Z) * Quaternion.CreateFromAxisAngle(Vector3.UnitY, r.Y) * Quaternion.CreateFromAxisAngle(Vector3.UnitX, r.X));
     }
 
-    /// <summary>An attachment point's rotation attribute (degrees about x, y and z) as a rotation. STUB: not yet the
-    /// official viewer's order.</summary>
-    public static Quaternion PointRotation(Vector3 degrees) => Euler(degrees);
+    /// <summary>An attachment point's rotation attribute (degrees about x, y and z) as a rotation, in the opposite order to a
+    /// joint's: a point is turned about z first, the result about y, that about x. The official viewer reads a point's rotation
+    /// with LLQuaternion::setQuat(roll, pitch, yaw) (LLVOAvatar::buildCharacter), which builds that rotation, while a joint's
+    /// goes through mayaQ with order XYZ (<see cref="Euler"/>). The two agree for a turn about one axis (Skull's "0 0 90") and
+    /// differ for Chest's "0 90 90" and Spine's "0 -90 90".</summary>
+    public static Quaternion PointRotation(Vector3 degrees)
+    {
+        var r = degrees * (MathF.PI / 180f);
+        return Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitX, r.X) * Quaternion.CreateFromAxisAngle(Vector3.UnitY, r.Y) * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, r.Z));
+    }
 }
