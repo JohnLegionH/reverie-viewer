@@ -50,14 +50,24 @@ foreach ($dir in $Path) {
     if (-not (Test-Path -LiteralPath $dir)) { Write-Output "LOGO GUARD FAIL: not found: $dir"; exit 1 }
     $files = if (Test-Path -LiteralPath $dir -PathType Leaf) { @(Get-Item -LiteralPath $dir) } else { @(Get-ChildItem -LiteralPath $dir -Recurse -File -Force) }
     if ($TrackedOnly) {
-        # git lists the tracked files under the folder, as paths from the top of the work tree with forward slashes
-        $root = if (Test-Path -LiteralPath $dir -PathType Leaf) { Split-Path -Parent (Resolve-Path -LiteralPath $dir).Path } else { (Resolve-Path -LiteralPath $dir).Path }
-        $listed = @(& git -C $root ls-files --full-name 2>$null)
-        if ($LASTEXITCODE -ne 0) { Write-Output "LOGO GUARD FAIL: -TrackedOnly needs a git work tree: $dir"; exit 1 }
-        $top = (& git -C $root rev-parse --show-toplevel).Trim()
+        # git lists the tracked files under the folder relative to that folder (so a subst drive, a junction or a short name
+        # spells both sides the same way), NUL-separated and unquoted, in UTF-8 (so a name that is not plain ASCII matches too)
+        $root = if (Test-Path -LiteralPath $dir -PathType Leaf) { (Get-Item -LiteralPath $dir).DirectoryName } else { (Get-Item -LiteralPath $dir).FullName }
+        $root = $root.TrimEnd('\', '/')
+        $listing = $null; $gitExit = 1
+        $oldEncoding = [Console]::OutputEncoding; $oldPreference = $ErrorActionPreference
+        try {
+            [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+            $ErrorActionPreference = "Continue"
+            $listing = (& git -C $root -c core.quotepath=off ls-files -z 2>$null) -join "`n"
+            $gitExit = $LASTEXITCODE
+        } catch { $gitExit = 1 } finally { [Console]::OutputEncoding = $oldEncoding; $ErrorActionPreference = $oldPreference }
+        if ($gitExit -ne 0) { Write-Output "LOGO GUARD FAIL: -TrackedOnly needs a git work tree: $dir"; exit 1 }
         $tracked = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-        foreach ($l in $listed) { [void]$tracked.Add([System.IO.Path]::GetFullPath((Join-Path $top $l))) }
-        $files = @($files | Where-Object { $tracked.Contains([System.IO.Path]::GetFullPath($_.FullName)) })
+        foreach ($l in ($listing -split "`0")) { if ($l.Trim("`n")) { [void]$tracked.Add($l.Trim("`n").Replace('\', '/')) } }
+        $files = @($files | Where-Object {
+            $_.FullName.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase) -and
+                $tracked.Contains($_.FullName.Substring($root.Length + 1).Replace('\', '/')) })
     }
     foreach ($f in $files) {
         if ($imageExt -notcontains $f.Extension.ToLowerInvariant()) { continue }

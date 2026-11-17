@@ -79,7 +79,7 @@ public sealed partial class SoundTunerPanel : VBoxContainer
     }
 
     /// <summary>The file of the sound shown now (an interface slot's, or our footstep's).</summary>
-    public string File { get; private set; } = UiSoundCatalog.All[0].File;
+    public string File { get; private set; } = SoundTunerList.Files[0];
 
     /// <summary>The interface slot shown now; null while our footstep is shown.</summary>
     public UiSoundSlot? Slot => UiSoundCatalog.All.FirstOrDefault(i => i.File == File)?.Slot;
