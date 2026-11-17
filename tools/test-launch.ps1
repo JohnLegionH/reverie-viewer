@@ -42,9 +42,23 @@ function Copy-LinkedTree([string]$Source, [string]$Target) {
 
 # Whether the exported build in $ExeDir is whole: a data_* folder beside the executable with the host assembly (Viewer.Godot.dll)
 # in it. Without them the .NET host cannot start and shows a dialog on the desktop instead, so such a build is never launched.
+# Whether a program needs its data_ folder (the .NET assemblies of a Godot .NET export) beside it before it may start. Every program does,
+# whether or not a .pck lies beside it (an export can carry its pack inside the program), except the Godot editor itself (its GodotSharp
+# folder beside it), a program of Windows, and a script. Started without that folder, an export stops on the .NET host's error dialog
+# about the assemblies directory, on the screen of whoever is at the machine, instead of running.
+function Test-NeedsDataFolder([string]$Exe) {
+    if ([System.IO.Path]::GetExtension($Exe) -ne ".exe") { return $false }
+    $full = [System.IO.Path]::GetFullPath($Exe)
+    $windows = [System.IO.Path]::GetFullPath($env:SystemRoot).TrimEnd('\') + '\'
+    if ($full.StartsWith($windows, [StringComparison]::OrdinalIgnoreCase)) { return $false }
+    if (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $full) "GodotSharp") -PathType Container) { return $false }
+    return $true
+}
+
+# An export is complete when a data_ folder beside it holds its assemblies: the viewer's host assembly, or the engine's own (any other export).
 function Test-ExportComplete([string]$ExeDir) {
     foreach ($d in @(Get-ChildItem -LiteralPath $ExeDir -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "data_*" })) {
-        if (Test-Path -LiteralPath (Join-Path $d.FullName "Viewer.Godot.dll")) { return $true }
+        if ((Test-Path -LiteralPath (Join-Path $d.FullName "Viewer.Godot.dll")) -or (Test-Path -LiteralPath (Join-Path $d.FullName "GodotSharp.dll"))) { return $true }
     }
     return $false
 }

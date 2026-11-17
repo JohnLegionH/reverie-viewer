@@ -80,8 +80,10 @@ function Start-LiveViewer([string]$Sandbox, [string]$Exe, [int]$StartSeconds = 6
         Write-LiveNote $line
         return $false
     }
+    . (Join-Path $PSScriptRoot "claim-guard.ps1")
+    Assert-ClaimGranted   # no viewer without a granted lane claim (claim-guard.ps1), whoever dot-sources the driver
     $godot = Join-Path $PSScriptRoot "godot.ps1"
-    $appdata = Join-Path $Sandbox "appdata"; $local = Join-Path $Sandbox "localappdata"; $log = Join-Path $Sandbox "run.log"
+    $appdata =Join-Path $Sandbox "appdata"; $local = Join-Path $Sandbox "localappdata"; $log = Join-Path $Sandbox "run.log"
     $script:LdProc = Start-Process -FilePath "powershell" -PassThru -WindowStyle Hidden -ArgumentList @("-NoProfile", "-File", "`"$godot`"",
         "-Exe", "`"$Exe`"", "-AppDataDir", "`"$appdata`"", "-LocalAppDataDir", "`"$local`"", "-TimeoutSeconds", "$TimeoutSeconds", "-HangSnapshotSeconds", "0",
         "-DiagDir", "`"$Sandbox`"", "-LogFile", "`"$log`"", "-ArgLine", "`"--rendering-driver vulkan -- --automation`"")

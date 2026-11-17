@@ -223,6 +223,40 @@ public class LaunchFolderTests : IDisposable
         Assert.Equal("False", RunFunctions($"Test-ExportComplete '{MakeBuild("no-dll", hostAssembly: false)}'"));
     }
 
+    /// <summary>Every program godot.ps1 starts needs its data_ folder, whether or not a .pck lies beside it (an export can carry its pack
+    /// inside the program), except the Godot editor itself (its GodotSharp folder beside it), a program of Windows, and a script.</summary>
+    [Fact]
+    public void Every_program_but_the_editor_a_Windows_program_or_a_script_needs_its_data_folder()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        string embedded = Path.Combine(_dir, "embedded");
+        Directory.CreateDirectory(embedded);
+        File.WriteAllBytes(Path.Combine(embedded, "Example.exe"), new byte[] { 1, 2, 3, 4 });
+        string editor = Path.Combine(_dir, "editor");
+        Directory.CreateDirectory(Path.Combine(editor, "GodotSharp"));
+        File.WriteAllBytes(Path.Combine(editor, "Editor_console.exe"), new byte[] { 1, 2, 3, 4 });
+        string script = Path.Combine(_dir, "standin.cmd");
+        File.WriteAllText(script, "@exit 0\r\n");
+        Assert.Equal("True", RunFunctions($"Test-NeedsDataFolder '{Path.Combine(embedded, "Example.exe")}'"));
+        Assert.Equal("True", RunFunctions($"Test-NeedsDataFolder '{Path.Combine(MakeBuild("with-pck"), "Reverie.console.exe")}'"));
+        Assert.Equal("False", RunFunctions($"Test-NeedsDataFolder '{Path.Combine(editor, "Editor_console.exe")}'"));
+        Assert.Equal("False", RunFunctions($"Test-NeedsDataFolder '{WindowsPowerShell}'"));
+        Assert.Equal("False", RunFunctions($"Test-NeedsDataFolder '{script}'"));
+    }
+
+    [Fact]
+    public void A_run_of_an_export_that_carries_its_pack_inside_and_has_no_data_folder_is_refused()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        // no .pck beside the program (the pack is inside it) and no data_ folder: the .NET host would show its dialog
+        string build = Path.Combine(_dir, "embedded-run");
+        Directory.CreateDirectory(build);
+        File.Copy(CmdExe, Path.Combine(build, "Reverie.console.exe"));
+        var (exit, output) = RunGodotScript(build, "/c exit 3 --test-render");
+        Assert.Equal(127, exit);   // the stand-in would have ended with 3 had it started
+        Assert.Contains("incomplete export", output);
+    }
+
     [Fact]
     public void A_run_of_an_export_without_its_data_folder_is_refused_and_nothing_starts()
     {
