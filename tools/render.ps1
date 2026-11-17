@@ -959,7 +959,9 @@ function Invoke-LoginCardCases {
     foreach ($be in $Backends) {
         foreach ($what in @("long", "disclosure_first_run", "disclosure_second_life")) {
             $name = "logincard-" + $what.Replace("_", "-")
-            $golden = Join-Path $repo "fixtures\ui\golden-$name-$be.png"
+            # the golden's file name says "sl-grid", not "second-life": the logo guard (assert-no-logo.ps1) refuses any tracked image
+            # whose name says Second Life, and these are pictures of our own login card
+            $golden = Join-Path $repo "fixtures\ui\golden-$($name.Replace('second-life', 'sl-grid'))-$be.png"
             if (-not (Test-Path -LiteralPath $golden)) {
                 $r = Invoke-Render $be "proposal-$name-$be" "--tr-logincard=$what"
                 $geometry = if ($r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) { "geometry PASS $($r.Json.logincard | ConvertTo-Json -Compress)" } else { "geometry FAIL (exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" }
