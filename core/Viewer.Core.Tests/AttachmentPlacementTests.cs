@@ -152,13 +152,14 @@ public class AttachmentPlacementTests
     {
         var rig = Rig();
         var w = Rest(rig);
-        // Chest point: offset (.15,0,-.1) and rotation Euler(0,90,90) (x, then y, then z) on mChest, whose origin is at (0,0,1.3).
+        // Chest point: offset (.15,0,-.1) and rotation "0 90 90" read as the official viewer reads a point's rotation
+        // (LLQuaternion::setQuat: z, then y, then x) on mChest, whose origin is at (0,0,1.3).
         var m = AttachmentPlacement.Rigid(rig, 1, w, Vector3.Zero, Quaternion.Identity)!.Value;
         Near(new Vector3(0.15f, 0, 1.2f), Vector3.Transform(Vector3.Zero, m));
-        // the object's own +z (0,0,1): turned by y 90 to (1,0,0), then by z 90 to (0,1,0), then moved to the point
-        Near(new Vector3(0.15f, 1, 1.2f), Vector3.Transform(new Vector3(0, 0, 1), m));
-        // its +x: y 90 sends (1,0,0) to (0,0,-1), which z 90 leaves alone
-        Near(new Vector3(0.15f, 0, 0.2f), Vector3.Transform(new Vector3(1, 0, 0), m));
+        // the object's own +z (0,0,1): z 90 leaves it, y 90 turns it to (1,0,0), then moved to the point
+        Near(new Vector3(1.15f, 0, 1.2f), Vector3.Transform(new Vector3(0, 0, 1), m));
+        // its +x: z 90 sends (1,0,0) to (0,1,0), which y 90 leaves alone
+        Near(new Vector3(0.15f, 1, 1.2f), Vector3.Transform(new Vector3(1, 0, 0), m));
     }
 
     [Fact]
@@ -169,8 +170,8 @@ public class AttachmentPlacementTests
         var turn = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2);
         var m = AttachmentPlacement.Rigid(rig, 1, w, new Vector3(0, 0.5f, 0), turn)!.Value;
         // object point (1,0,0): its rotation z 90 makes (0,1,0), its offset adds (0,.5,0) = (0,1.5,0);
-        // the point's rotation then sends (0,1.5,0) to (-1.5,0,0) (y 90 leaves y; z 90 sends y to -x); + (.15,0,-.1) + (0,0,1.3)
-        Near(new Vector3(-1.35f, 0, 1.2f), Vector3.Transform(new Vector3(1, 0, 0), m));
+        // the point's rotation then sends (0,1.5,0) to (0,0,1.5) (z 90 sends y to -x; y 90 sends -x to z); + (.15,0,-.1) + (0,0,1.3)
+        Near(new Vector3(0.15f, 0, 2.7f), Vector3.Transform(new Vector3(1, 0, 0), m));
     }
 
     [Fact]
