@@ -473,7 +473,16 @@ public partial class Main
                 if (Guid.TryParse(text, out var rowId) && _inventoryPanel?.TreeView.PointOf(rowId) is { } ip)
                     done = new[] { ip.X, ip.Y };
                 break;
-            case "content_row": done = ListRow(_editPanel.ContentTab.List as ItemList, text); break;
+            // the Contents list is scrolled into the Build window's view first, so the row's point is on screen
+            case "content_row": _editPanel.ScrollTo("contents"); done = ListRow(_editPanel.ContentTab.List as ItemList, text); break;
+            // the middle of the top edge of a shown control of the shell by name (a window's content: its title bar is just above)
+            case "ui_top":
+                if (_shell?.FindChildren(text ?? "", "", true, false).OfType<Control>().FirstOrDefault(c => c.IsVisibleInTree()) is { } topOf)
+                {
+                    var tr = topOf.GetGlobalRect();
+                    done = new[] { tr.Position.X + tr.Size.X / 2, tr.Position.Y };
+                }
+                break;
             case "folder_row": done = TakeFolderOpen ? ListRow(_takeFolder!.List, text) : null; break;
             case "picker_row":
                 if (_editPanel.TextureTab.Picker is { } pr && int.TryParse(text, out int row) && row >= 0 && row < pr.List.ItemCount)

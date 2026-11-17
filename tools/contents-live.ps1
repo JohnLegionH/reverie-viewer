@@ -254,16 +254,17 @@ if (-not $card6) { Note "the account has no notecard in its Notecards folder: st
 else {
     NoFocus
     Press "I" $true; Start-Sleep -Milliseconds 1500
-    $fr = (Edit @{ action = "inventory_row"; text = $ncFolder }).done
-    if ($fr) {
+    $top = (Edit @{ action = "ui_top"; text = "inventory_panel" }).done
+    if ($top) {
         # the inventory window opens over the Build window: it is dragged aside by its title bar first, as a person would
-        $title = @(([double]$fr[0]), ([double]$fr[1] - 123))
+        $title = @(([double]$top[0]), ([double]$top[1] - 14))
         [void](MoveTo $title[0] $title[1]); Start-Sleep -Milliseconds 120
         [void](Mouse "left" $true $title[0] $title[1]); Start-Sleep -Milliseconds 120
         for ($i = 1; $i -le 8; $i++) { [void](MoveTo ($title[0] + 70 * $i) $title[1]); Start-Sleep -Milliseconds 60 }
         [void](Mouse "left" $false ($title[0] + 560) $title[1]); Start-Sleep -Milliseconds 600
         $fr = (Edit @{ action = "inventory_row"; text = $ncFolder }).done
-        if ($fr -and -not (Edit @{ action = "inventory_row"; text = [string]$card6.id }).done) { ClickAt ([double]$fr[0]) ([double]$fr[1]); Start-Sleep -Milliseconds 1500 }
+        # the Notecards folder opened: its row chosen by a click, then the Right arrow opens it (the tree's own key)
+        if ($fr -and -not (Edit @{ action = "inventory_row"; text = [string]$card6.id }).done) { ClickAt ([double]$fr[0]) ([double]$fr[1]); Press "RIGHT"; Start-Sleep -Milliseconds 1500 }
     }
     $from = Wait-Until { (Edit @{ action = "inventory_row"; text = [string]$card6.id }).done } 10
     $to = CtlPoint "contents"
