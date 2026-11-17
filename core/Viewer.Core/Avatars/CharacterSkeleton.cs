@@ -99,7 +99,7 @@ public sealed class CharacterSkeleton
             if (definitionXml.Length > 16 * MaxBytes) throw new InvalidDataException("avatar definition file too large");
             foreach (var e in Load(definitionXml).GetElementsByTagName("attachment_point").OfType<XmlElement>())
                 points.Add(new AttachmentPoint(int.Parse(e.GetAttribute("id"), CultureInfo.InvariantCulture), e.GetAttribute("name"), e.GetAttribute("joint"),
-                    Vec(e.GetAttribute("position")), Euler(Vec(e.GetAttribute("rotation")))));
+                    Vec(e.GetAttribute("position")), PointRotation(Vec(e.GetAttribute("rotation")))));
         }
         return new CharacterSkeleton(joints, points);
     }
@@ -144,4 +144,8 @@ public sealed class CharacterSkeleton
         var r = degrees * (MathF.PI / 180f);
         return Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, r.Z) * Quaternion.CreateFromAxisAngle(Vector3.UnitY, r.Y) * Quaternion.CreateFromAxisAngle(Vector3.UnitX, r.X));
     }
+
+    /// <summary>An attachment point's rotation attribute (degrees about x, y and z) as a rotation. STUB: not yet the
+    /// official viewer's order.</summary>
+    public static Quaternion PointRotation(Vector3 degrees) => Euler(degrees);
 }
