@@ -53,6 +53,8 @@ public class TrackedContentScanTests
             "modemworld.me", "jrouwe.github.io", "www.firestormviewer.org", "wiki.firestormviewer.org", "docs.wasmtime.dev", "www.stride3d.net",
             "www.minecraft.net", "www.gamedeveloper.com", "web.dev", "threejs.org", "theupdateframework.github.io", "luau.org", "glama.ai",
             "fosdem.org", "docs.rs",
+            // the public-domain sound packs the interface sounds come from, credited in THIRD-PARTY-NOTICES.md and UiSoundRecordings.cs
+            "opengameart.org",
             // graphics makers' published API support, cited in Docs/SPECS.md
             "developer.nvidia.com", "www.amd.com", "www.intel.com",
             // named in the unmodified licence text of the vendored interface font (ThirdPartyLicenses/LICENSE-Inter.txt)

@@ -22,9 +22,11 @@ public class HygieneScanTests
     public const string WordsVariable = "NV_HYGIENE_WORDS";
 
     /// <summary>The project's author credit, with or without the year, and the line saying a file is adapted from
-    /// another source: allowed wherever they appear.</summary>
+    /// another source, and the credit of the interface sounds made with ChatGPT (<c>UiSoundRecordings.ChatGptCredit</c>):
+    /// allowed wherever they appear.</summary>
     private const string Credit = "Copyright (c) 2026 Legion Builds";
-    private static readonly Regex CreditPattern = new(@"Copyright \(c\) (?:20\d\d )?Legion Builds|Adapted 20\d\d by Legion Builds", RegexOptions.Compiled);
+    private static readonly Regex CreditPattern = new(
+        @"Copyright \(c\) (?:20\d\d )?Legion Builds|Adapted 20\d\d by Legion Builds|made with ChatGPT for Reverie by Legion Builds", RegexOptions.Compiled);
 
     private static readonly (string Kind, Regex Pattern)[] Generic =
     [
@@ -213,6 +215,10 @@ public class HygieneScanTests
         Assert.NotEmpty(ScanWords("somebody.cs", "", words!, allowed));
         Assert.Empty(ScanWords("x.cs", "// " + Credit + ", (c) Somebody Corp", words!, allowed));
         Assert.Empty(ScanWords("x.cs", "// nobody here", words!, allowed));
+        // the sounds' credit is allowed as a whole; the name alone elsewhere is still found
+        var (credit, none) = ParseWords(["Legion*"]);
+        Assert.Empty(ScanWords("x.md", "- `ui-x.wav`: made with ChatGPT for Reverie by Legion Builds.", credit!, none));
+        Assert.NotEmpty(ScanWords("x.md", "- made by Legion Builds on its own grid", credit!, none));
     }
 }
 
