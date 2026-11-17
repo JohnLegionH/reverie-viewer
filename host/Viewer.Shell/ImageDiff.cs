@@ -9,10 +9,12 @@ namespace Viewer.Shell;
 /// <see cref="MaxDifferingFraction"/> of its pixels differ AND the mean absolute channel error is at most
 /// <see cref="MaxMeanAbsError"/>. Alpha is ignored (the render target is opaque).
 /// </summary>
-public sealed record DiffTolerance(int ChannelThreshold, double MaxDifferingFraction, double MaxMeanAbsError)
+public sealed record DiffTolerance(int ChannelThreshold, double MaxDifferingFraction, double MaxMeanAbsError, int MaxDifferingPixels = int.MaxValue)
 {
     /// <summary>Terrain goldens: allows driver-level rasterisation noise on edges, not a changed hill.</summary>
     public static DiffTolerance Terrain { get; } = new(ChannelThreshold: 16, MaxDifferingFraction: 0.002, MaxMeanAbsError: 0.5);
+
+    public static DiffTolerance Ui { get; } = Terrain;
 }
 
 public sealed record DiffResult(bool Pass, int Width, int Height, int Differing, double DifferingFraction, double MeanAbsError, int MaxChannelError, string? Problem)
