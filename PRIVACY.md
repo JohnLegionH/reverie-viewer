@@ -42,6 +42,8 @@ Linden Lab's own privacy policy covers what it does with this.
   browser only when you click them.
 - Nothing else. No analytics, no crash reports, no background checks. Saved passwords and two-factor hashes stay on this
   computer, protected for your user account.
+- **Add-ons you install yourself** can do more than Reverie itself does, including sending data elsewhere; this policy covers
+  Reverie only, not add-ons.
 
 ## Support
 
