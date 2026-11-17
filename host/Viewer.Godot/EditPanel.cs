@@ -656,7 +656,7 @@ public partial class EditPanel : VBoxContainer
             _name.Editable = _desc.Editable = access.CanReshape;
             // people by name through the session's name cache, never by id (llpanelpermissions.cpp shows names)
             _creator.Text = props is null ? "" : BuildNames.Person(_names, props.CreatorId, _s);
-            _owner.Text = props is null ? "" : BuildNames.Person(_names, props.OwnerId, _s);
+            _owner.Text = props is null ? "" : BuildNames.Owner(_names, props.OwnerId, props.GroupId, false, _s);
             _sale.Text = props is { ForSale: true } ? string.Format(CultureInfo.InvariantCulture, _s.Get("edit.for_sale.price"), props.SalePrice) : _s.Get("edit.not_for_sale");
             const uint copy = 1u << 15, modify = 1u << 14, transfer = 1u << 13, move = 1u << 19;
             bool owned = access.Owned;
@@ -686,7 +686,7 @@ public partial class EditPanel : VBoxContainer
             _cardPicked.Text = o is null ? "" : e!.SelectFaces && faces > 0
                 ? (faces == 1 ? _s.Get("edit.card.face_one") : _s.Get("edit.card.faces", faces))
                 : (count == 1 ? _s.Get("edit.card.prim_one") : _s.Get("edit.card.prims", count));
-            _cardOwner.Text = props is null ? "" : _s.Get("edit.card.owner", BuildNames.Person(_names, props.OwnerId, _s));
+            _cardOwner.Text = props is null ? "" : _s.Get("edit.card.owner", BuildNames.Owner(_names, props.OwnerId, props.GroupId, false, _s));
             _cardPicked.Visible = _cardPicked.Text.Length > 0;
             _cardOwner.Visible = _cardOwner.Text.Length > 0;
         }

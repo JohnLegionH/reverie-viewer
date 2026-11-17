@@ -178,6 +178,16 @@ public sealed partial class EditController
     public bool CopyItemToInventory(Guid itemId) =>
         Object() is { } o && Listed(itemId) is { } item && Send(new CopyObjectItemIntent(o.Id.LocalId, itemId, item.AssetType));
 
+    /// <summary>Whether a listed item of the primary prim may be dragged out (startDrag), the attachment counted from the prim's root.</summary>
+    public bool CanDragOut(Guid itemId, Guid agent)
+    {
+        if (Object() is not { } o || Listed(itemId) is not { } item)
+            return false;
+        bool youOwn = ((o.Interaction?.Flags ?? 0) & ObjectFlagBits.YouOwner) != 0;
+        bool attachment = o.AttachmentPoint is not null || Find(RootOf(o.Id.LocalId))?.AttachmentPoint is not null;
+        return TaskItemRules.CanDragOut(item, agent, youOwn, attachment);
+    }
+
     /// <summary>A listed item of the primary prim, or null.</summary>
     public TaskItem? ContentItem(Guid itemId) => Listed(itemId);
 
@@ -185,11 +195,7 @@ public sealed partial class EditController
     /// official drag rules let it leave (llpanelobjectinventory.cpp LLTaskInvFVBridge::startDrag).</summary>
     public bool CopyItemToFolder(Guid itemId, Guid folder, Guid agent)
     {
-        if (Object() is not { } o || Listed(itemId) is not { } item || folder == Guid.Empty)
-            return false;
-        bool youOwn = ((o.Interaction?.Flags ?? 0) & ObjectFlagBits.YouOwner) != 0;
-        bool attachment = o.AttachmentPoint is not null || Find(RootOf(o.Id.LocalId))?.AttachmentPoint is not null;
-        if (!TaskItemRules.CanDragOut(item, agent, youOwn, attachment))
+        if (Object() is not { } o || Listed(itemId) is not { } item || folder == Guid.Empty || !CanDragOut(itemId, agent))
             return false;
         return Send(new CopyObjectItemIntent(o.Id.LocalId, itemId, item.AssetType, folder));
     }

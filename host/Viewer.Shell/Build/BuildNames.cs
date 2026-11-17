@@ -12,4 +12,8 @@ public static class BuildNames
 {
     public static string Person(Func<Guid, string?>? lookup, Guid id, StringTable strings) =>
         id == Guid.Empty ? "" : lookup?.Invoke(id) is { Length: > 0 } name ? name : strings.Get("edit.name.loading");
+
+    /// <summary>An owner: a group-owned object (its owner is its group) or item says so instead of asking the avatar names for a group.</summary>
+    public static string Owner(Func<Guid, string?>? lookup, Guid owner, Guid group, bool groupOwned, StringTable strings) =>
+        groupOwned || (owner != Guid.Empty && owner == group) ? strings.Get("edit.name.group") : Person(lookup, owner, strings);
 }

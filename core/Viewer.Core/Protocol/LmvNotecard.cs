@@ -35,14 +35,17 @@ internal sealed partial class LmvTransport : INotecardTransport
 
     public async Task<AssetFetchResult> FetchNotecardAsync(NotecardAccess access, CancellationToken ct)
     {
-        if (_disposed || !_client.Network.Connected || access.AssetId == Guid.Empty)
+        bool inObject = access.ObjectId != Guid.Empty;
+        if (_disposed || !_client.Network.Connected || (access.AssetId == Guid.Empty && !inObject))
             return AssetFetchResult.Of(AssetFetchStatus.Failed);
         try
         {
             using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
             limit.CancelAfter(NotecardWait);
             Uri? cap = null;
-            try { cap = _client.Network.CurrentSim?.Caps?.CapabilityURI("ViewerAsset"); }
+            // a card inside an object goes by the item transfer with the object's id, as the official viewer asks for it (the region
+            // lists no asset for a card the agent may neither copy nor modify, and opens it by object and item); the cap serves an asset id
+            try { cap = inObject ? null : _client.Network.CurrentSim?.Caps?.CapabilityURI("ViewerAsset"); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { cap = null; }
             if (cap is not null)
             {

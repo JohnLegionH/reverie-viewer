@@ -103,6 +103,8 @@ public partial class Main
         var queueTimer = new global::Godot.Timer { Name = "script_queue_refresh", WaitTime = 0.25, Autostart = true };
         queueTimer.Timeout += () => { if (_queueWindow.Root.IsVisibleInTree()) _queueWindow.Refresh(); };
         _queueWindow.Root.AddChild(queueTimer);
+        // closing the progress window stops its queue, as the official queue ends with its floater
+        shell.Floaters.Closed += id => { if (id == ScriptQueueWindow.FloaterId) _scriptQueueStop?.Cancel(); };
         // folder drops and takes into a folder go one at a time, at Firestorm's Z-take pace (0.66 s)
         var pump = new global::Godot.Timer { Name = "edit_queues", WaitTime = 0.66, Autostart = true };
         pump.Timeout += () => _edit?.PumpQueues();

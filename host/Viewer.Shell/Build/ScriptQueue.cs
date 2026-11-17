@@ -61,13 +61,17 @@ public sealed class ScriptQueue
         get { lock (_gate) return _lines.ToArray(); }
     }
 
-    public bool Done { get; private set; }
+    private volatile bool _done;
+    private int _handled, _failed;
+
+    /// <summary>The queue has ended: worked through, stopped, or failed partway (the window's Close is usable).</summary>
+    public bool Done => _done;
 
     /// <summary>Scripts the action was done to.</summary>
-    public int Handled { get; private set; }
+    public int Handled => Volatile.Read(ref _handled);
 
     /// <summary>Scripts it failed for (skipped, not fetched, not compiled).</summary>
-    public int Failed { get; private set; }
+    public int Failed => Volatile.Read(ref _failed);
 
     /// <summary>The window title's string-table key (strings.xml CompileQueueTitle, ResetQueueTitle, RunQueueTitle, NotRunQueueTitle).</summary>
     public static string TitleKey(ScriptQueueAction action) => "queue.title." + Word(action);
@@ -107,45 +111,75 @@ public sealed class ScriptQueue
         lock (_gate)
             if (_waiting is { } w && w.ObjectId == t.ObjectId)
                 answer = w.Answer;
-        answer?.TrySetResult(t.Items);
+        // a read that failed (no answer in time, no region) is not an empty object: the queue names it as timed out
+        answer?.TrySetResult(t.Ok ? t.Items : null!);
     }
 
     /// <summary>Works through the objects one at a time (objectScriptProcessingQueueCoro); returns when done or cancelled.</summary>
     public async Task RunAsync(CancellationToken ct = default)
     {
-        Add("queue.starting", "queue.start." + Word(Action), Objects.Count.ToString(CultureInfo.InvariantCulture));
-        foreach (var obj in Objects)
+        bool finished = false;
+        try
         {
-            if (ct.IsCancellationRequested)
-                return;
-            var answer = new TaskCompletionSource<IReadOnlyList<TaskItem>>(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (_gate)
-                _waiting = (obj.ObjectId, answer);
+            Add("queue.starting", "queue.start." + Word(Action), Objects.Count.ToString(CultureInfo.InvariantCulture));
+            foreach (var obj in Objects)
+            {
+                if (ct.IsCancellationRequested)
+                    return;
+                if (await Contents(obj, ct).ConfigureAwait(false) is not { } items)
+                {
+                    if (ct.IsCancellationRequested)
+                        return;
+                    Add("queue.timeout", obj.Name);
+                    continue;
+                }
+                foreach (var item in items.Where(i => i.AssetType == 10))
+                {
+                    if (ct.IsCancellationRequested)
+                        return;
+                    if (await Process(obj, item, ct).ConfigureAwait(false))
+                        Interlocked.Increment(ref _handled);
+                    else
+                        Interlocked.Increment(ref _failed);
+                }
+            }
+            Add("queue.done");
+            finished = true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // a failure partway (the session ended, the transport threw) ends the queue with a line saying so, never silently
+        }
+        finally
+        {
+            if (!finished)
+                Add("queue.stopped");
+            Add("queue.summary", Handled.ToString(CultureInfo.InvariantCulture), Failed.ToString(CultureInfo.InvariantCulture));
+            _done = true;
+        }
+    }
+
+    /// <summary>One object's items, or null when the request was not sent, the read failed or nothing came within <see cref="Timeout"/>.</summary>
+    private async Task<IReadOnlyList<TaskItem>?> Contents(ScriptQueueObject obj, CancellationToken ct)
+    {
+        var answer = new TaskCompletionSource<IReadOnlyList<TaskItem>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+            _waiting = (obj.ObjectId, answer);
+        try
+        {
             Add("queue.loading", obj.Name);
-            _submit(new RequestContentsIntent(obj.LocalId, obj.ObjectId));
-            var first = await Task.WhenAny(answer.Task, _delay(Timeout, ct)).ConfigureAwait(false);
+            if (_submit(new RequestContentsIntent(obj.LocalId, obj.ObjectId)).Status != ActionStatus.Sent && !answer.Task.IsCompleted)
+                return null;
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var first = await Task.WhenAny(answer.Task, _delay(Timeout, wait.Token)).ConfigureAwait(false);
+            wait.Cancel();   // the timer of an answered object ends here
+            return first == answer.Task ? answer.Task.Result : null;
+        }
+        finally
+        {
             lock (_gate)
                 _waiting = null;
-            if (first != answer.Task)
-            {
-                if (ct.IsCancellationRequested)
-                    return;
-                Add("queue.timeout", obj.Name);
-                continue;
-            }
-            foreach (var item in answer.Task.Result.Where(i => i.AssetType == 10))
-            {
-                if (ct.IsCancellationRequested)
-                    return;
-                if (await Process(obj, item, ct).ConfigureAwait(false))
-                    Handled++;
-                else
-                    Failed++;
-            }
         }
-        Done = true;
-        Add("queue.done");
-        Add("queue.summary", Handled.ToString(CultureInfo.InvariantCulture), Failed.ToString(CultureInfo.InvariantCulture));
     }
 
     /// <summary>One script: true when the action was done.</summary>

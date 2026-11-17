@@ -221,7 +221,7 @@ public sealed class EditContentTab
         _propName.Editable = _propDesc.Editable = editable;
         _propSave.Disabled = !editable;
         _propCreator.Text = _s.Get("edit.content.prop.creator") + " " + BuildNames.Person(_names, item.CreatorId, _s);
-        _propOwner.Text = _s.Get("edit.content.prop.owner") + " " + BuildNames.Person(_names, item.OwnerId, _s);
+        _propOwner.Text = _s.Get("edit.content.prop.owner") + " " + BuildNames.Owner(_names, item.OwnerId, item.GroupId, item.GroupOwned, _s);
         _propYou.Text = _s.Get("edit.content.prop.you_can") + " " + Rights(TaskItemRules.MaskFor(item, agent));
         _propNext.Text = _s.Get("edit.content.prop.next_owner") + " " + Rights(item.NextOwnerMask);
         _propAnyone.Text = _s.Get("edit.content.prop.everyone") + " " + Rights(item.EveryoneMask);
@@ -251,8 +251,7 @@ public sealed class EditContentTab
     {
         if (index < 0 || index >= _rows.Count || _edit() is not { } e || e.Object() is not { } o || ItemOf(_rows[index]) is not { } item)
             return null;
-        var access = e.Access(o.Id.LocalId);
-        return TaskItemRules.CanDragOut(item, _agent(), access.Owned, o.AttachmentPoint is not null) ? new TaskDrag(o.FullId, o.Id.LocalId, item.ItemId) : null;
+        return e.CanDragOut(item.ItemId, _agent()) ? new TaskDrag(o.FullId, o.Id.LocalId, item.ItemId) : null;
     }
 
     /// <summary>Inventory ids dropped on the list: an item goes in (a script as a script); a folder's items wait and go in one at a time.</summary>

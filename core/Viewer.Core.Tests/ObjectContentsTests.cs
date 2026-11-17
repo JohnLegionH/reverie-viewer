@@ -411,4 +411,78 @@ public class ObjectContentsTests
         Assert.Equal("Done.", Text(q)[^2]);
         Assert.Equal("1 scripts done, 0 with errors.", Text(q)[^1]);
     }
+
+    // ---------------- review fixes ----------------
+
+    [Fact]
+    public void A_contents_read_that_failed_or_a_request_that_was_not_sent_is_named_as_timed_out_not_read_as_empty()
+    {
+        var s = new Scripts();
+        ScriptQueue? q = null;
+        q = new ScriptQueue(ScriptQueueAction.Reset, [Box, Ball], Me, i =>
+        {
+            if (i is RequestContentsIntent c && c.ObjectId == G(1))
+                q!.Receive(new TaskInventoryReceived(G(1), [], Ok: false));
+            return new ActionResult(i is RequestContentsIntent { ObjectId: var o } && o == G(2) ? ActionStatus.Unavailable : ActionStatus.Sent, 1);
+        }, s, (_, ct) => Task.Delay(TimeSpan.FromSeconds(30), ct));
+        Assert.True(q.RunAsync().Wait(TimeSpan.FromSeconds(10)));
+        var text = Text(q);
+        Assert.Contains("Timeout: Box", text);
+        Assert.Contains("Timeout: Ball", text);
+        Assert.True(q.Done);
+    }
+
+    private sealed class Throwing : IScriptTransport
+    {
+        public ScriptAccess? ScriptAccessOf(Guid itemId) => null;
+        public Task<AssetFetchResult> FetchScriptAsync(ScriptAccess access, CancellationToken ct) => throw new InvalidOperationException("gone");
+        public Task<ScriptSaveResult> SaveScriptAsync(ScriptAccess access, byte[] text, ScriptTarget target, bool running, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<(bool Running, bool Mono)?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct) => throw new InvalidOperationException();
+        public bool SetScriptRunning(ScriptAccess access, bool running) => throw new InvalidOperationException();
+        public bool ResetScript(ScriptAccess access) => throw new InvalidOperationException();
+    }
+
+    [Fact]
+    public void A_queue_that_fails_partway_or_is_stopped_still_ends_so_its_window_can_close()
+    {
+        ScriptQueue? q = null;
+        q = new ScriptQueue(ScriptQueueAction.CompileMono, [Box], Me, i =>
+        {
+            if (i is RequestContentsIntent c)
+                q!.Receive(new TaskInventoryReceived(c.ObjectId, [Item(11, "a", type: 10)]));
+            return new ActionResult(ActionStatus.Sent, 1);
+        }, new Throwing(), (_, _) => Task.CompletedTask);
+        try { q.RunAsync().Wait(TimeSpan.FromSeconds(10)); }
+        catch (AggregateException) { }   // the queue must not throw; if it does, Done below still tells
+        Assert.True(q.Done);
+        Assert.Contains(StringTable.English().Get("queue.stopped"), Text(q));
+        var stopped = new ScriptQueue(ScriptQueueAction.Reset, [Box], Me, _ => new ActionResult(ActionStatus.Sent, 1), new Scripts(),
+            (_, ct) => Task.Delay(TimeSpan.FromSeconds(30), ct));
+        using var cts = new CancellationTokenSource();
+        var run = stopped.RunAsync(cts.Token);
+        cts.Cancel();
+        run.Wait(TimeSpan.FromSeconds(10));
+        Assert.True(stopped.Done);
+    }
+
+    [Fact]
+    public void A_group_owned_object_or_item_is_owned_by_its_group_not_a_name_that_never_comes()
+    {
+        var en = StringTable.English();
+        var cache = new Viewer.Core.Social.NameCache();
+        Assert.Equal(en.Get("edit.name.group"), BuildNames.Owner(cache.Get, G(5), G(5), false, en));
+        Assert.Equal(en.Get("edit.name.group"), BuildNames.Owner(cache.Get, Guid.Empty, G(5), true, en));
+        Assert.Equal(0, cache.Flush(new Asked()));
+        cache.Learn(G(6), "Test User");
+        Assert.Equal("Test User", BuildNames.Owner(cache.Get, G(6), G(5), false, en));
+    }
+
+    [Fact]
+    public void Whether_an_item_may_be_dragged_out_is_one_rule_that_counts_a_child_prim_of_an_attachment()
+    {
+        var noCopy = Item(11, "n", ownerMask: TaskItemRules.Modify | TaskItemRules.Transfer);
+        var r = Selected(Own, noCopy);
+        Assert.True(r.C.CanDragOut(noCopy.ItemId, Me));
+        Assert.False(r.C.CanDragOut(G(99), Me));
+    }
 }

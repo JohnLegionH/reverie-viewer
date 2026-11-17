@@ -1798,6 +1798,8 @@
   "queue.running": "Running: {0}",
   "queue.not_running": "Not running: {0}",
   "queue.done": "Done.",
+  "queue.stopped": "Stopped before the end.",
+  "edit.name.group": "(Group owned)",
   "queue.summary": "{0} scripts done, {1} with errors.",
   "queue.close": "Close",
   "queue.list": "Progress",
