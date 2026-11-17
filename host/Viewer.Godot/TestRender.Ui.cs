@@ -107,7 +107,7 @@ public partial class TestRender
 
     /// <summary>The Build window with an example box selected: the Edit tool, the Object tab with its place, size, rotation and a hollowed,
     /// twisted box's shape fields, on an in-memory world with no session or grid.</summary>
-    private static void ExampleBuild(ShellRoot shell, StringTable strings)
+    private static Viewer.Shell.Build.EditController ExampleBuild(ShellRoot shell, StringTable strings)
     {
         static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         var world = new Viewer.Core.World.WorldState(new Viewer.Core.Diagnostics.CoreLog(new DiscardSink(), "render"));
@@ -127,6 +127,7 @@ public partial class TestRender
         shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
         panel.Tabs.CurrentTab = 1;
         panel.Refresh();
+        return edit;
     }
 
     /// <summary>

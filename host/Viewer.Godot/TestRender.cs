@@ -419,6 +419,8 @@ public partial class TestRender : Node
             return await UiChromeRun(uiChrome, Arg(args, "--tr-golden="));   // the in-world frame at an interface size in a window size (TestRender.UiChrome.cs)
         if (Arg(args, "--tr-floaterdrag=") is { } floaterDrag)
             return await FloaterDragRun(floaterDrag);   // the Inventory window resized, moved and closed by pointer events (TestRender.FloaterDrag.cs)
+        if (Arg(args, "--tr-colourwindow=") is { } colourWindow)
+            return await ColourWindowRun(colourWindow);   // the colour picker window's OK and Cancel in view and pressed by pointer events (TestRender.FloaterDrag.cs)
         if (Arg(args, "--tr-proportions=") is { } proportions)
             return await ProportionsRun(proportions, Arg(args, "--tr-alter="));   // a sphere and a cube drawn in the window as a circle and a square (TestRender.Proportions.cs)
         if (args.Contains("--tr-skinnormal"))

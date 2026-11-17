@@ -157,6 +157,13 @@ public partial class AutomationHost : Node
             }
             case "topbar":   // {action: state|hover_all|click|type, index?, text?}: the top bar and the dock as a person meets them (development builds only)
                 return await m.TopBarCall(Str(call.Body, "action") ?? "state", Str(call.Body, "text"), (int)Num(call.Body, "index", 0)) is { } tb ? AutomationReply.Ok(tb) : AutomationReply.Error(409, "no shell");
+            case "ui":   // {action: find|reveal, name}: a shown control of the shell found by its node name: whether it is wholly in view, cut by a scroll area or the window, or out of view, and the point a press lands on (reveal: its scroll areas scrolled to it first); the live checks' driver presses it through the input command (development builds only)
+            {
+                string action = Str(call.Body, "action") ?? "find";
+                if (action is not ("find" or "reveal") || Str(call.Body, "name") is not { Length: > 0 } uiName)
+                    return AutomationReply.Error(400, "action must be find or reveal, and name is required");
+                return m.UiFindCall(uiName, action == "reveal") is { } found ? AutomationReply.Ok(found) : AutomationReply.Error(409, "no shell");
+            }
             case "dock":   // {id, owner?, menu?}: a dock button clicked, or an entry of its menu chosen (development builds only)
                 return m.DockCall(Str(call.Body, "id") ?? "", Str(call.Body, "owner"), (int)Num(call.Body, "menu", -1)) is { } dk ? AutomationReply.Ok(dk) : AutomationReply.Error(409, "no shell");
             case "menus":   // the top menu open now, the menus on screen, the inventory's item menu and selection

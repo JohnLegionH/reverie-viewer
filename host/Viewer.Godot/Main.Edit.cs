@@ -504,6 +504,47 @@ public partial class Main
         return [g.X, g.Y];
     }
 
+    /// <summary>
+    /// The automation's ui command: a control of the shell by its node name (the first one shown, else the first found), how much of it is
+    /// in view and where a press lands on it, in the coordinates the input command takes. <paramref name="reveal"/> first scrolls every
+    /// scroll area above it to bring it into view, as a person scrolls; the next frame draws the scroll, so the caller reads again with find.
+    /// </summary>
+    public object? UiFindCall(string name, bool reveal)
+    {
+        if (_shell is null)
+            return null;
+        var all = _shell.FindChildren(name, "", true, false).OfType<Control>().ToList();
+        if (all.FirstOrDefault(c => c.IsVisibleInTree()) is not { } ctl)
+            return new { found = all.Count > 0, shown = false, reach = "outside", point = (float[]?)null, matches = all.Count };
+        if (reveal)
+            for (Node? n = ctl.GetParent(); n is Control pc; n = n.GetParent())
+                if (pc is ScrollContainer sc)
+                    sc.EnsureControlVisible(ctl);
+        var r = ReachOf(ctl);
+        var offset = ctl.GetWindow() is { } win && win != GetWindow() ? new Vector2(win.Position.X, win.Position.Y) : Vector2.Zero;
+        var g = ctl.GetGlobalRect();
+        return new
+        {
+            found = true, shown = true, matches = all.Count,
+            reach = r.Kind.ToString().ToLowerInvariant(),
+            point = r.Point is { } p ? new[] { p.X + offset.X, p.Y + offset.Y } : null,
+            rect = new[] { g.Position.X + offset.X, g.Position.Y + offset.Y, g.Size.X, g.Size.Y },
+            shown_rect = new[] { r.Shown.X + offset.X, r.Shown.Y + offset.Y, r.Shown.W, r.Shown.H },
+        };
+    }
+
+    /// <summary>How much of a shown control is in view: its rectangle against every clipping container above it (scroll areas clip)
+    /// and the visible part of its viewport, all in the viewport's canvas coordinates (Viewer.Shell.UiReach decides).</summary>
+    public static UiReachResult ReachOf(Control ctl)
+    {
+        static UiRect Of(Rect2 r) => new(r.Position.X, r.Position.Y, r.Size.X, r.Size.Y);
+        var clips = new List<UiRect> { Of(ctl.GetViewportRect()) };
+        for (Node? n = ctl.GetParent(); n is Control pc; n = n.GetParent())
+            if (pc.ClipContents || pc is ScrollContainer)
+                clips.Add(Of(pc.GetGlobalRect()));
+        return UiReach.Classify(Of(ctl.GetGlobalRect()), clips);
+    }
+
     /// <summary>Where a list's row with this text stands on screen, scrolled into view first; null when there is none.</summary>
     private static float[]? ListRow(ItemList? list, string? text, Window? popup = null)
     {

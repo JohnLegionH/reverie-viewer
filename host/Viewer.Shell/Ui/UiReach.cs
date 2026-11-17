@@ -21,6 +21,20 @@ public static class UiReach
 {
     public static UiReachResult Classify(UiRect control, IReadOnlyList<UiRect> clips)
     {
-        return new UiReachResult(UiReachKind.Visible, control, null);   // stub (red)
+        if (control.W <= 0 || control.H <= 0)
+            return new UiReachResult(UiReachKind.Outside, default, null);
+        float left = control.X, top = control.Y, right = control.Right, bottom = control.Bottom;
+        foreach (var clip in clips)
+        {
+            left = Math.Max(left, clip.X);
+            top = Math.Max(top, clip.Y);
+            right = Math.Min(right, clip.Right);
+            bottom = Math.Min(bottom, clip.Bottom);
+        }
+        if (right <= left || bottom <= top)
+            return new UiReachResult(UiReachKind.Outside, default, null);
+        var shown = new UiRect(left, top, right - left, bottom - top);
+        var kind = shown == control ? UiReachKind.Visible : UiReachKind.Clipped;
+        return new UiReachResult(kind, shown, (left + shown.W / 2, top + shown.H / 2));
     }
 }

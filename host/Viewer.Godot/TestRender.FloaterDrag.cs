@@ -212,4 +212,85 @@ public partial class TestRender
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         return _failures.Count == 0 ? 0 : 1;
     }
+
+    /// <summary>
+    /// --tr-colourwindow=PCT:WxH: the Build window's colour picker window opened over the example Build window (no session or grid) in a window of
+    /// W x H pixels at an interface size of PCT %, as the live checks meet it at the test window's size. The run FAILS unless its OK and Cancel are
+    /// each wholly in view (UiReach: no scroll area and no window edge cuts them), and a press and release of the pointer, pushed into the viewport
+    /// in window pixels as the operating system delivers it, on Cancel and then (opened again) on OK closes the window each time.
+    /// </summary>
+    private async Task<int> ColourWindowRun(string spec)
+    {
+        var parts = spec.Split(':', 'x');
+        if (parts.Length != 3 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int pct)
+            || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int w) || !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out int h))
+            throw new ArgumentException("--tr-colourwindow must be PCT:WxH, e.g. 100:1152x648");
+        float s = pct / 100f;
+        var strings = StringTable.English();
+        UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), pct);
+        var rig = MakeRig(new Vector2I(w, h));
+        rig.Viewport.Size2DOverride = new Vector2I((int)MathF.Round(w / s), (int)MathF.Round(h / s));
+        rig.Viewport.Size2DOverrideStretch = true;
+        var shell = new ShellRoot(new ShellController(strings, () => { })) { ScaleSink = _ => { }, FixedClockText = TestClockText };
+        rig.Viewport.AddChild(shell);
+        shell.ShowWorldRows(true);
+        shell.SetConnected(true);
+        var edit = ExampleBuild(shell, strings);
+        shell.Shell.Floaters.Open(EditPanel.FloaterId);
+        var pickers = new FacePickerWindows(strings, shell, () => edit);
+        await Frames(6);
+
+        var fails = new List<string>();
+        var steps = new List<string>();
+        void Push(InputEvent e) => rig.Viewport.PushInput(e, false);
+        async Task Press(Vector2 logical)
+        {
+            var at = logical * s;
+            Push(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+            await Frames(1);
+            Push(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = at, GlobalPosition = at, ButtonMask = MouseButtonMask.Left });
+            await Frames(1);
+            Push(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = at, GlobalPosition = at });
+            await Frames(2);
+        }
+        async Task PressButton(string name)
+        {
+            pickers.OpenColour(new Color(0.8f, 0.3f, 0.2f));
+            await Frames(4);
+            if (shell.FindChild(name, true, false) is not Control button || !button.IsVisibleInTree())
+            {
+                fails.Add($"{name}: not found or not shown");
+                return;
+            }
+            var reach = Main.ReachOf(button);
+            var frame = shell.Shell.Floaters.RectOf(FacePickerWindows.ColourPickerId);
+            steps.Add($"{name}: {reach.Kind} at {reach.Shown} (button {button.GetGlobalRect()}, window {frame})");
+            if (reach.Kind != UiReachKind.Visible || reach.Point is not { } p)
+            {
+                fails.Add($"{name}: {reach.Kind.ToString().ToLowerInvariant()} (shown {reach.Shown} of {button.GetGlobalRect()}, window {frame}): a person cannot press it");
+                shell.Shell.Floaters.Close(FacePickerWindows.ColourPickerId);
+                await Frames(2);
+                return;
+            }
+            await Press(new Vector2(p.X, p.Y));
+            if (pickers.ColoursOpen)
+            {
+                fails.Add($"{name}: pressed at {p} and the window stayed open");
+                shell.Shell.Floaters.Close(FacePickerWindows.ColourPickerId);
+                await Frames(2);
+            }
+        }
+        await PressButton("colour_cancel");
+        await PressButton("colour_ok");
+
+        _result["colour_window"] = new Dictionary<string, object?>
+        {
+            ["percent"] = pct, ["window"] = $"{w}x{h}", ["main"] = $"{shell.MainArea}", ["steps"] = steps, ["problems"] = fails,
+        };
+        foreach (var f in fails)
+            _failures.Add("colour window: " + f);
+        shell.QueueFree();
+        UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
+        return _failures.Count == 0 ? 0 : 1;
+    }
 }

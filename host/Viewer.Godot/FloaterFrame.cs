@@ -107,6 +107,21 @@ public partial class FloaterFrame : PanelContainer
             Body.MoveChild(_foot, -1);   // the grip stays the last row
     }
 
+    /// <summary>A row under the content that does not scroll with it (a dialog's OK and Cancel): it stays in view however small the
+    /// window is, as the official floaters keep their buttons on the floater itself, outside any scroll list (floater_color_picker.xml).</summary>
+    public void SetFooter(Control footer)
+    {
+        _footer = new MarginContainer { Name = "footer_pad", SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
+        foreach (var side in new[] { "margin_left", "margin_right", "margin_top" })
+            _footer.AddThemeConstantOverride(side, 6);
+        _footer.AddChild(footer);
+        Body.AddChild(_footer);
+        if (_foot is not null)
+            Body.MoveChild(_foot, -1);   // the grip stays the last row
+    }
+
+    private MarginContainer? _footer;
+
     /// <summary>Folds the window up to its title bar, or opens it again.</summary>
     public void ToggleMinimized()
     {
@@ -130,7 +145,7 @@ public partial class FloaterFrame : PanelContainer
     public Vector2 NeededSize()
     {
         var chrome = GetThemeStylebox("panel").GetMinimumSize();
-        float h = TitleBar.GetCombinedMinimumSize().Y + (_foot?.GetCombinedMinimumSize().Y ?? 0);
+        float h = TitleBar.GetCombinedMinimumSize().Y + (_foot?.GetCombinedMinimumSize().Y ?? 0) + (_footer?.GetCombinedMinimumSize().Y ?? 0);
         var pad = _pad?.GetCombinedMinimumSize() ?? Vector2.Zero;
         if (_pad is not null)
             pad += ScrolledAway(_pad);

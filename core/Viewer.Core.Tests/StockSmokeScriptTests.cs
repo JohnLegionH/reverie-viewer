@@ -224,12 +224,15 @@ public sealed class StockSmokeScriptTests
         string name = "nv-standin-" + Guid.NewGuid().ToString("N");
         string standin = Path.Combine(s.Root, name + ".exe");
         File.Copy(Path.Combine(Environment.SystemDirectory, "cmd.exe"), standin);
+        // the viewer the script would start were the check to miss the running one: a script that only waits, no program and no window
+        string viewer = Path.Combine(s.Root, "standin-viewer.cmd");
+        File.WriteAllText(viewer, "@echo off\r\nping -n 20 127.0.0.1 >nul\r\n");
         using var running = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(standin, "/c ping -n 60 127.0.0.1 >nul & rem --automation")
             { UseShellExecute = false, CreateNoWindow = true })!;
         try
         {
             var args = new List<string> { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", Script, "-Sandbox", s.Sandbox,
-                "-Credentials", s.Accounts, "-Exe", s.Exe, "-GridInfoUrl", s.GridInfo, "-ServerControl", s.Control,
+                "-Credentials", s.Accounts, "-Exe", viewer, "-GridInfoUrl", s.GridInfo, "-ServerControl", s.Control,
                 "-Region", "Example Region", "-AccountA", "alpha1", "-AccountB", "beta1", "-StartSeconds", "3", "-ViewerProcessName", name + "*.exe" };
             var environment = SettingNames.ToDictionary(n => n, _ => (string?)null);
             environment["NV_STOCK_SETTINGS"] = null;

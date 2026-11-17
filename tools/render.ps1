@@ -683,6 +683,21 @@ function Invoke-UiChromeCases {
     }
 }
 
+function Invoke-ColourWindowCases {
+    # the Build window's colour picker window at the test window's size (1152x648) at 100 and 150 % interface size, on each backend
+    # (--tr-colourwindow=PCT:WxH). Every case asserts that OK and Cancel are wholly in view (no scroll area or window edge cuts them) and that a
+    # pointer press on each closes the window.
+    foreach ($be in $Backends) {
+        foreach ($pct in @(100, 150)) {
+            $name = "ui_build_colourwindow_${pct}_$be"
+            $r = Invoke-Render $be $name "--tr-colourwindow=${pct}:1152x648"
+            $c = $r.Json.colour_window
+            $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $c -and -not @($c.problems).Count
+            Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $(@($c.steps) -join ' | ')$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
+        }
+    }
+}
+
 function Invoke-FloaterDragCases {
     # the Inventory window resized from every edge, corner and the grip, moved by its title bar and closed, by pointer events in window pixels, in a
     # 3840x2066 window at 100 % and at 150 % interface size (--tr-floaterdrag=PCT:WxH). Every case asserts that the window follows the pointer (out grows,
@@ -1541,12 +1556,14 @@ if ($HandlesOnly) {   # -HandlesOnly: just the edit tools' handle and grid cases
 if ($UiChromeOnly) {   # -UiChromeOnly: just the interface-size cases (to propose or check their goldens)
     Invoke-UiChromeCases
     Invoke-FloaterDragCases
+    Invoke-ColourWindowCases
     Exit-Render 0
 }
 if ($UiOnly) {   # -UiOnly: just the interface scene cases (to propose or check their goldens)
     Invoke-UiSceneCases
     Invoke-UiChromeCases
     Invoke-FloaterDragCases
+    Invoke-ColourWindowCases
     Exit-Render 0
 }
 if ($DialogOnly) {   # -DialogOnly: just the script dialog cases (to propose or check their goldens)
@@ -2189,6 +2206,7 @@ Invoke-LoginCardCases
 Invoke-UiSceneCases
 Invoke-UiChromeCases
 Invoke-FloaterDragCases
+Invoke-ColourWindowCases
 Invoke-HandleCases
 Invoke-ProportionsCases
 

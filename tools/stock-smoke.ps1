@@ -19,6 +19,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\stock-smoke.ps1 -Sandbox <new evidence folder>
 #     [-Credentials <accounts file>] [-AccountA <alias>] [-AccountB <alias>] [-Region <name>] [-GridInfoUrl <url>]
 #     [-ServerControl <bash script>] [-Views <folder for the 3 m pictures>] [-Exe <development export>] [-DryRun] [-CheckClaimsOnly]
+#     [-ViewerProcessName <wildcard>]   (default Reverie*.exe: the check that no viewer that can log in is running; tests name a program of their own)
 #
 # Settings come from the parameters or the environment: NV_TEST_ACCOUNTS (the accounts file the viewer reads at login; this script
 # never opens it), NV_STOCK_ACCOUNT_A and NV_STOCK_ACCOUNT_B (the two aliases), NV_STOCK_REGION (the region name),
@@ -49,7 +50,7 @@ param(
     [string]$Views = $env:NV_STOCK_VIEWS,   # a folder (made when needed): after step 4b each viewer's picture of the other avatar from 3 m, seen-by-A.png and seen-by-B.png
     [string]$Exe = "",   # default: the development export, host\Viewer.Godot\build\dev\Reverie.console.exe
     [string]$Settings = "",   # a settings file (NAME=VALUE lines) for every setting above that is not given; default NV_STOCK_SETTINGS (tools\stock-settings.ps1)
-    [string]$ViewerProcessName = "Reverie*.exe",   # stub (red)
+    [string]$ViewerProcessName = "Reverie*.exe",   # the program name (a wildcard) of a viewer that can log in, for the check that none is already running
     [int]$StartSeconds = 150,   # the wait for each viewer's automation token; the same as the wait for the world after a login
     [switch]$DryRun,
     [switch]$CheckClaimsOnly
@@ -106,7 +107,7 @@ if ($env:NV_CLAIM_WRAPPER -and -not $env:NV_STOCK_SMOKE_CLAIMED) {
     $wrapper = ToUnixPath $env:NV_CLAIM_WRAPPER
     $inner = @("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-Sandbox", $Sandbox, "-Credentials", $Credentials,
         "-AccountA", $AccountA, "-AccountB", $AccountB, "-Region", $Region, "-GridInfoUrl", $GridInfoUrl, "-ServerControl", $ServerControl,
-        "-Exe", $Exe, "-StartSeconds", "$StartSeconds")
+        "-Exe", $Exe, "-StartSeconds", "$StartSeconds", "-ViewerProcessName", $ViewerProcessName)
     if ($loaded.File) { $inner += @("-Settings", $loaded.File) }
     if ($CheckClaimsOnly) { $inner += "-CheckClaimsOnly" }
     # the innermost claim is the one the viewer guard looks at, and the guard accepts build, measure, live-test and live-login, not avatar
@@ -129,7 +130,7 @@ if ($DryRun) { Write-Output "dry run: nothing started, nothing logged in"; exit 
 . (Join-Path $PSScriptRoot "claim-guard.ps1")
 Assert-ClaimGranted   # no viewer or engine process without a granted lane claim (claim-guard.ps1)
 if ($CheckClaimsOnly) { Write-Output "claims accepted: nothing started"; exit 0 }
-$viewers = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like "Reverie*.exe" -and $_.CommandLine -match "--automation" })
+$viewers = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like $ViewerProcessName -and $_.CommandLine -match "--automation" })
 if ($viewers.Count -gt 0) { Write-Output "BLOCKED: a viewer that can log in is already running ($($viewers.Count)): one account in one session at a time"; exit 3 }
 
 # ---------------- helpers ----------------

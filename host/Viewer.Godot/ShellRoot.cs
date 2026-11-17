@@ -486,11 +486,13 @@ public partial class ShellRoot : Control
         Accelerator(shortcut) is var key && key != Key.None ? OS.GetKeycodeString(key) : null;
 
     /// <summary>Registers a floater after the frame is built (a feature that becomes ready later) and gives it its content.</summary>
-    public void AddFloater(FloaterSpec spec, Control content)
+    public void AddFloater(FloaterSpec spec, Control content, Control? footer = null)
     {
         Shell.Floaters.Register(spec);
         AddFrame(spec);
         _frames[spec.Id].SetContent(content);
+        if (footer is not null)
+            _frames[spec.Id].SetFooter(footer);   // stays in view below the scrolled content (a dialog's OK and Cancel)
         SyncFloaters();
     }
 
