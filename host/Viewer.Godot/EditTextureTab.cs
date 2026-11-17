@@ -398,16 +398,16 @@ public sealed class FacePickerWindows
         shell.AddFloater(new FloaterSpec(ItemPickerId, "edit.picker.texture.title", new UiSize(380, 480), new UiSize(320, 360)), itemBox);
 
         var colourBox = new VBoxContainer { Name = "colour_picker" };
-        // the engine's presets and its screen sampler are left out: the window stays short enough that its OK and Cancel are in view
-        // without scrolling at the smallest window size
+        // the engine's presets and its screen sampler are left out, so the picker itself needs less room
         _colours = new ColorPicker
         {
             Name = "colour_picker_control", EditAlpha = false, PresetsVisible = false, SamplerVisible = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
         _colours.ColorChanged += c => _colourSession?.Choose(c);
         colourBox.AddChild(_colours);
-        colourBox.AddChild(Buttons("colour", () => EndColour(keep: true), () => EndColour(keep: false)));
-        shell.AddFloater(new FloaterSpec(ColourPickerId, "edit.picker.colour.title", new UiSize(340, 560), new UiSize(300, 460)), colourBox);
+        // OK and Cancel sit under the scrolled picker, on the window itself: in view at any window size, even when the picker scrolls
+        shell.AddFloater(new FloaterSpec(ColourPickerId, "edit.picker.colour.title", new UiSize(340, 560), new UiSize(300, 460)), colourBox,
+            Buttons("colour", () => EndColour(keep: true), () => EndColour(keep: false)));
 
         shell.Shell.Floaters.Closed += id =>
         {

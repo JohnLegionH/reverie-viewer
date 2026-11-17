@@ -181,6 +181,8 @@ public partial class Main
             {
                 id = o.FullId, local = o.Id.LocalId, parent = o.ParentLocalId, mesh = o.Shape?.SculptType.ToString(),
                 faces = Enumerable.Range(0, 8).Select(f => o.Textures is { } t ? t[f].TextureId : Guid.Empty).ToArray(),
+                // each face's colour as the region last stated it (white where none is sent), for checks that a picker put each back
+                colours = Enumerable.Range(0, 8).Select(f => Viewer.Core.Building.FaceRules.Settings(o, f).Colour is var c ? new[] { c.R, c.G, c.B } : null).ToArray(),
             }).ToArray();
         var textureItems = inv.ChildItems(textures);
         var objectItems = inv.ChildItems(objects);
