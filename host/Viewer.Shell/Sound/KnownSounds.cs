@@ -149,12 +149,13 @@ public static class OggVorbis
     }
 }
 
-/// <summary>The sounds the Sound Tuner offers: the interface sounds in the official order, then our footstep (played when a grid lacks a
-/// step sound).</summary>
+/// <summary>The sounds the Sound Tuner offers: the interface sounds the generator makes, in the official order, then our footstep (played
+/// when a grid lacks a step sound). The interface sounds shipped as recordings (<see cref="UiSoundRecordings"/>) have no recipe to tune.</summary>
 public static class SoundTunerList
 {
     /// <summary>Our footstep's file.</summary>
     public const string Footstep = "world-footstep.wav";
 
-    public static IReadOnlyList<string> Files { get; } = UiSoundCatalog.All.Select(i => i.File).Append(Footstep).ToArray();
+    public static IReadOnlyList<string> Files { get; } =
+        UiSoundCatalog.All.Select(i => i.File).Where(f => UiSoundSynth.Recipes.Any(r => r.File == f)).Append(Footstep).ToArray();
 }

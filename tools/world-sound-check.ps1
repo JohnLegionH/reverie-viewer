@@ -11,7 +11,8 @@
 #   loop          a loop on an object 10 m east, gain 1                   -> playing at the object, gain 0.05, looping
 #   gain change   the object's sound to gain 0.2                          -> gain 0.01
 #   stop          a null sound for the object                             -> the object's source is gone
-#   tuner         the Sound Tuner: the click's length moved, saved, reset -> tuned and played, then back to the committed recipe
+#   tuner         the Sound Tuner: the typing sound's length moved, saved, reset -> tuned and played, then back to the committed recipe;
+#                 the click, a recording, has no recipe to choose
 # Output: the sandbox folder (world-sound-check.txt, world-sound-check.json, the viewer's log). Exit 0 all passed, 1 a step failed, 3 blocked.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\world-sound-check.ps1 -Sandbox <new folder> [-Exe <viewer>]
 # Needs the development export (tools\s1.ps1 makes it) and a granted lane claim.
@@ -110,16 +111,18 @@ try {
     $outcomes = @((Api $v "world_sounds" '{"action":"state"}').recent | ForEach-Object { $_.outcome }) -join ","
     Record "stop" ([bool]$gone) ("decisions: " + $outcomes)
 
-    # the Sound Tuner: the click's length to 45 ms (the sound is made again and played), saved to the user folder, then reset
-    $t0 = Api $v "sound_tuner" '{"action":"choose","slot":"Click"}'
-    $t1 = Api $v "sound_tuner" '{"action":"set","key":"Ms","value":45}'
+    # the Sound Tuner: the typing sound's length to 900 ms (the sound is made again and played), saved to the user folder, then reset;
+    # the click is a recording, so the tuner has nothing to show for it
+    $tc = Api $v "sound_tuner" '{"action":"choose","slot":"Click"}'
+    $t0 = Api $v "sound_tuner" '{"action":"choose","slot":"Typing"}'
+    $t1 = Api $v "sound_tuner" '{"action":"set","key":"Ms","value":900}'
     $ms = @($t1.numbers | Where-Object { $_.key -eq "Ms" })[0].value
     $saved = Api $v "sound_tuner" '{"action":"save"}'
     $file = Get-ChildItem -LiteralPath $appdata -Recurse -Filter "ui-sounds-tuned.json" -ErrorAction SilentlyContinue | Select-Object -First 1
     $t2 = Api $v "sound_tuner" '{"action":"reset"}'
     $msAfter = @($t2.numbers | Where-Object { $_.key -eq "Ms" })[0].value
-    Record "tuner" ($t1 -and (Near $ms 45) -and ($t1.tuned -contains "ui-click.wav") -and ([int]$t1.started -gt [int]$t0.started) -and $saved.saved -and $file -and (Near $msAfter 40) -and (@($t2.tuned).Count -eq 0)) `
-        ("length {0} ms, tuned [{1}], played {2} -> {3}, saved {4} ({5}), after reset {6} ms, tuned [{7}]" -f $ms, ($t1.tuned -join ","), $t0.started, $t1.started, $saved.saved, $(if ($file) { "file written" } else { "no file" }), $msAfter, (@($t2.tuned) -join ","))
+    Record "tuner" ($tc.error -and $t1 -and (Near $ms 900) -and ($t1.tuned -contains "ui-typing.wav") -and ([int]$t1.started -gt [int]$t0.started) -and $saved.saved -and $file -and (Near $msAfter 1050) -and (@($t2.tuned).Count -eq 0)) `
+        ("click: {8}; length {0} ms, tuned [{1}], played {2} -> {3}, saved {4} ({5}), after reset {6} ms, tuned [{7}]" -f $ms, ($t1.tuned -join ","), $t0.started, $t1.started, $saved.saved, $(if ($file) { "file written" } else { "no file" }), $msAfter, (@($t2.tuned) -join ","), $tc.error)
 }
 catch { Say "stopped: $($_.Exception.Message)" }
 finally {

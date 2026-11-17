@@ -360,7 +360,10 @@ public partial class Main
                 t.Choose(SoundTunerList.Files.ToList().IndexOf(SoundTunerList.Footstep));
                 break;
             case "choose" when Enum.TryParse<UiSoundSlot>(slot, out var s):
-                t.Choose(UiSoundCatalog.All.ToList().FindIndex(i => i.Slot == s));
+                int index = SoundTunerList.Files.ToList().IndexOf(UiSoundCatalog.Of(s).File);
+                if (index < 0)
+                    return new { error = "this sound is a recording; it has no recipe to tune" };
+                t.Choose(index);
                 break;
             case "set" when key is not null && float.IsFinite(value):
                 if (!t.Set(key, value))

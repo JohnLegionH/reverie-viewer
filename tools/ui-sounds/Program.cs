@@ -6,7 +6,8 @@ using Viewer.Shell.Sound;
 namespace UiSoundGen;
 
 /// <summary>
-/// Writes every interface sound into a folder: by default the shell's sounds folder in this repository (found by walking up from the
+/// Writes every sound it has a recipe for (our footstep and the interface sounds that are not recordings,
+/// <see cref="UiSoundRecordings"/>) into a folder: by default the shell's sounds folder in this repository (found by walking up from the
 /// program to the folder holding Viewer.sln), or the folder given as the last argument. It writes only the files its recipes name and
 /// prints each one's length and peak.
 /// With <c>--fold &lt;ui-sounds-tuned.json&gt;</c> (the file the viewer's Sound Tuner saves in the user folder) it first puts the tuned
@@ -48,7 +49,7 @@ public static class Program
                 // the targets as fitted (the unmeasured ones derived), for whoever compares the candidates with them
                 File.WriteAllText(Path.Combine(candidates, "targets.json"),
                     System.Text.Json.JsonSerializer.Serialize(targets, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
-                foreach (var t in targets)
+                foreach (var t in targets.Where(t => !UiSoundRecordings.IsRecorded(UiSoundFit.FileOf(t.Setting))))
                 {
                     var (a, b) = UiSoundFit.Candidates(t, UiSoundFit.SeedOf(t.Setting));
                     foreach (var (r, tag) in new[] { (a, "A"), (b, "B") })

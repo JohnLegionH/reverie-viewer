@@ -124,7 +124,7 @@ public class UiSoundTunerTests
         Assert.Empty(UiSoundTuning.Parse(null));
         var json = UiSoundTuning.ToJson([UiSoundParams.With(Committed(Noisy), "Ms", 45), Committed(Bell) with { File = "ui-nothing.wav" }]);
         var parsed = UiSoundTuning.Parse(json);
-        Assert.Equal([Noisy, "ui-nothing.wav"], parsed.Keys.Order().ToArray());
+        Assert.Equal(["ui-nothing.wav", Noisy], parsed.Keys.Order().ToArray());
         Assert.Equal(45, parsed[Noisy].Ms);
         var folded = UiSoundTable.Fold(UiSoundSynth.Recipes, parsed);
         Assert.Equal(7, folded.Count);   // the 6 generated interface sounds and our footstep

@@ -20,6 +20,7 @@
     <Compile Include="..\..\host\Viewer.Shell\Sound\Loudness.cs" Link="Shared\Loudness.cs" />
     <Compile Include="..\..\host\Viewer.Shell\Sound\UiSoundFit.cs" Link="Shared\UiSoundFit.cs" />
     <Compile Include="..\..\host\Viewer.Shell\Sound\UiSoundCatalog.cs" Link="Shared\UiSoundCatalog.cs" />
+    <Compile Include="..\..\host\Viewer.Shell\Sound\UiSoundRecordings.cs" Link="Shared\UiSoundRecordings.cs" />
   </ItemGroup>
 
 </Project>

@@ -1,8 +1,14 @@
 # Interface sound generator
 
-Makes every sound the viewer's interface plays, from code, and writes them as 16-bit mono 44.1 kHz WAV files into
-`host/Viewer.Shell/Assets/Sounds`. The WAVs there are this tool's output; they are committed so a build needs no extra step,
-and a test (`UiSoundFileTests`) fails if they differ from what the generator makes now.
+Seventeen of the interface sounds are recordings: public-domain (CC0 1.0) sounds and sounds made with ChatGPT, each resampled to
+16-bit mono 44.1 kHz and brought to the loudness of the official viewer's sound for the same event (`sl-targets.json`) with its peak
+no higher than -1 dBFS. `host/Viewer.Shell/Sound/UiSoundRecordings.cs` lists them, and `THIRD-PARTY-NOTICES.md` credits each one.
+This tool does not write them and the Sound Tuner does not offer them.
+
+This tool makes the others from code: the chat ping, both health reduction sounds, the restart warning, the snapshot, the typing
+sound, and our footstep. It writes them as 16-bit mono 44.1 kHz WAV files into `host/Viewer.Shell/Assets/Sounds`. Those WAVs are
+this tool's output; they are committed so a build needs no extra step, and a test (`UiSoundFileTests`) fails if they differ from
+what the generator makes now.
 
 The recipes and the synthesizer live in the shell, `host/Viewer.Shell/Sound/UiSoundSynth.cs`; this tool compiles those same
 files, and the viewer's Sound Tuner uses them too, so the tuner, the generator and the shipped files make the same bytes.
@@ -14,7 +20,7 @@ strongest partials, attack, decay to -20 and -40 dB, spectral centroid, tonal sh
 movement, number of bursts), kept in `sl-targets.json`. No audio from anywhere is read. Seven settings have no measurement;
 `UiSoundFit.Unmeasured` derives each one's target from a neighbour's, and its recipe's note says "no SL reference".
 
-1. Write both candidates of every target into a folder (nothing in the repository changes):
+1. Write both candidates of every generated sound's target into a folder (nothing in the repository changes):
 
    ```
    dotnet run --project tools/ui-sounds/UiSoundGen.csproj -c Release -- --fit tools/ui-sounds/sl-targets.json --candidates <folder>

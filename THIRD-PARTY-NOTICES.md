@@ -531,14 +531,39 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   with its metadata removed; the picture itself is not edited. It is the author's own work for this project, supplied
   under the repository's own terms; no third-party licence text applies to it.
 
-## Interface sounds (generated)
+## Interface sounds (recordings and generated)
 
-- **Files:** `host/Viewer.Shell/Assets/Sounds/ui-*.wav`, the sounds the interface plays (clicks, windows, alerts, chimes,
-  the teleport whoosh and the others).
-- **Origin:** made from code by the generator in `tools/ui-sounds` (sine and FM tones, filtered noise, envelopes and a
-  low-pass; recipe table in `UiSoundSynth.cs`), Copyright (c) Legion Builds, LGPL-2.1-or-later. Nothing in them is sampled,
-  traced or copied from another sound. They are this project's own generated work; no third-party licence applies to them.
-  The settings can play a grid's own sound assets instead; those are fetched from the grid at run time and are not part of
+- **Files:** `host/Viewer.Shell/Assets/Sounds/ui-*.wav`, the sounds the interface plays. Seventeen are recordings, listed below;
+  the other six are generated. Every recording was resampled to 16-bit mono 44.1 kHz and changed in level to match the official
+  viewer's loudness for the same event, its peak no higher than -1 dBFS.
+- **Public domain (CC0 1.0 Universal).** Each of these is one sound from a pack published on OpenGameArt.org under CC0 1.0, as the
+  pack's page states; it was trimmed, played at the speed given and changed in level. CC0 asks for no credit; each is credited
+  here by pack, author and page. Licence text: `ThirdPartyLicenses/LICENSE-CC0-1.0.txt`.
+  - `ui-alert.wav`: bell_02.ogg from "100 CC0 SFX" by rubberduck, https://opengameart.org/content/100-cc0-sfx (CC0 1.0), speed x1.10.
+  - `ui-bad-keystroke.wav`: chips-stack-5.ogg from "54 Casino sound effects (cards, dice, chips)" by Kenney, https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips (CC0 1.0), speed x1.10.
+  - `ui-chat-mention.wav`: bell_01.ogg from "100 CC0 SFX" by rubberduck, https://opengameart.org/content/100-cc0-sfx (CC0 1.0), speed x0.90.
+  - `ui-click.wav`: bfh1_misc_05.ogg from "75 CC0 breaking / falling / hit sfx" by rubberduck, https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx (CC0 1.0), speed x0.90.
+  - `ui-click-release.wav`: bfh1_misc_05.ogg from "75 CC0 breaking / falling / hit sfx" by rubberduck, https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx (CC0 1.0), speed x0.90.
+  - `ui-invalid-op.wav`: machine_03.ogg from "100 CC0 SFX" by rubberduck, https://opengameart.org/content/100-cc0-sfx (CC0 1.0), speed x0.95.
+  - `ui-money-change-down.wav`: coinsounds011015.wav (one of its coins) from "coin sounds" by syncopika, https://opengameart.org/content/coin-sounds (CC0 1.0), speed x0.90.
+  - `ui-money-change-up.wav`: coin.8.ogg from "12 Coin Sound Effects" by StarNinjas, https://opengameart.org/content/12-coin-sound-effects (CC0 1.0), speed x0.90.
+  - `ui-object-rez-in.wav`: sfx100v2_air_01.ogg from "100 CC0 SFX #2" by rubberduck, https://opengameart.org/content/100-cc0-sfx-2 (CC0 1.0), speed x0.90.
+  - `ui-start-im.wav`: phaserDown2.mp3 from "63 Digital sound effects (lasers, phasers, space etc.)" by Kenney, https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc (CC0 1.0), speed x0.90.
+  - `ui-window-close.wav`: shot_02.ogg from "50 CC0 retro / synth SFX" by rubberduck, https://opengameart.org/content/50-cc0-retro-synth-sfx (CC0 1.0), speed x0.90.
+- **Made with ChatGPT.** These are made with ChatGPT for Reverie by Legion Builds, then resampled and changed in level; they
+  are this project's own work, supplied under the repository's own terms.
+  - `ui-new-incoming-im-session.wav`: made with ChatGPT for Reverie by Legion Builds.
+  - `ui-object-create.wav`: made with ChatGPT for Reverie by Legion Builds.
+  - `ui-object-delete.wav`: made with ChatGPT for Reverie by Legion Builds.
+  - `ui-object-rez-out.wav`: made with ChatGPT for Reverie by Legion Builds.
+  - `ui-teleport-out.wav`: made with ChatGPT for Reverie by Legion Builds.
+  - `ui-window-open.wav`: made with ChatGPT for Reverie by Legion Builds.
+- **Generated:** `ui-chat-ping.wav`, `ui-health-reduction-f.wav`, `ui-health-reduction-m.wav`, `ui-restart.wav`,
+  `ui-snapshot.wav` and `ui-typing.wav`, and `world-footstep.wav`, are made from code by the generator in `tools/ui-sounds`
+  (sine and FM tones, filtered noise, envelopes and a low-pass; recipe table in `UiSoundSynth.cs`), Copyright (c) Legion Builds,
+  LGPL-2.1-or-later. Nothing in them is sampled, traced or copied from another sound. They are this project's own generated work;
+  no third-party licence applies to them.
+- The settings can play a grid's own sound assets instead; those are fetched from the grid at run time and are not part of
   this repository.
 
 ## Assets
