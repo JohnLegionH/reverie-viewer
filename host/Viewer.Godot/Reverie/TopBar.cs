@@ -370,7 +370,7 @@ public partial class TopBar : PanelContainer
     public RvStatusChip Grid { get; }
     public RvStatusChip Connection { get; }
 
-    /// <summary>The search box: opens the command list (Ctrl+Shift+K).</summary>
+    /// <summary>The search box (a search icon): opens the command list (Ctrl+Shift+K).</summary>
     public Button Search { get; }
 
     public TopBar(StringTable strings, IReadOnlyList<RvMenu> menus)
@@ -409,13 +409,8 @@ public partial class TopBar : PanelContainer
         _balance = new Label { Name = "balance", ThemeTypeVariation = ReverieStyle.Status, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
         Connection = new RvStatusChip(strings.Get("status.disconnected")) { Name = "connection" };
         Connection.DotColour = "muted";
-        Search = new Button
-        {
-            Name = "search", Text = strings.Get("cmdlist.box"), Icon = ReverieIcons.Get(LucideIcons.Search), ThemeTypeVariation = ReverieStyle.Location,
-            SizeFlagsVertical = SizeFlags.ShrinkCenter, TooltipText = strings.Get("cmdlist.box.tip"), Alignment = HorizontalAlignment.Left,
-            CustomMinimumSize = new Vector2(150, ReverieTheme.LocationHeight), ExpandIcon = false,
-        };
-        Search.AccessibilityName = strings.Get("cmdlist.box.tip");
+        // the search box: the search icon, as small as Back and Home, so the narrow-window rule still holds
+        Search = new RvIconButton(LucideIcons.Search, strings.Get("cmdlist.box.tip")) { Name = "search", SizeFlagsVertical = SizeFlags.ShrinkCenter };
         _right.AddChild(Search);
         _right.AddChild(Grid);
         _right.AddChild(_balance);

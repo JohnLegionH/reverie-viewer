@@ -30,11 +30,14 @@ public partial class S1Smoke
         s.Commands.Register("floater.about_land", () => s.Floaters.Open(InteractFeature.LandId));   // as the viewer wires it in the world
         var prefs = PreferencesFeature.Install(shell, settings, () => 0, () => false);
         var ran = new List<string>();
+        var stubbed = new HashSet<string>();
         BuildMenu.Install(s.Menus, () => true);
+        Viewer.Shell.EnvironmentMenu.Install(s.Menus, s.Commands, new Viewer.Shell.EnvironmentChoice(null), () => ran.Add("env.personal"));
         foreach (var e in Flat(s.Menus.Menus.SelectMany(m => m.Entries)))
             if (e.CommandId.Length > 0 && !s.Commands.Has(e.CommandId))
             {
                 string c = e.CommandId;
+                stubbed.Add(c);
                 s.Commands.Register(c, () => ran.Add(c));
             }
         var window = CommandListFeature.Install(shell, settings, prefs);
@@ -144,6 +147,20 @@ public partial class S1Smoke
         if (s.Floaters.IsOpen("world_map")) problems.Add("Ctrl+Enter opened the map instead of showing its menu");
         CloseAll();
 
+        // Ctrl+Enter on an entry inside a submenu: World > Environment opens, with Sunrise highlighted in it
+        await Key(global::Godot.Key.K, ctrl: true, shift: true);
+        await Type("sunrise");
+        await Key(global::Godot.Key.Enter, ctrl: true);
+        await Frames(2);
+        {
+            int at = shell.TopBar.Menus.Menus.Select((m, i) => (m, i)).First(x => x.m.Id == "world").i;
+            var env = shell.TopBar.Menus.Popups[at].GetNodeOrNull<PopupMenu>("world_environment");
+            int item = env?.GetFocusedItem() ?? -1;
+            if (env is null || !env.Visible || item < 0 || env.GetItemText(item) != s.Strings.Get("menu.env.sunrise"))
+                problems.Add("Ctrl+Enter on Sunrise: the Environment submenu " + (env is null || !env.Visible ? "is not open" : "highlights " + (item < 0 ? "nothing" : env.GetItemText(item))));
+        }
+        CloseAll();
+
         // Esc closes; the top bar's search box opens it
         await Key(global::Godot.Key.K, ctrl: true, shift: true);
         await Key(global::Godot.Key.Escape);
@@ -152,7 +169,8 @@ public partial class S1Smoke
         await Frames(2);
         await Click(shell.TopBar.Search);
         if (!window.IsOpen) problems.Add("a click on the top bar's search box did not open the list");
-        await Key(global::Godot.Key.Escape);
+        await Click(shell.TopBar.Search);
+        if (window.IsOpen) problems.Add("a second click on the search box did not close the list");
 
         // every result opens what it names: a window opens, a setting or page shows in Preferences, a command is one the viewer runs
         int windows = 0, settingsShown = 0, commands = 0;
@@ -172,6 +190,13 @@ public partial class S1Smoke
                 case CommandKind.Window:
                     windows++;
                     if (opened.Count == 0) problems.Add($"{item.Target} opened no window");
+                    else
+                    {
+                        // picked again while it is open, it stays open
+                        window.OpenItem!(item);
+                        await Frames(1);
+                        if (!opened.All(s.Floaters.IsOpen)) problems.Add($"{item.Target} closed its window when picked while open");
+                    }
                     break;
                 case CommandKind.Setting:
                     settingsShown++;
@@ -182,6 +207,8 @@ public partial class S1Smoke
                 default:
                     commands++;
                     if (!s.Commands.Has(item.CommandId!)) problems.Add($"{item.Target} runs no command");
+                    else if (stubbed.Contains(item.CommandId!) && (!item.Enabled ? ran.Count != 0 : ran.SingleOrDefault() != item.CommandId))
+                        problems.Add($"{item.Target} ran [{string.Join(",", ran)}]");
                     break;
             }
         }

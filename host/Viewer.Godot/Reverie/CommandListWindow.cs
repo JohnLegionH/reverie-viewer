@@ -84,6 +84,9 @@ public sealed partial class CommandListWindow : PanelContainer
 
     public bool IsOpen => Visible;
 
+    /// <summary>The control that opens and closes the list (the top bar's search box): a press on it is not a press outside.</summary>
+    public Control? Opener { get; set; }
+
     /// <summary>Opens the list with an empty field (the recent picks show), read from the menus and Preferences as they are now.</summary>
     public void Open()
     {
@@ -167,7 +170,8 @@ public sealed partial class CommandListWindow : PanelContainer
             Close();
             GetViewport().SetInputAsHandled();
         }
-        else if (e is InputEventMouseButton { Pressed: true } b && !GetGlobalRect().HasPoint(b.Position))
+        else if (e is InputEventMouseButton { Pressed: true } b && !GetGlobalRect().HasPoint(b.Position)
+                 && Opener?.GetGlobalRect().HasPoint(b.Position) != true)   // the search box closes it itself, as a toggle
             Close();
     }
 
@@ -297,7 +301,8 @@ public static class CommandListFeature
         window.ShowPlace = item => Open(shell, preferences, item, highlight: true);
         shell.CommandList = window;
         shell.AddChild(window);
-        shell.TopBar.Search.Pressed += () => { window.Open(); shell.PlaceCommandList(); };
+        window.Opener = shell.TopBar.Search;
+        shell.TopBar.Search.Pressed += () => { window.Toggle(); if (window.IsOpen) shell.PlaceCommandList(); };
         return window;
     }
 
@@ -318,10 +323,10 @@ public static class CommandListFeature
             shell.OpenMenuAt(item.MenuPath);
         else if (item.CommandId is { } command && item.Enabled)
         {
-            // a window opens (a toggle would close one already open)
-            if (command.StartsWith("floater.", StringComparison.Ordinal) && s.Floaters.Specs.Any(f => "floater." + f.Id == command) && s.Floaters.IsOpen(command[8..]))
-                s.Floaters.Open(command[8..]);
-            else
+            // a window's command toggles it: when that closed a window that was open, run it again, so the window shows (on top)
+            var before = s.Floaters.OpenFloaters.Select(f => f.Id).ToHashSet();
+            s.Commands.Execute(command);
+            if (item.Kind == CommandKind.Window && before.Except(s.Floaters.OpenFloaters.Select(f => f.Id)).Any())
                 s.Commands.Execute(command);
         }
     }

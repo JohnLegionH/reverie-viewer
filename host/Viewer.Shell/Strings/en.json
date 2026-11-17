@@ -270,7 +270,6 @@
   "cmdlist.title": "Command list",
   "cmdlist.field": "Search windows, commands and settings",
   "cmdlist.placeholder": "Search windows, commands and settings, by any viewer's name",
-  "cmdlist.box": "Search",
   "cmdlist.box.tip": "Search windows, commands and settings (Ctrl+Shift+K)",
   "cmdlist.keys": "Up and Down move · Enter opens · Ctrl+Enter shows where it lives · Esc closes",
   "cmdlist.recent": "Recent",

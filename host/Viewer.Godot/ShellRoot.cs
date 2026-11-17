@@ -368,10 +368,22 @@ public partial class ShellRoot : Control
             return false;
         if (bar.OpenMenu != menu)
             bar.ClickTitle(menu);
-        var entries = bar.Menus[menu].Entries();
-        int item = Index(entries, path.Count > 1 ? path[1] : null);
-        if (item >= 0)
-            bar.Popups[menu].SetFocusedItem(item);
+        // down the path: each submenu on the way opens beside its row, and the last entry is highlighted
+        PopupMenu popup = bar.Popups[menu];
+        IReadOnlyList<RvMenuEntry> entries = bar.Menus[menu].Entries();
+        for (int step = 1; step < path.Count; step++)
+        {
+            int item = Index(entries, path[step]);
+            if (item < 0)
+                return false;
+            popup.SetFocusedItem(item);
+            if (step == path.Count - 1 || entries[item].Children is not { } kids
+                || popup.GetNodeOrNull<PopupMenu>(path[step].Replace('.', '_')) is not { } sub)
+                break;
+            sub.Popup(new Rect2I(popup.Position + new Vector2I(popup.Size.X, 0), Vector2I.Zero));
+            popup = sub;
+            entries = kids;
+        }
         return true;
 
         static int Index(IReadOnlyList<RvMenuEntry> entries, string? id)
