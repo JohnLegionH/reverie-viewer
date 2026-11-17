@@ -23,6 +23,10 @@ public static class UiReach
     {
         if (control.W <= 0 || control.H <= 0)
             return new UiReachResult(UiReachKind.Outside, default, null);
+        // wholly inside every area: decided by the edges themselves, not by a width worked back from them, which can differ in the last
+        // bit when a place has fractions (any interface size other than 100 %)
+        if (clips.All(c => c.Encloses(control)))
+            return new UiReachResult(UiReachKind.Visible, control, (control.X + control.W / 2, control.Y + control.H / 2));
         float left = control.X, top = control.Y, right = control.Right, bottom = control.Bottom;
         foreach (var clip in clips)
         {
@@ -34,7 +38,6 @@ public static class UiReach
         if (right <= left || bottom <= top)
             return new UiReachResult(UiReachKind.Outside, default, null);
         var shown = new UiRect(left, top, right - left, bottom - top);
-        var kind = shown == control ? UiReachKind.Visible : UiReachKind.Clipped;
-        return new UiReachResult(kind, shown, (left + shown.W / 2, top + shown.H / 2));
+        return new UiReachResult(UiReachKind.Clipped, shown, (left + shown.W / 2, top + shown.H / 2));
     }
 }

@@ -6,7 +6,7 @@
 # shared live driver (tools\live-driver.ps1): controls are found by name, scrolled into view or reported cut, and pressed through the
 # engine's input path. On one new box:
 #   1 the colour window opens from the Texture tab's colour swatch (pressed by name);
-#   2 its OK and Cancel are found by name and are wholly in view (no scroll area or window edge cuts them);
+#   2 its OK and Cancel are found by name and are wholly in view as it opens, before any scrolling (no scroll area or window edge cuts them);
 #   3 a click in the colour square changes every face's colour; Cancel (pressed by name) closes the window and puts each face's colour back;
 #   4 opened again, a click in the square and OK (pressed by name): the window closes and every face keeps the new colour.
 # Takes back the box, proven by re-reading the region, and logs out.
@@ -98,7 +98,9 @@ Write-LiveNote "each face's colour at the start: $c0"
 $swatch = Invoke-LiveClick "colour"
 $open1 = Wait-LiveUntil { if ((Pickers).colour) { $true } } 5
 Check "1 the colour window opens from the swatch (pressed by name)" ($swatch.clicked -and [bool]$open1) $swatch.detail
-$ok = Show-LiveControl "colour_ok"; $cancel = Show-LiveControl "colour_cancel"
+# the verdict is read as the window opens, without scrolling to them first: buttons inside the scrolled picker would only be in
+# view after a scroll, buttons pinned under it are in view at once
+$ok = Find-LiveControl "colour_ok"; $cancel = Find-LiveControl "colour_cancel"
 $report.ok_found = $ok; $report.cancel_found = $cancel
 [void](Invoke-LiveApi "screenshot" @{ dir = $Sandbox; name = "colour-window-open" })
 Check "2 OK and Cancel are found by name and wholly in view" ($ok.reach -eq "visible" -and $cancel.reach -eq "visible") ("OK {0} rect [{1}] shown [{2}]; Cancel {3} rect [{4}] shown [{5}]" -f $ok.reach, (@($ok.rect) -join ","), (@($ok.shown_rect) -join ","), $cancel.reach, (@($cancel.rect) -join ","), (@($cancel.shown_rect) -join ","))

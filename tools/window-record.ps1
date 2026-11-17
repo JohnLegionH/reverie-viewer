@@ -10,8 +10,8 @@
 # Each sample is one line of <Out> (tab-separated): the time, the foreground window's process, whether that is a run program,
 # each run window (process, shown or minimised, its rectangle, and ON when it meets a monitor), and whether Windows was locked.
 #
-# Windows locked: the lock screen (LockApp) or the sign-in screen (LogonUI) is in front, or the desktop that takes input is not the
-# user's own (the secure desktop). While locked, Windows itself may lay windows that sit off every monitor over a whole monitor; such
+# Windows locked: the lock screen (LockApp) or the sign-in screen (LogonUI) is in front, or the desktop that takes input is named
+# Winlogon (the secure desktop). A desktop that cannot be opened is not taken as a lock: the sample counts as usual. While locked, Windows itself may lay windows that sit off every monitor over a whole monitor; such
 # samples are counted apart and named in the summary, and do not fail the run.
 #
 # It stops when -StopFile appears, after -Samples samples (when given), or after -Seconds, prints a summary and exits:
@@ -91,8 +91,8 @@ public static class NvWr
     [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr OpenInputDesktop(uint flags, bool inherit, uint access);
     [DllImport("user32.dll", SetLastError = true)] private static extern bool CloseDesktop(IntPtr h);
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern bool GetUserObjectInformation(IntPtr h, int index, StringBuilder info, int length, out int needed);
-    /// <summary>The name of the desktop that takes input now ("Default" for the user's own); empty when it cannot be opened, as the
-    /// secure desktop of the lock and sign-in screens cannot be by a user's program.</summary>
+    /// <summary>The name of the desktop that takes input now ("Default" for the user's own, "Winlogon" for the secure desktop); empty
+    /// when it cannot be opened (which proves nothing about a lock).</summary>
     public static string InputDesktop()
     {
         IntPtr d = OpenInputDesktop(0, false, 0x0001);   // DESKTOP_READOBJECTS
@@ -139,7 +139,7 @@ while ((Get-Date) -lt $end) {
     } | ForEach-Object { [int]$_.ProcessId })
     $fg = [NvWr]::GetForegroundWindow(); $fpid = 0; [void][NvWr]::GetWindowThreadProcessId($fg, [ref]$fpid)
     $fname = ""; try { $fname = (Get-Process -Id $fpid -ErrorAction Stop).ProcessName } catch { }
-    $isLocked = ($lockScreens -contains $fname) -or ([NvWr]::InputDesktop() -ne "Default")
+    $isLocked = ($lockScreens -contains $fname) -or ([NvWr]::InputDesktop() -eq "Winlogon")
     $on = $false
     $wins = if ($runs.Count) { [NvWr]::Windows([int[]]$runs, [ref]$on) } else { "" }
     $fgRun = $runs -contains [int]$fpid

@@ -20,8 +20,8 @@ public sealed class LiveDriverTests
 
     private static string Quote(string s) => "'" + s.Replace("'", "''") + "'";
 
-    /// <summary>An export folder with an (empty) program; with <paramref name="assemblies"/> a data_ folder holding an assembly beside it,
-    /// with <paramref name="emptyData"/> a data_ folder holding none.</summary>
+    /// <summary>An export folder with an (empty) program; with <paramref name="assemblies"/> a data_ folder holding the engine's assembly beside it,
+    /// with <paramref name="emptyData"/> a data_ folder holding only some other assembly.</summary>
     private static string Export(bool assemblies, bool emptyData = false)
     {
         string dir = TestTemp.NewFolder("live-driver-export");
@@ -30,8 +30,8 @@ public sealed class LiveDriverTests
         if (assemblies || emptyData)
         {
             string data = Directory.CreateDirectory(Path.Combine(dir, "data_Example_windows_x86_64")).FullName;
-            if (assemblies)
-                File.WriteAllText(Path.Combine(data, "GodotSharp.dll"), "");
+            // the engine's own assembly marks a complete export; any other assembly alone (a leftover of another build) does not
+            File.WriteAllText(Path.Combine(data, assemblies ? "GodotSharp.dll" : "Leftover.dll"), "");
         }
         return exe;
     }

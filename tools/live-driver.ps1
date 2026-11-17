@@ -65,8 +65,8 @@ function Test-LiveExport([string]$Exe) {
     if (-not $Exe -or -not (Test-Path -LiteralPath $Exe -PathType Leaf)) { return "the program is not found: $Exe" }
     $dir = Split-Path -Parent ([IO.Path]::GetFullPath($Exe))
     $data = @(Get-ChildItem -LiteralPath $dir -Directory -Filter "data_*" -ErrorAction SilentlyContinue |
-        Where-Object { @(Get-ChildItem -LiteralPath $_.FullName -Filter "*.dll" -ErrorAction SilentlyContinue).Count -gt 0 })
-    if ($data.Count -eq 0) { return "no data_ folder with the .NET assemblies beside $Exe (an incomplete export)" }
+        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "GodotSharp.dll") -PathType Leaf })
+    if ($data.Count -eq 0) { return "no data_ folder with the .NET assemblies (GodotSharp.dll) beside $Exe (an incomplete export)" }
     return $null
 }
 
@@ -133,8 +133,16 @@ function Invoke-LiveClick([string]$name) {
 }
 
 function Stop-LiveViewer([int]$Seconds = 60) {
+    $asked = $false
     if ($script:LdPort -and $script:LdToken) {
-        try { [void](Invoke-LiveRaw "session" '{"action":"logout"}'); Start-Sleep -Seconds 3; [void](Invoke-LiveRaw "quit") } catch { }
+        try { [void](Invoke-LiveRaw "session" '{"action":"logout"}'); Start-Sleep -Seconds 3; [void](Invoke-LiveRaw "quit"); $asked = $true } catch { }
     }
-    if ($script:LdProc) { [void]$script:LdProc.WaitForExit($Seconds * 1000) }
+    if (-not $script:LdProc) { return }
+    if ($asked -and $script:LdProc.WaitForExit($Seconds * 1000)) { return }
+    # it did not quit when asked (or could not be asked): the driver stops what it started, its whole process tree, so nothing is left running
+    $all = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+    $ids = New-Object System.Collections.Generic.List[int]; $ids.Add($script:LdProc.Id)
+    for ($i = 0; $i -lt $ids.Count; $i++) { foreach ($c in $all) { if ([int]$c.ParentProcessId -eq $ids[$i] -and -not $ids.Contains([int]$c.ProcessId)) { $ids.Add([int]$c.ProcessId) } } }
+    Write-LiveNote ("the viewer did not quit when asked: stopping the {0} processes it started" -f $ids.Count)
+    for ($i = $ids.Count - 1; $i -ge 0; $i--) { Stop-Process -Id $ids[$i] -Force -ErrorAction SilentlyContinue }
 }

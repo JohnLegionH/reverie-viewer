@@ -50,6 +50,18 @@ public sealed class UiReachTests
         Assert.Equal(new UiRect(200, 640, 60, 8), r.Shown);
     }
 
+    [Theory]
+    [InlineData(100.3f, 200.7f, 80.1f, 24.3f)]
+    [InlineData(312.6667f, 553.3333f, 30.6667f, 29.3333f)]   // a control's place at 150 % interface size
+    [InlineData(0.1f, 0.7f, 1151.8f, 647.2f)]
+    public void A_control_wholly_inside_is_visible_whatever_fractions_its_edges_have(float x, float y, float w, float h)
+    {
+        var control = new UiRect(x, y, w, h);
+        var r = UiReach.Classify(control, [Window, new UiRect(0, 0, 1152, 648)]);
+        Assert.Equal(UiReachKind.Visible, r.Kind);
+        Assert.Equal(control, r.Shown);
+    }
+
     [Fact]
     public void A_control_of_no_size_is_never_visible()
     {
