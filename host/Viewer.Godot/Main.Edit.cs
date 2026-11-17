@@ -460,9 +460,15 @@ public partial class Main
                     done = new[] { title.GetGlobalRect().GetCenter().X, title.GetGlobalRect().GetCenter().Y };
                 break;
             case "menu_focus":
-                if (_shell?.TopBar.Menus.Popups.FirstOrDefault(m => m.Visible) is { } open && open.GetFocusedItem() is var fi && fi >= 0)
+            {
+                // the deepest open menu has the keyboard: a submenu (Build > Scripts) when one is open, else the top menu
+                var open = _shell?.TopBar.Menus.Popups.FirstOrDefault(m => m.Visible);
+                for (var sub = open; sub is not null; sub = sub.GetChildren().OfType<PopupMenu>().FirstOrDefault(c => c.Visible))
+                    open = sub;
+                if (open is not null && open.GetFocusedItem() is var fi && fi >= 0)
                     done = open.GetItemText(fi);
                 break;
+            }
             case "inventory_row":
                 if (Guid.TryParse(text, out var rowId) && _inventoryPanel?.TreeView.PointOf(rowId) is { } ip)
                     done = new[] { ip.X, ip.Y };
@@ -543,6 +549,14 @@ public partial class Main
             } : null,
             folder_rows = TakeFolderOpen ? _takeFolder!.Paths : null,
             animations_folder = s.Inventory.FolderOfKind(Viewer.Core.Inventory.FolderKind.Animation),
+            // the Contents section's properties box and the Build > Scripts window, for the live check (item names only, never their text)
+            content_props = _editPanel.ContentTab.Properties.Visible ? _editPanel.ContentTab.PropertyLines : null,
+            queue = _queueWindow is { } qw && (_shell?.Shell.Floaters.IsOpen(ScriptQueueWindow.FloaterId) ?? false)
+                ? new { text = qw.Text, done = qw.Queue?.Done ?? true, close_enabled = !qw.Close.Disabled } : null,
+            notecards_folder = s.Inventory.FolderOfKind(Viewer.Core.Inventory.FolderKind.Notecard),
+            notecards_in_folder = s.Inventory.ChildItems(s.Inventory.FolderOfKind(Viewer.Core.Inventory.FolderKind.Notecard)).Count(i => i.Kind == Viewer.Core.Inventory.ItemKind.Notecard),
+            notecard = s.Inventory.ChildItems(s.Inventory.FolderOfKind(Viewer.Core.Inventory.FolderKind.Notecard))
+                .Where(i => i.Kind == Viewer.Core.Inventory.ItemKind.Notecard).Select(i => new { id = i.Id, name = i.Name }).FirstOrDefault(),
         };
     }
 

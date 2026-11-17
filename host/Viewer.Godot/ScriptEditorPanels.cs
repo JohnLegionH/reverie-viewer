@@ -701,7 +701,7 @@ public sealed class ScriptQueueWindow
         Root.AddChild(_lines);
         _count = new Label { Name = "queue_count", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         Root.AddChild(_count);
-        Close = new Button { Name = "close", Text = strings.Get("queue.close"), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
+        Close = new Button { Name = "queue_close", Text = strings.Get("queue.close"), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
         Close.AccessibilityName = Close.Text;
         Close.Pressed += close;
         Root.AddChild(Close);
