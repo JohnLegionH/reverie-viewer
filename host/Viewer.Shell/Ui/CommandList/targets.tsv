@@ -1,0 +1,53 @@
+# Where each feature of the feature map lives in this viewer, for the command list (Ctrl+Shift+K).
+# row<TAB>targets: a feature-map row and the places that open it, separated by spaces.
+#   menu:<entry id>   a menu entry (the app menu's entries are app.*)
+#   pref:<key>        one setting: Preferences opens on its page at its row
+#   prefs:<page>      a Preferences page
+# A row that is not listed here is a feature this viewer does not have yet; the list says so and names where the official viewer keeps it.
+# sl<TAB>target<TAB>place<TAB>shortcut: the official viewer's place for a menu entry that has no feature-map row of its own.
+3	pref:login_remember_name
+4	pref:login_start_location
+20	pref:enable_mouselook pref:show_crosshairs
+21	menu:build.tool.focus pref:disable_camera_constraints
+29	menu:communicate.chat
+30	menu:communicate.conversations
+63	pref:share_online_status
+64	menu:content.inventory
+91	menu:content.outfits
+92	menu:content.outfits
+94	menu:me.appearance
+107	menu:build.toggle menu:build.tool.focus menu:build.tool.move menu:build.tool.edit menu:build.create
+108	menu:build.create
+109	menu:build.tool.edit menu:build.tool.move
+110	menu:build.edit_linked menu:build.link menu:build.unlink
+111	menu:build.next_part menu:build.previous_part
+112	menu:build.owned_only
+126	menu:build.undo menu:build.redo
+127	menu:build.grid.snap menu:build.grid.snap_xy menu:build.grid.use_selection menu:build.grid.options
+129	menu:build.take_into_folder
+134	prefs:building
+145	menu:build.upload.image menu:build.upload.bulk
+146	menu:build.upload.model menu:build.upload.bulk_models
+164	menu:world.about_land
+176	menu:world.map
+178	menu:world.minimap
+179	menu:world.home menu:world.set_home menu:world.teleport
+189	prefs:sound
+190	prefs:sound
+197	menu:env.sunrise menu:env.midday menu:env.legacymidday menu:env.sunset menu:env.midnight menu:env.region menu:env.pauseclouds
+198	menu:env.personal
+205	prefs:graphics pref:graphics_preset pref:draw_distance pref:max_texture_resolution pref:fps_limit pref:vsync pref:clouds_enabled pref:neighbours
+226	menu:communicate.notifications
+233	prefs:interface prefs:chat pref:chat_font_size
+234	prefs:interface
+236	pref:ui_language
+249	menu:me.addons
+263	pref:avatar_name_tag_mode
+269	menu:app.updates
+sl	menu:me.preferences	Me > Preferences...	Ctrl+P
+sl	menu:app.preferences	Me > Preferences...	Ctrl+P
+sl	menu:help.about	Help > About [APP_NAME]	none
+sl	menu:app.about	Help > About [APP_NAME]	none
+sl	menu:me.quit	Me > Exit [APP_NAME]	Ctrl+Q
+sl	menu:app.quit	Me > Exit [APP_NAME]	Ctrl+Q
+sl	menu:communicate.people	Communicate > Nearby people	Ctrl+Shift+A

@@ -29,6 +29,10 @@ public static class ViewerShortcuts
         ["build.upload.model"] = "control|alt|U",                // Upload model
     };
 
+    /// <summary>The command list (one search over every window, menu command and setting). Neither the official viewer nor Firestorm uses
+    /// Ctrl+Shift+K (no menu shortcut and no key binding in either), so Ctrl+K stays Camera controls as in the official viewer.</summary>
+    public const string CommandList = "";
+
     /// <summary>Official shortcuts whose feature this viewer does not have yet: the shortcut and what it does in the official viewer.</summary>
     public static IReadOnlyList<(string Shortcut, string Feature)> NotBuilt { get; } =
     [
