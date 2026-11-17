@@ -94,18 +94,20 @@ public static class GridAddress
     /// <param name="trust">The certificates the person chose to trust; the GET accepts those and no others that the platform refuses.</param>
     public static GridFetcher HttpFetcher(OutboundPolicy policy, CoreLog log, TimeSpan? timeout = null, CertificateTrust? trust = null)
     {
-        var client = OutboundHttp.CreateClient(policy, log, timeout ?? TimeSpan.FromSeconds(10), refusals: new CertificateRefusals { Trust = trust });
+        var refusals = new CertificateRefusals { Trust = trust };
+        var client = OutboundHttp.CreateClient(policy, log, timeout ?? TimeSpan.FromSeconds(10), refusals: refusals);
         return async (uri, ct) =>
         {
+            refusals.Clear(uri.Host);   // a refusal reported is this GET's own, not an earlier one's
             try
             {
                 var r = await BoundedHttp.GetBoundedAsync(client, uri, 256 * 1024, ct).ConfigureAwait(false);
-                return new(r.Status, r.Body is null ? null : System.Text.Encoding.UTF8.GetString(r.Body), r.Why);
+                return new(r.Status, r.Body is null ? null : System.Text.Encoding.UTF8.GetString(r.Body), r.Why, r.Status is null ? refusals.Latest(uri.Host) : null);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or OutboundDeniedException or InvalidOperationException)
             {
-                return new(null, null, ex.GetType().Name);
+                return new(null, null, ex.GetType().Name, refusals.Latest(uri.Host));
             }
         };
     }

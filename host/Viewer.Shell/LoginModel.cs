@@ -78,14 +78,47 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     {
         if (fetcher is null)
             return new(null, "grid.add.no_answer", false);
+        return await WithCertificateChoiceAsync(ct => Viewer.Shell.Grids.GridLookup.LookUpAsync(typed, fetcher, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Runs a look-up (ten seconds at most), and when the grid's certificate was refused for an unknown authority (self-signed, or a
+    /// private authority) offers the login's trust dialog, which shows the certificate's fingerprints: trusting pins that fingerprint to
+    /// that server, and the look-up runs once more. A certificate that differs from the one already pinned for the server is refused
+    /// with its own message and not offered; any other certificate problem is refused. Never offered for a Second Life address.
+    /// </summary>
+    private async Task<Viewer.Shell.Grids.GridLookupResult> WithCertificateChoiceAsync(Func<CancellationToken, Task<Viewer.Shell.Grids.GridLookupResult>> lookUp)
+    {
+        var found = await BoundedAsync(lookUp).ConfigureAwait(false);
+        if (found.Certificate is not { } cert)
+            return found;
+        bool offerable = cert.Kind == CertificateProblem.UnknownAuthority && cert.Sha256.Length > 0 && Trust is not null
+            && GridPolicy.KindOf("https://" + cert.Host + "/") != GridKind.SecondLife;
+        if (!offerable)
+            return found;
+        if (Trust!.IsChanged(cert.Host, cert.Sha256))
+            return found with { ProblemKey = "grid.add.certificate_changed" };
+        if (Prompts is not { } prompts)
+            return found;
+        var answer = await prompts.AskAsync(LoginDialogs.TrustCertificate(strings, cert), CancellationToken.None).ConfigureAwait(false);
+        if (!answer.Confirmed)
+            return found with { ProblemKey = "grid.add.certificate_not_trusted" };
+        Trust.Trust(cert);
+        return await BoundedAsync(lookUp).ConfigureAwait(false);
+    }
+
+    private static async Task<Viewer.Shell.Grids.GridLookupResult> BoundedAsync(Func<CancellationToken, Task<Viewer.Shell.Grids.GridLookupResult>> lookUp)
+    {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        try { return await Viewer.Shell.Grids.GridLookup.LookUpAsync(typed, fetcher, cts.Token).ConfigureAwait(false); }
+        try { return await lookUp(cts.Token).ConfigureAwait(false); }
         catch (OperationCanceledException) { return new(null, "grid.add.no_answer", false); }
     }
 
     /// <summary>Manage grids' Remove: forgets the certificates pinned for the grid's server, so adding it again asks afresh.</summary>
     public void ForgetGridCertificates(string address)
     {
+        if (GridAddress.Tidy(address).Uri is { } uri)
+            Trust?.Forget(uri.Host);
     }
 
     /// <summary>Manage grids' Refresh info for one grid, as <see cref="LookUpGridAsync"/>.</summary>
@@ -93,9 +126,7 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     {
         if (fetcher is null)
             return new(null, "grid.add.no_answer", false);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        try { return await Viewer.Shell.Grids.GridLookup.RefreshAsync(entry, fetcher, cts.Token).ConfigureAwait(false); }
-        catch (OperationCanceledException) { return new(null, "grid.add.no_answer", false); }
+        return await WithCertificateChoiceAsync(ct => Viewer.Shell.Grids.GridLookup.RefreshAsync(entry, fetcher, ct)).ConfigureAwait(false);
     }
 
     /// <summary>The address the screen starts with: the start-up option when given, else the last successful login address kept in
@@ -412,6 +443,12 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
 
         if (outcome.Code == "certificate" && outcome.Certificate is { } cert)
         {
+            // a certificate that differs from the one pinned for this server is refused, never offered for trust again
+            if (cert.Kind == CertificateProblem.UnknownAuthority && cert.Sha256.Length > 0 && Trust is not null && Trust.IsChanged(cert.Host, cert.Sha256))
+            {
+                await prompts.AskAsync(LoginDialogs.CertificateChanged(strings, cert), ct).ConfigureAwait(false);
+                return Ended(strings.Get("login.status.failed_header"));
+            }
             bool pin = cert.Kind == CertificateProblem.UnknownAuthority && cert.Sha256.Length > 0 && Trust is not null && pinnedNow.Add(cert.Host + "|" + cert.Sha256);
             if (pin)
             {

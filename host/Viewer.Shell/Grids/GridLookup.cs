@@ -14,6 +14,9 @@ public sealed record GridLookupResult(GridEntry? Entry, string? ProblemKey, bool
 /// </summary>
 public static class GridLookup
 {
+    /// <summary>The string-table key for an address whose server certificate was refused; the result carries the certificate.</summary>
+    public const string CertificateRefusedKey = "grid.add.certificate_refused";
+
     /// <summary>The string-table key of the http warning.</summary>
     public const string HttpWarningKey = "grid.add.http_warning";
 
@@ -34,7 +37,7 @@ public static class GridLookup
         string address = GridAddress.GridInfoOf(uri) == uri ? BaseOf(uri) : uri.ToString();
         var got = await fetch(GridAddress.GridInfoOf(uri), ct).ConfigureAwait(false);
         if (got.Status is null)
-            return new(null, "grid.add.no_answer", http);
+            return got.Refused is { } refused ? new(null, CertificateRefusedKey, http, refused) : new(null, "grid.add.no_answer", http);
         if (got.Status is < 200 or >= 300 || GridInfo.Parse(got.Body) is not { } info)
             return new(null, "grid.add.not_grid", http);
         var name = info.Name ?? GridEntry.HostName(uri);

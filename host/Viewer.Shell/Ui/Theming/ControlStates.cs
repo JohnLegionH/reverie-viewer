@@ -21,7 +21,7 @@ public static class ControlStates
     public const float DisabledStrength = 0.45f;
 
     /// <summary>The colour at the disabled strength: the same colour, its opacity times <see cref="DisabledStrength"/>.</summary>
-    public static UiColour Faded(UiColour c) => c;
+    public static UiColour Faded(UiColour c) => c with { A = c.A * DisabledStrength };
 
     /// <summary>A face drawn disabled: fill, border and text each at the disabled strength.</summary>
     public static ControlFace Disabled(ControlFace normal) => new(Faded(normal.Fill), Faded(normal.Border), Faded(normal.Text));
@@ -42,9 +42,4 @@ public static class ControlStates
         return new(normal, edge, edge, Disabled(normal));
     }
 
-    /// <summary>A text field: the input colour with the theme's border.</summary>
-    public static ControlFace Field(ThemeTokens t) => new(t.Input, t.Border, t.Text);
-
-    /// <summary>A text field that cannot be edited.</summary>
-    public static ControlFace FieldDisabled(ThemeTokens t) => Disabled(Field(t));
 }

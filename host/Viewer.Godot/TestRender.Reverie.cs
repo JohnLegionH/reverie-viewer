@@ -223,7 +223,7 @@ public partial class ComponentGallery : MarginContainer
         sliderRow.AddChild(new RvSlider("Interface size", 75, 200, 125, " %") { CustomMinimumSize = new Vector2(260, 0) });
         var disabledSlider = new RvSlider("Disabled", 0, 100, 40) { CustomMinimumSize = new Vector2(160, 0) };
         disabledSlider.Slider.Editable = false;
-        disabledSlider.Modulate = disabledSlider.Modulate with { A = 0.45f };
+        disabledSlider.Modulate = disabledSlider.Modulate with { A = ControlStates.DisabledStrength };
         sliderRow.AddChild(disabledSlider);
         var segRow = Row(left, "Segmented");
         segRow.AddChild(new RvSegmented("Show", ["All", "Recent", "Worn"], 0));

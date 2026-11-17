@@ -32,6 +32,7 @@ public static class UiTheme
     public const string WindowPanelActive = "WindowPanelActive";
     public const string BadgePanel = "BadgePanel";
     public const string OverlayText = "OverlayText";
+    public const string PasswordField = "PasswordField";
 
     private static ThemeTokens _tokens = ThemePresets.Get(ThemePresets.Classic);
     private static ThemeSpec? _spec;
@@ -103,7 +104,7 @@ public static class ShellTheme
         theme.SetStylebox("hover", "PopupMenu", Box(t, t.Selection, t.Selection, 2, 0));
         theme.SetColor("font_color", "PopupMenu", text);
         theme.SetColor("font_hover_color", "PopupMenu", text);
-        theme.SetColor("font_disabled_color", "PopupMenu", muted);
+        theme.SetColor("font_disabled_color", "PopupMenu", C(ControlStates.Faded(t.Text)));
         theme.SetColor("font_separator_color", "PopupMenu", muted);
 
         // a floating window: the panel colour with no inner margin, so its title bar runs edge to edge
@@ -144,6 +145,14 @@ public static class ShellTheme
             theme.SetColor("caret_color", type, accent);
             theme.SetColor("selection_color", type, C(t.Selection));
         }
+        // the password field: the same faces with room kept on the right for its show button, so the text stops before it and scrolls
+        theme.SetTypeVariation(UiTheme.PasswordField, "LineEdit");
+        foreach (var (state, box) in new[] { ("normal", field), ("focus", focus), ("read_only", field) })
+        {
+            var room = (StyleBoxFlat)box.Duplicate();
+            room.ContentMarginRight = LoginScreenSpec.PasswordTextRightMargin((int)box.ContentMarginRight);
+            theme.SetStylebox(state, UiTheme.PasswordField, room);
+        }
         theme.SetStylebox("normal", "RichTextLabel", field);
         theme.SetStylebox("focus", "RichTextLabel", focus);
         theme.SetColor("default_color", "RichTextLabel", text);
@@ -162,22 +171,26 @@ public static class ShellTheme
         theme.SetFontSize("font_size", UiTheme.CaptionLabel, t.FontCaption);
         theme.SetColor("font_color", UiTheme.CaptionLabel, muted);
 
-        // buttons: an input-coloured face, the accent on hover and focus; a filled accent button for the main action
-        var face = Box(t, t.Input, t.Border, 6);
-        var hover = Box(t, t.Bar.Opaque(), t.Accent, 6);
-        var pressed = Box(t, t.Selection, t.Accent, 6);
+        // buttons: an input-coloured face, the accent on hover and focus; a filled accent button for the main action; disabled, the
+        // normal face, border and text at the one disabled strength (ControlStates), in every theme
+        var states = ControlStates.Button(t);
+        var face = Box(t, states.Normal.Fill, states.Normal.Border, 6);
+        var hover = Box(t, states.Hover.Fill, states.Hover.Border, 6);
+        var pressed = Box(t, states.Pressed.Fill, states.Pressed.Border, 6);
+        var disabled = Box(t, states.Disabled.Fill, states.Disabled.Border, 6);
         foreach (var type in new[] { "Button", "OptionButton", "CheckBox", "MenuButton" })
         {
             theme.SetStylebox("normal", type, face);
             theme.SetStylebox("hover", type, hover);
             theme.SetStylebox("pressed", type, pressed);
             theme.SetStylebox("focus", type, Box(t, clear, t.Accent, 6));
-            theme.SetStylebox("disabled", type, face);
-            theme.SetColor("font_color", type, text);
-            theme.SetColor("font_hover_color", type, text);
-            theme.SetColor("font_pressed_color", type, text);
-            theme.SetColor("font_focus_color", type, text);
-            theme.SetColor("font_disabled_color", type, muted);
+            theme.SetStylebox("disabled", type, disabled);
+            theme.SetColor("font_color", type, C(states.Normal.Text));
+            theme.SetColor("font_hover_color", type, C(states.Hover.Text));
+            theme.SetColor("font_pressed_color", type, C(states.Pressed.Text));
+            theme.SetColor("font_focus_color", type, C(states.Normal.Text));
+            theme.SetColor("font_disabled_color", type, C(states.Disabled.Text));
+            theme.SetColor("icon_disabled_color", type, C(ControlStates.Faded(new UiColour(1f, 1f, 1f))));   // an icon's own colours at the disabled strength
         }
         theme.SetTypeVariation(UiTheme.PrimaryButton, "Button");
         FilledButton(theme, UiTheme.PrimaryButton, t, t.AccentFill, t.AccentFillText);
@@ -190,11 +203,13 @@ public static class ShellTheme
         theme.SetStylebox("hover", UiTheme.FlatButton, Box(t, t.Selection, t.Selection, 4));
         theme.SetStylebox("pressed", UiTheme.FlatButton, Box(t, t.Selection, t.Selection, 4));
         theme.SetStylebox("focus", UiTheme.FlatButton, Box(t, clear, t.Accent, 4));
+        theme.SetStylebox("disabled", UiTheme.FlatButton, flat);
         theme.SetTypeVariation(UiTheme.ToolbarButton, "Button");
         theme.SetStylebox("normal", UiTheme.ToolbarButton, flatTight);
         theme.SetStylebox("hover", UiTheme.ToolbarButton, Box(t, t.Selection, t.Selection, 1));
         theme.SetStylebox("pressed", UiTheme.ToolbarButton, Box(t, t.Selection, t.Selection, 1));
         theme.SetStylebox("focus", UiTheme.ToolbarButton, Box(t, clear, t.Accent, 1));
+        theme.SetStylebox("disabled", UiTheme.ToolbarButton, flatTight);
         theme.SetConstant("h_separation", UiTheme.ToolbarButton, 0);
         theme.SetFontSize("font_size", UiTheme.ToolbarButton, t.FontCaption);
         theme.SetColor("icon_normal_color", UiTheme.ToolbarButton, accent);
@@ -315,15 +330,18 @@ public static class ShellTheme
 
     private static void FilledButton(Theme theme, string name, ThemeTokens t, UiColour fill, UiColour fillText)
     {
-        var face = Box(t, fill, fill, name == UiTheme.ToolbarButtonActive ? 1 : 6);
-        var edge = Box(t, fill, t.Text, name == UiTheme.ToolbarButtonActive ? 1 : 6);
+        var states = ControlStates.Filled(t, fill, fillText);
+        int margin = name == UiTheme.ToolbarButtonActive ? 1 : 6;
+        var face = Box(t, states.Normal.Fill, states.Normal.Border, margin);
+        var edge = Box(t, states.Hover.Fill, states.Hover.Border, margin);
         theme.SetStylebox("normal", name, face);
         theme.SetStylebox("hover", name, edge);
         theme.SetStylebox("pressed", name, edge);
-        theme.SetStylebox("disabled", name, face);
+        theme.SetStylebox("disabled", name, Box(t, states.Disabled.Fill, states.Disabled.Border, margin));
         theme.SetStylebox("focus", name, Box(t, t.Bar with { A = 0f }, t.Accent, 6));
         foreach (var colour in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" })
-            theme.SetColor(colour, name, C(fillText));
+            theme.SetColor(colour, name, C(states.Normal.Text));
+        theme.SetColor("font_disabled_color", name, C(states.Disabled.Text));
     }
 }
 

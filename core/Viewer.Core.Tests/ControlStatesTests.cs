@@ -45,10 +45,6 @@ public class ControlStatesTests
             AtStrength(set.Normal.Border, set.Disabled.Border);
             AtStrength(set.Normal.Text, set.Disabled.Text);
         }
-        var field = ControlStates.Field(t);
-        var off = ControlStates.FieldDisabled(t);
-        AtStrength(field.Text, off.Text);
-        AtStrength(field.Border, off.Border);
     }
 
     /// <summary>What a colour drawn over <paramref name="under"/> shows.</summary>
@@ -91,7 +87,6 @@ public class ControlStatesTests
         var shell = files[0].Item2;
         Assert.DoesNotMatch(@"font_disabled_color""\s*,\s*\w+\s*,\s*muted", shell);   // the secondary colour is not a disabled colour
         Assert.Contains("ControlStates.Button(", shell);
-        Assert.Contains("ControlStates.FieldDisabled(", shell);
         Assert.Contains("ControlStates.DisabledStrength", files[2].Item2);
     }
 

@@ -508,7 +508,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 - **Files:** `host/Viewer.Shell/Assets/Icons/Lucide/*.svg`, the icons of the Reverie interface (the top bar, menus, windows,
   controls and the dock). Each is Lucide's own drawing, written out as the plain SVG Lucide publishes (24-unit grid, stroke 2,
   round caps and joins) from the icon data of lucide-preact 1.39.0; the paths are unchanged. The viewer sets the stroke colour
-  in the text when it turns an icon into a picture.
+  in the text when it turns an icon into a picture. `eye.svg`, `eye-off.svg` and `circle-question-mark.svg` (the password
+  field's show and hide button and the login screen's Help button) are written out the same way from lucide-static 1.39.0;
+  `circle-question-mark` is the icon Feather named `help-circle`, listed among the Feather-derived icons in the licence file.
 - **Source:** https://github.com/lucide-icons/lucide (lucide-preact 1.39.0 on npm).
 - **Copyright:** "Copyright (c) 2026 Lucide Icons and Contributors"; the icons Lucide took from Feather also carry "Copyright
   (c) 2013-present Cole Bemis" under the MIT licence (both notices kept as they are in `ThirdPartyLicenses/LICENSE-Lucide.txt`).
@@ -550,8 +552,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   - `ui-object-rez-in.wav`: sfx100v2_air_01.ogg from "100 CC0 SFX #2" by rubberduck, https://opengameart.org/content/100-cc0-sfx-2 (CC0 1.0), speed x0.90.
   - `ui-start-im.wav`: phaserDown2.mp3 from "63 Digital sound effects (lasers, phasers, space etc.)" by Kenney, https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc (CC0 1.0), speed x0.90.
   - `ui-window-close.wav`: shot_02.ogg from "50 CC0 retro / synth SFX" by rubberduck, https://opengameart.org/content/50-cc0-retro-synth-sfx (CC0 1.0), speed x0.90.
-- **Made with ChatGPT.** These are made with ChatGPT for Reverie by Legion Builds, then resampled and changed in level; they
-  are this project's own work, supplied under the repository's own terms.
+- Generated with ChatGPT (OpenAI) for this project, then trimmed and levelled. OpenAI's terms assign any rights in the output to the user; whatever rights exist are offered under this repository's terms.
   - `ui-new-incoming-im-session.wav`: made with ChatGPT for Reverie by Legion Builds.
   - `ui-object-create.wav`: made with ChatGPT for Reverie by Legion Builds.
   - `ui-object-delete.wav`: made with ChatGPT for Reverie by Legion Builds.

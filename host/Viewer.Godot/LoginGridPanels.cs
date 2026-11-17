@@ -242,6 +242,9 @@ public partial class GridManagePanel : LoginOverlay
     /// <summary>Raised when the list changed (a grid refreshed, edited or removed) and when the panel closes.</summary>
     public event Action? Changed;
 
+    /// <summary>Raised with a grid taken off the list (its pinned certificates are forgotten).</summary>
+    public event Action<GridEntry>? Removed;
+
     public GridManagePanel(StringTable strings, GridList grids, Func<GridEntry, Task<GridLookupResult>> refresh, Action<GridEntry> edit)
         : base("grid_manage", strings.Get("grid.manage.title"), 460)
     {
@@ -276,6 +279,7 @@ public partial class GridManagePanel : LoginOverlay
             if (Chosen() is not { } e)
                 return;
             _grids.Remove(e.Key);
+            Removed?.Invoke(e);
             Fill();
             Changed?.Invoke();
         };

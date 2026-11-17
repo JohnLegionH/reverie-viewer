@@ -132,6 +132,12 @@ public static class LoginDialogs
             s.Get("login.cert.unknown_authority") + "\n\n" + s.Get("login.cert.pinned") + "\n" + s.Get("login.cert.trust_question"),
             CertificateFields(s, c), "", null, null, null, s.Get("login.button.trust"), s.Get("login.button.cancel"));
 
+    /// <summary>A certificate that differs from the one the person trusted for this server: refused, with its facts, one OK button and
+    /// no way to trust it.</summary>
+    public static LoginDialog CertificateChanged(StringTable s, CertificateRefusal c) =>
+        new(LoginDialogKind.CertificateError, s.Get("login.cert.title.error"), s.Get("login.cert.cannot_connect") + "\n" + s.Get("login.cert.changed"),
+            CertificateFields(s, c), "", null, null, null, s.Get("login.button.ok"), null);
+
     /// <summary>Any other certificate problem: the reason and, when the certificate could be read, its facts; one OK button and no way to trust it.</summary>
     public static LoginDialog CertificateError(StringTable s, CertificateRefusal c)
     {

@@ -42,5 +42,5 @@ public static class LoginScreenSpec
 
     /// <summary>The space the password field keeps on its right for its text: the button, its inset and the field's own padding, so
     /// typed text (or its dots) stops before the button and scrolls, and the button never covers it.</summary>
-    public static int PasswordTextRightMargin(int fieldPadding) => fieldPadding;
+    public static int PasswordTextRightMargin(int fieldPadding) => RevealButtonWidth + RevealButtonInset + fieldPadding;
 }

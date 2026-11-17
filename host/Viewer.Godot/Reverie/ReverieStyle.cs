@@ -12,7 +12,7 @@ namespace Viewer.Godot;
 /// The Reverie components' looks, as type variations of the one engine theme (added by <see cref="ShellTheme.Build"/>): every
 /// colour, radius and size comes from the design tokens (<see cref="ReverieTheme"/>), for the variant whose bar the current tokens
 /// carry and with their accent. States: hover is the selected surface at 60 %, pressed and open the selected surface, keyboard focus
-/// a 2-pixel accent outline 2 pixels outside the control (never removed), disabled 45 % opacity with no hover.
+/// a 2-pixel accent outline 2 pixels outside the control (never removed), disabled at the one disabled strength (<see cref="ControlStates"/>, 45 %) with no hover.
 /// </summary>
 public static class ReverieStyle
 {
@@ -159,7 +159,7 @@ public static class ReverieStyle
         theme.SetStylebox("separator", Popup, line);
         theme.SetColor("font_color", Popup, C(r["text.primary"]));
         theme.SetColor("font_hover_color", Popup, C(r["text.strong"]));
-        theme.SetColor("font_disabled_color", Popup, A(r["text.primary"], 0.45f));
+        theme.SetColor("font_disabled_color", Popup, C(ControlStates.Faded(r["text.primary"])));
         theme.SetColor("font_accelerator_color", Popup, C(r["text.muted"]));
         theme.SetColor("font_separator_color", Popup, C(r["text.muted"]));
         theme.SetConstant("icon_max_width", Popup, Px(ReverieTheme.IconSmall));
@@ -176,7 +176,7 @@ public static class ReverieStyle
         theme.SetStylebox("focus", Slider, FocusRing(r, 3));
         theme.SetIcon("grabber", Slider, Knob(C(r["text.strong"]), C(r["border.strong"]), ReverieTheme.SwitchKnob));
         theme.SetIcon("grabber_highlight", Slider, Knob(C(r["text.strong"]), C(r.Accent), ReverieTheme.SwitchKnob));
-        theme.SetIcon("grabber_disabled", Slider, Knob(A(r["text.strong"], 0.45f), C(r["border.strong"]), ReverieTheme.SwitchKnob));
+        theme.SetIcon("grabber_disabled", Slider, Knob(C(ControlStates.Faded(r["text.strong"])), C(r["border.strong"]), ReverieTheme.SwitchKnob));
 
         // the colours the self-drawn switch and stepper read
         theme.SetColor("on", Switch, C(r.Accent));
@@ -228,17 +228,17 @@ public static class ReverieStyle
         theme.SetStylebox("pressed", name, Face(pressed, border, borderWidth, radius, marginH, marginV));
         theme.SetStylebox("hover_pressed", name, Face(pressed, border, borderWidth, radius, marginH, marginV));
         var faded = normal;
-        faded.A *= 0.45f;
+        faded.A *= ControlStates.DisabledStrength;
         var fadedBorder = border;
-        fadedBorder.A *= 0.45f;
+        fadedBorder.A *= ControlStates.DisabledStrength;
         theme.SetStylebox("disabled", name, Face(faded, fadedBorder, borderWidth, radius, marginH, marginV));
         theme.SetStylebox("focus", name, FocusRing(r, radius));
         var c = C(text);
         foreach (var colour in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color",
                      "icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color" })
             theme.SetColor(colour, name, c);
-        theme.SetColor("font_disabled_color", name, new Color(c.R, c.G, c.B, 0.45f));
-        theme.SetColor("icon_disabled_color", name, new Color(c.R, c.G, c.B, 0.45f));
+        theme.SetColor("font_disabled_color", name, C(ControlStates.Faded(text)));
+        theme.SetColor("icon_disabled_color", name, C(ControlStates.Faded(text)));
         theme.SetFontSize("font_size", name, Px(size));
         theme.SetConstant("icon_max_width", name, Px(ReverieTheme.IconSmall));
         theme.SetConstant("h_separation", name, 6);

@@ -107,7 +107,7 @@ public partial class RvSwitch : Control
     public bool Disabled
     {
         get => _disabled;
-        set { _disabled = value; Modulate = Modulate with { A = value ? 0.45f : 1f }; FocusMode = value ? FocusModeEnum.None : FocusModeEnum.All; }
+        set { _disabled = value; Modulate = Modulate with { A = value ? ControlStates.DisabledStrength : 1f }; FocusMode = value ? FocusModeEnum.None : FocusModeEnum.All; }
     }
 
     private bool _disabled;

@@ -173,21 +173,28 @@ public partial class LoginScreen : Control
         nameRow.AddChild(_savedNames);
         box.AddChild(nameRow);
 
-        // Password, with show/hide inside the field
+        // Password, with show/hide inside the field: the field's text stops before the button and scrolls (the theme's password
+        // field keeps the button's width free on its right), so the button never covers it
         Field(Spec("password"));
-        _password = Register(new LineEdit { Secret = true, SizeFlagsHorizontal = SizeFlags.ExpandFill }, Spec("password"));
-        _reveal = new Button { Name = "reveal", Text = strings.Get("login.password.show.short"), Flat = true, FocusMode = FocusModeEnum.All, ThemeTypeVariation = ReverieStyle.Caption };
+        _password = Register(new LineEdit { Secret = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, ThemeTypeVariation = UiTheme.PasswordField }, Spec("password"));
+        _reveal = new Button
+        {
+            Name = "reveal", Icon = ReverieIcons.Get(LucideIcons.Show), IconAlignment = HorizontalAlignment.Center, FocusMode = FocusModeEnum.All,
+            ThemeTypeVariation = ReverieStyle.IconButton, TooltipText = strings.Get("login.password.show"),
+            CustomMinimumSize = new Vector2(LoginScreenSpec.RevealButtonWidth, 0),
+        };
         _reveal.AccessibilityName = strings.Get("login.password.show");
         _reveal.SetAnchorsPreset(LayoutPreset.RightWide);
         _reveal.GrowHorizontal = GrowDirection.Begin;
-        _reveal.OffsetRight = -4;
+        _reveal.OffsetLeft = -LoginScreenSpec.RevealButtonInset - LoginScreenSpec.RevealButtonWidth;
+        _reveal.OffsetRight = -LoginScreenSpec.RevealButtonInset;
         _password.AddChild(_reveal);
         ById["reveal"] = _reveal;
         _reveal.Pressed += () =>
         {
             _password.Secret = !_password.Secret;
-            _reveal.Text = strings.Get(_password.Secret ? "login.password.show.short" : "login.password.hide.short");
-            _reveal.AccessibilityName = strings.Get(_password.Secret ? "login.password.show" : "login.password.hide");
+            _reveal.Icon = ReverieIcons.Get(_password.Secret ? LucideIcons.Show : LucideIcons.Hide);
+            _reveal.TooltipText = _reveal.AccessibilityName = strings.Get(_password.Secret ? "login.password.show" : "login.password.hide");
         };
         box.AddChild(_password);
 
@@ -256,7 +263,7 @@ public partial class LoginScreen : Control
         corner.GrowHorizontal = GrowDirection.Begin; corner.GrowVertical = GrowDirection.Begin;
         var prefs = new Button { Name = "preferences", Icon = IconCache.Get(UiIcons.Preferences, 18), ThemeTypeVariation = ReverieStyle.IconButton, TooltipText = strings.Get("login.preferences"), CustomMinimumSize = new Vector2(32, 32) };
         prefs.AccessibilityName = prefs.TooltipText;
-        var help = new Button { Name = "help", Text = strings.Get("login.help.mark"), ThemeTypeVariation = ReverieStyle.IconButton, TooltipText = strings.Get("login.help"), CustomMinimumSize = new Vector2(32, 32) };
+        var help = new Button { Name = "help", Icon = ReverieIcons.Get(LucideIcons.Help, 18), IconAlignment = HorizontalAlignment.Center, ThemeTypeVariation = ReverieStyle.IconButton, TooltipText = strings.Get("login.help"), CustomMinimumSize = new Vector2(32, 32) };
         help.AccessibilityName = help.TooltipText;
         corner.AddChild(prefs);
         corner.AddChild(help);
@@ -446,6 +453,7 @@ public partial class LoginScreen : Control
                 AddChild(edit);
             });
         panel.Changed += () => { FillGrids(); GridChanged(); };
+        panel.Removed += entry => _model?.ForgetGridCertificates(entry.Address);
         panel.TreeExiting += () => { if (_overlay == panel) _overlay = null; };
         ShowOverlay(panel);
     }

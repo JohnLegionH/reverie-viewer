@@ -378,15 +378,14 @@ public partial class NotificationListPanel : VBoxContainer
         var earlier = model.History.TakeLast(10).Reverse().ToArray();
         if (earlier.Length == 0)
             return;
-        var heading = new Label { Name = "earlier", Text = _strings.Get("notifications.earlier") };
-        heading.AddThemeColorOverride("font_color", ShellTheme.C(_theme.MutedText));
+        var heading = new Label { Name = "earlier", Text = _strings.Get("notifications.earlier"), ThemeTypeVariation = UiTheme.MutedLabel };
         Rows.AddChild(heading);
         foreach (var n in earlier)
         {
             string text = NotificationView.Words(n.Title, _strings) is { Length: > 0 } t ? t + ": " + NotificationView.Words(n.Body, _strings) : NotificationView.Words(n.Body, _strings);
             var line = new Label { Name = "earlier_line", Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(240, 0) };
             line.AccessibilityName = text;
-            line.AddThemeColorOverride("font_color", ShellTheme.C(_theme.MutedText));
+            line.ThemeTypeVariation = UiTheme.MutedLabel;
             Rows.AddChild(line);
         }
     }
