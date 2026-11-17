@@ -241,6 +241,10 @@ Check "4 Build > Scripts > Recompile Scripts (Mono): the official lines, 1 done 
 [void](ClickUi "queue_close")
 
 # ---- 5. Properties on the script's row: creator and owner by name ----
+# the script's window (saved, so it closes without a question) is closed by its own close button first, as it stands over the Build window
+$sc = (Edit @{ action = "floater_title"; text = "script.1:close" }).done
+if ($sc) { ClickAt ([double]$sc[0]) ([double]$sc[1]); Start-Sleep -Milliseconds 500 }
+NoFocus
 $row = Row "New Script"
 if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
 [void](ClickCtl "content_properties")

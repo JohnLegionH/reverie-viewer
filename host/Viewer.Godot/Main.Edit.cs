@@ -476,13 +476,17 @@ public partial class Main
             // the Contents list is scrolled into the Build window's view first, so the row's point is on screen
             case "content_row": _editPanel.ScrollTo("contents"); done = ListRow(_editPanel.ContentTab.List as ItemList, text); break;
             // a point on a window's title bar by the window's id (a third of the way along, clear of its buttons), to drag it as a person would
+            // ("<id>:close" is its close button instead)
             case "floater_title":
-                if (_shell is not null && _shell.Frames.TryGetValue(text ?? "", out var frame) && frame.IsVisibleInTree())
+            {
+                var parts = (text ?? "").Split(':', 2);
+                if (_shell is not null && _shell.Frames.TryGetValue(parts[0], out var frame) && frame.IsVisibleInTree())
                 {
-                    var tr = frame.TitleBar.GetGlobalRect();
-                    done = new[] { tr.Position.X + tr.Size.X / 3, tr.Position.Y + tr.Size.Y / 2 };
+                    var tr = parts.Length == 2 && parts[1] == "close" ? frame.CloseButton.GetGlobalRect() : frame.TitleBar.GetGlobalRect();
+                    done = parts.Length == 2 ? new[] { tr.GetCenter().X, tr.GetCenter().Y } : new[] { tr.Position.X + tr.Size.X / 3, tr.Position.Y + tr.Size.Y / 2 };
                 }
                 break;
+            }
             case "folder_row": done = TakeFolderOpen ? ListRow(_takeFolder!.List, text) : null; break;
             case "picker_row":
                 if (_editPanel.TextureTab.Picker is { } pr && int.TryParse(text, out int row) && row >= 0 && row < pr.List.ItemCount)
