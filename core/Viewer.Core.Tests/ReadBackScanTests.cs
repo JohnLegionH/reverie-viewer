@@ -39,9 +39,9 @@ public class ReadBackScanTests
     [Fact]
     public void A_viewports_texture_is_read_once_and_kept()
     {
-        // Rig (the harness's stage), the automation host's screenshot, the glow pass, the sky probe's capture and the proportions case's window picture (one read for each viewport they make) keep theirs; nothing chains GetTexture().GetImage()
+        // Rig (the harness's stage), the automation host's screenshot, the glow pass, the sky probe's capture, the proportions case's window picture and the colour picker's Pick (one read for each viewport they make) keep theirs; nothing chains GetTexture().GetImage()
         Assert.Empty(Hits(@"GetTexture\(\)\.GetImage\(\)"));
-        Assert.Equal(6, Hits(@"\bGetTexture\(\)").Where(h => !h.StartsWith("Main.FrameBurst.cs:")).Count());
+        Assert.Equal(7, Hits(@"\bGetTexture\(\)").Where(h => !h.StartsWith("Main.FrameBurst.cs:")).Count());
     }
 
     [Fact]

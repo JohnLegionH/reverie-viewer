@@ -80,7 +80,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
     public Control? ControlFor(string key) => _views.Values.Select(v => v.ControlFor(key)).FirstOrDefault(c => c is not null);
 
     private readonly Dictionary<string, Button> _cards = new();
-    private readonly Dictionary<string, ColorPickerButton> _pickers = new();
+    private readonly Dictionary<string, ColourButton> _pickers = new();
     private readonly List<(Label Name, Label Ratio, Label Verdict)> _rows = new();
     private readonly Label _message;
     private readonly HSlider _scale;
@@ -98,7 +98,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
     private readonly Label _scaleValue;
     private readonly CheckBox _gridAccent;
     private readonly Label _gridNote;
-    private readonly ColorPickerButton _customAccent;
+    private readonly ColourButton _customAccent;
     private readonly HBoxContainer _confirm;
     private readonly FileDialog _import;
     private readonly FileDialog _export;
@@ -199,7 +199,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
             swatch.Pressed += () => _page.SetAccent(chosen);
             accents.AddChild(swatch);
         }
-        _customAccent = new ColorPickerButton { Name = "accent_custom", CustomMinimumSize = new Vector2(48, 28), EditAlpha = false };
+        _customAccent = new ColourButton { Name = "accent_custom", CustomMinimumSize = new Vector2(48, 28) };
         _customAccent.AccessibilityName = strings.Get("prefs.accent.custom");
         _customAccent.ColorChanged += c => { if (!_syncing) _page.SetAccent(Pick(c)); };
         accents.AddChild(_customAccent);
@@ -627,7 +627,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         string text = _strings.Get(labelKey);
         var label = new Label { Name = "label_" + key, Text = text, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         label.AccessibilityName = text;
-        var picker = new ColorPickerButton { Name = "pick_" + key, CustomMinimumSize = new Vector2(96, 28), EditAlpha = false };
+        var picker = new ColourButton { Name = "pick_" + key, CustomMinimumSize = new Vector2(96, 28) };
         picker.AccessibilityName = text;
         picker.ColorChanged += c => { if (!_syncing) set(Pick(c)); };
         _pickers[key] = picker;

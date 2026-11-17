@@ -302,6 +302,7 @@ public class CommandListTests
         Assert.Equal("control|shift|K", ViewerShortcuts.CommandList);
         Assert.Contains(ViewerShortcuts.NotBuilt, s => s.Shortcut == "control|K" && s.Feature == "Camera controls");
         Assert.DoesNotContain(ViewerShortcuts.ByEntry.Values, s => s == "control|shift|K");
+        Assert.DoesNotContain(ViewerShortcuts.FromOtherViewers.Values, s => s.Shortcut == "control|shift|K");
         Assert.DoesNotContain(ViewerShortcuts.NotBuilt, s => s.Shortcut == "control|shift|K");
         Assert.Equal(new KeyChord("K", Control: true, Shift: true), KeyChord.Parse(ViewerShortcuts.CommandList));
     }

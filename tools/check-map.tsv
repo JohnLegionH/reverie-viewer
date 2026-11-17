@@ -38,7 +38,7 @@
 ^host/Viewer\.Godot/Main\.cs$	mainsample
 ^host/Viewer\.Shell/(PresentationCoordinator|PresentationPolicy|DisplayPlan|RenderFloor|FrameBudget|FrameClock|DeferredDisposals|LiveRidLedger|StagedHandOver|NearestFirstSet|UnitCostModel|SliceStats|ImageDiff|CameraDefaults|FollowCamera|DrawDistanceView|BackendChoice|BackendRelaunch|BackendStatus|DeviceProbe|NativeMemory|EngineLogRoute)\.cs$	full
 # The interface: the theme and the frame are shared by every window, so they run every interface case.
-^host/Viewer\.Godot/(ShellTheme|ShellRoot|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
+^host/Viewer\.Godot/(ShellTheme|ColourPickerWindow|ShellRoot|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
 ^host/Viewer\.Godot/Reverie/	ui
 ^host/Viewer\.Godot/[A-Za-z]*(Panels?|Pages|Tab|View|Overlay)\.cs$	ui
 ^host/Viewer\.Godot/Main\.(Prefs|Chat|Notifications|Names|Notecards|Addons|Sounds|WorldSounds|ViewChecks|Aim|FrameBurst|FrameTime|LookProbe|MovingProbe|MeshProbe|AvatarProbe|WornTrace|CrossingFrames|HandoffFrames|LoginDump|InventoryMoveCheck|InventoryPointerCheck|TexturePreview)\.cs$	ui,smoke

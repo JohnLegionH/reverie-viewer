@@ -116,4 +116,16 @@ public class ShortcutAndMenuToggleTests
         Assert.False(t.HoverOpens("me"));
         Assert.False(t.HoverOpens("help"));
     }
+
+    [Fact]
+    public void Ctrl_O_for_Outfits_is_labelled_as_Firestorm_s_not_the_official_viewer_s()
+    {
+        // the official viewer's Ctrl+O is Avatar > Now wearing... (menu_viewer.xml NowWearing); Firestorm puts Avatar > Outfits on it
+        Assert.False(ViewerShortcuts.ByEntry.ContainsKey("content.outfits"));
+        Assert.DoesNotContain("control|O", ViewerShortcuts.ByEntry.Values);
+        Assert.Equal("Firestorm", ViewerShortcuts.SourceOf("content.outfits"));
+        Assert.Equal("official", ViewerShortcuts.SourceOf("content.inventory"));
+        // the binding itself is kept
+        Assert.Equal("control|O", ViewerShortcuts.WithOfficial(new MenuEntry("content.outfits", "menu.outfits", "content.outfits")).Shortcut);
+    }
 }

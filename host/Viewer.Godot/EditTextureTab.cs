@@ -27,8 +27,7 @@ public sealed class EditTextureTab
     private readonly Func<InventoryModel?> _inventory;
     private readonly Control _owner;
     private readonly Label _texture, _material;
-    private readonly Button _colour;
-    private readonly ColorPickerButton _swatch;
+    private readonly ColourButton _colour;
     private readonly SpinBox _transparency, _glow, _scaleU, _scaleV, _perMetre, _rotation, _offsetU, _offsetV;
     private readonly SpinBox _pbrScaleU, _pbrScaleV, _pbrOffsetU, _pbrOffsetV, _pbrRotation;
     private readonly CheckBox _fullbright;
@@ -54,14 +53,11 @@ public sealed class EditTextureTab
         page.AddChild(texRow);
 
         page.AddChild(new Label { Name = "colour_label", Text = strings.Get("edit.tex.colour") });
-        // the face's colour as a swatch; a press opens the colour picker window (which stays open), not the engine's own popup (which
-        // closes on a click elsewhere): the swatch takes no input, and a button that draws nothing lies over it
-        _colour = new Button { Name = "colour", Flat = true, CustomMinimumSize = new Vector2(64, 24) };
+        // the face's colour as a swatch; a press opens the shared colour picker window (which stays open while the person clicks
+        // elsewhere). Its changes go to the selected faces, and Cancel puts back each face's own colour (the official selectionRevertColors)
+        _colour = new ColourButton { Name = "colour", TitleKey = "edit.picker.colour.title", TooltipText = strings.Get("colour.swatch.tip") };
         _colour.AccessibilityName = strings.Get("edit.tex.colour");
-        _swatch = new ColorPickerButton { Name = "colour_swatch", EditAlpha = false, MouseFilter = Control.MouseFilterEnum.Ignore, FocusMode = Control.FocusModeEnum.None };
-        _swatch.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        _colour.AddChild(_swatch);
-        _colour.Pressed += () => _pickers?.OpenColour(_swatch.Color);
+        _colour.Request = FaceColourRequest;
         page.AddChild(_colour);
         _transparency = Spin(page, "transparency", "edit.tex.transparency", 0, 100, 1, v => new FaceChange(Transparency: (float)v));
         _glow = Spin(page, "glow", "edit.tex.glow", 0, 1, 0.01, v => new FaceChange(Glow: (float)v));
@@ -81,7 +77,7 @@ public sealed class EditTextureTab
         _scaleV = Spin(page, "scale_v", "edit.tex.scale_v", -100, 100, 0.01, v => new FaceChange(RepeatV: (float)v));
         _perMetre = Spin(page, "per_metre", "edit.tex.per_metre", 0, 100, 0.01, null);
         _perMetre.ValueChanged += v => { if (!_filling) _edit()?.SetRepeatsPerMetre((float)v); };
-        _rotation = Spin(page, "rotation", "edit.tex.rotation", -360, 360, 0.1, v => new FaceChange(RotationDegrees: (float)v));
+        _rotation = Spin(page, "texture_rotation", "edit.tex.rotation", -360, 360, 0.1, v => new FaceChange(RotationDegrees: (float)v));
         _offsetU = Spin(page, "offset_u", "edit.tex.offset_u", -1, 1, 0.001, v => new FaceChange(OffsetU: (float)v));
         _offsetV = Spin(page, "offset_v", "edit.tex.offset_v", -1, 1, 0.001, v => new FaceChange(OffsetV: (float)v));
 
@@ -144,6 +140,24 @@ public sealed class EditTextureTab
             (float)(_pbrRotation.Value * Math.PI / 180.0)));
     }
 
+    /// <summary>The colour picker's request for the selected faces: each change goes to them all, and Cancel puts back each face's own
+    /// colour as it was when the picker opened.</summary>
+    private ColourRequest? FaceColourRequest()
+    {
+        if (_edit() is not { } e)
+            return null;
+        var saved = e.SaveFacePicks();
+        return new ColourRequest("edit.picker.colour.title", ColourPickerWindow.ToUi(_colour.Color), false,
+            c => _edit()?.EditFaces(new FaceChange(Colour: new System.Numerics.Vector3(c.R, c.G, c.B))),
+            _ => _edit()?.RevertColours(saved));
+    }
+
+    /// <summary>The shown face's texture, by name where the inventory has it.</summary>
+    public string TextureName => _texture.Text;
+
+    /// <summary>The face colour's swatch (it opens the shared colour picker).</summary>
+    public ColourButton Colour => _colour;
+
     /// <summary>Gives the tab its picker windows (a shell to put them in); without them the choose buttons and the swatch do nothing.</summary>
     public void AttachPickers(ShellRoot shell) => _pickers ??= new FacePickerWindows(_s, shell, _edit);
 
@@ -172,7 +186,7 @@ public sealed class EditTextureTab
             _texture.Text = f is { } face ? NameOf(face.TextureId) : "";
             if (f is { } shown)
             {
-                _swatch.Color = ShellTheme.DataColour(shown.Colour.R, shown.Colour.G, shown.Colour.B);   // the face's own colour, not a theme colour
+                _colour.Color = ShellTheme.DataColour(shown.Colour.R, shown.Colour.G, shown.Colour.B);   // the face's own colour, not a theme colour
                 Set(_transparency, Math.Round((1 - shown.Colour.A) * 100));
                 Set(_glow, shown.Glow);
                 _fullbright.SetPressedNoSignal(shown.Fullbright);
@@ -190,7 +204,6 @@ public sealed class EditTextureTab
             _fullbright.Disabled = !editable;
             _mapping.Disabled = !editable;
             _colour.Disabled = !editable;
-            _swatch.Disabled = !editable;
             _paste.Disabled = !(e?.CanPasteFaces ?? false) || !editable;
             Guid material = e?.ShownMaterial ?? Guid.Empty;
             _material.Text = material == Guid.Empty ? _s.Get("edit.tex.material.none") : NameOf(material);
@@ -359,7 +372,7 @@ public partial class InventoryPickPopup : PopupPanel
 }
 
 /// <summary>
-/// The Build window's texture (or material) picker and colour picker, each a window of its own with a title bar and a close button, as the
+/// The Build window's texture (or material) picker, and its link to the shared colour picker (<see cref="ColourPickerWindow"/>), each a window of its own with a title bar and a close button, as the
 /// official LLFloaterTexturePicker and LLFloaterColorPicker are (floater_texture_ctrl.xml 1-13, floater_color_picker.xml 1-9): they stay
 /// open while the person clicks elsewhere. A choice is applied as it is made (the official Apply now, on by default: TextureLivePreview
 /// and ApplyColorImmediately, settings.xml 228-248); OK keeps it and closes (lltexturectrl.cpp 1060-1068, llfloatercolorpicker.cpp
@@ -369,19 +382,18 @@ public partial class InventoryPickPopup : PopupPanel
 public sealed class FacePickerWindows
 {
     public const string ItemPickerId = "edit_item_picker";
-    public const string ColourPickerId = "edit_colour_picker";
+    public const string ColourPickerId = ColourPickerWindow.FloaterId;
 
     private readonly StringTable _s;
     private readonly ShellRoot _shell;
     private readonly Func<EditController?> _edit;
     private readonly InventoryPickPanel _items;
-    private readonly ColorPicker _colours;
+    private readonly ColourPickerWindow _colours;
     private PickSession<Guid>? _itemSession;
-    private PickSession<Color>? _colourSession;
     private ItemKind _itemKind;
 
     public InventoryPickPanel Items => _items;
-    public ColorPicker Colours => _colours;
+    public ColourPickerWindow Colours => _colours;
 
     public FacePickerWindows(StringTable strings, ShellRoot shell, Func<EditController?> edit)
     {
@@ -397,29 +409,18 @@ public sealed class FacePickerWindows
         itemBox.AddChild(Buttons("pick", () => EndItems(keep: true), () => EndItems(keep: false)));
         shell.AddFloater(new FloaterSpec(ItemPickerId, "edit.picker.texture.title", new UiSize(380, 480), new UiSize(320, 360)), itemBox);
 
-        var colourBox = new VBoxContainer { Name = "colour_picker" };
-        // the engine's presets and its screen sampler are left out, so the picker itself needs less room
-        _colours = new ColorPicker
-        {
-            Name = "colour_picker_control", EditAlpha = false, PresetsVisible = false, SamplerVisible = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-        };
-        _colours.ColorChanged += c => _colourSession?.Choose(c);
-        colourBox.AddChild(_colours);
-        // OK and Cancel sit under the scrolled picker, on the window itself: in view at any window size, even when the picker scrolls
-        shell.AddFloater(new FloaterSpec(ColourPickerId, "edit.picker.colour.title", new UiSize(340, 560), new UiSize(300, 460)), colourBox,
-            Buttons("colour", () => EndColour(keep: true), () => EndColour(keep: false)));
+        _colours = ColourPickerWindow.Install(shell);
 
         shell.Shell.Floaters.Closed += id =>
         {
             if (id == ItemPickerId)
                 _itemSession?.Closed();
-            else if (id == ColourPickerId)
-                _colourSession?.Closed();
             else if (id == EditPanel.FloaterId)
             {
                 // the pickers belong to the Build window: they close with it, putting back what was not kept
                 _shell.Shell.Floaters.Close(ItemPickerId);
-                _shell.Shell.Floaters.Close(ColourPickerId);
+                foreach (var panel in _shell.FindChildren("edit_panel", "", true, false))
+                    _colours.CloseIfFrom(panel);
             }
         };
     }
@@ -441,8 +442,8 @@ public sealed class FacePickerWindows
     /// <summary>True while the texture (or material) picker is open.</summary>
     public bool ItemsOpen => _shell.Shell.Floaters.IsOpen(ItemPickerId);
 
-    /// <summary>True while the colour picker is open.</summary>
-    public bool ColoursOpen => _shell.Shell.Floaters.IsOpen(ColourPickerId);
+    /// <summary>True while the shared colour picker is open.</summary>
+    public bool ColoursOpen => _colours.IsOpen;
 
     /// <summary>Opens the picker for textures or materials. Open already for the same kind, it comes to the front; for the other kind,
     /// the open one ends as a close does (what it applied is put back) and the new one opens.</summary>
@@ -466,32 +467,10 @@ public sealed class FacePickerWindows
         _shell.Shell.Floaters.Open(ItemPickerId);
     }
 
-    /// <summary>Opens the colour picker at <paramref name="current"/>; open already, it comes to the front.</summary>
-    public void OpenColour(Color current)
-    {
-        if (_edit() is not { } e)
-            return;
-        if (ColoursOpen && _colourSession is { Ended: false })
-        {
-            _shell.Shell.Floaters.Focus(ColourPickerId);
-            return;
-        }
-        var saved = e.SaveFacePicks();
-        _colourSession = new PickSession<Color>(c => _edit()?.EditFaces(new FaceChange(Colour: new System.Numerics.Vector3(c.R, c.G, c.B))),
-            () => _edit()?.RevertColours(saved));
-        _colours.Color = current;   // setting it raises no change
-        _shell.Shell.Floaters.Open(ColourPickerId);
-    }
-
     private void EndItems(bool keep)
     {
         if (keep) _itemSession?.Ok(); else _itemSession?.Cancel();
         _shell.Shell.Floaters.Close(ItemPickerId);
     }
 
-    private void EndColour(bool keep)
-    {
-        if (keep) _colourSession?.Ok(); else _colourSession?.Cancel();
-        _shell.Shell.Floaters.Close(ColourPickerId);
-    }
 }

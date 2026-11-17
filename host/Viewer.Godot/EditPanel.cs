@@ -14,30 +14,42 @@ using Viewer.Shell.Build;
 namespace Viewer.Godot;
 
 /// <summary>
-/// The Build window: the tools (Focus, Move, Edit, Create), Edit linked, the grid and stretch ticks, Link and Unlink, and the General and
-/// Object tabs of the selected object, laid out after the official build floater (floater_tools.xml, read as behaviour). It only shows what
-/// <see cref="EditController"/> holds and hands every change to it. Standard controls styled through the Theme alone. Main thread only.
+/// The Build window, one column top to bottom: a settings search; the tools as one segmented row (Focus, Grab, Edit, Create, Land); the
+/// Edit modes as a second row (Move, Rotate, Stretch, Face) with Undo and Redo beside it; a hint line saying what the tool does and what
+/// Ctrl and Ctrl+Shift change; a card naming the selection; and collapsible sections (Placement, Shape, Look, Object, Behaviour,
+/// Contents) that each show a one-line summary while closed and are remembered open or closed. The controls and their behaviour are the
+/// official build floater's (floater_tools.xml, read as behaviour), as before; only the layout changed. What the layout decides (rows,
+/// summaries, the hint, the search, the remembered sections) is in <see cref="BuildLayout"/>, tested without the engine. It only shows what
+/// <see cref="EditController"/> holds and hands every change to it. Main thread only.
 /// </summary>
 public partial class EditPanel : VBoxContainer
 {
     public const string FloaterId = "build";
 
+    private sealed record SectionParts(BuildSection Id, Button Header, Label Summary, VBoxContainer Body);
+
     private readonly StringTable _s;
     private readonly Func<EditController?> _edit;
     private readonly Dictionary<BuildTool, Button> _tools = new();
-    private readonly Dictionary<ManipMode, CheckBox> _manips = new();
+    private readonly Dictionary<ManipMode, Button> _manips = new();
     private readonly HBoxContainer _manipRow;
+    private readonly PanelContainer _manipTrack;
+    private readonly Button _faceMode, _undo, _redo;
     private readonly CheckBox _linked, _snap, _both, _stretchTex, _ownedOnly;
-    private readonly Label _status;
+    private readonly Label _status, _hint, _cardName, _cardPicked, _cardOwner, _searchStatus;
+    private readonly LineEdit _search;
+    private readonly Dictionary<BuildSection, SectionParts> _sections = new();
+    private readonly BuildSectionMemory _memory;
+    private readonly HashSet<Control> _hiddenBySearch = new();
+    private bool _ctrlHeld, _shiftHeld;
     public Button Link { get; }
     public Button Unlink { get; }
-    public TabContainer Tabs { get; }
 
-    // General
+    // Object (the official General tab)
     private readonly LineEdit _name, _desc;
     private readonly Label _creator, _owner, _sale;
     private readonly CheckBox _shareGroup, _anyMove, _anyCopy, _nextModify, _nextCopy, _nextTransfer;
-    // Object
+    // Placement and Shape (the official Object tab)
     private readonly SpinBox[] _pos = new SpinBox[3], _size = new SpinBox[3], _rot = new SpinBox[3];
     private readonly CheckBox _locked, _physical, _temporary, _phantom;
     private readonly OptionButton _type, _hole;
@@ -47,9 +59,8 @@ public partial class EditPanel : VBoxContainer
     public string? LastRefusal { get; private set; }
 
     private readonly EditTextureTab _textureTab;
-    private CheckBox _faceMode = null!;
-    private HBoxContainer _createRow = null!;
-    private CheckBox _keepTool = null!;
+    private readonly HBoxContainer _createRow;
+    private readonly CheckBox _keepTool;
     /// <summary>Raised when Keep Tool selected is ticked or cleared (the viewer remembers it).</summary>
     public event Action<bool>? KeepToolChanged;
     private readonly Dictionary<ObjectClip, Button> _pasteButtons = new();
@@ -60,44 +71,80 @@ public partial class EditPanel : VBoxContainer
     public EditFeaturesTab FeaturesTab => _featuresTab;
     public EditContentTab ContentTab => _contentTab;
 
-    public EditPanel(StringTable strings, Func<EditController?> edit, Func<Viewer.Core.Inventory.InventoryModel?>? inventory = null)
+    public EditPanel(StringTable strings, Func<EditController?> edit, Func<Viewer.Core.Inventory.InventoryModel?>? inventory = null, SettingsService? settings = null)
     {
         _s = strings;
         _edit = edit;
+        _memory = new BuildSectionMemory(settings ?? new SettingsService(null));
         Name = "edit_panel";
         SizeFlagsVertical = SizeFlags.ExpandFill;
+        AddThemeConstantOverride("separation", 6);
 
-        var tools = new HBoxContainer { Name = "tools" };
-        var group = new ButtonGroup();
-        foreach (var (tool, key) in new[] { (BuildTool.Focus, "edit.tool.focus"), (BuildTool.Move, "edit.tool.move"), (BuildTool.Edit, "edit.tool.edit"), (BuildTool.Create, "edit.tool.create") })
+        // ---------------- the settings search ----------------
+        _search = new LineEdit
         {
-            // each tool's tooltip names it with its shortcut (the Build menu's Ctrl+1 to Ctrl+4)
-            var b = new Button { Name = "tool_" + tool.ToString().ToLowerInvariant(), Text = strings.Get(key), ToggleMode = true, ButtonGroup = group, TooltipText = strings.Get(key + ".tip") };
+            Name = "build_search", PlaceholderText = strings.Get("edit.search"), TooltipText = strings.Get("edit.search.tip"), ClearButtonEnabled = true,
+            RightIcon = ReverieIcons.Get(LucideIcons.Search),
+        };
+        _search.AccessibilityName = strings.Get("edit.search");
+        _search.TextChanged += ApplySearch;
+        AddChild(_search);
+        _searchStatus = new Label { Name = "search_status", Visible = false, AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = ReverieStyle.Caption };
+        AddChild(_searchStatus);
+
+        // ---------------- the tools: one segmented row ----------------
+        var toolTrack = new PanelContainer { Name = "tools_track", ThemeTypeVariation = ReverieStyle.Track };
+        var tools = new HBoxContainer { Name = "tools" };
+        tools.AddThemeConstantOverride("separation", 2);
+        foreach (var (tool, key) in new[] { (BuildTool.Focus, "edit.tool.focus"), (BuildTool.Move, "edit.tool.move"), (BuildTool.Edit, "edit.tool.edit"),
+                     (BuildTool.Create, "edit.tool.create"), (BuildTool.Land, "edit.tool.land") })
+        {
+            // each tool's tooltip names it with its shortcut (the Build menu's Ctrl+1 to Ctrl+5)
+            var b = new Button
+            {
+                Name = "tool_" + tool.ToString().ToLowerInvariant(), Text = strings.Get(key), ToggleMode = true, TooltipText = strings.Get(key + ".tip"),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill, ThemeTypeVariation = ReverieStyle.Segment,
+            };
             b.AccessibilityName = b.Text;
             b.Pressed += () => ToolChosen?.Invoke(tool);
+            // the land tools are not built yet: the segment is shown, as in the official floater, and says so
+            b.Disabled = tool == BuildTool.Land;
             tools.AddChild(b);
             _tools[tool] = b;
         }
-        AddChild(tools);
+        toolTrack.AddChild(tools);
+        AddChild(toolTrack);
 
-        // Move, Rotate or Stretch: which handles the Edit and Move tools show (floater_tools.xml's radio group; Ctrl and Ctrl+Shift switch while held)
+        // ---------------- the Edit modes, with Undo and Redo beside them ----------------
+        // Move, Rotate, Stretch or Face: which handles the Edit and Grab tools show (floater_tools.xml's radio group; Ctrl and Ctrl+Shift
+        // switch while held); Face is the official Select Face
         _manipRow = new HBoxContainer { Name = "manip" };
-        var manipGroup = new ButtonGroup();
+        _manipTrack = new PanelContainer { Name = "manip_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _manipTrack.AccessibilityName = strings.Get("edit.modes");
+        var manips = new HBoxContainer();
+        manips.AddThemeConstantOverride("separation", 2);
         foreach (var (mode, key) in new[] { (ManipMode.Move, "edit.manip.move"), (ManipMode.Rotate, "edit.manip.rotate"), (ManipMode.Scale, "edit.manip.scale") })
         {
-            var b = new CheckBox { Name = "manip_" + mode.ToString().ToLowerInvariant(), Text = strings.Get(key), ButtonGroup = manipGroup, TooltipText = strings.Get(key + ".tip") };
-            b.AccessibilityName = b.Text;
-            b.Pressed += () => { if (_edit() is { } e) e.Manip = mode; };
-            _manipRow.AddChild(b);
+            var b = Segment("manip_" + mode.ToString().ToLowerInvariant(), key);
+            b.Pressed += () => { if (_edit() is { } e) { e.SelectFaces = false; e.Manip = mode; } Refresh(); };
+            manips.AddChild(b);
             _manips[mode] = b;
-            b.Pressed += () => { if (_edit() is { } e) e.SelectFaces = false; };
         }
-        // Select Face: the official radio choice beside Position, Rotate and Stretch (floater_tools.xml radio_select_face)
-        _faceMode = new CheckBox { Name = "manip_face", Text = strings.Get("edit.manip.face"), ButtonGroup = manipGroup, TooltipText = strings.Get("edit.manip.face.tip") };
-        _faceMode.AccessibilityName = _faceMode.Text;
-        _faceMode.Pressed += () => { if (_edit() is { } e) e.SelectFaces = true; };
-        _manipRow.AddChild(_faceMode);
+        _faceMode = Segment("manip_face", "edit.manip.face");
+        _faceMode.Pressed += () => { if (_edit() is { } e) e.SelectFaces = true; Refresh(); };
+        manips.AddChild(_faceMode);
+        _manipTrack.AddChild(manips);
+        _manipRow.AddChild(_manipTrack);
+        _undo = new Button { Name = "undo", Text = strings.Get("edit.undo"), TooltipText = strings.Get("edit.undo.tip"), Icon = ReverieIcons.Get(LucideIcons.Return) };
+        _undo.AccessibilityName = strings.Get("edit.undo.tip");
+        _undo.Pressed += () => { _edit()?.Undo(); Refresh(); };
+        _redo = new Button { Name = "redo", Text = strings.Get("edit.redo"), TooltipText = strings.Get("edit.redo.tip") };
+        _redo.AccessibilityName = strings.Get("edit.redo.tip");
+        _redo.Pressed += () => { _edit()?.Redo(); Refresh(); };
         AddChild(_manipRow);
+        // Undo and Redo stay beside the modes, and stay shown with every tool (the modes row hides for Focus and Create)
+        _manipRow.AddChild(_undo);
+        _manipRow.AddChild(_redo);
 
         // the Create tool's option: after a placement the tool stays Create instead of handing back to Edit (floater_tools.xml "checkbox sticky",
         // CreateToolKeepSelected); shown only while Create is the tool, as the official window shows it
@@ -105,61 +152,37 @@ public partial class EditPanel : VBoxContainer
         _keepTool = Tick(_createRow, "keep_tool", "edit.keep_tool", on => { if (_edit() is { } e) e.KeepToolSelected = on; KeepToolChanged?.Invoke(on); });
         AddChild(_createRow);
 
-        var ticks = new HFlowContainer { Name = "ticks" };
-        _linked = Tick(ticks, "linked", "edit.linked", on => { if (_edit() is { } e) e.EditLinked = on; });
-        _snap = Tick(ticks, "snap", "edit.snap", on => { if (_edit() is { } e) e.SnapEnabled = on; });
-        _both = Tick(ticks, "stretch_both", "edit.stretch_both", on => { if (_edit() is { } e) e.StretchBothSides = on; });
-        _stretchTex = Tick(ticks, "stretch_textures", "edit.stretch_textures", on => { if (_edit() is { } e) e.StretchTextures = on; });
-        // Select Only My Objects, the official Build > Options item (SelectOwnedOnly), as a tick here too
-        _ownedOnly = Tick(ticks, "owned_only", "edit.owned_only", on => { if (_edit() is { } e) e.SelectOwnedOnly = on; });
-        AddChild(ticks);
+        // ---------------- the hint line: what the tool does, and its keys ----------------
+        _hint = new Label { Name = "hint", AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = ReverieStyle.Caption };
+        AddChild(_hint);
 
-        var linkRow = new HBoxContainer { Name = "link_row" };
-        Link = new Button { Name = "link", Text = strings.Get("edit.link") };
-        Link.AccessibilityName = Link.Text;
-        Link.Pressed += () => DoLink();
-        Unlink = new Button { Name = "unlink", Text = strings.Get("edit.unlink") };
-        Unlink.AccessibilityName = Unlink.Text;
-        Unlink.Pressed += () => _edit()?.Unlink();
-        linkRow.AddChild(Link);
-        linkRow.AddChild(Unlink);
-        AddChild(linkRow);
-
+        // ---------------- the selection card ----------------
+        var card = new RvCard(null, null) { Name = "selection_card" };
+        _cardName = new Label { Name = "card_name", ThemeTypeVariation = ReverieStyle.CardHeading, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        _cardPicked = new Label { Name = "card_picked", ThemeTypeVariation = ReverieStyle.Caption };
+        _cardOwner = new Label { Name = "card_owner", ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        card.Body.AddChild(_cardName);
+        card.Body.AddChild(_cardPicked);
+        card.Body.AddChild(_cardOwner);
         _status = new Label { Name = "status", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _status.AccessibilityName = strings.Get("edit.title");
-        AddChild(_status);
+        card.Body.AddChild(_status);
+        AddChild(card);
 
-        Tabs = new TabContainer { Name = "edit_tabs", SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        AddChild(Tabs);
+        // ---------------- the sections, in one scrolled column ----------------
+        var scroll = new ScrollContainer { Name = "sections_scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var column = new VBoxContainer { Name = "sections", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        column.AddThemeConstantOverride("separation", 6);
+        scroll.AddChild(column);
+        AddChild(scroll);
+        foreach (var section in BuildLayout.Sections)
+            _sections[section] = MakeSection(column, section);
 
-        // ---------------- General ----------------
-        var general = Page("general", "edit.tab.general");
-        _name = Field(general, "name", "edit.name", t => _edit()?.SetName(t));
-        _name.MaxLength = Viewer.Core.Actions.EditText.MaxName;
-        _desc = Field(general, "description", "edit.description", t => _edit()?.SetDescription(t));
-        _desc.MaxLength = Viewer.Core.Actions.EditText.MaxDescription;
-        _creator = Info(general, "creator", "edit.creator");
-        _owner = Info(general, "owner", "edit.owner");
-        const uint copy = 1u << 15, modify = 1u << 14, transfer = 1u << 13, move = 1u << 19;
-        _shareGroup = Tick(general, "share_group", "edit.share_group", on => _edit()?.SetPermission(0x04, modify | move | copy, on));
-        _anyMove = Tick(general, "anyone_move", "edit.anyone_move", on => _edit()?.SetPermission(0x08, move, on));
-        _anyCopy = Tick(general, "anyone_copy", "edit.anyone_copy", on => _edit()?.SetPermission(0x08, copy, on));
-        var next = new Label { Name = "next_owner", Text = strings.Get("edit.next_owner") };
-        general.AddChild(next);
-        var nextRow = new HBoxContainer { Name = "next_row" };
-        _nextModify = Tick(nextRow, "next_modify", "edit.perm.modify", on => _edit()?.SetPermission(0x10, modify, on));
-        _nextCopy = Tick(nextRow, "next_copy", "edit.perm.copy", on => _edit()?.SetPermission(0x10, copy, on));
-        _nextTransfer = Tick(nextRow, "next_transfer", "edit.perm.transfer", on => _edit()?.SetPermission(0x10, transfer, on));
-        general.AddChild(nextRow);
-        _sale = new Label { Name = "for_sale" };
-        _sale.AccessibilityName = strings.Get("edit.for_sale");
-        general.AddChild(_sale);
-
-        // ---------------- Object ----------------
-        var obj = Page("object", "edit.tab.object");
-        Triple(obj, "position", "edit.position", _pos, -256, 8192, 0.001, v => _edit()?.SetPosition(v));
-        Triple(obj, "size", "edit.size", _size, 0.001, 256, 0.001, v => _edit()?.SetSize(v));
-        Triple(obj, "rotation", "edit.rotation", _rot, -9999, 9999, 0.05, v => _edit()?.SetRotation(v));
+        // ---------------- Placement ----------------
+        var place = Body(BuildSection.Placement);
+        Triple(place, "position", "edit.position", _pos, -256, 8192, 0.001, v => _edit()?.SetPosition(v));
+        Triple(place, "size", "edit.size", _size, 0.001, 256, 0.001, v => _edit()?.SetSize(v));
+        Triple(place, "rotation", "edit.rotation", _rot, -9999, 9999, 0.05, v => _edit()?.SetRotation(v));
         // copy and paste (llpanelobject.cpp: position, size, rotation, all three, and the object's parameters)
         var clip = new HFlowContainer { Name = "object_clipboard" };
         foreach (var (what, name) in new[] { (ObjectClip.Position, "position"), (ObjectClip.Size, "size"), (ObjectClip.Rotation, "rotation"), (ObjectClip.All, "all"), (ObjectClip.Parameters, "params") })
@@ -174,67 +197,241 @@ public partial class EditPanel : VBoxContainer
             clip.AddChild(p);
             _pasteButtons[what] = p;
         }
-        obj.AddChild(clip);
-        var flags = new HFlowContainer { Name = "flags" };
-        _locked = Tick(flags, "locked", "edit.locked", on => _edit()?.SetLocked(on));
-        _physical = Tick(flags, "physical", "edit.physical", _ => SendFlags());
-        _temporary = Tick(flags, "temporary", "edit.temporary", _ => SendFlags());
-        _phantom = Tick(flags, "phantom", "edit.phantom", _ => SendFlags());
-        obj.AddChild(flags);
-        obj.AddChild(new Label { Name = "type_label", Text = strings.Get("edit.prim_type") });
+        place.AddChild(clip);
+        var placeTicks = new HFlowContainer { Name = "placement_options" };
+        _snap = Tick(placeTicks, "snap", "edit.snap", on => { if (_edit() is { } e) e.SnapEnabled = on; });
+        _both = Tick(placeTicks, "stretch_both", "edit.stretch_both", on => { if (_edit() is { } e) e.StretchBothSides = on; });
+        _stretchTex = Tick(placeTicks, "stretch_textures", "edit.stretch_textures", on => { if (_edit() is { } e) e.StretchTextures = on; });
+        place.AddChild(placeTicks);
+
+        // ---------------- Shape ----------------
+        var shape = Body(BuildSection.Shape);
+        shape.AddChild(new Label { Name = "prim_type_label", Text = strings.Get("edit.prim_type") });
         _type = new OptionButton { Name = "prim_type" };
         _type.AccessibilityName = strings.Get("edit.prim_type");
         foreach (var k in Enum.GetValues<PrimKind>())
             _type.AddItem(strings.Get("edit.type." + k.ToString().ToLowerInvariant()), (int)k);
         _type.ItemSelected += i => { if (!_filling && (PrimKind)_type.GetItemId((int)i) is var k && k != PrimKind.Sculpt) _edit()?.SetShape(ShapeRules.OfKind(k)); };
-        obj.AddChild(_type);
-        ShapeRow(obj, "path_cut", "edit.path_cut", 0, 1, 0.025, true);
-        ShapeRow(obj, "hollow", "edit.hollow", 0, 95, 5, false);
-        obj.AddChild(new Label { Name = "hole_label", Text = strings.Get("edit.hollow_shape") });
+        shape.AddChild(_type);
+        ShapeRow(shape, "path_cut", "edit.path_cut", 0, 1, 0.025, true);
+        ShapeRow(shape, "hollow", "edit.hollow", 0, 95, 5, false);
+        shape.AddChild(new Label { Name = "hollow_shape_label", Text = strings.Get("edit.hollow_shape") });
         _hole = new OptionButton { Name = "hollow_shape" };
         _hole.AccessibilityName = strings.Get("edit.hollow_shape");
         foreach (var (key, id) in new[] { ("same", 0x00), ("circle", 0x10), ("square", 0x20), ("triangle", 0x30) })
             _hole.AddItem(strings.Get("edit.hole." + key), id);
         _hole.ItemSelected += _ => SendShape();
-        obj.AddChild(_hole);
-        ShapeRow(obj, "twist", "edit.twist", -360, 360, 1, true);
-        ShapeRow(obj, "taper", "edit.taper", -1, 1, 0.01, true);
-        ShapeRow(obj, "top_shear", "edit.top_shear", -0.5, 0.5, 0.01, true);
-        ShapeRow(obj, "slice", "edit.slice", 0, 1, 0.02, true);
-        ShapeRow(obj, "dimple", "edit.dimple", 0, 1, 0.02, true);
-        ShapeRow(obj, "profile_cut", "edit.profile_cut", 0, 1, 0.02, true);
-        ShapeRow(obj, "hole_size", "edit.hole_size", 0.05, 1, 0.01, true);
-        ShapeRow(obj, "radius", "edit.radius", -1, 1, 0.01, false);
-        ShapeRow(obj, "revolutions", "edit.revolutions", 1, 4, 0.1, false);
-        ShapeRow(obj, "skew", "edit.skew", -0.95, 0.95, 0.05, false);
+        shape.AddChild(_hole);
+        ShapeRow(shape, "twist", "edit.twist", -360, 360, 1, true);
+        ShapeRow(shape, "taper", "edit.taper", -1, 1, 0.01, true);
+        ShapeRow(shape, "top_shear", "edit.top_shear", -0.5, 0.5, 0.01, true);
+        ShapeRow(shape, "slice", "edit.slice", 0, 1, 0.02, true);
+        ShapeRow(shape, "dimple", "edit.dimple", 0, 1, 0.02, true);
+        ShapeRow(shape, "profile_cut", "edit.profile_cut", 0, 1, 0.02, true);
+        ShapeRow(shape, "hole_size", "edit.hole_size", 0.05, 1, 0.01, true);
+        ShapeRow(shape, "radius", "edit.radius", -1, 1, 0.01, false);
+        ShapeRow(shape, "revolutions", "edit.revolutions", 1, 4, 0.1, false);
+        ShapeRow(shape, "skew", "edit.skew", -0.95, 0.95, 0.05, false);
 
-        // ---------------- Features, Texture and Content, in the official order ----------------
-        var features = Page("features", "edit.tab.features");
-        _featuresTab = new EditFeaturesTab(strings, edit, inventory ?? (() => null), features, this);
-        var texture = Page("texture", "edit.tab.texture");
-        _textureTab = new EditTextureTab(strings, edit, inventory ?? (() => null), texture, this);
-        var content = Page("content", "edit.tab.content");
-        _contentTab = new EditContentTab(strings, edit, inventory ?? (() => null), content);
+        // ---------------- Look (the official Texture tab) ----------------
+        _textureTab = new EditTextureTab(strings, edit, inventory ?? (() => null), Body(BuildSection.Look), this);
+
+        // ---------------- Object (the official General tab, the object's flags and its links) ----------------
+        var general = Body(BuildSection.Object);
+        _name = Field(general, "name", "edit.name", t => _edit()?.SetName(t));
+        _name.MaxLength = Viewer.Core.Actions.EditText.MaxName;
+        _desc = Field(general, "description", "edit.description", t => _edit()?.SetDescription(t));
+        _desc.MaxLength = Viewer.Core.Actions.EditText.MaxDescription;
+        _creator = Info(general, "creator", "edit.creator");
+        _owner = Info(general, "owner", "edit.owner");
+        const uint copy = 1u << 15, modify = 1u << 14, transfer = 1u << 13, move = 1u << 19;
+        _shareGroup = Tick(general, "share_group", "edit.share_group", on => _edit()?.SetPermission(0x04, modify | move | copy, on));
+        _anyMove = Tick(general, "anyone_move", "edit.anyone_move", on => _edit()?.SetPermission(0x08, move, on));
+        _anyCopy = Tick(general, "anyone_copy", "edit.anyone_copy", on => _edit()?.SetPermission(0x08, copy, on));
+        var nextRow = new HBoxContainer { Name = "next_row" };
+        nextRow.AddChild(new Label { Name = "next_owner", Text = strings.Get("edit.next_owner") });
+        _nextModify = Tick(nextRow, "next_modify", "edit.perm.modify", on => _edit()?.SetPermission(0x10, modify, on));
+        _nextCopy = Tick(nextRow, "next_copy", "edit.perm.copy", on => _edit()?.SetPermission(0x10, copy, on));
+        _nextTransfer = Tick(nextRow, "next_transfer", "edit.perm.transfer", on => _edit()?.SetPermission(0x10, transfer, on));
+        general.AddChild(nextRow);
+        _sale = new Label { Name = "for_sale" };
+        _sale.AccessibilityName = strings.Get("edit.for_sale");
+        general.AddChild(_sale);
+        var flags = new HFlowContainer { Name = "flags" };
+        _locked = Tick(flags, "locked", "edit.locked", on => _edit()?.SetLocked(on));
+        _physical = Tick(flags, "physical", "edit.physical", _ => SendFlags());
+        _temporary = Tick(flags, "temporary", "edit.temporary", _ => SendFlags());
+        _phantom = Tick(flags, "phantom", "edit.phantom", _ => SendFlags());
+        general.AddChild(flags);
+        var links = new HFlowContainer { Name = "link_options" };
+        _linked = Tick(links, "linked", "edit.linked", on => { if (_edit() is { } e) e.EditLinked = on; });
+        // Select Only My Objects, the official Build > Options item (SelectOwnedOnly), as a tick here too
+        _ownedOnly = Tick(links, "owned_only", "edit.owned_only", on => { if (_edit() is { } e) e.SelectOwnedOnly = on; });
+        general.AddChild(links);
+        var linkRow = new HBoxContainer { Name = "link_row" };
+        Link = new Button { Name = "link", Text = strings.Get("edit.link") };
+        Link.AccessibilityName = Link.Text;
+        Link.Pressed += () => DoLink();
+        Unlink = new Button { Name = "unlink", Text = strings.Get("edit.unlink") };
+        Unlink.AccessibilityName = Unlink.Text;
+        Unlink.Pressed += () => _edit()?.Unlink();
+        linkRow.AddChild(Link);
+        linkRow.AddChild(Unlink);
+        general.AddChild(linkRow);
+
+        // ---------------- Behaviour (the official Features tab) and Contents (the Content tab) ----------------
+        _featuresTab = new EditFeaturesTab(strings, edit, inventory ?? (() => null), Body(BuildSection.Behaviour), this);
+        _contentTab = new EditContentTab(strings, edit, inventory ?? (() => null), Body(BuildSection.Contents));
+
+        foreach (var section in BuildLayout.Sections)
+            ShowSection(section, _memory.IsOpen(section));
     }
 
     /// <summary>A tool button was pressed.</summary>
     public event Action<BuildTool>? ToolChosen;
+
+    private Button Segment(string name, string key)
+    {
+        var b = new Button { Name = name, Text = _s.Get(key), TooltipText = _s.Get(key + ".tip"), ToggleMode = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, ThemeTypeVariation = ReverieStyle.Segment };
+        b.AccessibilityName = b.Text;
+        return b;
+    }
+
+    private SectionParts MakeSection(VBoxContainer column, BuildSection id)
+    {
+        string name = BuildLayout.NameOf(id);
+        string title = _s.Get(BuildLayout.TitleKey(id));
+        var card = new PanelContainer { Name = "section_card_" + name, ThemeTypeVariation = ReverieStyle.Card };
+        var box = new VBoxContainer { Name = "section_box_" + name };
+        var header = new Button
+        {
+            Name = "section_" + name, Text = title, ToggleMode = true, Flat = true, Alignment = HorizontalAlignment.Left,
+            TooltipText = _s.Get("edit.section.toggle.tip", title),
+        };
+        header.AccessibilityName = title;
+        header.Toggled += open =>
+        {
+            ShowSection(id, open);
+            _memory.Set(id, open);
+        };
+        box.AddChild(header);
+        var summary = new Label { Name = "summary_" + name, ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        box.AddChild(summary);
+        var body = new VBoxContainer { Name = name + "_page", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        box.AddChild(body);
+        card.AddChild(box);
+        column.AddChild(card);
+        return new SectionParts(id, header, summary, body);
+    }
+
+    private VBoxContainer Body(BuildSection s) => _sections[s].Body;
+
+    private void ShowSection(BuildSection id, bool open)
+    {
+        var p = _sections[id];
+        p.Header.SetPressedNoSignal(open);
+        p.Header.Icon = ReverieIcons.Get(open ? LucideIcons.Down : LucideIcons.Submenu);
+        p.Body.Visible = open;
+        p.Summary.Visible = !open;
+    }
+
+    /// <summary>Whether a section is open.</summary>
+    public bool IsOpen(BuildSection section) => _sections[section].Body.Visible;
+
+    /// <summary>Opens or closes a section as its header does (the choice is kept).</summary>
+    public void SetOpen(BuildSection section, bool open)
+    {
+        ShowSection(section, open);
+        _memory.Set(section, open);
+    }
+
+    /// <summary>The settings search's text (for the automation and the render cases).</summary>
+    public string SearchText
+    {
+        get => _search.Text;
+        set
+        {
+            _search.Text = value;
+            ApplySearch(value);
+        }
+    }
+
+    /// <summary>Filters the sections to the rows the search finds, opens their sections (for this search only: the kept choice does not
+    /// change), and lights the tools it found. An empty search shows everything again as it was.</summary>
+    private void ApplySearch(string query)
+    {
+        foreach (var c in _hiddenBySearch)
+            if (IsInstanceValid(c)) c.Visible = true;
+        _hiddenBySearch.Clear();
+        foreach (var b in _tools.Values.Concat(_manips.Values).Append(_faceMode).Append(_undo).Append(_redo))
+            b.Modulate = b.Modulate with { A = 1f };
+        var hits = BuildLayout.Search(query, _s);
+        if (query.Trim().Length == 0)
+        {
+            _searchStatus.Visible = false;
+            foreach (var section in BuildLayout.Sections)
+                ShowSection(section, _memory.IsOpen(section));
+            Refresh();
+            return;
+        }
+        var found = hits.Select(h => h.Id).ToHashSet();
+        var open = BuildLayout.SectionsOf(hits);
+        foreach (var section in BuildLayout.Sections)
+        {
+            bool show = open.Contains(section);
+            var p = _sections[section];
+            HideIf(p.Header.GetParent().GetParent<Control>(), !show);
+            if (!show) continue;
+            // shown open for this search only; the kept choice is not changed
+            p.Header.SetPressedNoSignal(true);
+            p.Header.Icon = ReverieIcons.Get(LucideIcons.Down);
+            p.Body.Visible = true;
+            p.Summary.Visible = false;
+            foreach (var row in BuildLayout.Rows.Where(r => r.Section == section))
+            {
+                bool match = found.Contains(row.Id);
+                foreach (var n in NodesOf(row.Id, p.Body))
+                    HideIf(n, !match);
+            }
+        }
+        // the tools a search found are lit, the others dimmed while it shows
+        var toolHits = hits.Where(h => h.Section is null).ToList();
+        foreach (var (id, b) in _tools.Select(kv => ("tool_" + kv.Key.ToString().ToLowerInvariant(), kv.Value))
+                     .Concat(_manips.Select(kv => ("manip_" + kv.Key.ToString().ToLowerInvariant(), kv.Value)))
+                     .Append(("manip_face", _faceMode)).Append(("undo", _undo)).Append(("redo", _redo)))
+            b.Modulate = b.Modulate with { A = toolHits.Count > 0 && !found.Contains(id) ? 0.45f : 1f };
+        _searchStatus.Visible = true;
+        _searchStatus.Text = hits.Count == 0 ? _s.Get("edit.search.none", query.Trim())
+            : toolHits.Count > 0 ? _s.Get("edit.search.tools", string.Join(", ", toolHits.Select(h => _s.Get(h.LabelKey))))
+            : "";
+        _searchStatus.Visible = _searchStatus.Text.Length > 0;
+    }
+
+    private void HideIf(Control c, bool hide)
+    {
+        if (!hide || !c.Visible) return;
+        c.Visible = false;
+        _hiddenBySearch.Add(c);
+    }
+
+    /// <summary>The controls that make up a row: the control itself (or its row holder) and its label.</summary>
+    private static IEnumerable<Control> NodesOf(string id, Node body)
+    {
+        foreach (var name in new[] { id, id + "_label" })
+            if (body.FindChild(name, true, false) is Control c)
+                yield return c;
+        if (id.EndsWith("_row", StringComparison.Ordinal) && body.FindChild(id[..^4] + "_label", true, false) is Control l && l.GetParent()?.Name != id)
+            yield return l;
+    }
+
+    /// <summary>The section rows a search shows now, by control name (for the automation and the render cases).</summary>
+    public IReadOnlyList<string> SearchShown() => BuildLayout.Search(_search.Text, _s).Select(r => r.Id).ToArray();
 
     private void DoLink()
     {
         LastRefusal = _edit()?.Link();
         if (LastRefusal is { } why)
             _status.Text = _s.Get("edit." + why);
-    }
-
-    private VBoxContainer Page(string name, string titleKey)
-    {
-        var scroll = new ScrollContainer { Name = name, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        var page = new VBoxContainer { Name = name + "_page", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        scroll.AddChild(page);
-        Tabs.AddChild(scroll);
-        Tabs.SetTabTitle(Tabs.GetTabCount() - 1, _s.Get(titleKey));
-        return page;
     }
 
     private CheckBox Tick(Container parent, string name, string key, Action<bool> changed)
@@ -261,7 +458,7 @@ public partial class EditPanel : VBoxContainer
     {
         var row = new HBoxContainer { Name = name + "_row" };
         row.AddChild(new Label { Text = _s.Get(key) });
-        var v = new Label { Name = name };
+        var v = new Label { Name = name, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         v.AccessibilityName = _s.Get(key);
         row.AddChild(v);
         parent.AddChild(row);
@@ -315,7 +512,7 @@ public partial class EditPanel : VBoxContainer
             _edit()?.SetFlags(_physical.ButtonPressed, _temporary.ButtonPressed, _phantom.ButtonPressed);
     }
 
-    /// <summary>The shape the Object tab's fields describe, on top of the selected prim's own.</summary>
+    /// <summary>The shape the Shape section's fields describe, on top of the selected prim's own.</summary>
     public PrimShape? ShapeFromFields()
     {
         if (_edit()?.Object() is not { Shape: { } current })
@@ -363,6 +560,55 @@ public partial class EditPanel : VBoxContainer
             _edit()?.SetShape(s);
     }
 
+    public override void _Process(double delta)
+    {
+        // the hint follows a held Ctrl or Ctrl+Shift at once, as the tool's mode does; two key reads, only while the window shows
+        if (!IsVisibleInTree())
+            return;
+        bool ctrl = Input.IsKeyPressed(Key.Ctrl), shift = Input.IsKeyPressed(Key.Shift);
+        if (ctrl != _ctrlHeld || shift != _shiftHeld)
+        {
+            (_ctrlHeld, _shiftHeld) = (ctrl, shift);
+            ShowHint();
+        }
+    }
+
+    private void ShowHint()
+    {
+        var e = _edit();
+        _hint.Text = e is not null
+            ? BuildLayout.Hint(e.Tool, e.Manip, e.SelectFaces, _ctrlHeld, _shiftHeld, _s)
+            : BuildLayout.Hint(BuildTool.Edit, ManipMode.Move, false, _ctrlHeld, _shiftHeld, _s);
+    }
+
+    // the object's flags as the grid sends them (the official FLAGS_PHANTOM and FLAGS_TEMPORARY_ON_REZ)
+    private const uint Phantom = 1u << 10, TemporaryOnRez = 1u << 29;
+
+    /// <summary>What the closed sections summarise, read from the controller.</summary>
+    private BuildFacts? Facts()
+    {
+        var e = _edit();
+        if (e?.Object() is not { } o)
+            return null;
+        var props = e.PropertiesOf(o.Id.LocalId);
+        var f = e.Features(o.Id.LocalId);
+        uint flags = o.Interaction?.Flags ?? 0;
+        var shown = e.FaceShown();
+        return new BuildFacts(
+            Position: o.Position, Size: o.Scale, RotationDegrees: EditNumbers.ToEulerDegrees(o.Rotation),
+            ShapeName: o.Shape is { } sh ? _s.Get("edit.type." + ShapeRules.KindOf(sh).ToString().ToLowerInvariant()) : null,
+            Hollow: (o.Shape?.ProfileHollow ?? 0) * 100, TwistDegrees: o.Shape is { } tw ? (tw.PathTwist - tw.PathTwistBegin) * ShapeRules.TwistDegreesRange(tw) : 0,
+            FacesPicked: e.SelectedFaces.Count, SelectFaces: e.SelectFaces,
+            // a texture is named only by its inventory name; one known only by its id is left out of the line
+            Texture: shown is not null && !Guid.TryParse(_textureTab.TextureName, out _) ? _textureTab.TextureName : null,
+            Name: props?.Name, Locked: e.Access(o.Id.LocalId).Locked, Physical: (flags & Viewer.Core.Interaction.ObjectFlagBits.Physics) != 0,
+            Temporary: (flags & TemporaryOnRez) != 0, Phantom: (flags & Phantom) != 0,
+            Flexible: f?.Flexible is not null, Light: f?.Light is not null,
+            PhysicsShape: f?.Physics is { ShapeType: var st } && st != FeatureRules.ShapePrim
+                ? _s.Get(st == FeatureRules.ShapeNone ? "edit.feat.shape_type.none" : "edit.feat.shape_type.convex") : null,
+            ContentCount: e.ContentsKnown ? e.Contents.Count : null);
+    }
+
     /// <summary>Shows the controller's state; a field being typed in keeps its text.</summary>
     public void Refresh()
     {
@@ -372,12 +618,20 @@ public partial class EditPanel : VBoxContainer
         {
             foreach (var (tool, b) in _tools)
                 b.SetPressedNoSignal(e is { BuildMode: true } && e.Tool == tool);
+            foreach (var (tool, b) in _tools)
+                b.ThemeTypeVariation = b.ButtonPressed ? ReverieStyle.SegmentSelected : ReverieStyle.Segment;
             foreach (var (mode, b) in _manips)
+            {
                 b.SetPressedNoSignal(!(e?.SelectFaces ?? false) && (e?.Manip ?? ManipMode.Move) == mode);
+                b.ThemeTypeVariation = b.ButtonPressed ? ReverieStyle.SegmentSelected : ReverieStyle.Segment;
+            }
             _faceMode.SetPressedNoSignal(e?.SelectFaces ?? false);
+            _faceMode.ThemeTypeVariation = _faceMode.ButtonPressed ? ReverieStyle.SegmentSelected : ReverieStyle.Segment;
+            _undo.Disabled = !(e?.CanUndo ?? false);
+            _redo.Disabled = !(e?.CanRedo ?? false);
             foreach (var (what, b) in _pasteButtons)
                 b.Disabled = !(e?.CanPaste(what) ?? false);
-            _manipRow.Visible = e is { Tool: BuildTool.Edit or BuildTool.Move };
+            _manipTrack.Visible = e is null || e is { Tool: BuildTool.Edit or BuildTool.Move };
             _createRow.Visible = e is { BuildMode: true, Tool: BuildTool.Create };
             _keepTool.SetPressedNoSignal(e?.KeepToolSelected ?? false);
             _linked.SetPressedNoSignal(e?.EditLinked ?? false);
@@ -392,6 +646,7 @@ public partial class EditPanel : VBoxContainer
             Unlink.Disabled = count == 0;
             if (LastRefusal is null)
                 _status.Text = o is null ? _s.Get("edit.none") : access.ReadOnly ? _s.Get("edit.read_only") : count > 1 ? string.Format(CultureInfo.InvariantCulture, _s.Get("edit.selected"), count) : "";
+            _status.Visible = _status.Text.Length > 0;
             var props = o is null || e is null ? null : e.PropertiesOf(o.Id.LocalId);
             SetText(_name, props?.Name ?? "");
             SetText(_desc, props?.Description ?? "");
@@ -420,28 +675,40 @@ public partial class EditPanel : VBoxContainer
                 if (o.Shape is { } shape)
                     FillShape(shape, !access.CanReshape);
             }
+
+            // the selection card: the object's name, what is picked, the owner
+            _cardName.Text = o is null ? _s.Get("edit.card.none") : props?.Name is { Length: > 0 } n ? n : _s.Get("edit.summary.unnamed");
+            int faces = e?.SelectedFaces.Count ?? 0;
+            _cardPicked.Text = o is null ? "" : e!.SelectFaces && faces > 0
+                ? (faces == 1 ? _s.Get("edit.card.face_one") : _s.Get("edit.card.faces", faces))
+                : (count == 1 ? _s.Get("edit.card.prim_one") : _s.Get("edit.card.prims", count));
+            _cardOwner.Text = props is null ? "" : _s.Get("edit.card.owner", props.OwnerId);
+            _cardPicked.Visible = _cardPicked.Text.Length > 0;
+            _cardOwner.Visible = _cardOwner.Text.Length > 0;
         }
         finally { _filling = false; }
         _textureTab.Refresh();
-        _featuresTab.Refresh(Tabs.GetCurrentTabControl()?.Name == "features" && IsVisibleInTree());
-        _contentTab.Refresh(Tabs.GetCurrentTabControl()?.Name == "content" && IsVisibleInTree());
+        _featuresTab.Refresh(IsOpen(BuildSection.Behaviour) && IsVisibleInTree());
+        _contentTab.Refresh(IsOpen(BuildSection.Contents) && IsVisibleInTree());
+        var facts = Facts();
+        foreach (var (id, p) in _sections)
+            p.Summary.Text = BuildLayout.Summary(id, facts, _s);
+        ShowHint();
     }
 
-    /// <summary>The middle of a control of the window on screen, by its name ("tab:texture" for a tab's title), for the live check's
-    /// pointer; null when it is not shown.</summary>
+    /// <summary>The middle of a control of the window on screen, by its name, for the live check's pointer; null when it is not shown.
+    /// "section:look" is a section's header; "tab:texture" (the official tab names the live checks were written with) is the header of the
+    /// section that tab's controls went to.</summary>
     public float[]? ControlPoint(string name)
     {
-        if (name.StartsWith("tab:", StringComparison.Ordinal))
+        if ((name.StartsWith("tab:", StringComparison.Ordinal) || name.StartsWith("section:", StringComparison.Ordinal))
+            && BuildLayout.SectionOfTab(name[(name.IndexOf(':') + 1)..]) is { } section)
         {
-            for (int i = 0; i < Tabs.GetTabCount(); i++)
-                if (Tabs.GetTabControl(i).Name == name[4..])
-                {
-                    var bar = Tabs.GetTabBar();
-                    var r = bar.GetTabRect(i);
-                    var c = bar.GetGlobalTransformWithCanvas() * (r.Position + r.Size / 2);
-                    return [c.X, c.Y];
-                }
-            return null;
+            var header = _sections[section].Header;
+            if (!header.IsVisibleInTree())
+                return null;
+            var c = header.GetGlobalRect().GetCenter();
+            return [c.X, c.Y];
         }
         // "popup:<dropdown>:<item>": an item of a dropdown's open list
         if (name.StartsWith("popup:", StringComparison.Ordinal) && name.Split(':') is [_, var owner, var item] && int.TryParse(item, out int index)
@@ -464,11 +731,28 @@ public partial class EditPanel : VBoxContainer
         return null;
     }
 
-    /// <summary>Scrolls the shown page so a control is in view (a person scrolls the tab the same way).</summary>
+    /// <summary>Brings a control into view as a person would: "tab:texture" or "section:look" scrolls to that section's header and, when it
+    /// is closed, leaves it for the click to open; any other control opens the section that holds it and scrolls it into view.</summary>
     public void ScrollTo(string name)
     {
-        if (FindChild(name, true, false) is not Control ctl)
-            return;
+        Control? ctl;
+        if ((name.StartsWith("tab:", StringComparison.Ordinal) || name.StartsWith("section:", StringComparison.Ordinal))
+            && BuildLayout.SectionOfTab(name[(name.IndexOf(':') + 1)..]) is { } section)
+        {
+            // the live checks click the header to show a section: an open one is closed first, so their click opens it
+            if (IsOpen(section))
+                SetOpen(section, false);
+            ctl = _sections[section].Header;
+        }
+        else
+        {
+            ctl = FindChild(name, true, false) as Control;
+            if (ctl is null)
+                return;
+            foreach (var (id, p) in _sections)
+                if (p.Body.IsAncestorOf(ctl) && !IsOpen(id))
+                    SetOpen(id, true);
+        }
         for (Node? n = ctl.GetParent(); n is not null; n = n.GetParent())
             if (n is ScrollContainer sc)
             {
@@ -506,7 +790,9 @@ public partial class EditPanel : VBoxContainer
         void Set(string n, double a, double? b = null, bool shown = true)
         {
             var (row, sa, sb) = _shape[n];
-            row.Visible = shown && kind != PrimKind.Sculpt;
+            // a row the search hid stays hidden until the search is cleared
+            if (!_hiddenBySearch.Contains(row))
+                row.Visible = shown && kind != PrimKind.Sculpt;
             sa.Editable = !readOnly;
             sa.SetValueNoSignal(a);
             if (sb is not null && b is { } bv)
@@ -529,11 +815,17 @@ public partial class EditPanel : VBoxContainer
         Set("skew", s.PathSkew, null, ringish);
     }
 
-    /// <summary>The window's texts for the automation: the status line, the tab names, and which shape rows show.</summary>
+    /// <summary>The window's texts for the automation: the status line, the sections (open or closed, with their summaries), the hint,
+    /// the search's hits, and which shape rows show. "tabs" keeps the official tab names the sections hold, for older checks.</summary>
     public object Texts() => new
     {
         status = _status.Text,
-        tabs = Enumerable.Range(0, Tabs.GetTabCount()).Select(i => Tabs.GetTabTitle(i)).ToArray(),
+        hint = _hint.Text,
+        card = new[] { _cardName.Text, _cardPicked.Text, _cardOwner.Text },
+        sections = BuildLayout.Sections.Select(s => new { name = BuildLayout.NameOf(s), open = IsOpen(s), summary = _sections[s].Summary.Text }).ToArray(),
+        search = _search.Text,
+        search_hits = SearchShown(),
+        tabs = BuildLayout.Sections.Select(s => _s.Get(BuildLayout.TitleKey(s))).ToArray(),
         shape_rows = _shape.Where(kv => kv.Value.Row.Visible).Select(kv => kv.Key).ToArray(),
         type = _type.Selected >= 0 ? _type.GetItemText(_type.Selected) : null,
         texture = _textureTab.Texts(),

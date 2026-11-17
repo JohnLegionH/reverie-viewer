@@ -53,7 +53,7 @@ public partial class Main
             return;
         var shell = _shell.Shell;
         bool InWorld() => _interactFor is { IsEnded: false } && _interact is not null;
-        _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory);
+        _editPanel = new EditPanel(shell.Strings, () => _edit, () => _interactFor?.Inventory, _settings);
         _editPanel.ContentTab.OpenRequested = OpenContentScript;
         _editPanel.ToolChosen += ChooseTool;
         _editPanel.KeepToolChanged += on => _settings?.Set(Viewer.Shell.Build.BuildSettings.KeepToolSelected, on);
@@ -380,7 +380,7 @@ public partial class Main
                 break;
             // a point in the colour picker's square of saturation and value, at the given fractions of its width and height (text "0.75,0.25")
             case "picker_colour_point":
-                if (_editPanel.TextureTab.Pickers is { ColoursOpen: true } pc && ColourSquareOf(pc.Colours) is { } square)
+                if (_editPanel.TextureTab.Pickers is { ColoursOpen: true } pc && pc.Colours.Square is { } square)
                 {
                     var parts = (text ?? "0.75,0.25").Split(',');
                     float partX = parts.Length == 2 && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var shareX) ? shareX : 0.75f;

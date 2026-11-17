@@ -16,7 +16,6 @@ public static class ViewerShortcuts
     public static IReadOnlyDictionary<string, string> ByEntry { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["content.inventory"] = "control|I",                     // Inventory
-        ["content.outfits"] = "control|O",                       // My Outfits
         ["me.preferences"] = "control|P",                        // Preferences
         ["me.quit"] = "control|Q",                               // Quit
         ["communicate.conversations"] = "control|T",             // Conversations
@@ -65,7 +64,23 @@ public static class ViewerShortcuts
         ("control|alt|Q", "Develop menu"),
     ];
 
-    /// <summary>The entry with its official shortcut when it has none of its own.</summary>
+    /// <summary>Shortcuts this viewer takes from another viewer, not from the official one: menu entry id to the shortcut and the viewer it
+    /// comes from. Outfits is on Ctrl+O as in Firestorm (its menu_viewer.xml, Avatar &gt; Outfits); the official viewer's Ctrl+O is
+    /// Avatar &gt; Now wearing... (menu_viewer.xml, NowWearing), which this viewer does not have as a menu entry.</summary>
+    public static IReadOnlyDictionary<string, (string Shortcut, string Viewer)> FromOtherViewers { get; } =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["content.outfits"] = ("control|O", "Firestorm"),   // My Outfits
+        };
+
+    /// <summary>Where an entry's shortcut comes from: "official", the other viewer's name, or null when it has none from either.</summary>
+    public static string? SourceOf(string entryId) =>
+        ByEntry.ContainsKey(entryId) ? "official" : FromOtherViewers.TryGetValue(entryId, out var other) ? other.Viewer : null;
+
+    /// <summary>The entry with its official shortcut (or the one taken from another viewer) when it has none of its own.</summary>
     public static MenuEntry WithOfficial(MenuEntry entry) =>
-        entry.Shortcut is null && ByEntry.TryGetValue(entry.Id, out var official) ? entry with { Shortcut = official } : entry;
+        entry.Shortcut is not null ? entry
+        : ByEntry.TryGetValue(entry.Id, out var official) ? entry with { Shortcut = official }
+        : FromOtherViewers.TryGetValue(entry.Id, out var other) ? entry with { Shortcut = other.Shortcut }
+        : entry;
 }
