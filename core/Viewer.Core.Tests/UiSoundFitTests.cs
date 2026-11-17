@@ -113,6 +113,15 @@ public class UiSoundFitTests
         }
     }
 
+    [Fact]
+    public void A_very_quiet_voice_with_a_loudness_target_is_still_brought_to_that_loudness()
+    {
+        var quiet = new SoundRecipe("ui-click.wav", 300, 8000, 1, 10, 3, [new Layer(Wave.Sine, 0, 2, 250, 0.0005, Hz: 1000)], "quiet", -20);
+        var s = UiSoundSynth.Render(quiet);
+        double lufs = Loudness.Integrated(s.Select(v => v / 32767.0).ToArray(), UiSoundSynth.Rate);
+        Assert.InRange(lufs, -20.5, -19.5);
+    }
+
     // ---------------- the per-grid choice ----------------
 
     private sealed class MemoryStore : ISettingsStore

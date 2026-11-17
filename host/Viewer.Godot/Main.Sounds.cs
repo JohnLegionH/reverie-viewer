@@ -155,7 +155,7 @@ public partial class Main
                     in_world = sounds.InWorld,
                     slots = UiSoundCatalog.All.Select(i => new
                     {
-                        slot = i.Slot.ToString(), source = UiSoundSettings.IdOf(UiSoundSettings.Source(UserSettings(null), i.Slot)),
+                        slot = i.Slot.ToString(), source = UiSoundSettings.IdOf(UiSoundSettings.SourceOn(UserSettings(null), i.Slot, sounds.Grid)),
                         status = sounds.StatusOf(i.Slot).ToString(),
                     }).ToArray(),
                 };

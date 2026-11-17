@@ -246,7 +246,11 @@ public static class UiSoundSynth
         double scale = peak > 0 ? Math.Pow(10, PeakDbfs / 20) / peak : 0;
         if (recipe.Lufs != 0 && peak > 0)
         {
-            // to the target loudness, but never past the ceiling
+            // to the target loudness, but never past the ceiling; measured with the peak at full scale first, so the absolute gate
+            // (-70 LUFS) does not silence a quiet mix
+            for (int i = 0; i < n; i++)
+                mix[i] /= peak;
+            peak = 1;
             double now = Loudness.Integrated(mix, Rate);
             scale = double.IsFinite(now) ? Math.Pow(10, (recipe.Lufs - now) / 20) : 0;
             scale = Math.Min(scale, Math.Pow(10, CeilingDbfs / 20) / peak);

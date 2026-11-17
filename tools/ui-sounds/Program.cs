@@ -119,7 +119,7 @@ public static class Program
             var samples = UiSoundSynth.Render(recipe);
             File.WriteAllBytes(Path.Combine(folder, recipe.File), UiSoundSynth.Wav(samples));
             int peak = samples.Max(s => Math.Abs((int)s));
-            Console.WriteLine(FormattableString.Invariant($"{recipe.File}	{samples.Length * 1000.0 / UiSoundSynth.Rate:0.0} ms	peak {20 * Math.Log10(peak / 32767.0):0.00} dBFS"));
+            Console.WriteLine(FormattableString.Invariant($"{recipe.File}\t{samples.Length * 1000.0 / UiSoundSynth.Rate:0.0} ms\tpeak {20 * Math.Log10(peak / 32767.0):0.00} dBFS"));
         }
         return 0;
     }

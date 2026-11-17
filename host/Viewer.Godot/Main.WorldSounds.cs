@@ -226,7 +226,7 @@ public partial class Main
             ObjectMuted = id => session.Mutes.IsMuted(id, null),
             RegionWidth = handle => session.Worlds.FirstOrDefault(w => w.Sim.Handle == handle)?.Region.SizeX ?? 256,
             OwnerSoundsMuted = id => session.Mutes.IsMuted(id, null, MuteFlag.ObjectSounds),
-            TypingSound = () => TypingSound(settings),
+            TypingSound = () => TypingSound(settings, session.Grid),
             // our footstep (tuned or shipped), for a step whose official sound the grid lacks
             StepFallback = () => _tuning?.WavFor(SoundTunerList.Footstep) ?? UiSoundFiles.Read(SoundTunerList.Footstep),
         };
@@ -270,11 +270,12 @@ public partial class Main
         return null;
     }
 
-    // the typing sound plays the interface slot's choice: the grid's sound, our file (tuned or shipped), or nothing
-    private (Guid, byte[]?) TypingSound(SettingsService settings)
+    // the typing sound plays the interface slot's choice on this grid: the grid's sound, our file (tuned or shipped), or nothing;
+    // on Second Life the grid's, by the per-grid switch
+    private (Guid, byte[]?) TypingSound(SettingsService settings, Viewer.Core.Session.GridKind grid)
     {
         var info = UiSoundCatalog.Of(UiSoundSlot.Typing);
-        switch (UiSoundSettings.Source(settings, UiSoundSlot.Typing))
+        switch (UiSoundSettings.SourceOn(settings, UiSoundSlot.Typing, grid))
         {
             case UiSoundSource.Grid:
                 return (info.GridId, null);
