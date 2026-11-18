@@ -479,7 +479,7 @@ public partial class Main
                 // told where the injected pointer is (as the S-1 pointer check tells it), up to and including the release that drops
                 if (_inventoryPanel?.TreeView is { } dragTree)
                     dragTree.HoldDragAt(GetViewport().GuiIsDragging() || (_injectedLeftDown && index == MouseButton.None)
-                        ? dragTree.GetGlobalTransformWithCanvas().AffineInverse() * at : null);
+                        ? dragTree.GetGlobalTransformWithCanvas().AffineInverse() * new Vector2(x, y) : null);   // the tree's transform is in viewport coordinates, the script's point
                 if (index == MouseButton.None)
                 {
                     var mask = (MouseButtonMask)(_injectedLeftDown ? 1 : 0);   // the buttons held, as the operating system's motion event carries them
