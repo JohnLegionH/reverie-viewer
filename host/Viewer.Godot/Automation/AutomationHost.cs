@@ -426,11 +426,12 @@ public partial class AutomationHost : Node
                 return m.InventoryCall(action, Str(call.Body, "kind"), Str(call.Body, "text"), Str(call.Body, "sort"), Str(call.Body, "tab")) is { } done
                     ? AutomationReply.Ok(done) : AutomationReply.Error(409, "no session");
             }
-            case "notecard":   // {action: state|list|open|fixture|copy|links|link|chat_link|render, id?, text?, index?}; links/link: the front window's links, click one; chat_link: click a link in nearby chat; render: a text as every chat place and a card show it: notecard windows (live cards by counts and kinds, never their names or text; a fixture file's text is given)
+            case "notecard":   // {action: state|list|open|fixture|copy|links|link|chat_link|render|new|find_item|front|type|embed|save|close|gesture_setup|gesture_state|say|heard, id?, text?, index?}; new: Inventory > New; front/type/embed/save/close: the front notecard editor; gesture_setup/gesture_state: the gesture window; say/heard: nearby chat; links/link: the front window's links, click one; chat_link: click a link in nearby chat; render: a text as every chat place and a card show it: notecard windows (live cards by counts and kinds, never their names or text; a fixture file's text is given)
             {
                 string action = Str(call.Body, "action") ?? "state";
-                if (action is not ("state" or "list" or "open" or "fixture" or "copy" or "links" or "link" or "chat_link" or "render"))
-                    return AutomationReply.Error(400, "action must be state, list, open, fixture, copy, links, link, chat_link or render");
+                if (action is not ("state" or "list" or "open" or "fixture" or "copy" or "links" or "link" or "chat_link" or "render"
+                    or "new" or "find_item" or "front" or "type" or "embed" or "save" or "close" or "gesture_setup" or "gesture_state" or "say" or "heard"))
+                    return AutomationReply.Error(400, "action must be state, list, open, fixture, copy, links, link, chat_link, render, new, find_item, front, type, embed, save, close, gesture_setup, gesture_state, say or heard");
                 return m.NotecardCall(action, Str(call.Body, "text"), Guid.TryParse(Str(call.Body, "id"), out var card) ? card : Guid.Empty, (int)Num(call.Body, "index", 0)) is { } notecard
                     ? AutomationReply.Ok(notecard) : AutomationReply.Error(409, "no session");
             }

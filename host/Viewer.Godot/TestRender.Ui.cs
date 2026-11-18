@@ -121,12 +121,8 @@ public partial class TestRender
         var access = new Viewer.Core.Inventory.NotecardAccess(G(40), G(41), G(1), perms, InLibrary: false);
         var landmark = new Viewer.Core.Inventory.NotecardEmbeddedItem(0, G(42), G(43), "Harbour", "Example Region (128, 64, 22)", 3, 3, Viewer.Core.Inventory.ItemKind.Landmark,
             new Viewer.Core.Inventory.NotecardPermissions(G(1), G(1), full, full, 0, 0, full));
-        string text = "Welcome to the harbour!
-
-Meet us at the pier: " + char.ConvertFromUtf32(Viewer.Core.Inventory.NotecardFormat.FirstEmbeddedChar)
-            + "
-
-Bring a friend, and see https://example.org/events for the times.";
+        string text = "Welcome to the harbour!\n\nMeet us at the pier: " + char.ConvertFromUtf32(Viewer.Core.Inventory.NotecardFormat.FirstEmbeddedChar)
+            + "\n\nBring a friend, and see https://example.org/events for the times.";
         var doc = new Viewer.Core.Inventory.NotecardDocument(2, text, [landmark]);
         var opened = new Viewer.Shell.Inventory.NotecardOpenResult(Viewer.Shell.Inventory.NotecardOpenStatus.Ok, G(40), readOnly ? "Club rules" : "Harbour welcome",
             "Where to find us", access, doc);
