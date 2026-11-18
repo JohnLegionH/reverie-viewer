@@ -1075,6 +1075,15 @@ public sealed class ViewerSession : IDisposable
     /// <summary>Reads and saves scripts (the script editor), where the transport can.</summary>
     public Viewer.Core.Inventory.IScriptTransport? Scripts => _transport as Viewer.Core.Inventory.IScriptTransport;
 
+    /// <summary>Saves notecards (the notecard editor), where the transport can.</summary>
+    public Viewer.Core.Inventory.INotecardSaveTransport? NotecardSaves => _transport as Viewer.Core.Inventory.INotecardSaveTransport;
+
+    /// <summary>Makes new inventory items (Inventory › New), where the transport can.</summary>
+    public Viewer.Core.Inventory.IItemCreateTransport? ItemCreation => _transport as Viewer.Core.Inventory.IItemCreateTransport;
+
+    /// <summary>Active gestures, their files and playing them, where the transport can.</summary>
+    public Viewer.Core.Inventory.IGestureTransport? Gestures => _transport as Viewer.Core.Inventory.IGestureTransport;
+
     /// <summary>The texture asset behind an inventory texture item (the empty id when unknown).</summary>
     public Guid TextureAssetOf(Guid itemId) =>
         (_transport as Viewer.Core.Appearance.IWearableTransport)?.TextureAssetOf(itemId) ?? Guid.Empty;

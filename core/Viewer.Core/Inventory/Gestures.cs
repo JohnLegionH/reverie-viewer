@@ -227,3 +227,25 @@ public static class GestureTriggers
         return matching.Count == 0 ? null : matching[Math.Clamp(pick(matching.Count), 0, matching.Count - 1)];
     }
 }
+
+/// <summary>Gestures on the grid. Implemented by the protocol adapter.</summary>
+public interface IGestureTransport
+{
+    /// <summary>The gestures the grid has active for the agent (item id and asset id), as the login and later activations give them.</summary>
+    IReadOnlyList<(Guid ItemId, Guid AssetId)> ActiveGestures();
+
+    /// <summary>Marks a gesture active or inactive (ActivateGestures and DeactivateGestures, as llgesturemgr.cpp sends them).</summary>
+    bool SetGestureActive(Guid itemId, Guid assetId, bool active);
+
+    /// <summary>The asset id an inventory gesture item points at; empty when unknown.</summary>
+    Guid GestureAssetOf(Guid itemId);
+
+    /// <summary>Fetches a gesture's file by its asset id (the region's ViewerAsset capability, "gesture_id").</summary>
+    Task<Viewer.Core.Assets.AssetFetchResult> FetchGestureAsync(Guid assetId, CancellationToken ct);
+
+    /// <summary>Saves a gesture's file over its inventory item (UpdateGestureAgentInventory, then the uploader it names; llpreviewgesture.cpp saveIfNeeded).</summary>
+    Task<NotecardSaveResult> SaveGestureAsync(Guid itemId, byte[] file, CancellationToken ct);
+
+    /// <summary>Plays a gesture on the agent by its asset id: its animations, sounds, chat and waits in order.</summary>
+    Task PlayGestureAsync(Guid assetId, CancellationToken ct);
+}

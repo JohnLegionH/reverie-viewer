@@ -43,7 +43,7 @@ public partial class Main
             };
             _notecardsHooked = true;
         }
-        _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit);
+        _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit, session.NotecardSaves);
         _notecardsBoundFor = session;
         Scripts().Bind(session.Scripts, !Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid(session.LoginUri));
     }
@@ -99,7 +99,7 @@ public partial class Main
                 if (_notecardsBoundFor != session)
                 {
                     // the notecard windows are bound with the inventory; bind them here when the Build window opens a card first
-                    _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit);
+                    _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit, session.NotecardSaves);
                     _notecardsBoundFor = session;
                 }
                 Log.Info("notecard.open-task", Viewer.Core.Diagnostics.CoreLog.F("modify", modify));
@@ -135,8 +135,25 @@ public partial class Main
     private NotecardFeature NewNotecards(ShellRoot shell)
     {
         HostLinks.Perform = PerformLink;   // a link in a card works before a session too (it then only says what it would need)
-        return new(shell, (status, reason) =>
+        var feature = new NotecardFeature(shell, (status, reason) =>
             Log.Info("notecard.not-opened", Viewer.Core.Diagnostics.CoreLog.F("status", status), Viewer.Core.Diagnostics.CoreLog.F("reason", reason ?? "")));
+        feature.OpenEmbedded = OpenEmbeddedItem;
+        feature.Saved += _ => Log.Info("notecard.saved");
+        return feature;
+    }
+
+    /// <summary>A click on an embedded texture opens it in the texture preview. The official viewer opens a landmark's place information
+    /// (llviewertexteditor.cpp openEmbeddedLandmark); this viewer has no place window yet, so the card's window points to the landmark's
+    /// Teleport button instead. A sound, calling card, settings or material has no preview here yet.</summary>
+    private void OpenEmbeddedItem(NotecardEmbeddedItem item)
+    {
+        switch (item.Kind)
+        {
+            case ItemKind.Texture:
+                ShowTexturePreview(item.ItemId, item.Name, item.Description, item.AssetId == Guid.Empty ? null : item.AssetId);
+                break;
+        }
+        Log.Info("notecard.embedded-open", Viewer.Core.Diagnostics.CoreLog.F("kind", item.Kind.ToString()));
     }
 
     private void DetachNotecards()

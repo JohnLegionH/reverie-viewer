@@ -86,3 +86,18 @@ public static class NewItemCatalog
         return asset.ToBytes();
     }
 }
+
+/// <summary>A request to make a new inventory item: with no <see cref="Data"/> the grid gives it its default content (scripts, notecards,
+/// gestures); with data (a wearable's file) the data is uploaded first and the item made from that upload.</summary>
+public sealed record NewItemRequest(Guid FolderId, string Name, string Description, int AssetType, int InventoryType, WearableType Wearable, uint NextOwnerMask, byte[]? Data = null);
+
+/// <summary>Makes inventory items. Implemented by the protocol adapter.</summary>
+public interface IItemCreateTransport
+{
+    /// <summary>Makes the item and waits for the grid's answer: the new item's id, or empty when it was not made.</summary>
+    Task<Guid> CreateItemAsync(NewItemRequest request, CancellationToken ct);
+
+    /// <summary>The account's folder for an asset type (Scripts, Notecards, Gestures, Clothing, Body Parts), where a new item goes when no
+    /// folder is chosen (findCategoryUUIDForType in the official viewer); empty when unknown.</summary>
+    Guid FolderForAssetType(int assetType);
+}

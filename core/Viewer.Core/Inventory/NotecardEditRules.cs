@@ -72,4 +72,7 @@ public interface INotecardSaveTransport
 
     /// <summary>An item of the agent's inventory as an item to embed (index 0), or null when it is not known.</summary>
     NotecardEmbeddedItem? EmbeddableItem(Guid itemId) => null;
+
+    /// <summary>Changes an inventory item's description (the official window saves the description field as an item update). False when not sent.</summary>
+    bool SetItemDescription(Guid itemId, string description) => false;
 }
