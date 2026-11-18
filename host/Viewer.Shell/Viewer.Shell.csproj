@@ -25,6 +25,8 @@
     <EmbeddedResource Include="Strings\*.json" LogicalName="Viewer.Shell.Strings.%(Filename).json" />
     <!-- The built-in theme packs, as data. -->
     <EmbeddedResource Include="Ui\Themes\*.json" LogicalName="Viewer.Shell.Themes.%(Filename).json" />
+    <!-- The command list's data: the feature map (generated from the map) and where each feature lives in this viewer. -->
+    <EmbeddedResource Include="Ui\CommandList\*.tsv" LogicalName="Viewer.Shell.CommandList.%(Filename)%(Extension)" />
     <!-- The interface font and icons (Inter, Tabler Icons; licences in ThirdPartyLicenses). -->
     <EmbeddedResource Include="Assets\Icons\*.svg" LogicalName="Viewer.Shell.Icons.%(Filename).svg" />
     <EmbeddedResource Include="Assets\Fonts\*.ttf" LogicalName="Viewer.Shell.Fonts.%(Filename).ttf" />

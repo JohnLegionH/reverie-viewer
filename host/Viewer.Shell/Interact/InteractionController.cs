@@ -294,6 +294,19 @@ public sealed class InteractionController
     /// <summary>The own avatar's menu asked for the Appearance window.</summary>
     public event Action? AppearanceRequested;
     public event Action? AboutLandRequested;
+
+    /// <summary>World > About Land: the parcel the own avatar stands on (the official window selects the parcel at the agent's position
+    /// when it opens with nothing selected, llfloaterland.cpp onOpen). False before the own avatar is known.</summary>
+    public bool AboutLandHere()
+    {
+        if (Me() is not { } me)
+            return false;
+        Parcel = null;
+        _submit(new ParcelInfoIntent(me.Position.X, me.Position.Y));
+        AboutLandRequested?.Invoke();
+        Changed?.Invoke();
+        return true;
+    }
     public event Action? Changed;
 
     private AvatarState? Me() => _world.FindAvatar(_self);

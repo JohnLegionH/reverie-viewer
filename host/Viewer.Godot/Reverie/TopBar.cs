@@ -370,6 +370,9 @@ public partial class TopBar : PanelContainer
     public RvStatusChip Grid { get; }
     public RvStatusChip Connection { get; }
 
+    /// <summary>The search box (a search icon): opens the command list (Ctrl+Shift+K).</summary>
+    public Button Search { get; }
+
     public TopBar(StringTable strings, IReadOnlyList<RvMenu> menus)
     {
         Name = "top_bar";
@@ -406,6 +409,9 @@ public partial class TopBar : PanelContainer
         _balance = new Label { Name = "balance", ThemeTypeVariation = ReverieStyle.Status, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
         Connection = new RvStatusChip(strings.Get("status.disconnected")) { Name = "connection" };
         Connection.DotColour = "muted";
+        // the search box: the search icon, as small as Back and Home, so the narrow-window rule still holds
+        Search = new RvIconButton(LucideIcons.Search, strings.Get("cmdlist.box.tip")) { Name = "search", SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        _right.AddChild(Search);
         _right.AddChild(Grid);
         _right.AddChild(_balance);
         _right.AddChild(_time);
@@ -450,6 +456,13 @@ public partial class TopBar : PanelContainer
         Home.Visible = inWorld;
         Location.Visible = inWorld;
         _laidOutFor = -1;   // the centre zone's width changed: lay the zones out again
+    }
+
+    /// <summary>Shows or hides the search box: not while the login screen shows.</summary>
+    public void ShowSearch(bool shown)
+    {
+        Search.Visible = shown;
+        _laidOutFor = -1;   // the right zone's width changed: lay the zones out again
     }
 
     public void SetTime(string text) => _time.Text = text;

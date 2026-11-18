@@ -327,9 +327,89 @@ public partial class ShellRoot : Control
             GetViewport().SetInputAsHandled();
             return;
         }
+        // the command list's key (Ctrl+Shift+K) works while typing too, like the menus' shortcuts
+        // not on the login screen: nothing is there to search before a login
+        if (e is InputEventKey { Pressed: true, Echo: false } ck && !LoginShowing && CommandList is { } list && ChordOf(ck) is { } chord
+            && chord == KeyChord.Parse(ViewerShortcuts.CommandList))
+        {
+            list.Toggle();
+            if (list.IsOpen)
+                PlaceCommandList();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         // a menu shortcut with Ctrl or Alt reaches the menus before the control that holds the keyboard, so it works while typing
         if (e is InputEventKey { Pressed: true, Echo: false } k && (k.CtrlPressed || k.AltPressed) && RunShortcut(k))
             GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>The command list (Ctrl+Shift+K), once installed.</summary>
+    public CommandListWindow? CommandList { get; set; }
+
+    private readonly HashSet<Control> _loginsShown = new();
+
+    /// <summary>True while a login screen shows. The official login screen has no search and there is nothing to search before a login,
+    /// so the top bar's search icon is hidden and Ctrl+Shift+K does nothing then; both come back once the login screen goes.</summary>
+    public bool LoginShowing => _loginsShown.Count > 0;
+
+    /// <summary>A login screen in this shell showed or hid (it says so itself, as it enters, leaves or changes visibility).</summary>
+    public void SetLoginShowing(Control screen, bool showing)
+    {
+        if (!(showing ? _loginsShown.Add(screen) : _loginsShown.Remove(screen)))
+            return;
+        TopBar.ShowSearch(!LoginShowing);
+        if (LoginShowing)
+            CommandList?.Close();
+    }
+
+    /// <summary>The command list sits centred under the top bar, over everything else.</summary>
+    public void PlaceCommandList()
+    {
+        if (CommandList is not { } list)
+            return;
+        var size = GetViewportRect().Size;
+        float width = Math.Min(CommandListWindow.Width, size.X - 32);
+        list.Size = new Vector2(width, 0);
+        list.Size = new Vector2(width, list.GetCombinedMinimumSize().Y);
+        list.Position = new Vector2(MathF.Round((size.X - width) / 2), TopBar.Size.Y + 12);
+        MoveChild(list, GetChildCount() - 1);
+    }
+
+    /// <summary>Opens the top bar's menu along a path of ids (the menu, then each entry down to the one wanted) and highlights the entry:
+    /// where a command-list result lives.</summary>
+    public bool OpenMenuAt(IReadOnlyList<string> path)
+    {
+        var bar = TopBar.Menus;
+        int menu = bar.Menus.Select((m, i) => (m, i)).FirstOrDefault(x => x.m.Id == path[0], (null!, -1)).Item2;
+        if (menu < 0)
+            return false;
+        if (bar.OpenMenu != menu)
+            bar.ClickTitle(menu);
+        // down the path: each submenu on the way opens beside its row, and the last entry is highlighted
+        PopupMenu popup = bar.Popups[menu];
+        IReadOnlyList<RvMenuEntry> entries = bar.Menus[menu].Entries();
+        for (int step = 1; step < path.Count; step++)
+        {
+            int item = Index(entries, path[step]);
+            if (item < 0)
+                return false;
+            popup.SetFocusedItem(item);
+            if (step == path.Count - 1 || entries[item].Children is not { } kids
+                || popup.GetNodeOrNull<PopupMenu>(path[step].Replace('.', '_')) is not { } sub)
+                break;
+            sub.Popup(new Rect2I(popup.Position + new Vector2I(popup.Size.X, 0), Vector2I.Zero));
+            popup = sub;
+            entries = kids;
+        }
+        return true;
+
+        static int Index(IReadOnlyList<RvMenuEntry> entries, string? id)
+        {
+            for (int i = 0; i < entries.Count; i++)
+                if (entries[i].Id == id)
+                    return i;
+            return -1;
+        }
     }
 
     /// <summary>A menu shortcut without Ctrl or Alt (G, Shift+X) reaches the menus only when the control holding the keyboard did not take
@@ -603,6 +683,8 @@ public partial class ShellRoot : Control
         float bottom = regions.ChatBar.H > 0 ? regions.ChatBar.Y : size.Y;
         Dock.Position = new Vector2(MathF.Round((size.X - dock.X) / 2), bottom - ReverieTheme.DockEdge - dock.Y);
         Dock.Size = dock;
+        if (CommandList is { IsOpen: true })
+            PlaceCommandList();
     }
 
     /// <summary>Lays the dock out again (after something in its quick row, such as an add-on's quick control, came or went).</summary>
