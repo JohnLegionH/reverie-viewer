@@ -5,14 +5,14 @@
 Reverie Viewer is a modern, open-source viewer for OpenSimulator grids. It is a desktop
 program built on the Godot engine with a .NET core, and it draws with Vulkan or Direct3D 12.
 
-> **Early preview.** Version 0.1.2 is an early public release. Expect missing features and rough edges, and keep a
+> **Early preview.** Version 0.1.3 is an early public release. Expect missing features and rough edges, and keep a
 > second viewer at hand for anything you rely on.
 
 ## Install and first start
 
 ### Windows 10 or 11 (64-bit)
 
-1. Download `reverie-viewer-0.1.2-windows-x86_64.zip` from the release page and, if you like, check it against the
+1. Download `reverie-viewer-0.1.3-windows-x86_64.zip` from the release page and, if you like, check it against the
    `SHA256SUMS` file published beside it.
 2. Unpack the whole zip into a folder of its own. Keep the files together.
 3. Double-click `Reverie.exe`.
@@ -25,12 +25,12 @@ To watch the viewer's log while it runs, start `Reverie.console.exe` instead.
 
 ### Ubuntu 26.04 (and other Linux distributions)
 
-Packages are built for x86_64 (`reverie-viewer-0.1.2-linux-x86_64.tar.gz`) and ARM64
-(`reverie-viewer-0.1.2-linux-arm64.tar.gz`).
+Packages are built for x86_64 (`reverie-viewer-0.1.3-linux-x86_64.tar.gz`) and ARM64
+(`reverie-viewer-0.1.3-linux-arm64.tar.gz`).
 
 ```
-tar -xzf reverie-viewer-0.1.2-linux-x86_64.tar.gz
-./reverie-viewer-0.1.2-linux-x86_64/reverie
+tar -xzf reverie-viewer-0.1.3-linux-x86_64.tar.gz
+./reverie-viewer-0.1.3-linux-x86_64/reverie
 ```
 
 `reverie` checks that a window can open and then starts the viewer (`Reverie.x86_64`, or `Reverie.arm64` on ARM64)
