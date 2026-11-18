@@ -379,6 +379,16 @@ public partial class InventoryPanel : VBoxContainer
     public Label NoticeLabel { get; }
     public Label StatusLabel { get; }
     public PopupMenu Context { get; }
+    /// <summary>The + button's menu: Inventory › New in the official order (menu_inventory_add.xml).</summary>
+    public MenuButton NewButton { get; }
+    /// <summary>The right-click menu's "Create new" submenu (menu_inventory.xml "create_new").</summary>
+    public PopupMenu ContextNew { get; }
+
+    /// <summary>The user picked an Inventory › New entry (its id in <see cref="NewItemCatalog"/>), with the row selected then.</summary>
+    public event Action<string, Guid>? NewRequested;
+
+    /// <summary>The row selected now (empty when none).</summary>
+    public Guid SelectedId => _selected;
 
     /// <summary>The user asked to open an item (a double-click, Enter, or Open on its menu): the item's id, a link's own id included.</summary>
     public event Action<Guid>? OpenRequested;
@@ -451,6 +461,11 @@ public partial class InventoryPanel : VBoxContainer
         RenameButton = Button("rename", "inventory.button.rename", OnRename);
         TrashButton = Button("trash", "inventory.button.trash", OnTrash);
         RetryButton = Button("retry", "inventory.button.retry", OnRetry);
+        NewButton = new MenuButton { Name = "new_menu", Text = strings.Get("inventory.new.add"), Flat = false };
+        NewButton.AccessibilityName = strings.Get("inventory.new.add.name");
+        NewButton.TooltipText = strings.Get("inventory.new.add.name");
+        FillNewMenu(NewButton.GetPopup(), "new", fromRow: false);
+        buttons.AddChild(NewButton);
         foreach (var b in new[] { NewFolderButton, RenameButton, TrashButton, RetryButton })
             buttons.AddChild(b);
         AddChild(buttons);
@@ -494,11 +509,79 @@ public partial class InventoryPanel : VBoxContainer
         Context.AddItem(strings.Get("inventory.button.attach"), 7);
         Context.AddItem(strings.Get("inventory.button.detach"), 8);
         Context.AddItem(strings.Get("inventory.button.open"), 9);
+        ContextNew = new PopupMenu { Name = "context_new" };
+        FillNewMenu(ContextNew, "context_new", fromRow: true);
+        Context.AddSubmenuNodeItem(strings.Get("inventory.new"), ContextNew, 10);
         Context.IdPressed += id => { switch (id) { case 0: OnNewFolder(); break; case 1: OnRename(); break; case 2: OnTrash(); break; case 3: OnRetry(); break;
             case 4: OnWear(); break; case 5: OnAdd(); break; case 6: OnTakeOff(); break; case 7: OnAttachMenu(); break; case 8: OnDetach(); break;
             case 9: if (CanOpen(_selected)) OpenRequested?.Invoke(_selected); break; } };
         AddChild(Context);
         Bind(null, null);
+    }
+
+    /// <summary>Fills a menu with Inventory › New: New Folder, New Script, New Notecard, New Gesture, then New Clothes and New Body Parts as
+    /// submenus, each in the official order. An entry's id is its index in the catalogue.</summary>
+    private void FillNewMenu(PopupMenu menu, string name, bool fromRow)
+    {
+        PopupMenu? clothing = null, bodyParts = null;
+        for (int i = 0; i < NewItemCatalog.Entries.Count; i++)
+        {
+            var e = NewItemCatalog.Entries[i];
+            string label = _strings.Get("inventory.new." + e.Id);
+            switch (e.Group)
+            {
+                case NewItemGroup.Top:
+                    menu.AddItem(label, i);
+                    break;
+                case NewItemGroup.Clothing:
+                    if (clothing is null)
+                    {
+                        clothing = new PopupMenu { Name = name + "_clothing" };
+                        clothing.IdPressed += id => PickNew((int)id, fromRow);
+                        menu.AddSubmenuNodeItem(_strings.Get("inventory.new.clothing"), clothing, 1000);
+                    }
+                    clothing.AddItem(label, i);
+                    break;
+                case NewItemGroup.BodyParts:
+                    if (bodyParts is null)
+                    {
+                        bodyParts = new PopupMenu { Name = name + "_bodyparts" };
+                        bodyParts.IdPressed += id => PickNew((int)id, fromRow);
+                        menu.AddSubmenuNodeItem(_strings.Get("inventory.new.bodyparts"), bodyParts, 1001);
+                    }
+                    bodyParts.AddItem(label, i);
+                    break;
+            }
+        }
+        menu.IdPressed += id => PickNew((int)id, fromRow);
+    }
+
+    /// <summary>An Inventory › New entry picked (by its index in the catalogue): New Folder makes a folder as the New folder button does;
+    /// anything else is asked of the viewer. From the + menu the item goes to its type's folder (llpanelmaininventory.cpp passes no folder);
+    /// from a row's Create new, to that row's folder (llinventorypanel.cpp).</summary>
+    public void PickNew(int index, bool fromRow = false)
+    {
+        if (index < 0 || index >= NewItemCatalog.Entries.Count || _view is null)
+            return;
+        var entry = NewItemCatalog.Entries[index];
+        if (entry.IsFolder)
+            OnNewFolder();
+        else
+            NewRequested?.Invoke(entry.Id, fromRow ? _selected : Guid.Empty);
+    }
+
+    /// <summary>Opens the + menu with the Clothing submenu shown (the pictures).</summary>
+    internal void ShowNewMenu(bool clothing)
+    {
+        var popup = NewButton.GetPopup();
+        NewButton.ShowPopup();
+        if (clothing)
+            for (int i = 0; i < popup.ItemCount; i++)
+                if (popup.GetItemId(i) == 1000)
+                {
+                    popup.SetFocusedItem(i);
+                    popup.GetItemSubmenuNode(i)?.Popup(new Rect2I(popup.Position + new Vector2I(popup.Size.X - 4, (int)(i * (popup.Size.Y / (float)Math.Max(1, popup.ItemCount)))), Vector2I.Zero));
+                }
     }
 
     private Button Button(string name, string key, Action pressed)
@@ -659,6 +742,7 @@ public partial class InventoryPanel : VBoxContainer
         bool bound = _view is not null;
         Search.Editable = bound;
         NewFolderButton.Disabled = !bound || _actions is null || _actions.WhyNotCreate(_selected) is not null;
+        NewButton.Disabled = !bound || (_selected != Guid.Empty && _model?.IsInLibrary(_selected) == true);
         RenameButton.Disabled = !bound || _actions is null || _selected == Guid.Empty || _actions.WhyNotRename(_selected) is not null;
         TrashButton.Disabled = !bound || _actions is null || _selected == Guid.Empty || _actions.WhyNotTrash(_selected) is not null;
         RetryButton.Disabled = !bound || _selected == Guid.Empty || _model?.LoadState(_selected) != FolderLoad.Failed;
@@ -826,6 +910,7 @@ public partial class InventoryPanel : VBoxContainer
         Context.SetItemDisabled(7, AttachButton.Disabled);
         Context.SetItemDisabled(8, DetachButton.Disabled);
         Context.SetItemDisabled(Context.GetItemIndex(9), !CanOpen(_selected));
+        Context.SetItemDisabled(Context.GetItemIndex(10), _view is null || (_selected != Guid.Empty && _model?.IsInLibrary(_selected) == true));
         // at the pointer: in the window's own coordinates when popups are drawn inside it, in screen coordinates when they are windows of their own
         Context.Position = GetViewport().GuiEmbedSubwindows ? (Vector2I)GetGlobalMousePosition() : DisplayServer.MouseGetPosition();
         Context.Popup();

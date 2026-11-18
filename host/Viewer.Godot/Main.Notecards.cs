@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Godot;
 using Viewer.Core.Inventory;
 using Viewer.Core.Session;
 using Viewer.Shell.Build;
@@ -43,9 +44,11 @@ public partial class Main
             };
             _notecardsHooked = true;
         }
-        _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit);
+        _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit, session.NotecardSaves);
         _notecardsBoundFor = session;
         Scripts().Bind(session.Scripts, !Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid(session.LoginUri));
+        AttachNewItems();
+        AttachGestures(session);
     }
 
     /// <summary>The script editor windows, made once.</summary>
@@ -99,7 +102,7 @@ public partial class Main
                 if (_notecardsBoundFor != session)
                 {
                     // the notecard windows are bound with the inventory; bind them here when the Build window opens a card first
-                    _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit);
+                    _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit, session.NotecardSaves);
                     _notecardsBoundFor = session;
                 }
                 Log.Info("notecard.open-task", Viewer.Core.Diagnostics.CoreLog.F("modify", modify));
@@ -135,14 +138,38 @@ public partial class Main
     private NotecardFeature NewNotecards(ShellRoot shell)
     {
         HostLinks.Perform = PerformLink;   // a link in a card works before a session too (it then only says what it would need)
-        return new(shell, (status, reason) =>
+        var feature = new NotecardFeature(shell, (status, reason) =>
             Log.Info("notecard.not-opened", Viewer.Core.Diagnostics.CoreLog.F("status", status), Viewer.Core.Diagnostics.CoreLog.F("reason", reason ?? "")));
+        feature.OpenEmbedded = OpenEmbeddedItem;
+        feature.Saved += access =>
+        {
+            Log.Info("notecard.saved", Viewer.Core.Diagnostics.CoreLog.F("in_object", access.ObjectId != Guid.Empty));
+            // a card saved inside the object the Build window shows: its listed asset is the saved one, and the contents are read again
+            if (access.ObjectId != Guid.Empty)
+                _edit?.ItemSaved(access.ObjectId, access.ItemId, access.AssetId);
+        };
+        return feature;
+    }
+
+    /// <summary>A click on an embedded texture opens it in the texture preview. The official viewer opens a landmark's place information
+    /// (llviewertexteditor.cpp openEmbeddedLandmark); this viewer has no place window yet, so the card's window points to the landmark's
+    /// Teleport button instead. A sound, calling card, settings or material has no preview here yet.</summary>
+    private void OpenEmbeddedItem(NotecardEmbeddedItem item)
+    {
+        switch (item.Kind)
+        {
+            case ItemKind.Texture:
+                ShowTexturePreview(item.ItemId, item.Name, item.Description, item.AssetId == Guid.Empty ? null : item.AssetId);
+                break;
+        }
+        Log.Info("notecard.embedded-open", Viewer.Core.Diagnostics.CoreLog.F("kind", item.Kind.ToString()));
     }
 
     private void DetachNotecards()
     {
         _notecards?.Bind(null, null, null);
         _scripts?.Bind(null, true);
+        DetachGestures();
     }
 
     private void OpenNotecard(Guid itemId)
@@ -232,6 +259,86 @@ public partial class Main
                 nearby.ClickTarget(targets[targets.Length - 1 - index]);
                 return LinkClickReport(nearby.StatusLabel.Text, text);
             }
+            case "new":   // Inventory > New: text is the entry id (notecard, script, gesture, skirt, ...)
+                if (session is null || text is not { Length: > 0 })
+                    return new { error = "no session or entry" };
+                OnNewRequested(text, Guid.Empty);
+                return new { asked = true };
+            case "find_item":   // an own item, by its exact name ("*" any) and kind (text "name|Kind"), the newest first: its id only
+            {
+                if (session is null || text?.Split('|') is not [var n, var k] || !Enum.TryParse<ItemKind>(k, out var kind))
+                    return new { error = "text must be name|Kind" };
+                var hit = session.Inventory.AllItems().Where(i => i.Kind == kind && (n == "*" || i.Name == n) && !session.Inventory.IsInLibrary(i.Id)).OrderByDescending(i => i.CreatedAt).FirstOrDefault();   // "*": any of that kind
+                return new { id = hit?.Id ?? Guid.Empty };
+            }
+            case "front":   // the front editor: editable, changed, the text's size, its embedded items, whether it holds a marker (text), saved
+            {
+                if (_notecards?.Front is not { } f || f.Session is not { } es)
+                    return new { open = _notecards?.Open.Count ?? 0, editor = false };
+                var inText = es.Buffer.FromDisplay(f.Editor.Text).Items;
+                return new
+                {
+                    open = _notecards.Open.Count, editor = true, item = es.Access.ItemId, can_edit = es.CanEdit, dirty = es.IsDirty, saving = es.Saving,
+                    bytes = es.TextBytes, items = inText.Count, kinds = inText.Select(i => i.Kind.ToString()).ToArray(),
+                    has_marker = text is { Length: > 0 } && f.Editor.Text.Contains(text, StringComparison.Ordinal),
+                    save_visible = f.SaveButton.Visible, saved = f.StatusLabel.Text == (_strings ?? Viewer.Shell.StringTable.English()).Get("notecard.saved"),
+                };
+            }
+            case "type":   // types text at the end of the front editor, as the keyboard does
+            {
+                if (_notecards?.Front is not { } tf)
+                    return new { error = "no window" };
+                tf.Editor.SetCaretLine(tf.Editor.GetLineCount() - 1);
+                tf.Editor.SetCaretColumn(tf.Editor.GetLine(tf.Editor.GetLineCount() - 1).Length);
+                tf.Editor.InsertTextAtCaret(text ?? "");
+                return new { typed = (text ?? "").Length };
+            }
+            case "embed":   // drops an inventory item on the end of the front editor's text, as a drag from the inventory does
+            {
+                if (_notecards?.Front is not { } ef || id == Guid.Empty)
+                    return new { error = "no window or item" };
+                ef.DropItems([id], ef.Editor.Text.Length);
+                return new { dropped = true };
+            }
+            case "save":
+                return new { sent = _notecards?.Front?.Save() ?? false };
+            case "close":   // closes the front window as its close button does (the unsaved question shows when it has changes)
+            {
+                if (_notecards?.Front is not { } cf)
+                    return new { error = "no window" };
+                bool closed = cf.MayClose();
+                if (closed)
+                    cf.Closing?.Invoke();
+                return new { closed, asked = cf.UnsavedPrompt.Visible };
+            }
+            case "gesture_setup":   // the gesture window: trigger (text), a chat step saying "<trigger> works", Active on, then Save
+            {
+                if (_gesturePanel is not { } gp || !gp.IsVisibleInTree())
+                    return new { error = "no gesture window" };
+                gp.TriggerField.Text = text ?? "";
+                gp.TriggerField.EmitSignal(LineEdit.SignalName.TextChanged, text ?? "");
+                gp.Library.Select(2);
+                gp.AddStep();
+                gp.ChatField.Text = (text ?? "") + " works";
+                gp.ChatField.EmitSignal(LineEdit.SignalName.TextChanged, gp.ChatField.Text);
+                if (!gp.ActiveCheck.ButtonPressed)
+                    gp.ActiveCheck.ButtonPressed = true;
+                gp.SaveButton.EmitSignal(BaseButton.SignalName.Pressed);
+                return new { steps = gp.Document.Steps.Count, trigger = gp.Document.Trigger };
+            }
+            case "gesture_state":
+                return new
+                {
+                    open = _gesturePanel?.IsVisibleInTree() ?? false, item = _gestureItem, dirty = _gesturePanel?.IsDirty ?? false,
+                    active = _gestureSet?.IsActive(_gestureItem) ?? false, saved = _gesturePanel?.StatusLabel.Text == (_strings ?? Viewer.Shell.StringTable.English()).Get("gesture.saved"),
+                    steps = _gesturePanel?.Document.Steps.Count ?? 0,
+                };
+            case "say":   // says a line in nearby chat as the chat bar does
+                if (_comms is null)
+                    return new { error = "no chat" };
+                return new { cleared = _comms.Nearby.Send(text ?? "") };
+            case "heard":   // whether nearby chat holds a line with the marker (text)
+                return new { heard = _comms?.Nearby.Lines.Any(l => text is { Length: > 0 } && l.Text.Contains(text, StringComparison.Ordinal)) ?? false };
             case "render":
             {
                 // a text as each chat place formats it (nearby, object, an IM or group line all share the format) and as a card shows it

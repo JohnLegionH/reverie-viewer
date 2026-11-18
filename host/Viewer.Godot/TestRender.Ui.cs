@@ -25,7 +25,7 @@ public partial class TestRender
     /// the drag look (the drop-target outline with its text on the folder, the dashed outline on the dragged row). The marks are held in
     /// place, because a still picture has no drag going on.
     /// </summary>
-    private static void ExampleInventoryDrag(InventoryPanel panel)
+    private static void ExampleInventoryDrag(InventoryPanel panel, bool dragCue = true)
     {
         Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         Guid owner = G(1), root = G(2), libraryOwner = G(3), libraryRoot = G(4), note = G(20);
@@ -39,7 +39,8 @@ public partial class TestRender
         model.Apply(new Viewer.Core.Inventory.InventoryFolderFetched(root, true, 2, tops.Length + 1, tops,
             new[] { new Viewer.Core.Inventory.InventoryItemData(note, root, "Welcome note", Viewer.Core.Inventory.ItemKind.Notecard, 7, 7, 0, null) }));
         panel.Bind(model, _ => new ActionResult(ActionStatus.Sent));
-        panel.TreeView.HoldCue(new Viewer.Shell.Inventory.DropCue(note, G(13)));
+        if (dragCue)
+            panel.TreeView.HoldCue(new Viewer.Shell.Inventory.DropCue(note, G(13)));
     }
 
     /// <summary>The picture size of the interface scenes.</summary>
@@ -52,6 +53,7 @@ public partial class TestRender
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "commandlist", "commandlist-search", "commandlist-setting",
+        "notecard", "notecard-readonly", "gesture", "newmenu",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -103,6 +105,60 @@ public partial class TestRender
         }
         else
             panel.ShowAnswer(new Viewer.Core.Inventory.ScriptSaveResult(Viewer.Core.Inventory.ScriptSaveStatus.Saved, true, G(22), []));
+    }
+
+    /// <summary>
+    /// The notecard editor with an example card holding an embedded landmark: "notecard", the user's own card, editable, with the caret at
+    /// the end; "notecard-readonly", someone else's card that may be copied but not modified (Save hidden, "Read only" shown). No session or grid.
+    /// </summary>
+    private static void ExampleNotecard(ShellRoot shell, bool readOnly)
+    {
+        static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        const uint full = 0x7fffffff;
+        var feature = new NotecardFeature(shell);
+        var owner = readOnly ? G(3) : G(1);
+        var perms = new Viewer.Core.Inventory.NotecardPermissions(owner, owner, full, readOnly ? full & ~Viewer.Core.Inventory.NotecardPermissions.Modify : full, 0,
+            readOnly ? Viewer.Core.Inventory.NotecardPermissions.Copy : 0, full);
+        var access = new Viewer.Core.Inventory.NotecardAccess(G(40), G(41), G(1), perms, InLibrary: false);
+        var landmark = new Viewer.Core.Inventory.NotecardEmbeddedItem(0, G(42), G(43), "Harbour", "Example Region (128, 64, 22)", 3, 3, Viewer.Core.Inventory.ItemKind.Landmark,
+            new Viewer.Core.Inventory.NotecardPermissions(G(1), G(1), full, full, 0, 0, full));
+        string text = "Welcome to the harbour!\n\nMeet us at the pier: " + char.ConvertFromUtf32(Viewer.Core.Inventory.NotecardFormat.FirstEmbeddedChar)
+            + "\n\nBring a friend, and see https://example.org/events for the times.";
+        var doc = new Viewer.Core.Inventory.NotecardDocument(2, text, [landmark]);
+        var opened = new Viewer.Shell.Inventory.NotecardOpenResult(Viewer.Shell.Inventory.NotecardOpenStatus.Ok, G(40), readOnly ? "Club rules" : "Harbour welcome",
+            "Where to find us", access, doc);
+        var panel = feature.ShowOpened(opened);
+        if (panel is not null && !readOnly)
+        {
+            panel.Editor.SetCaretLine(panel.Editor.GetLineCount() - 1);
+            panel.Editor.SetCaretColumn(panel.Editor.GetLine(panel.Editor.GetLineCount() - 1).Length);
+        }
+    }
+
+    /// <summary>The gesture editor with an example gesture: a trigger and its replacement, Shift+F2, and five steps (an animation started,
+    /// a sound, a line of chat, a timed wait and the animation stopped), the second step chosen. No session or grid.</summary>
+    private static void ExampleGesture(ShellRoot shell, StringTable strings)
+    {
+        static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        var panel = new GesturePanel(strings);
+        shell.AddFloater(new FloaterSpec(GesturePanel.FloaterId, "gesture.title", new UiSize(480, 560), new UiSize(400, 440)), panel);
+        var doc = new Viewer.Core.Inventory.GestureDocument
+        {
+            Trigger = "/wave", Replace = "Hello!", Key = Viewer.Core.Inventory.GestureKeys.F2, Mask = Viewer.Core.Inventory.GestureKeys.MaskShift,
+            Steps =
+            {
+                Viewer.Core.Inventory.GestureStep.Animation("Wave", G(50), stop: false),
+                Viewer.Core.Inventory.GestureStep.Sound("Chime", G(51)),
+                Viewer.Core.Inventory.GestureStep.Chat("waves hello"),
+                Viewer.Core.Inventory.GestureStep.WaitTime(2f),
+                Viewer.Core.Inventory.GestureStep.Animation("Wave", G(50), stop: true),
+            },
+        };
+        panel.Show(doc, active: true, canEdit: true, [(G(50), "Wave"), (G(52), "Bow")], [(G(51), "Chime")]);
+        panel.StepList.Select(1);
+        panel.StepList.EmitSignal(ItemList.SignalName.ItemSelected, 1);
+        shell.SetFloaterTitle(GesturePanel.FloaterId, "Wave hello");
+        shell.Shell.Floaters.Open(GesturePanel.FloaterId);
     }
 
     /// <summary>The Build window with an example box selected (the Edit tool; a hollowed, twisted box), on an in-memory world with no
@@ -165,6 +221,7 @@ public partial class TestRender
 
         string open = "";
         LoginScreen? loginShown = null;
+        InventoryPanel? newMenuOf = null;
         switch (scene)
         {
             case "login":
@@ -186,6 +243,13 @@ public partial class TestRender
             case "script-readonly":
                 ExampleScript(shell, scene);
                 break;
+            case "notecard":
+            case "notecard-readonly":
+                ExampleNotecard(shell, scene == "notecard-readonly");
+                break;
+            case "gesture":
+                ExampleGesture(shell, strings);
+                break;
             case "scriptdialog":
             case "permission":
                 ScriptPanel(shell, strings, scene == "permission");
@@ -194,8 +258,13 @@ public partial class TestRender
                 var chat = ChatFeature.Install(shell, settings);
                 PeopleFeature.Install(shell, settings, chat.Conversations);
                 var inventoryPanel = InventoryFeature.Install(shell);
-                if (scene == "inventory")
-                    ExampleInventoryDrag(inventoryPanel);
+                if (scene is "inventory" or "newmenu")
+                    ExampleInventoryDrag(inventoryPanel, dragCue: scene == "inventory");
+                if (scene == "newmenu")
+                {
+                    newMenuOf = inventoryPanel;
+                    rig.Viewport.GuiEmbedSubwindows = true;   // the menus are drawn inside the picture
+                }
                 OutfitFeature.Install(shell);
                 var appearancePanel = AppearanceFeature.Install(shell, redrawGapMs: 0);
                 if (scene.StartsWith("appearance", StringComparison.Ordinal))
@@ -218,7 +287,7 @@ public partial class TestRender
                 open = scene switch
                 {
                     "inworld" => "",
-                    "inventory" => InventoryFeature.FloaterId,
+                    "inventory" or "newmenu" => InventoryFeature.FloaterId,
                     "outfits" => OutfitFeature.FloaterId,
                     "people" => PeopleFeature.PeopleId,
                     "conversations" => ChatFeature.ConversationsId,
@@ -260,6 +329,11 @@ public partial class TestRender
         else if (open.Length > 0)
             shell.Shell.Floaters.Open(open);
         await Frames(10);
+        if (newMenuOf is not null)
+        {
+            newMenuOf.ShowNewMenu(clothing: true);   // the + menu with New Clothes open
+            await Frames(10);
+        }
         if (loginShown is not null && loginShown.ById["password"] is LineEdit field && loginShown.ById["reveal"] is Control eye)
         {
             // the field's text area ends where its face's right margin begins; the show button must start at or after it

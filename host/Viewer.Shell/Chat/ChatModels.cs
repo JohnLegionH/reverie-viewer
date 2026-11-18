@@ -295,6 +295,9 @@ public sealed class NearbyChat
         Changed?.Invoke();
     }
 
+    /// <summary>Revises a line of open chat before it is said: the active gestures' triggers (null: the line is said as typed).</summary>
+    public Func<string, string?>? Revise { get; set; }
+
     /// <summary>The input's text changed (each keystroke).</summary>
     public void InputChanged(string text)
     {
@@ -314,7 +317,16 @@ public sealed class NearbyChat
         _typing.Stop();
         if (parsed.Text.Length == 0)
             return SetStatus(null, true);
-        var r = _submit(new SayIntent(parsed.Text, parsed.Channel, parsed.Kind));
+        string say = parsed.Text;
+        // a gesture's trigger in a line of open chat plays the gesture and is replaced by its text (llgesturemgr.cpp triggerAndReviseString);
+        // a line left empty by that is not said
+        if (parsed.Channel == 0 && Revise?.Invoke(say) is { } revised)
+        {
+            if (revised.Trim().Length == 0)
+                return SetStatus(null, true);
+            say = revised;
+        }
+        var r = _submit(new SayIntent(say, parsed.Channel, parsed.Kind));
         return SetStatus(ChatText.StatusOf(r), r.Sent || r.Status == ActionStatus.OutcomeUnknown);
     }
 

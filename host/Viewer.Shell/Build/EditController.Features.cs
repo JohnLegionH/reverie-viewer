@@ -120,6 +120,23 @@ public sealed partial class EditController
     /// <summary>Asks the region for the primary prim's items.</summary>
     public bool RequestContents() => Object() is { } o && Send(new RequestContentsIntent(o.Id.LocalId, o.FullId));
 
+    /// <summary>
+    /// An item of the shown object was saved in place (a notecard edited from Contents): its listed asset becomes the one the save stored and
+    /// the object's contents are read again, as the official window takes the new asset id from the upload's answer and reads the card
+    /// again (llpreviewnotecard.cpp finishTaskUpload). Opening the item again then reads what was saved, not the asset listed before.
+    /// False when the item is not listed for that object.
+    /// </summary>
+    public bool ItemSaved(Guid objectId, Guid itemId, Guid newAssetId)
+    {
+        if (_contents is not { } c || c.ObjectId != objectId || !c.Items.Any(i => i.ItemId == itemId))
+            return false;
+        if (newAssetId != Guid.Empty)
+            _contents = (c.ObjectId, c.Items.Select(i => i.ItemId == itemId ? i with { AssetId = newAssetId } : i).ToArray());
+        Changed?.Invoke();
+        RequestContents();
+        return true;
+    }
+
     /// <summary>The primary prim when its contents may be changed: one the agent may modify.</summary>
     private Viewer.Core.World.ObjectState? ContentTarget() => Primary is { } p && Access(p).CanModify ? Find(p) : null;
 

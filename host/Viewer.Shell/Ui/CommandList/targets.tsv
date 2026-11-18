@@ -13,6 +13,7 @@
 30	menu:communicate.conversations
 63	pref:share_online_status
 64	menu:content.inventory
+75	menu:content.inventory
 91	menu:content.outfits
 92	menu:content.outfits
 94	menu:me.appearance
@@ -28,6 +29,7 @@
 134	prefs:building
 145	menu:build.upload.image menu:build.upload.bulk
 146	menu:build.upload.model menu:build.upload.bulk_models
+161	menu:content.inventory
 164	menu:world.about_land
 176	menu:world.map
 178	menu:world.minimap
@@ -37,6 +39,7 @@
 197	menu:env.sunrise menu:env.midday menu:env.legacymidday menu:env.sunset menu:env.midnight menu:env.region menu:env.pauseclouds
 198	menu:env.personal
 205	prefs:graphics pref:graphics_preset pref:draw_distance pref:max_texture_resolution pref:fps_limit pref:vsync pref:clouds_enabled pref:neighbours
+216	menu:content.inventory
 226	menu:communicate.notifications
 233	prefs:interface prefs:chat pref:chat_font_size
 234	prefs:interface

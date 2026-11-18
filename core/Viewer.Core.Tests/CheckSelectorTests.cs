@@ -45,6 +45,8 @@ public class CheckSelectorTests
     [InlineData("host/Viewer.Shell/Build/EditController.Faces.cs")]
     [InlineData("core/Viewer.Core/Building/TextureUpload.cs")]
     [InlineData("core/Viewer.Core/Appearance/WearableKinds.cs")]
+    [InlineData("host/Viewer.Godot/Main.Gestures.cs")]
+    [InlineData("host/Viewer.Godot/Main.NewItems.cs")]
     public void The_areas_v10_names_and_grid_message_code_run_the_stock_smoke(string file)
     {
         var s = Select(file);
