@@ -313,6 +313,10 @@ public sealed class NotecardEditSession
         }
     }
 
+    /// <summary>Whether the item is in the card as last saved. One dropped in since cannot be opened or copied until the card is saved
+    /// (llviewertexteditor.cpp openEmbeddedItemAtPos: getEmbeddedItemSaved, else showUnsavedAlertDialog).</summary>
+    public bool IsSaved(NotecardEmbeddedItem item) => _savedItems.Any(i => i.ItemId == item.ItemId);
+
     public NotecardCloseVerdict RequestClose() => IsDirty ? NotecardCloseVerdict.Ask : NotecardCloseVerdict.Close;
 
     private static bool SameItems(IReadOnlyList<NotecardEmbeddedItem> a, IReadOnlyList<NotecardEmbeddedItem> b) =>

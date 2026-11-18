@@ -562,6 +562,8 @@
   "notecard.copy.ask": "Copy this item to your inventory?",
   "notecard.copy.yes": "Copy",
   "notecard.copy.no": "Cancel",
+  "notecard.save_first": "This notecard needs to be saved before the item can be copied or viewed. Save notecard?",
+  "notecard.save_first.yes": "OK",
   "notecard.count": "{0} / {1} bytes",
   "notecard.position": "Line {0}, column {1}",
   "notecard.drop.refused": "Only items whose next owner may copy, modify and transfer them can go into a notecard.",

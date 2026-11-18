@@ -290,6 +290,22 @@ public class NotecardEditingTests
         Assert.DoesNotContain("new Color(", src);
     }
 
+    [Fact]
+    public async Task An_item_dropped_in_is_unsaved_until_the_card_is_saved_and_a_click_on_it_asks_to_save_first()
+    {
+        var doc = new NotecardDocument(2, "Go " + E(0), [Item(0, Home, "Home", ItemKind.Landmark, 3)]);
+        var session = new NotecardEditSession(Access(All), objectModify: true, doc, new FakeSave(NotecardSaveResult.Saved(Guid.NewGuid())));
+        var box = Item(1, Box, "Box", ItemKind.Object, 6);
+        session.SetText("Go " + M + "Home" + M + " " + M + "Box" + M, [box]);
+        Assert.True(session.IsSaved(doc.Items[0]));
+        Assert.False(session.IsSaved(box));
+        await session.SaveAsync(CancellationToken.None);
+        Assert.True(session.IsSaved(box));
+        string src = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "NotecardPanels.cs"));
+        Assert.Contains(".IsSaved(item)", src);
+        Assert.Contains("\"notecard.save_first\"", src);
+    }
+
     private sealed class FakeSave(NotecardSaveResult answer) : INotecardSaveTransport
     {
         public byte[]? Sent { get; private set; }

@@ -536,6 +536,7 @@ public partial class NotecardPanel : VBoxContainer
         _model = null;
         _session = null;
         _offered = null;
+        _askSave = false;
         _closeAfterSave = false;
         _syncing = true;
         DescriptionField.Text = string.Empty;
@@ -666,9 +667,23 @@ public partial class NotecardPanel : VBoxContainer
     /// <summary>A click on the text: on an embedded item it opens the item or offers a copy (llviewertexteditor.cpp openEmbeddedItem).</summary>
     public void ClickAt(int index)
     {
-        if (_session is { } s && s.Buffer.ItemAt(Editor.Text, index) is { } item)
-            OpenItem(item);
+        if (_session is not { } s || s.Buffer.ItemAt(Editor.Text, index) is not { } item)
+            return;
+        if (!s.IsSaved(item))
+        {
+            // an item dropped in since the last save: the card must be saved first (the ConfirmNotecardSave question; OK saves)
+            _offered = null;
+            _askSave = true;
+            CopyQuestion.Text = _strings.Get("notecard.save_first");
+            CopyYes.Text = _strings.Get("notecard.save_first.yes");
+            CopyPrompt.Visible = true;
+            CopyYes.GrabFocus();
+            return;
+        }
+        OpenItem(item);
     }
+
+    private bool _askSave;
 
     /// <summary>An embedded item clicked, in the editor or in the read view: opened, or a copy offered.</summary>
     private void OpenItem(NotecardEmbeddedItem item)
@@ -686,7 +701,9 @@ public partial class NotecardPanel : VBoxContainer
                 break;
             case EmbeddedClick.OfferCopy:
                 _offered = item;
+                _askSave = false;
                 CopyQuestion.Text = _strings.Get("notecard.copy.ask");
+                CopyYes.Text = _strings.Get("notecard.copy.yes");
                 CopyPrompt.Visible = true;
                 CopyYes.GrabFocus();
                 break;
@@ -697,6 +714,13 @@ public partial class NotecardPanel : VBoxContainer
     public void AnswerCopy(bool copy)
     {
         CopyPrompt.Visible = false;
+        if (_askSave)
+        {
+            _askSave = false;
+            if (copy)
+                Save();
+            return;
+        }
         if (!copy || _offered is not { } item || _model is not { } m || m.Opened.Access is not { } access)
             return;
         _offered = null;

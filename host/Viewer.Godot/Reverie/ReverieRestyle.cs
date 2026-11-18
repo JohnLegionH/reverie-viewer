@@ -27,6 +27,9 @@ public static class ReverieRestyle
 
     private static readonly StringName Restyled = "reverie_restyled";
 
+    /// <summary>Off only in the render harness, to list a window's controls as the classic look built them (the before list).</summary>
+    public static bool Enabled { get; set; } = true;
+
     /// <summary>Restyles a window's content (and footer) when the window is one of <see cref="FirstHalf"/>.</summary>
     public static void ApplyIfListed(string floaterId, Control content)
     {
@@ -35,7 +38,11 @@ public static class ReverieRestyle
     }
 
     /// <summary>Restyles <paramref name="root"/> and everything under it, now and as children are added.</summary>
-    public static void Apply(Node root, RestylePlace place = RestylePlace.Window) => Visit(root, place);
+    public static void Apply(Node root, RestylePlace place = RestylePlace.Window)
+    {
+        if (Enabled)
+            Visit(root, place);
+    }
 
     private static void Visit(Node node, RestylePlace place)
     {

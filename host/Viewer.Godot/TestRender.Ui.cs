@@ -203,6 +203,8 @@ public partial class TestRender
         if (Array.IndexOf(UiScenes, scene) < 0)
             throw new ArgumentException("--tr-ui must be one of " + string.Join(", ", UiScenes) + ", " + string.Join(", ", ReverieScenes));
         var strings = StringTable.English();
+        // NV_UI_NORESTYLE=1: the windows as the classic look built them, for the before list of controls (NV_UI_CONTROLS=1)
+        ReverieRestyle.Enabled = System.Environment.GetEnvironmentVariable("NV_UI_NORESTYLE") != "1";
         var tokens = ThemePresets.Get(look);
         if (wrongToken)
             tokens = tokens with { Accent = new UiColour(1f, 0f, 1f), Text = new UiColour(0f, 1f, 0f) };
@@ -347,6 +349,8 @@ public partial class TestRender
         img.Convert(Image.Format.Rgba8);
         Directory.CreateDirectory(_out);
         img.SavePng(Path.Combine(_out, _tag + ".png"));
+        if (System.Environment.GetEnvironmentVariable("NV_UI_CONTROLS") == "1")
+            File.WriteAllLines(Path.Combine(_out, _tag + ".controls.tsv"), ControlList(shell));
         _result["ui"] = new { scene, look, wrongToken };
         if (golden is not null)
         {
@@ -414,6 +418,31 @@ public partial class TestRender
         var panel = NotificationView.Build(model.List[0], strings, UiTheme.Spec, (_, _, _) => { }, id => { });
         panel.Position = new Vector2(240, 160);
         shell.MainView.AddChild(panel);
+        ReverieRestyle.Apply(panel);   // as the toast stack restyles every notice it shows
+    }
+
+    /// <summary>Every control shown, one line each: its path, engine class, text, disabled and theme variation (the before and after
+    /// lists of a restyle: the same lines but for the variation column).</summary>
+    private static IEnumerable<string> ControlList(Node root)
+    {
+        yield return "path\tclass\ttext\tdisabled\tvariation";
+        var stack = new Stack<Node>();
+        stack.Push(root);
+        var lines = new List<string>();
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            foreach (var child in node.GetChildren())
+                stack.Push(child);
+            if (node is not Control { } c || !c.IsVisibleInTree())
+                continue;
+            string text = c switch { Button b => b.Text, Label l => l.Text, LineEdit e => e.Text, _ => "" };
+            bool disabled = c is BaseButton { Disabled: true } || c is LineEdit { Editable: false };
+            lines.Add(string.Join('\t', root.GetPathTo(c).ToString(), c.GetClass(), text.Replace('\t', ' ').Replace('\n', ' '), disabled ? "disabled" : "", c.ThemeTypeVariation.ToString()));
+        }
+        lines.Sort(StringComparer.Ordinal);
+        foreach (var line in lines)
+            yield return line;
     }
 
     /// <summary>A two-colour vertical blend: sky over ground.</summary>
