@@ -458,6 +458,13 @@ public partial class TopBar : PanelContainer
         _laidOutFor = -1;   // the centre zone's width changed: lay the zones out again
     }
 
+    /// <summary>Shows or hides the search box: not while the login screen shows.</summary>
+    public void ShowSearch(bool shown)
+    {
+        Search.Visible = shown;
+        _laidOutFor = -1;   // the right zone's width changed: lay the zones out again
+    }
+
     public void SetTime(string text) => _time.Text = text;
 
     /// <summary>The balance, shown only on a grid with a currency (null hides it).</summary>

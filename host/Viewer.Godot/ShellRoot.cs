@@ -328,7 +328,8 @@ public partial class ShellRoot : Control
             return;
         }
         // the command list's key (Ctrl+Shift+K) works while typing too, like the menus' shortcuts
-        if (e is InputEventKey { Pressed: true, Echo: false } ck && CommandList is { } list && ChordOf(ck) is { } chord
+        // not on the login screen: nothing is there to search before a login
+        if (e is InputEventKey { Pressed: true, Echo: false } ck && !LoginShowing && CommandList is { } list && ChordOf(ck) is { } chord
             && chord == KeyChord.Parse(ViewerShortcuts.CommandList))
         {
             list.Toggle();
@@ -344,6 +345,22 @@ public partial class ShellRoot : Control
 
     /// <summary>The command list (Ctrl+Shift+K), once installed.</summary>
     public CommandListWindow? CommandList { get; set; }
+
+    private readonly HashSet<Control> _loginsShown = new();
+
+    /// <summary>True while a login screen shows. The official login screen has no search and there is nothing to search before a login,
+    /// so the top bar's search icon is hidden and Ctrl+Shift+K does nothing then; both come back once the login screen goes.</summary>
+    public bool LoginShowing => _loginsShown.Count > 0;
+
+    /// <summary>A login screen in this shell showed or hid (it says so itself, as it enters, leaves or changes visibility).</summary>
+    public void SetLoginShowing(Control screen, bool showing)
+    {
+        if (!(showing ? _loginsShown.Add(screen) : _loginsShown.Remove(screen)))
+            return;
+        TopBar.ShowSearch(!LoginShowing);
+        if (LoginShowing)
+            CommandList?.Close();
+    }
 
     /// <summary>The command list sits centred under the top bar, over everything else.</summary>
     public void PlaceCommandList()

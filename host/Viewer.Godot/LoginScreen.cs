@@ -573,9 +573,40 @@ public partial class LoginScreen : Control
         _links.Visible = _register.Visible || _forgot.Visible;
     }
 
-    public override void _EnterTree() => UiTheme.Changed += Restyle;
+    public override void _EnterTree()
+    {
+        UiTheme.Changed += Restyle;
+        TellShell();
+    }
 
-    public override void _ExitTree() => UiTheme.Changed -= Restyle;
+    public override void _ExitTree()
+    {
+        UiTheme.Changed -= Restyle;
+        _shellTold?.SetLoginShowing(this, false);
+        _shellTold = null;
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == (int)NotificationVisibilityChanged && IsInsideTree())
+            TellShell();
+    }
+
+    /// <summary>The shell this screen last told whether it shows.</summary>
+    private ShellRoot? _shellTold;
+
+    /// <summary>Tells the shell holding this screen whether it shows: the official login screen has no search, so the top bar's search
+    /// icon and its key wait for the login screen to go.</summary>
+    private void TellShell()
+    {
+        for (Node? n = GetParent(); n is not null; n = n.GetParent())
+            if (n is ShellRoot shell)
+            {
+                _shellTold = shell;
+                shell.SetLoginShowing(this, IsVisibleInTree());
+                return;
+            }
+    }
 
     private void Restyle()
     {

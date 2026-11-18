@@ -172,6 +172,30 @@ public partial class S1Smoke
         await Click(shell.TopBar.Search);
         if (window.IsOpen) problems.Add("a second click on the search box did not close the list");
 
+        // the login screen: the official login screen has no search, and nothing is there to search before a login, so while it shows the
+        // search icon is hidden and Ctrl+Shift+K does nothing; once logged in (the viewer hides the login screen) both come back
+        var login = new LoginScreen(StringTable.English(), null);
+        shell.MainView.AddChild(login);
+        await Frames(2);
+        if (shell.TopBar.Search.Visible) problems.Add("the search icon shows on the login screen");
+        await Key(global::Godot.Key.K, ctrl: true, shift: true);
+        if (window.IsOpen) problems.Add("Ctrl+Shift+K opened the command list on the login screen");
+        window.Close();
+        login.Visible = false;   // logged in: the viewer hides the login screen as the world shows
+        await Frames(2);
+        if (!shell.TopBar.Search.Visible) problems.Add("the search icon did not come back once logged in");
+        await Key(global::Godot.Key.K, ctrl: true, shift: true);
+        if (!window.IsOpen) problems.Add("Ctrl+Shift+K did not open the command list once logged in");
+        login.Visible = true;   // logged out: the login screen shows again, and the open list closes with the icon
+        await Frames(2);
+        if (window.IsOpen) problems.Add("the command list stayed open when the login screen came back");
+        if (shell.TopBar.Search.Visible) problems.Add("the search icon shows when the login screen comes back");
+        shell.MainView.RemoveChild(login);
+        login.QueueFree();
+        await Frames(1);
+        if (!shell.TopBar.Search.Visible) problems.Add("the search icon did not come back when the login screen left");
+        window.Close();
+
         // every result opens what it names: a window opens, a setting or page shows in Preferences, a command is one the viewer runs
         int windows = 0, settingsShown = 0, commands = 0;
         var index = window.State.Index;
