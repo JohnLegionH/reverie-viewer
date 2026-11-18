@@ -28,7 +28,7 @@ public static class ReverieStyle
         Select = "RvSelect", Field = "RvField", List = "RvList", TreeList = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel";
 
     /// <summary>The variant the tokens are: light when the bar is light.</summary>
-    public static ReverieVariant VariantOf(ThemeTokens t) => t.Bar.Luminance > 0.5 ? ReverieVariant.Light : ReverieVariant.Dark;
+    public static ReverieVariant VariantOf(ThemeTokens t) => ReverieTheme.VariantFor(t);
 
     /// <summary>The design tokens behind the current engine tokens.</summary>
     public static ReverieTokens TokensFor(ThemeTokens t) => ReverieTheme.Tokens(VariantOf(t), t.Accent);
@@ -231,6 +231,9 @@ public static class ReverieStyle
             theme.SetStylebox("selected", name, rowSelected);
             theme.SetStylebox("selected_focus", name, rowSelected);
             theme.SetStylebox("hovered", name, rowHover);
+            theme.SetStylebox("hovered_selected", name, rowSelected);
+            theme.SetStylebox("hovered_selected_focus", name, rowSelected);
+            theme.SetColor("font_hovered_selected_color", name, C(r["text.strong"]));
             theme.SetStylebox("cursor", name, none);
             theme.SetStylebox("cursor_unfocused", name, none);
             theme.SetColor("font_color", name, C(r["text.primary"]));

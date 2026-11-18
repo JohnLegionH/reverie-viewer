@@ -261,22 +261,41 @@ public partial class NotecardTextEdit : TextEdit
         int size = GetThemeFontSize("font_size");
         var link = ShellTheme.C(UiTheme.Tokens.Accent);
         var cover = GetThemeStylebox(Editable ? "normal" : "read_only") is StyleBoxFlat box ? box.BgColor : (Color?)null;
+        // the text is read once per draw and walked forward once (the spans come in text order), so a long card costs one pass
         string text = Text;
+        int caret = NotecardEditBuffer.IndexOf(text, GetCaretLine(), GetCaretColumn());
+        int selFrom = -1, selTo = -1;
+        if (HasSelection())
+        {
+            selFrom = NotecardEditBuffer.IndexOf(text, GetSelectionFromLine(), GetSelectionFromColumn());
+            selTo = NotecardEditBuffer.IndexOf(text, GetSelectionToLine(), GetSelectionToColumn());
+        }
+        int at = 0, line = 0, column = 0;
+        void WalkTo(int target)
+        {
+            for (; at < target && at < text.Length; at++)
+            {
+                if (text[at] == '\n') { line++; column = 0; continue; }
+                if (char.IsHighSurrogate(text[at]) && at + 1 < text.Length)
+                    at++;
+                column++;
+            }
+        }
         foreach (var (start, length, _) in Items())
         {
             // one run per screen row: a long name can wrap
             int i = start, end = Math.Min(text.Length, start + length);
             while (i < end)
             {
-                var (line, column) = PlaceOf(i);
+                WalkTo(i);
                 var first = GetRectAtLineColumn(line, column);
                 int runStart = i;
                 Rect2I last = first;
                 int next = i + (char.IsHighSurrogate(text[i]) && i + 1 < end ? 2 : 1);
                 while (next < end)
                 {
-                    var (l2, c2) = PlaceOf(next);
-                    var r = GetRectAtLineColumn(l2, c2);
+                    WalkTo(next);
+                    var r = GetRectAtLineColumn(line, column);
                     if (r.Position.Y != first.Position.Y)
                         break;
                     last = r;
@@ -286,8 +305,10 @@ public partial class NotecardTextEdit : TextEdit
                 if (first.Position.X < 0 || first.Position.Y < 0)
                     continue;   // scrolled out of view
                 var row = new Rect2(first.Position, new Vector2(last.End.X - first.Position.X, first.Size.Y));
-                bool selected = HasSelection() && SelectionTouches(runStart, next);
-                if (cover is { } bg && font is not null && !selected)
+                bool selected = selFrom >= 0 && selFrom < next && selTo > runStart;
+                // the caret on this run's edge or inside it stays visible: the run keeps the text box's own drawing, underlined
+                bool caretHere = caret >= runStart - 1 && caret <= next + 1;
+                if (cover is { } bg && font is not null && !selected && !caretHere)
                 {
                     DrawRect(row, bg);
                     float baseline = row.Position.Y + (row.Size.Y - font.GetHeight(size)) / 2 + font.GetAscent(size);
@@ -299,13 +320,6 @@ public partial class NotecardTextEdit : TextEdit
         }
 
         void DrawRect(Rect2 r, Color c) => _links.DrawRect(r, c);
-    }
-
-    private bool SelectionTouches(int from, int to)
-    {
-        int a = IndexOf(GetSelectionFromLine(), GetSelectionFromColumn());
-        int b = IndexOf(GetSelectionToLine(), GetSelectionToColumn());
-        return a < to && b > from;
     }
 
     // the text box counts columns in characters, the text's offsets are UTF-16 units: an emoji is one column and two units

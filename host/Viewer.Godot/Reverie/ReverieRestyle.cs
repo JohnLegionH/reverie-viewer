@@ -60,6 +60,9 @@ public static class ReverieRestyle
     {
         switch (node)
         {
+            // a number box's own field and a tree's rename field are sized by their owner: they keep the owner's look
+            case LineEdit when node.GetParent() is SpinBox or Window:
+                break;
             case Control control:
                 if (ReverieRestyleRules.VariationFor(control.GetClass(), control.ThemeTypeVariation.ToString(), control is BaseButton { } b && b is Button { Flat: true }, place) is { } v)
                     control.ThemeTypeVariation = v;

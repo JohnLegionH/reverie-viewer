@@ -95,6 +95,39 @@ public class ReverieRestyleTests
     }
 
     [Fact]
+    public void The_Reverie_variant_follows_the_panel_the_controls_sit_on_not_the_bar()
+    {
+        var classic = ThemePresets.Get(ThemePresets.Classic);
+        var lightBar = classic with { Bar = new UiColour(0.95f, 0.95f, 0.95f) };
+        Assert.Equal(ReverieVariant.Dark, ReverieTheme.VariantFor(lightBar));
+        var lightPanel = classic with { Panel = new UiColour(0.95f, 0.95f, 0.95f, classic.Panel.A), Bar = new UiColour(0.1f, 0.1f, 0.1f) };
+        Assert.Equal(ReverieVariant.Light, ReverieTheme.VariantFor(lightPanel));
+        Assert.Contains("ReverieTheme.VariantFor(t)", Host(Path.Combine("Reverie", "ReverieStyle.cs")));
+    }
+
+    [Fact]
+    public void Restyled_labels_set_again_later_keep_the_Reverie_look_and_number_fields_inside_other_controls_are_left_alone()
+    {
+        Assert.Contains("ReverieRestyleRules.VariationFor(\"Label\"", Host("PreferencesPanels.cs"));
+        string restyle = Host(Path.Combine("Reverie", "ReverieRestyle.cs"));
+        Assert.Contains("SpinBox", restyle);
+        string style = Host(Path.Combine("Reverie", "ReverieStyle.cs"));
+        Assert.Contains("\"hovered_selected\"", style);
+    }
+
+    [Fact]
+    public void The_notecard_link_overlay_reads_the_text_once_per_draw_and_leaves_the_caret_uncovered()
+    {
+        string src = Host("NotecardPanels.cs");
+        int from = src.IndexOf("private void DrawItemLinks()", StringComparison.Ordinal);
+        int to = src.IndexOf("public int IndexOf(int line, int column)", StringComparison.Ordinal);
+        Assert.True(from > 0 && to > from);
+        string body = src[from..to];
+        Assert.DoesNotContain("PlaceOf(", body);
+        Assert.Contains("GetCaretLine()", body);
+    }
+
+    [Fact]
     public void Toast_notes_take_their_colour_from_a_variation_not_an_override()
     {
         Assert.DoesNotContain("AddThemeColorOverride", Host("NotificationPanels.cs"));

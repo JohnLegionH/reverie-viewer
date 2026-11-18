@@ -141,5 +141,9 @@ public static class ReverieTheme
     }
 
     /// <summary>The variant a preset id stands for, or null when it is no Reverie preset.</summary>
+    /// <summary>The variant whose text reads on the window panel the person's look has.</summary>
+    /// (The bar can be set apart from the panel; windows and their controls sit on the panel, so the panel decides.)
+    public static ReverieVariant VariantFor(ThemeTokens t) => t.Panel.Opaque().Luminance > 0.5 ? ReverieVariant.Light : ReverieVariant.Dark;
+
     public static ReverieVariant? VariantOf(string? id) => id switch { DarkId => ReverieVariant.Dark, LightId => ReverieVariant.Light, _ => null };
 }
