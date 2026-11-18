@@ -53,7 +53,7 @@ public partial class TestRender
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "commandlist", "commandlist-search", "commandlist-setting",
-        "notecard", "notecard-readonly", "gesture", "newmenu",
+        "notecard", "notecard-readonly", "gesture", "gestures", "newmenu",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -161,6 +161,31 @@ public partial class TestRender
         shell.Shell.Floaters.Open(GesturePanel.FloaterId);
     }
 
+    /// <summary>The Gestures window with an example inventory: five gestures in the Gestures folder, two of them active (one with its
+    /// trigger and Shift+F2, one whose file has a trigger only), the second row chosen. No session or grid.</summary>
+    private static void ExampleGestureList(ShellRoot shell)
+    {
+        static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        Guid owner = G(1), root = G(2), libraryOwner = G(3), libraryRoot = G(4), folder = G(10);
+        var model = new Viewer.Core.Inventory.InventoryModel((_, _) => { });
+        var gestures = new Viewer.Core.Inventory.InventoryFolderData(folder, root, "Gestures", Viewer.Core.Inventory.FolderKind.Gesture, 1, 5);
+        model.Apply(new Viewer.Core.Inventory.InventorySkeletonReceived(owner, root, libraryOwner, libraryRoot,
+            [new Viewer.Core.Inventory.InventoryFolderData(root, Guid.Empty, "My Inventory", Viewer.Core.Inventory.FolderKind.Root, 1, -1), gestures],
+            [new Viewer.Core.Inventory.InventoryFolderData(libraryRoot, Guid.Empty, "Library", Viewer.Core.Inventory.FolderKind.Root, 1, 0)]));
+        string[] names = ["Wave hello", "Bow", "Clap", "Laugh", "Shrug"];
+        model.Apply(new Viewer.Core.Inventory.InventoryFolderFetched(folder, true, 2, names.Length, [],
+            names.Select((n, i) => new Viewer.Core.Inventory.InventoryItemData(G(20 + i), folder, n, Viewer.Core.Inventory.ItemKind.Gesture, 21, 20, 0, null)).ToArray()));
+        var docs = new Dictionary<Guid, Viewer.Core.Inventory.GestureDocument>
+        {
+            [G(20)] = new() { Trigger = "/wave", Key = Viewer.Core.Inventory.GestureKeys.F2, Mask = Viewer.Core.Inventory.GestureKeys.MaskShift },
+            [G(23)] = new() { Trigger = "/lol" },
+        };
+        var window = GesturesFeature.Install(shell);
+        shell.Shell.Floaters.Open(GesturesFeature.FloaterId);
+        window.Show(Viewer.Shell.Inventory.GestureListRows.Build(model, docs.Keys.ToArray(), id => docs.GetValueOrDefault(id), "Loading..."));
+        window.ClickRow(G(22), add: false);
+    }
+
     /// <summary>The Build window with an example box selected (the Edit tool; a hollowed, twisted box), on an in-memory world with no
     /// session or grid. <paramref name="scene"/>: "build" every section closed (each shows its summary); "build-look" only Look open;
     /// "build-search" a search for "hollow" (the Shape section open on its two rows); the colour picker scenes as "build".</summary>
@@ -249,6 +274,9 @@ public partial class TestRender
                 break;
             case "gesture":
                 ExampleGesture(shell, strings);
+                break;
+            case "gestures":
+                ExampleGestureList(shell);
                 break;
             case "scriptdialog":
             case "permission":

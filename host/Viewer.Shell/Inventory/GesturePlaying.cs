@@ -100,6 +100,12 @@ public sealed class ActiveGestures(Action<GestureDocument> play, Func<int, int> 
 
     public bool IsActive(Guid itemId) { lock (_gate) return _byItem.ContainsKey(itemId); }
 
+    /// <summary>An active gesture's file, or null when it is not active.</summary>
+    public GestureDocument? Get(Guid itemId) { lock (_gate) return _byItem.GetValueOrDefault(itemId); }
+
+    /// <summary>The items of the active gestures whose files are read.</summary>
+    public IReadOnlyList<Guid> Items() { lock (_gate) return _byItem.Keys.ToArray(); }
+
     private GestureDocument[] All() { lock (_gate) return _byItem.Values.ToArray(); }
 
     public string? Revise(string line)

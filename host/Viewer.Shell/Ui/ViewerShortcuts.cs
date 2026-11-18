@@ -24,6 +24,7 @@ public static class ViewerShortcuts
         ["communicate.notifications"] = "alt|shift|N",           // Notifications
         ["world.map"] = "control|M",                             // World map
         ["world.minimap"] = "control|shift|M",                   // Mini-map
+        ["me.gestures"] = "control|G",                           // Gestures... (the Avatar menu)
         ["world.home"] = "control|shift|H",                      // Teleport home
         ["build.upload.model"] = "control|alt|U",                // Upload model
     };
@@ -47,7 +48,6 @@ public static class ViewerShortcuts
         ("control|alt|R", "Rebake textures"), ("control|shift|2", "Scene load statistics"),
         ("control|D", "Duplicate"),
         ("control|E", "Events"),
-        ("control|G", "Gestures"),
         ("control|R", "Always run"),
         ("control|shift|F", "Friends (the People window has no Friends tab to open on)"),
         ("control|shift|G", "Groups (the People window has no Groups tab to open on)"),

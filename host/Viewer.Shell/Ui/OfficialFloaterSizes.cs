@@ -38,6 +38,7 @@ public static class OfficialFloaterSizes
         ["minimap"] = ("floater_map.xml", new UiSize(200, 200)),
         ["about"] = ("floater_about.xml", new UiSize(500, 440)),
         ["sound_tuner"] = ("floater_sound_devices.xml", new UiSize(490, 164)),
+        ["gestures"] = ("floater_gesture.xml", new UiSize(313, 465)),
         ["notecard"] = ("floater_preview_notecard.xml", new UiSize(400, 361)),
         // ours with no official window of their own
         ["upload_bulk_models"] = ("", null),
