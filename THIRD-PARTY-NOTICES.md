@@ -138,9 +138,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     `indra/newview/app_settings/shaders/class1/deferred/terrainF.glsl` (copyright 2007) and `indra/newview/llsurfacepatch.cpp` (copyright 2001: the second texture coordinate of a land vertex).
   - `core/Viewer.Core/World/Data/terrain-ramp.raw`: the picture of `indra/newview/skins/default/textures/alpha_gradient_2d.j2c`, the viewer's terrain blend ramp, decoded to 256 x 256 eight-bit values
     (bottom row first). It is a texture of the viewer repository, which is under the licence above; no separate licence for it was found in that repository.
-  - `core/Viewer.Core/World/ToneMap.cs` (`ToneMap`, `ColourPath`): `indra/newview/app_settings/shaders/class1/deferred/tonemapUtilF.glsl` and `postDeferredTonemap.glsl` (copyright 2024, both with the file header `postDeferredTonemap.glsl`), `indra/llinventory/llsettingssky.cpp` and `indra/newview/llsettingsvo.cpp` (copyright 2017) and `indra/newview/pipeline.cpp` (copyright 2010); its `AutoExposure` follows `indra/newview/app_settings/shaders/class1/deferred/exposureF.glsl` and `luminanceF.glsl` (copyright 2023) and the exposure range `LLPipeline::generateExposure` sets in `pipeline.cpp`.
+  - `core/Viewer.Core/World/ToneMap.cs` (`ToneMap`, `ColourPath`): `indra/newview/app_settings/shaders/class1/deferred/tonemapUtilF.glsl` (its `toneMap`: exposure, mix and clamp; the two tone curves are not taken from it, see Baking Lab below) and `postDeferredTonemap.glsl` (copyright 2024, both with the file header `postDeferredTonemap.glsl`), `indra/llinventory/llsettingssky.cpp` and `indra/newview/llsettingsvo.cpp` (copyright 2017) and `indra/newview/pipeline.cpp` (copyright 2010); its `AutoExposure` follows `indra/newview/app_settings/shaders/class1/deferred/exposureF.glsl` and `luminanceF.glsl` (copyright 2023) and the exposure range `LLPipeline::generateExposure` sets in `pipeline.cpp`.
   - `core/Viewer.Core/World/SkyProbe.cs` (the sky reflection probe's irradiance map): `indra/newview/llreflectionmapmanager.cpp` (copyright 2022), `indra/newview/app_settings/shaders/class2/interface/irradianceGenF.glsl` and `class3/deferred/reflectionProbeF.glsl` (copyright 2022) and `indra/newview/llsettingsvo.cpp` (copyright 2017); `host/Viewer.Godot/Presentation/FaceShader.cs` (the probe lookup in the face shaders): `reflectionProbeF.glsl`.
-  - `host/Viewer.Godot/Presentation/HdrTonemap.cs` (the compute shader of the tone mapping post pass): `indra/newview/app_settings/shaders/class1/deferred/tonemapUtilF.glsl` (copyright 2024, file header `postDeferredTonemap.glsl`), and its luminance sample and exposure step follow `exposureF.glsl` and `luminanceF.glsl` (copyright 2023).
+  - `host/Viewer.Godot/Presentation/HdrTonemap.cs` (the compute shader of the tone mapping post pass): `indra/newview/app_settings/shaders/class1/deferred/tonemapUtilF.glsl` (its `toneMap`; the two tone curves are not taken from it; copyright 2024, file header `postDeferredTonemap.glsl`), and its luminance sample and exposure step follow `exposureF.glsl` and `luminanceF.glsl` (copyright 2023).
   - `core/Viewer.Core/World/SunDisc.cs` (the square the sun's picture is drawn on and the default sun picture): `indra/newview/llvosky.cpp` and `llvosky.h` (`LLVOSky::updateHeavenlyBodyGeometry`, the body factor and disk radius; copyright 2010), `indra/newview/app_settings/shaders/class1/deferred/sunDiscF.glsl` (copyright 2005) and `indra/llcommon/indra_constants.cpp` (`IMG_SUN`; copyright 2010).
   - `core/Viewer.Core/Avatars/ConstraintSolver.cs` (the animation constraints: hands, feet and lower legs held to the ground or to another part of the body): `indra/llcharacter/llkeyframemotion.cpp` (`LLKeyframeMotion::initializeConstraint`, `activateConstraint`, `deactivateConstraint`, `applyConstraint`; copyright 2010), `indra/llcommon/llcriticaldamp.cpp` (`LLSmoothInterpolation::calcInterpolant`; copyright 2010) and `indra/llmath/llquaternion.cpp` (`LLQuaternion::shortestArc` and `nlerp`; copyright 2010). The file carries the header of `llkeyframemotion.cpp`.
   - `core/Viewer.Core/Avatars/JointMask.cs` (which joints another motion already drives, so a constraint is skipped): `indra/llcharacter/llmotioncontroller.cpp` (`LLMotionController::updateMotionsByType`, the joint signatures), `indra/llcharacter/llkeyframemotion.cpp` (`applyConstraint`, the joint mask check) and `indra/llcharacter/llmotion.cpp` (`addJointState`, the signature byte; copyright 2010 for all). The file carries the header of `llmotioncontroller.cpp`.
@@ -252,7 +252,7 @@ The six packages above ship no licence file. Their projects publish one each; wh
   (https://github.com/MessagePack-CSharp/MessagePack-CSharp). The packages carry no licence file; the project's licence file,
   which also carries the notices of lz4net (BSD 2-clause, "Copyright (c) 2013-2017, Milosz Krajewski") and of BufferWriter.cs
   (Apache License 2.0, "Copyright 2019 .NET Foundation"), is under "Licence texts of the packages" below. The full Apache
-  License 2.0 text is in `ThirdPartyLicenses/LICENSE-glTF-Sample-Viewer-Apache-2.0.txt`.
+  License 2.0 text is in `ThirdPartyLicenses/LICENSE-Apache-2.0.txt`.
 - **ZLogger 2.5.10** (MIT): "Copyright (c) 2020 Cysharp, Inc." (https://github.com/Cysharp/ZLogger). No licence file in the
   package; the project's licence text is below.
 - **Utf8StringInterpolation 1.3.1** (MIT): "Copyright (c) 2023 Cysharp, Inc." (https://github.com/Cysharp/Utf8StringInterpolation).
@@ -598,11 +598,16 @@ their origin from the source. The avatar data folder is kept unchanged in this r
 - **Copyright:** "Second Life(TM) Viewer Artwork. Copyright (C) 2008 Linden Research, Inc." (the artwork notice) and
   "Second Life Viewer Source Code, Copyright (C) 2010, Linden Research, Inc." (the source notice).
 
-## Khronos glTF Sample Viewer (Apache License 2.0) and Hammersley points (CC BY 3.0)
+## Baking Lab: the ACES fit by Stephen Hill (MIT)
 
-The 26.4 viewer's `irradianceGenF.glsl` says, in its own comment: "Code below is derived from the Khronos GLTF Sample viewer:
-https://github.com/KhronosGroup/glTF-Sample-Viewer/blob/master/source/shaders/ibl_filtering.frag". `core/Viewer.Core/World/SkyProbe.cs` translates that filtering,
-so the Apache License 2.0 text is kept in `ThirdPartyLicenses/LICENSE-glTF-Sample-Viewer-Apache-2.0.txt`. The licence file in the Khronos repository is the unfilled Apache
-template and names no copyright holder; the 26.4 viewer gives none either, so none is given here. The file carries a notice that it was changed (Apache License 2.0, section 4(b)).
-The same shader credits its Hammersley points "CC BY 3.0 (Holger Dammertz)", http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html, "with adapted interface";
-that credit is kept with the radical inverse function in `SkyProbe.cs`.
+- **Files:** `core/Viewer.Core/World/ToneMap.cs` (`AcesHill`) and the compute shader in
+  `host/Viewer.Godot/Presentation/HdrTonemap.cs` use the fitted curve and its two matrices from Baking Lab's `ACES.hlsl`,
+  written again in C# and GLSL. Both files carry the source file's credit and the MIT notice in their headers.
+- **Source:** https://github.com/TheRealMJP/BakingLab, `BakingLab/ACES.hlsl` ("The code in this file was originally written by
+  Stephen Hill (@self_shadow), who deserves all credit for coming up with this fit and implementing it.").
+- **Copyright:** "Copyright (c) 2016 MJP" (the project's `LICENSE`, kept as it is in `ThirdPartyLicenses/LICENSE-BakingLab.txt`).
+- **Licence:** MIT, full text in `ThirdPartyLicenses/LICENSE-BakingLab.txt`.
+
+The PBR Neutral tone mapper in the same two files and the sky probe's irradiance filtering in `core/Viewer.Core/World/SkyProbe.cs`
+are this project's own code, written from published mathematics (the PBR Neutral specification's equations; Hammersley points,
+cosine-weighted hemisphere sampling and GPU Gems 3, chapter 20.4), and carry no third-party notice.

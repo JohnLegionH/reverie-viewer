@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-2.1-only
+// SPDX-License-Identifier: LGPL-2.1-only AND MIT
 /**
  * @file postDeferredTonemap.glsl
  *
@@ -154,10 +154,44 @@
  * $/LicenseInfo$
  */
 
-// Adapted 2026 by Legion Builds. ToneMap follows the functions of the official tone mapping shader (tonemapUtilF.glsl: toneMapACES_Hill with its two matrices and the fitted curve,
-// PBRNeutralToneMapping, and toneMap's exposure, mix and clamp, called from postDeferredTonemap.glsl), HdrScale follows the sky's high dynamic range scale set in
+/*
+ * Baking Lab, BakingLab/ACES.hlsl (https://github.com/TheRealMJP/BakingLab), whose fitted curve and two matrices the Hill fit below uses:
+ *
+ *  Baking Lab
+ *  by MJP and David Neubelt
+ *  http://mynameismjp.wordpress.com/
+ *
+ *  All code licensed under the MIT license
+ *
+ * The code in this file was originally written by Stephen Hill (@self_shadow), who deserves all
+ * credit for coming up with this fit and implementing it. Buy him a beer next time you see him. :)
+ *
+ * Copyright (c) 2016 MJP
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+// Adapted 2026 by Legion Builds. ToneMap.Apply follows the official post pass (toneMap's exposure, mix and clamp, called from postDeferredTonemap.glsl), HdrScale follows the sky's high dynamic range scale set in
 // llsettingsvo.cpp (the square root of the gamma times two) and ColourPath follows which sky takes the tone mapper (llsettingssky.cpp: getTonemapMix, canAutoAdjust, and pipeline.cpp:
-// tonemap and the choice between the legacy and the tone-mapped gamma pass), written in C#. AutoExposure follows the dynamic exposure (luminanceF.glsl, exposureF.glsl, and the range LLPipeline::generateExposure sets in pipeline.cpp). The rest of this file is our own code.
+// tonemap and the choice between the legacy and the tone-mapped gamma pass), written in C#. AutoExposure follows the dynamic exposure (luminanceF.glsl, exposureF.glsl, and the range LLPipeline::generateExposure sets in pipeline.cpp). AcesHill uses Stephen Hill's fit as Baking Lab publishes it (MIT, notice above), written in C#.
+// PbrNeutral is written from the equations of the Khronos PBR Neutral tone mapper's specification text (github.com/KhronosGroup/ToneMapping, PBR_Neutral), not from
+// any implementation of it. The rest of this file is our own code.
 
 // Copyright (c) 2026 Legion Builds
 
@@ -165,11 +199,11 @@ using System.Numerics;
 
 namespace Viewer.Core.World;
 
-/// <summary>The tone mapper the official viewer's post pass applies: Khronos neutral or the ACES fit by Hill.</summary>
+/// <summary>The tone mapper the official viewer's post pass applies: the Khronos PBR Neutral mapper or the ACES fit by Hill.</summary>
 public enum ToneMapType { PbrNeutral = 0, AcesHill = 1 }
 
 /// <summary>
-/// The tone mapping of a high dynamic range sky (the official post pass, tonemapUtilF.glsl): the colour is scaled by the exposure, mapped by the chosen
+/// The tone mapping of a high dynamic range sky (the official post pass, tonemapUtilF.glsl's toneMap; the two curves are our own, see the file header): the colour is scaled by the exposure, mapped by the chosen
 /// tone mapper, and mixed with the exposed colour as it was, by the mix factor; the result is clamped to 0..1. Linear colour in, linear colour out.
 /// </summary>
 public static class ToneMap
@@ -178,37 +212,49 @@ public static class ToneMap
     public const float DefaultExposure = 1f, DefaultMix = 0.7f;
     public const ToneMapType DefaultType = ToneMapType.AcesHill;
 
+    // Hill's fit (Baking Lab, notice above): linear sRGB into the space the fit works in (the ACES input transform with the RRT's saturation folded in), and back out
+    // (the ODT's saturation and the transform back to linear sRGB). Rows of each matrix.
+    private static readonly Vector3 HillInX = new(0.59719f, 0.35458f, 0.04823f), HillInY = new(0.07600f, 0.90834f, 0.01566f), HillInZ = new(0.02840f, 0.13383f, 0.83777f);
+    private static readonly Vector3 HillOutX = new(1.60475f, -0.53108f, -0.07367f), HillOutY = new(-0.10208f, 1.10813f, -0.00605f), HillOutZ = new(-0.00327f, -0.07276f, 1.07602f);
+
+    private static float Row(Vector3 row, Vector3 v) => row.X * v.X + row.Y * v.Y + row.Z * v.Z;
+
+    // The fitted RRT and ODT curve: a ratio of two quadratics in the value.
+    private static float HillCurve(float v)
+    {
+        float numerator = v * (v + 0.0245786f) - 0.000090537f;
+        float denominator = v * (0.983729f * v + 0.4329510f) + 0.238081f;
+        return numerator / denominator;
+    }
+
     /// <summary>The ACES fit by Hill: sRGB to the working space, the fitted curve, back, clamped.</summary>
     public static Vector3 AcesHill(Vector3 c)
     {
-        // sRGB to the working space (the official input matrix), the fitted curve per channel, and back (the output matrix)
-        float x = 0.59719f * c.X + 0.35458f * c.Y + 0.04823f * c.Z;
-        float y = 0.07600f * c.X + 0.90834f * c.Y + 0.01566f * c.Z;
-        float z = 0.02840f * c.X + 0.13383f * c.Y + 0.83777f * c.Z;
-        static float Fit(float v) => (v * (v + 0.0245786f) - 0.000090537f) / (v * (0.983729f * v + 0.4329510f) + 0.238081f);
-        x = Fit(x); y = Fit(y); z = Fit(z);
-        return Clamp01(new Vector3(
-            1.60475f * x - 0.53108f * y - 0.07367f * z,
-            -0.10208f * x + 1.10813f * y - 0.00605f * z,
-            -0.00327f * x - 0.07276f * y + 1.07602f * z));
+        var fitted = new Vector3(HillCurve(Row(HillInX, c)), HillCurve(Row(HillInY, c)), HillCurve(Row(HillInZ, c)));
+        return Clamp01(new Vector3(Row(HillOutX, fitted), Row(HillOutY, fitted), Row(HillOutZ, fitted)));
     }
 
     private static Vector3 Clamp01(Vector3 v) => Vector3.Clamp(v, Vector3.Zero, Vector3.One);
 
-    /// <summary>The Khronos neutral tone mapper.</summary>
+    // The PBR Neutral parameters as the specification names them: F90 (the reflectance of a common dielectric at normal incidence), Ks (where highlight compression
+    // starts) and Kd (how fast compressed highlights lose their saturation).
+    private const float F90 = 0.04f, Ks = 0.8f - F90, Kd = 0.15f;
+
+    /// <summary>
+    /// The Khronos PBR Neutral tone mapper, from its specification's equations: an offset f taken off every channel (x - x^2 / (4 F90) for a smallest channel x up to
+    /// 2 F90, else F90); when the largest channel p after the offset is above Ks, the colour is scaled so that p becomes p_n = 1 - (1 - Ks)^2 / (p + 1 - 2 Ks), and blended
+    /// toward the grey p_n with weight 1 - g, g = 1 / (Kd (p - p_n) + 1).
+    /// </summary>
     public static Vector3 PbrNeutral(Vector3 c)
     {
-        const float startCompression = 0.8f - 0.04f, desaturation = 0.15f;
-        float x = MathF.Min(c.X, MathF.Min(c.Y, c.Z));
-        float offset = x < 0.08f ? x - 6.25f * x * x : 0.04f;
-        c -= new Vector3(offset);
-        float peak = MathF.Max(c.X, MathF.Max(c.Y, c.Z));
-        if (peak < startCompression) return c;
-        const float d = 1f - startCompression;
-        float newPeak = 1f - d * d / (peak + d - startCompression);
-        c *= newPeak / peak;
-        float g = 1f - 1f / (desaturation * (peak - newPeak) + 1f);
-        return Vector3.Lerp(c, new Vector3(newPeak), g);
+        float smallest = MathF.Min(c.X, MathF.Min(c.Y, c.Z));
+        float f = smallest <= 2f * F90 ? smallest - smallest * smallest / (4f * F90) : F90;
+        var offset = c - new Vector3(f);
+        float p = MathF.Max(offset.X, MathF.Max(offset.Y, offset.Z));
+        if (p <= Ks) return offset;
+        float pn = 1f - (1f - Ks) * (1f - Ks) / (p + 1f - 2f * Ks);
+        float g = 1f / (Kd * (p - pn) + 1f);
+        return offset * (pn / p * g) + new Vector3(pn * (1f - g));
     }
 
     /// <summary>The post pass for one colour (the scene's own exposure scale is 1).</summary>

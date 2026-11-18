@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-2.1-only
+// SPDX-License-Identifier: LGPL-2.1-only AND MIT
 /**
  * @file postDeferredTonemap.glsl
  *
@@ -74,9 +74,44 @@
  * $/LicenseInfo$
  */
 
-// Adapted 2026 by Legion Builds. The compute shader (Glsl) follows the functions of the official tone mapping shader (tonemapUtilF.glsl: toneMapACES_Hill with its two
-// matrices and the fitted curve, PBRNeutralToneMapping, and toneMap's exposure, mix and clamp), written as a compute shader that reads and writes the scene's colour image.
-// The luminance sample and the exposure step follow luminanceF.glsl and exposureF.glsl, written as compute passes over the colour image. The rest of this file is our own code.
+/*
+ * Baking Lab, BakingLab/ACES.hlsl (https://github.com/TheRealMJP/BakingLab), whose fitted curve and two matrices the Hill fit below uses:
+ *
+ *  Baking Lab
+ *  by MJP and David Neubelt
+ *  http://mynameismjp.wordpress.com/
+ *
+ *  All code licensed under the MIT license
+ *
+ * The code in this file was originally written by Stephen Hill (@self_shadow), who deserves all
+ * credit for coming up with this fit and implementing it. Buy him a beer next time you see him. :)
+ *
+ * Copyright (c) 2016 MJP
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+// Adapted 2026 by Legion Builds. The compute shader (Glsl) follows the official post pass (toneMap's exposure, mix and clamp, called from postDeferredTonemap.glsl),
+// written as a compute shader that reads and writes the scene's colour image. Its Hill fit uses Stephen Hill's fit as Baking Lab publishes it (MIT, notice above); its
+// PBR Neutral mapper is written from the equations of the Khronos PBR Neutral specification text (github.com/KhronosGroup/ToneMapping, PBR_Neutral), not from any
+// implementation of it; both are the same maths as Viewer.Core.World.ToneMap. The luminance sample and the exposure step follow luminanceF.glsl and exposureF.glsl,
+// written as compute passes over the colour image. The rest of this file is our own code.
 // Copyright (c) 2026 Legion Builds
 
 using System;
@@ -115,38 +150,37 @@ layout(set = 0, binding = 3, std430) buffer Exposure { vec4 state; } expo;
 layout(push_constant, std430) uniform Params { vec2 raster_size; float exposure; float tonemap_mix; int tonemap_type; int mode; float dt; int snap; vec4 expo_params; } params;
 shared float partial[64];
 
-const mat3 ACESInputMat = mat3(0.59719, 0.07600, 0.02840, 0.35458, 0.90834, 0.13383, 0.04823, 0.01566, 0.83777);
-const mat3 ACESOutputMat = mat3(1.60475, -0.10208, -0.00327, -0.53108, 1.10813, -0.07276, -0.07367, -0.00605, 1.07602);
+// Hill's fit (Baking Lab, notice in this file's header): rows of the matrix into the fit's working space and of the one back out, as in ToneMap.AcesHill
+const vec3 hill_in_x = vec3(0.59719, 0.35458, 0.04823), hill_in_y = vec3(0.07600, 0.90834, 0.01566), hill_in_z = vec3(0.02840, 0.13383, 0.83777);
+const vec3 hill_out_x = vec3(1.60475, -0.53108, -0.07367), hill_out_y = vec3(-0.10208, 1.10813, -0.00605), hill_out_z = vec3(-0.00327, -0.07276, 1.07602);
 
-vec3 RRTAndODTFit(vec3 color)
+// the fitted curve: a ratio of two quadratics in the value
+vec3 hill_curve(vec3 v)
 {
-    vec3 a = color * (color + 0.0245786) - 0.000090537;
-    vec3 b = color * (0.983729 * color + 0.4329510) + 0.238081;
-    return a / b;
+    vec3 numerator = v * (v + 0.0245786) - 0.000090537;
+    vec3 denominator = v * (0.983729 * v + 0.4329510) + 0.238081;
+    return numerator / denominator;
 }
 
-vec3 toneMapACES_Hill(vec3 color)
+vec3 tonemap_hill(vec3 c)
 {
-    color = ACESInputMat * color;
-    color = RRTAndODTFit(color);
-    color = ACESOutputMat * color;
-    return clamp(color, 0.0, 1.0);
+    vec3 fitted = hill_curve(vec3(dot(hill_in_x, c), dot(hill_in_y, c), dot(hill_in_z, c)));
+    return clamp(vec3(dot(hill_out_x, fitted), dot(hill_out_y, fitted), dot(hill_out_z, fitted)), 0.0, 1.0);
 }
 
-vec3 PBRNeutralToneMapping(vec3 color)
+// PBR Neutral from its specification's equations (F90, Ks, Kd as the specification names them), as in ToneMap.PbrNeutral
+const float neutral_f90 = 0.04, neutral_ks = 0.8 - neutral_f90, neutral_kd = 0.15;
+
+vec3 tonemap_neutral(vec3 c)
 {
-    const float startCompression = 0.8 - 0.04;
-    const float desaturation = 0.15;
-    float x = min(color.r, min(color.g, color.b));
-    float offset = x < 0.08 ? x - 6.25 * x * x : 0.04;
-    color -= offset;
-    float peak = max(color.r, max(color.g, color.b));
-    if (peak < startCompression) return color;
-    const float d = 1.0 - startCompression;
-    float newPeak = 1.0 - d * d / (peak + d - startCompression);
-    color *= newPeak / peak;
-    float g = 1.0 - 1.0 / (desaturation * (peak - newPeak) + 1.0);
-    return mix(color, newPeak * vec3(1.0, 1.0, 1.0), g);
+    float smallest = min(c.r, min(c.g, c.b));
+    float f = smallest <= 2.0 * neutral_f90 ? smallest - smallest * smallest / (4.0 * neutral_f90) : neutral_f90;
+    vec3 offset = c - f;
+    float p = max(offset.r, max(offset.g, offset.b));
+    if (p <= neutral_ks) return offset;
+    float pn = 1.0 - (1.0 - neutral_ks) * (1.0 - neutral_ks) / (p + 1.0 - 2.0 * neutral_ks);
+    float g = 1.0 / (neutral_kd * (p - pn) + 1.0);
+    return offset * (pn / p * g) + vec3(pn * (1.0 - g));
 }
 
 vec3 srgb_to_linear(vec3 c)
@@ -228,7 +262,7 @@ void main()
     if (params.mode == 0) { imageStore(color_image, p, col); return; }
     float scale = params.mode == 2 ? expo.state.x : 1.0;
     vec3 exposed = col.rgb * params.exposure * scale;
-    vec3 mapped = params.tonemap_type == 1 ? toneMapACES_Hill(exposed) : PBRNeutralToneMapping(exposed);
+    vec3 mapped = params.tonemap_type == 1 ? tonemap_hill(exposed) : tonemap_neutral(exposed);
     col.rgb = clamp(mix(exposed, mapped, params.tonemap_mix), vec3(0.0), vec3(1.0));
     imageStore(color_image, p, col);
 }
