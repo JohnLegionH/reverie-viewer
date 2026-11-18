@@ -25,7 +25,7 @@ public partial class TestRender
     /// the drag look (the drop-target outline with its text on the folder, the dashed outline on the dragged row). The marks are held in
     /// place, because a still picture has no drag going on.
     /// </summary>
-    private static void ExampleInventoryDrag(InventoryPanel panel)
+    private static void ExampleInventoryDrag(InventoryPanel panel, bool dragCue = true)
     {
         Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         Guid owner = G(1), root = G(2), libraryOwner = G(3), libraryRoot = G(4), note = G(20);
@@ -39,7 +39,8 @@ public partial class TestRender
         model.Apply(new Viewer.Core.Inventory.InventoryFolderFetched(root, true, 2, tops.Length + 1, tops,
             new[] { new Viewer.Core.Inventory.InventoryItemData(note, root, "Welcome note", Viewer.Core.Inventory.ItemKind.Notecard, 7, 7, 0, null) }));
         panel.Bind(model, _ => new ActionResult(ActionStatus.Sent));
-        panel.TreeView.HoldCue(new Viewer.Shell.Inventory.DropCue(note, G(13)));
+        if (dragCue)
+            panel.TreeView.HoldCue(new Viewer.Shell.Inventory.DropCue(note, G(13)));
     }
 
     /// <summary>The picture size of the interface scenes.</summary>
@@ -258,9 +259,12 @@ public partial class TestRender
                 PeopleFeature.Install(shell, settings, chat.Conversations);
                 var inventoryPanel = InventoryFeature.Install(shell);
                 if (scene is "inventory" or "newmenu")
-                    ExampleInventoryDrag(inventoryPanel);
+                    ExampleInventoryDrag(inventoryPanel, dragCue: scene == "inventory");
                 if (scene == "newmenu")
+                {
                     newMenuOf = inventoryPanel;
+                    rig.Viewport.GuiEmbedSubwindows = true;   // the menus are drawn inside the picture
+                }
                 OutfitFeature.Install(shell);
                 var appearancePanel = AppearanceFeature.Install(shell, redrawGapMs: 0);
                 if (scene.StartsWith("appearance", StringComparison.Ordinal))

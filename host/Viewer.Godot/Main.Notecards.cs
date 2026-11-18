@@ -258,11 +258,11 @@ public partial class Main
                     return new { error = "no session or entry" };
                 OnNewRequested(text, Guid.Empty);
                 return new { asked = true };
-            case "find_item":   // an own item, by its exact name and kind (text "name|Kind"): its id only
+            case "find_item":   // an own item, by its exact name ("*" any) and kind (text "name|Kind"), the newest first: its id only
             {
                 if (session is null || text?.Split('|') is not [var n, var k] || !Enum.TryParse<ItemKind>(k, out var kind))
                     return new { error = "text must be name|Kind" };
-                var hit = session.Inventory.AllItems().Where(i => i.Kind == kind && i.Name == n && !session.Inventory.IsInLibrary(i.Id)).OrderByDescending(i => i.CreatedAt).FirstOrDefault();
+                var hit = session.Inventory.AllItems().Where(i => i.Kind == kind && (n == "*" || i.Name == n) && !session.Inventory.IsInLibrary(i.Id)).OrderByDescending(i => i.CreatedAt).FirstOrDefault();   // "*": any of that kind
                 return new { id = hit?.Id ?? Guid.Empty };
             }
             case "front":   // the front editor: editable, changed, the text's size, its embedded items, whether it holds a marker (text), saved
