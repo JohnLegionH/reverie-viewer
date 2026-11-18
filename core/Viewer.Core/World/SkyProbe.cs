@@ -112,6 +112,7 @@
 
 // Copyright (c) 2026 Legion Builds
 
+using System.Collections.Immutable;
 using System.Numerics;
 
 namespace Viewer.Core.World;
@@ -317,20 +318,20 @@ public static class SkyProbe
     /// Van der Corput value of i) mapped onto the hemisphere with a density of cos(theta) / pi by Malley's method: the second coordinate is the squared radius of a
     /// point of the unit disc, which is lifted straight up onto the hemisphere (height sqrt(1 - r^2)). Each with the mip level its density reads.
     /// </summary>
-    private static readonly (Vector3 Direction, float Lod)[] Kernel = BuildKernel();
+    private static readonly ImmutableArray<(Vector3 Direction, float Lod)> Kernel = BuildKernel();
 
-    private static (Vector3, float)[] BuildKernel()
+    private static ImmutableArray<(Vector3 Direction, float Lod)> BuildKernel()
     {
-        var kernel = new (Vector3, float)[SampleCount];
+        var kernel = ImmutableArray.CreateBuilder<(Vector3 Direction, float Lod)>(SampleCount);
         for (int i = 0; i < SampleCount; i++)
         {
             float azimuth = 2f * MathF.PI * (i / (float)SampleCount);
             float radiusSquared = VanDerCorput((uint)i);
             float radius = MathF.Sqrt(radiusSquared), height = MathF.Sqrt(1f - radiusSquared);
             var direction = Vector3.Normalize(new Vector3(radius * MathF.Cos(azimuth), radius * MathF.Sin(azimuth), height));
-            kernel[i] = (direction, SampleLod(height / MathF.PI));
+            kernel.Add((direction, SampleLod(height / MathF.PI)));
         }
-        return kernel;
+        return kernel.MoveToImmutable();
     }
 
     /// <summary>The irradiance map of the capture's mip chain: 16 x 16 per face, each texel the mean of 32 cosine-weighted samples of the chain around its direction.</summary>
