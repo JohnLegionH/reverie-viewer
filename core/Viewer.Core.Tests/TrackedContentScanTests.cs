@@ -59,6 +59,8 @@ public class TrackedContentScanTests
             "developer.nvidia.com", "www.amd.com", "www.intel.com",
             // named in the unmodified licence text of the vendored interface font (ThirdPartyLicenses/LICENSE-Inter.txt)
             "scripts.sil.org",
+            // FreeType's credit line and the unmodified FreeType License text Godot's COPYRIGHT.txt quotes (THIRD-PARTY-NOTICES.md, ThirdPartyLicenses/LICENSE-Godot-4.7.2-thirdparty.txt)
+            "freetype.org",
             // named in the unmodified third-party notices of the bundled .NET runtime (ThirdPartyLicenses/THIRD-PARTY-NOTICES-dotnet-runtime-*.txt)
             "sourceforge.net", "www.unicode.org", "www.mono-project.com", "www.xamarin.com", "www.novell.com", "llvm.org", "www.ryanjuckett.com", "www.xxhash.com", "arxiv.org",
             // a bundled package's own address, as its package metadata gives it (THIRD-PARTY-NOTICES.md)

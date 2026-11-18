@@ -210,6 +210,14 @@ Package versions are pinned in `Directory.Packages.props` and the `packages.lock
   Juan Linietsky, Ariel Manzur"; the text is in `ThirdPartyLicenses/LICENSE-Godot-4.7.2.txt`. The engine bundles further
   third-party components; their notices are compiled into the engine (`Engine.GetCopyrightInfo` and
   `Engine.GetLicenseInfo`), and the viewer's About window shows them under Licences, read from the running engine.
+  Three of them are compiled into Godot's standard export templates, which the viewer is exported with; their entries
+  below are quoted from Godot's `COPYRIGHT.txt` at tag `4.7.2-stable`, and the versions from its `thirdparty/README.md`.
+  The licence texts, quoted from the same `COPYRIGHT.txt`, are in `ThirdPartyLicenses/LICENSE-Godot-4.7.2-thirdparty.txt`.
+  - **FreeType 2.14.3** (FreeType License): "Copyright: 1996-2025, David Turner, Robert Wilhelm, and Werner Lemberg."
+    Portions of this software are copyright © 2026 The FreeType Project (https://freetype.org). All rights reserved.
+  - **ENet 1.3.18** (MIT, "Expat" in `COPYRIGHT.txt`): "Copyright: 2002-2024, Lee Salzman".
+  - **Mbed TLS 3.6.7** (Apache License 2.0): "Copyright: The Mbed TLS Contributors". The licence text is in
+    `ThirdPartyLicenses/LICENSE-Apache-2.0.txt`.
 - **JoltPhysicsSharp 2.19.1** (MIT): "Copyright (c) Amer Koleci and Contributors" (package metadata). The package does not
   ship a licence file; the same holder's MIT text is in `native/joltc/win-x64/LICENSE-joltc.txt`.
 - **JoltPhysics.Native 1.0.4** (MIT): the package ships `LICENSE.MIT.txt` (Jolt Physics, "Copyright 2021 Jorrit Rouwe"),
