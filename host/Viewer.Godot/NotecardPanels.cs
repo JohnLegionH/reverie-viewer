@@ -271,31 +271,6 @@ public partial class NotecardTextEdit : TextEdit
     }
 }
 
-/// <summary>Colours each embedded item of the notecard text as a link.</summary>
-public partial class NotecardItemHighlighter : SyntaxHighlighter
-{
-    public Color ItemColour = Colors.SkyBlue;
-    public Color TextColour = Colors.White;
-
-    public override global::Godot.Collections.Dictionary _GetLineSyntaxHighlighting(int line)
-    {
-        var result = new global::Godot.Collections.Dictionary();
-        if (GetTextEdit() is not { } edit)
-            return result;
-        string text = edit.GetLine(line);
-        bool inside = false;
-        result[0] = new global::Godot.Collections.Dictionary { ["color"] = TextColour };
-        for (int i = 0; i < text.Length; i++)
-        {
-            if (text[i] != NotecardEditBuffer.Mark)
-                continue;
-            inside = !inside;
-            result[inside ? i : i + 1] = new global::Godot.Collections.Dictionary { ["color"] = inside ? ItemColour : TextColour };
-        }
-        return result;
-    }
-}
-
 /// <summary>One notecard window's content.</summary>
 public partial class NotecardPanel : VBoxContainer
 {
@@ -307,7 +282,6 @@ public partial class NotecardPanel : VBoxContainer
     private CancellationToken _token;
     private bool _syncing, _closeAfterSave;
     private NotecardEmbeddedItem? _offered;
-    private readonly NotecardItemHighlighter _highlighter = new();
 
     public HBoxContainer Toolbar { get; }
     public Button SaveButton { get; }
@@ -388,7 +362,7 @@ public partial class NotecardPanel : VBoxContainer
         Editor = new NotecardTextEdit
         {
             Name = "editor", SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            WrapMode = TextEdit.LineWrappingMode.Boundary, CaretBlink = false, SyntaxHighlighter = _highlighter, Visible = false,
+            WrapMode = TextEdit.LineWrappingMode.Boundary, CaretBlink = false, Visible = false,
         };
         Editor.AccessibilityName = strings.Get("notecard.text");
         Editor.TextChanged += OnTextChanged;
@@ -455,12 +429,17 @@ public partial class NotecardPanel : VBoxContainer
         return b;
     }
 
+    /// <summary>Each embedded item (its name between the two marks) in the theme's accent, as a link; the rest in the text colour.</summary>
     private void ApplyTheme()
     {
         var t = UiTheme.Tokens;
-        _highlighter.ItemColour = ShellTheme.C(t.Accent);
-        _highlighter.TextColour = ShellTheme.C(t.Text);
-        _highlighter.ClearHighlightingCache();
+        var h = new CodeHighlighter
+        {
+            NumberColor = ShellTheme.C(t.Text), SymbolColor = ShellTheme.C(t.Text), FunctionColor = ShellTheme.C(t.Text), MemberVariableColor = ShellTheme.C(t.Text),
+        };
+        string mark = NotecardEditBuffer.Mark.ToString();
+        h.AddColorRegion(mark, mark, ShellTheme.C(t.Accent));
+        Editor.SyntaxHighlighter = h;
     }
 
     /// <summary>The window's model, for the development automation.</summary>

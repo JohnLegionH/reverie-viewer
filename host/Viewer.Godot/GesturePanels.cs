@@ -214,7 +214,7 @@ public partial class GesturePanel : VBoxContainer
             StepList.Select(0);
             ShowOptions();
         }
-        StatusLabel.Text = "";
+        StatusLabel.Text = string.Empty;
     }
 
     public void ShowStatus(string key) => StatusLabel.Text = _s.Get(key);
