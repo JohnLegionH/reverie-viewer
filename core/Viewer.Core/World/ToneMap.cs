@@ -203,7 +203,7 @@ namespace Viewer.Core.World;
 public enum ToneMapType { PbrNeutral = 0, AcesHill = 1 }
 
 /// <summary>
-/// The tone mapping of a high dynamic range sky (the official post pass, tonemapUtilF.glsl): the colour is scaled by the exposure, mapped by the chosen
+/// The tone mapping of a high dynamic range sky (the official post pass, tonemapUtilF.glsl's toneMap; the two curves are our own, see the file header): the colour is scaled by the exposure, mapped by the chosen
 /// tone mapper, and mixed with the exposed colour as it was, by the mix factor; the result is clamped to 0..1. Linear colour in, linear colour out.
 /// </summary>
 public static class ToneMap

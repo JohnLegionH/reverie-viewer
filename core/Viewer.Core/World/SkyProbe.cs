@@ -300,8 +300,8 @@ public static class SkyProbe
     /// </summary>
     public static float SampleLod(float pdf)
     {
-        float sampleShare = 1f / (SampleCount * pdf), texelShare = 1f / (6f * SourceWidth * SourceWidth);
-        return Math.Clamp(0.5f * MathF.Log2(sampleShare / texelShare) + LodBias, 0f, MaxLod);
+        // (1 / (N pdf)) / (1 / (6 w^2)), written as one ratio
+        return Math.Clamp(0.5f * MathF.Log2(6f * SourceWidth * SourceWidth / (SampleCount * pdf)) + LodBias, 0f, MaxLod);
     }
 
     /// <summary>The base-2 Van der Corput value of <paramref name="i"/>: its binary digits mirrored about the point (0.b0 b1 b2 ...).</summary>

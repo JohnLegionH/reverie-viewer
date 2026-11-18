@@ -10,8 +10,8 @@ namespace Viewer.Core.Tests;
 /// <summary>
 /// The tone mappers and the sky probe's irradiance filtering were rewritten from their published maths. These tables are the outputs of the
 /// implementation they replaced, recorded for the same inputs before it was removed (64 colours for each tone mapper; four texels of every
-/// face of three irradiance maps), so the rewrite is held to the picture it replaced: within 2e-6 for a tone-mapped channel and 1e-5 of the
-/// texel's value (at least 1e-3) for an irradiance texel.
+/// face of three irradiance maps), so the rewrite is held to the picture it replaced: the Hill fit and the irradiance texels exactly (the same
+/// operations in the same order), the neutral mapper within 2e-6 (the specification's form of the equations rounds differently in float).
 /// </summary>
 public class ToneRewriteMatchTests
 {
@@ -167,7 +167,7 @@ public class ToneRewriteMatchTests
     public void The_hill_fit_gives_what_the_replaced_curve_gave(float[] row)
     {
         var got = ToneMap.AcesHill(new(row[0], row[1], row[2]));
-        Assert.InRange(MathF.Abs(got.X - row[3]), 0f, 2e-6f); Assert.InRange(MathF.Abs(got.Y - row[4]), 0f, 2e-6f); Assert.InRange(MathF.Abs(got.Z - row[5]), 0f, 2e-6f);
+        Assert.Equal(row[3], got.X); Assert.Equal(row[4], got.Y); Assert.Equal(row[5], got.Z);   // the same operations in the same order: exact
     }
 
     [Theory, MemberData(nameof(Tones))]
@@ -201,7 +201,7 @@ public class ToneRewriteMatchTests
     {
         var want = IrradianceRows.Single(r => r.Frame == frame && r.Face == face && r.Index == index);
         var got = Map(frame)[face][index];
-        static void Near(float w, float g) => Assert.InRange(MathF.Abs(g - w), 0f, 1e-5f * MathF.Max(MathF.Abs(w), 1e-3f));
-        Near(want.R, got.X); Near(want.G, got.Y); Near(want.B, got.Z);
+        // the same samples, frame and order of summation: exact
+        Assert.Equal(want.R, got.X); Assert.Equal(want.G, got.Y); Assert.Equal(want.B, got.Z);
     }
 }
