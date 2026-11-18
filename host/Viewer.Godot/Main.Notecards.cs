@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Viewer.Core.Inventory;
 using Viewer.Core.Session;
+using Viewer.Shell.Build;
 using Viewer.Shell.Inventory;
 
 namespace Viewer.Godot;
@@ -32,9 +33,18 @@ public partial class Main
             _inventoryPanel.OpenRequested += OpenNotecard;
             _inventoryPanel.OpenRequested += id => OpenTexturePreview(id);   // a texture opens in the texture preview
             _inventoryPanel.OpenRequested += OpenInventoryScript;            // a script opens in the script editor
+            // an item dragged out of the Build window's Contents onto a row goes into that folder (or the folder the row's item is in)
+            _inventoryPanel.TreeView.CanTakeTaskItem = (drag, row) => TaskDropFolder(row) != Guid.Empty && _edit?.ContentItem(drag.ItemId) is not null;
+            _inventoryPanel.TreeView.TaskItemDropped += (drag, row) =>
+            {
+                if (TaskDropFolder(row) is var folder && folder != Guid.Empty && _edit is { } e && e.Object() is { } o && o.FullId == drag.ObjectId
+                    && _interactFor is { IsEnded: false } s)
+                    Log.Info("contents.drag-out", Viewer.Core.Diagnostics.CoreLog.F("sent", e.CopyItemToFolder(drag.ItemId, folder, s.AgentId)));
+            };
             _notecardsHooked = true;
         }
         _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit);
+        _notecardsBoundFor = session;
         Scripts().Bind(session.Scripts, !Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid(session.LoginUri));
     }
 
@@ -62,6 +72,63 @@ public partial class Main
             return;
         string name = _edit.Contents.FirstOrDefault(i => i.ItemId == itemId)?.Name ?? "";
         Scripts().Open(access, name);
+    }
+
+    /// <summary>Open on a row of the Build window's Contents section, by the item's kind (each bridge's openItem in
+    /// llpanelobjectinventory.cpp): a script in the script editor when the object may be modified (else CannotOpenScriptObjectNoMod), a
+    /// notecard read-only in the notecard window, a texture in the texture preview.</summary>
+    private void OpenContentItem(Guid itemId)
+    {
+        if (_shell is null || _edit is null || (_interactFor ?? _inventoryFor) is not { IsEnded: false } session)
+            return;
+        if (_edit.ContentItem(itemId) is not { } item || _edit.Object() is not { } o)
+            return;
+        bool modify = _edit.Access(o.Id.LocalId).CanModify;
+        switch (TaskItemRules.OpenKind(item))
+        {
+            case TaskOpenKind.Script:
+                if (!modify)
+                {
+                    _editPanel?.ContentTab.Say(_shell.Shell.Strings.Get("edit.content.no_mod_script"));
+                    return;
+                }
+                OpenContentScript(itemId);
+                break;
+            case TaskOpenKind.Notecard:
+                _notecards ??= NewNotecards(_shell);
+                if (_notecardsBoundFor != session)
+                {
+                    // the notecard windows are bound with the inventory; bind them here when the Build window opens a card first
+                    _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit);
+                    _notecardsBoundFor = session;
+                }
+                Log.Info("notecard.open-task", Viewer.Core.Diagnostics.CoreLog.F("modify", modify));
+                _notecards.OpenTask(item, o.FullId, session.AgentId, modify, session.Notecards);
+                break;
+            case TaskOpenKind.Texture:
+                OpenTaskTexturePreview(item);
+                break;
+        }
+    }
+
+    private ViewerSession? _notecardsBoundFor;
+
+    /// <summary>The own-inventory folder a drop on a row goes into: the row's folder, or the folder of the row's item; empty in the Library.</summary>
+    private Guid TaskDropFolder(Guid row)
+    {
+        if (_inventoryFor is not { IsEnded: false } session)
+            return Guid.Empty;
+        var inv = session.Inventory;
+        Guid folder = inv.Folder(row) is not null ? row : inv.Item(row)?.ParentId ?? Guid.Empty;
+        return folder == Guid.Empty || inv.IsInLibrary(folder) ? Guid.Empty : folder;
+    }
+
+    /// <summary>An item deleted from the Contents section: its script or notecard window closes.</summary>
+    private void ContentItemDeleted(Guid itemId)
+    {
+        if (_edit?.Object() is { } o)
+            _scripts?.CloseItem(o.FullId, itemId);
+        _notecards?.CloseItem(itemId);
     }
 
     /// <summary>The windows, with a log line for a card that did not open (its status and the fixed reason, never its content).</summary>

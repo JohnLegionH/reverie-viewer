@@ -124,7 +124,8 @@ public partial class TestRender
         edit.SelectMany([1], shift: false);
         edit.Receive(new Viewer.Core.Session.ObjectPropertiesReceived(G(31), "Floor", "Plank floor", G(32), G(32), Guid.Empty, null,
             0x7fffffff, 0, 1u << 19 | 1u << 15 | 1u << 13, 0, false));
-        var panel = new EditPanel(strings, () => edit, null, new SettingsService(null));
+        // the owner and creator are named as the session's name cache would name them (a neutral example name)
+        var panel = new EditPanel(strings, () => edit, null, new SettingsService(null), () => G(32), id => id == G(32) ? "Test User" : null);
         shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
         foreach (var section in Viewer.Shell.Build.BuildLayout.Sections)
             panel.SetOpen(section, scene == "build-look" && section == Viewer.Shell.Build.BuildSection.Look);

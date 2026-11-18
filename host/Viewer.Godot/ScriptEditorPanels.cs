@@ -74,6 +74,14 @@ public sealed class ScriptEditorFeature
         return true;
     }
 
+    /// <summary>Closes the window of a script inside an object, unsaved changes and all (the script was deleted; llpanelobjectinventory.cpp
+    /// LLTaskLSLBridge::removeItem hides its editor).</summary>
+    public void CloseItem(Guid objectId, Guid itemId)
+    {
+        if (SlotOf((objectId, itemId)) is int open)
+            _shell.Shell.Floaters.Close(FloaterId(open), force: true);
+    }
+
     /// <summary>Opens a script: its window is shown at once and the text and running state are asked for.</summary>
     public ScriptEditorPanel Open(ScriptAccess access, string name)
     {
@@ -667,4 +675,84 @@ public partial class ScriptEditorPanel : VBoxContainer
         e.SaveFinished(result);
         Sync();
     }
+}
+
+/// <summary>
+/// The Build › Scripts progress window, as the official floater_script_queue.xml (read as behaviour): its title names the action
+/// (Recompilation Progress, Reset Progress, Set Running Progress, Set Not Running Progress), a list of the queue's lines, and Close, which
+/// is usable once the queue is done (the official close button is enabled at "Done."). Built from standard controls styled through the
+/// Theme alone; the lines are read from the queue on a timer while the window shows. Main thread only.
+/// </summary>
+public sealed class ScriptQueueWindow
+{
+    public const string FloaterId = "script_queue";
+
+    private readonly StringTable _s;
+    private readonly ItemList _lines;
+    private readonly Label _count;
+    private int _shown;
+
+    public ScriptQueueWindow(StringTable strings, Action close)
+    {
+        _s = strings;
+        Root = new VBoxContainer { Name = "script_queue", SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        _lines = new ItemList { Name = "queue_output", SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _lines.AccessibilityName = strings.Get("queue.list");
+        Root.AddChild(_lines);
+        _count = new Label { Name = "queue_count", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        Root.AddChild(_count);
+        Close = new Button { Name = "queue_close", Text = strings.Get("queue.close"), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
+        Close.AccessibilityName = Close.Text;
+        Close.Pressed += close;
+        Root.AddChild(Close);
+    }
+
+    public VBoxContainer Root { get; }
+    public Button Close { get; }
+
+    /// <summary>The queue shown, or null for a refusal (then <see cref="ShowRefusal"/> gave the lines).</summary>
+    public Viewer.Shell.Build.ScriptQueue? Queue { get; private set; }
+
+    public void Show(Viewer.Shell.Build.ScriptQueue queue)
+    {
+        Queue = queue;
+        _lines.Clear();
+        _shown = 0;
+        _count.Text = "";
+        Close.Disabled = true;
+        Refresh();
+    }
+
+    /// <summary>The official refusal (Cannot...SelectObjects...), shown as the window's only lines.</summary>
+    public void ShowRefusal(string text)
+    {
+        Queue = null;
+        _lines.Clear();
+        foreach (var line in text.Split('\n'))
+            if (line.Length > 0)
+                _lines.AddItem(line);
+        _shown = 0;
+        _count.Text = "";
+        Close.Disabled = false;
+    }
+
+    /// <summary>Adds the lines the queue has added since the last call.</summary>
+    public void Refresh()
+    {
+        if (Queue is not { } q)
+            return;
+        var lines = q.Lines;
+        for (; _shown < lines.Count; _shown++)
+        {
+            var line = lines[_shown];
+            if (line.Key == "queue.summary")
+                _count.Text = Viewer.Shell.Build.ScriptQueue.Format(line, _s);
+            else
+                _lines.AddItem(Viewer.Shell.Build.ScriptQueue.Format(line, _s));
+        }
+        Close.Disabled = !q.Done;
+    }
+
+    /// <summary>The lines shown and the count line, for the automation.</summary>
+    public IReadOnlyList<string> Text => Enumerable.Range(0, _lines.ItemCount).Select(i => _lines.GetItemText(i)).Append(_count.Text).ToList();
 }

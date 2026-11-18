@@ -383,8 +383,8 @@ public partial class AutomationHost : Node
             {
                 string action = Str(call.Body, "action") ?? "state";
                 if (action is not ("state" or "toggle" or "tool" or "click" or "select" or "linked" or "position" or "size" or "rotation" or "shape" or "name" or "flags" or "locked" or "link" or "unlink" or "handle" or "manip" or "snap" or "snap_xy" or "use_selection_grid" or "grid" or "grid_options" or "handle_points" or "undo" or "control" or "screen" or "picker" or "picker_row" or "material"
-                    or "ui_point" or "menu_title" or "menu_focus" or "inventory_row" or "content_row" or "folder_row" or "pickers" or "picker_close" or "picker_colour_point"))
-                    return AutomationReply.Error(400, "action must be state, toggle, tool, click, select, linked, position, size, rotation, shape, name, flags, locked, link, unlink, handle, manip, snap, snap_xy, use_selection_grid, grid, grid_options, handle_points, undo, control, screen, picker, picker_row, material, ui_point, menu_title, menu_focus, inventory_row, content_row, folder_row, pickers, picker_close or picker_colour_point");
+                    or "ui_point" or "menu_title" or "menu_focus" or "inventory_row" or "content_row" or "folder_row" or "pickers" or "picker_close" or "picker_colour_point" or "floater_title"))
+                    return AutomationReply.Error(400, "action must be state, toggle, tool, click, select, linked, position, size, rotation, shape, name, flags, locked, link, unlink, handle, manip, snap, snap_xy, use_selection_grid, grid, grid_options, handle_points, undo, control, screen, picker, picker_row, material, ui_point, menu_title, menu_focus, inventory_row, content_row, folder_row, pickers, picker_close, picker_colour_point or floater_title");
                 return m.EditCall(action, Num(call.Body, "x", 128), Num(call.Body, "y", 128), Num(call.Body, "z", 30), Str(call.Body, "text"), Str(call.Body, "expect")) is { } edited
                     ? AutomationReply.Ok(edited) : AutomationReply.Error(409, "not in the world");
             }

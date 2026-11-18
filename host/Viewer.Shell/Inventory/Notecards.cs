@@ -62,6 +62,32 @@ public sealed class NotecardReader(InventoryModel model, INotecardTransport? tra
         return FromBytes(itemId, name, description, access, fetched.Bytes.Span);
     }
 
+    /// <summary>Opens a notecard inside an object, as the official Open on it does (indra/newview/llpanelobjectinventory.cpp
+    /// LLTaskNotecardBridge::openItem): it is read when the agent may copy the card or may modify the object; the file is asked for with the
+    /// object's id. Shown read-only; an embedded item cannot be copied out of it here.</summary>
+    public static async Task<NotecardOpenResult> OpenTaskAsync(INotecardTransport? transport, Viewer.Core.Session.TaskItem item, Guid objectId, Guid agent,
+        bool objectModify, CancellationToken ct = default)
+    {
+        var access = new NotecardAccess(item.ItemId, item.AssetId, agent,
+            new NotecardPermissions(item.CreatorId, item.OwnerId, item.BaseMask, item.OwnerMask, item.GroupMask, item.EveryoneMask, item.NextOwnerMask),
+            false, objectId);
+        if (item.AssetType != 7)
+            return new(NotecardOpenStatus.NotANotecard, item.ItemId, item.Name, item.Description, null, null);
+        if (!Viewer.Shell.Build.TaskItemRules.CanOpenNotecard(item, agent, objectModify))
+            return new(NotecardOpenStatus.NotAllowed, item.ItemId, item.Name, item.Description, access, null);
+        if (transport is null)
+            return new(NotecardOpenStatus.Failed, item.ItemId, item.Name, item.Description, access, null);
+        var fetched = await transport.FetchNotecardAsync(access, ct).ConfigureAwait(false);
+        if (fetched.Status != AssetFetchStatus.Ok)
+            return new(fetched.Status switch
+            {
+                AssetFetchStatus.NotFound => NotecardOpenStatus.Missing,
+                AssetFetchStatus.Denied => NotecardOpenStatus.NotAllowed,
+                _ => NotecardOpenStatus.Failed,
+            }, item.ItemId, item.Name, item.Description, access, null);
+        return FromBytes(item.ItemId, item.Name, item.Description, access, fetched.Bytes.Span);
+    }
+
     /// <summary>The same reading from a file already in hand (the development automation's fixtures).</summary>
     public static NotecardOpenResult FromBytes(Guid itemId, string name, string description, NotecardAccess access, ReadOnlySpan<byte> data)
     {
