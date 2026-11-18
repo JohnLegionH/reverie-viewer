@@ -11,8 +11,8 @@ namespace Viewer.Shell.Inventory;
 /// cannot draw that, so in the editor each item stands as its name between two <see cref="Mark"/> characters (the invisible
 /// separator, which nobody types). Reading the editor's text back turns each such name into the item's character again,
 /// numbering the items from 0 in the order they appear, as the official viewer's writer does (llviewertexteditor.cpp exportBuffer);
-/// an item no longer in the text leaves the file, and a mark left without its partner is dropped. Items with one name keep their
-/// own ids in order of appearance.
+/// an item no longer in the text leaves the file, a mark left without its partner is dropped, and the same item twice is one entry.
+/// Two different items with one name are kept apart by zero-width spaces after the name.
 /// </summary>
 public sealed class NotecardEditBuffer
 {
@@ -31,9 +31,60 @@ public sealed class NotecardEditBuffer
     public IReadOnlyList<NotecardEmbeddedItem> Known => _known;
 
     /// <summary>The name an item shows as (a mark inside a name would end it early, so none is kept).</summary>
-    private static string NameOf(NotecardEmbeddedItem item) => item.Name.Replace(Mark.ToString(), "", StringComparison.Ordinal);
+    private static string NameOf(NotecardEmbeddedItem item) => item.Name.Replace(Mark.ToString(), "", StringComparison.Ordinal).Replace(Twin.ToString(), "", StringComparison.Ordinal);
 
-    public static string Token(NotecardEmbeddedItem item) => Mark + NameOf(item) + Mark;
+    /// <summary>The offset in the text (UTF-16 units) of a line and a column, the column counted in characters as the text box counts them
+    /// (a character outside the basic plane, such as an emoji, is one column but two units).</summary>
+    public static int IndexOf(string text, int line, int column)
+    {
+        int at = 0;
+        for (int l = 0; l < line && at <= text.Length; l++)
+        {
+            int nl = text.IndexOf('\n', at);
+            if (nl < 0)
+                return text.Length;
+            at = nl + 1;
+        }
+        for (int c = 0; c < column && at < text.Length && text[at] != '\n'; c++)
+            at += char.IsHighSurrogate(text[at]) && at + 1 < text.Length ? 2 : 1;
+        return at;
+    }
+
+    /// <summary>The line and column (in characters) of an offset in the text (UTF-16 units).</summary>
+    public static (int Line, int Column) PlaceOf(string text, int index)
+    {
+        int line = 0, column = 0;
+        for (int i = 0; i < index && i < text.Length; i++)
+        {
+            if (text[i] == '\n') { line++; column = 0; continue; }
+            if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length)
+                i++;
+            column++;
+        }
+        return (line, column);
+    }
+
+    private const char Twin = '\u200B';
+
+    /// <summary>What an item shows as between its marks: its name, and for each earlier item of the same name (another item, not the same
+    /// one again) one zero-width space, so two items called alike stay apart (the official editor gives each its own character).</summary>
+    private string KeyOf(NotecardEmbeddedItem item)
+    {
+        string name = NameOf(item);
+        int earlier = 0;
+        foreach (var k in _known)
+        {
+            if (k.ItemId == item.ItemId && NameOf(k) == name)
+                break;
+            if (NameOf(k) == name)
+                earlier++;
+        }
+        return name + new string(Twin, earlier);
+    }
+
+    private NotecardEmbeddedItem? ByKey(string key) => _known.FirstOrDefault(k => KeyOf(k) == key);
+
+    public string Token(NotecardEmbeddedItem item) => Mark + KeyOf(item) + Mark;
 
     /// <summary>A card's text (embedded items as their characters) as the editor shows it.</summary>
     public string ToDisplay(string fileText)
@@ -63,7 +114,7 @@ public sealed class NotecardEditBuffer
     {
         var sb = new StringBuilder(display.Length);
         var items = new List<NotecardEmbeddedItem>();
-        var usedOfName = new Dictionary<string, int>(StringComparer.Ordinal);
+        var indexOf = new Dictionary<Guid, int>();
         int i = 0;
         while (i < display.Length)
         {
@@ -80,23 +131,22 @@ public sealed class NotecardEditBuffer
                 i++;   // a mark without its partner: dropped, the rest stays as text
                 continue;
             }
-            string name = display[(i + 1)..close];
-            usedOfName.TryGetValue(name, out int nth);
-            var same = _known.Where(k => NameOf(k) == name).ToList();
-            if (same.Count == 0)
+            string key = display[(i + 1)..close];
+            if (ByKey(key) is not { } item)
             {
                 // not an item: the first mark is dropped and the scan goes on from the second, which may open a real item
-                sb.Append(name);
+                sb.Append(key);
                 i = close;
                 continue;
             }
-            usedOfName[name] = nth + 1;
-            var item = same[nth % same.Count];
-            if (items.Count < NotecardFormat.LastEmbeddedChar - NotecardFormat.FirstEmbeddedChar + 1)
+            // the same item again stands as the same character (one entry in the file)
+            if (!indexOf.TryGetValue(item.ItemId, out int index) && items.Count < NotecardFormat.LastEmbeddedChar - NotecardFormat.FirstEmbeddedChar + 1)
             {
-                sb.Append(char.ConvertFromUtf32(NotecardFormat.FirstEmbeddedChar + items.Count));
-                items.Add(item with { Index = items.Count });
+                index = indexOf[item.ItemId] = items.Count;
+                items.Add(item with { Index = index });
             }
+            if (indexOf.ContainsKey(item.ItemId))
+                sb.Append(char.ConvertFromUtf32(NotecardFormat.FirstEmbeddedChar + index));
             i = close + 1;
         }
         return (sb.ToString(), items);
@@ -121,8 +171,6 @@ public sealed class NotecardEditBuffer
     /// <summary>The item whose name holds a place in the editor's text (a click), or null.</summary>
     public NotecardEmbeddedItem? ItemAt(string display, int index)
     {
-        // walk the items in order, counting each name, as FromDisplay numbers them
-        var usedOfName = new Dictionary<string, int>(StringComparer.Ordinal);
         int at = 0;
         while (at < display.Length)
         {
@@ -130,17 +178,13 @@ public sealed class NotecardEditBuffer
             int close = open < 0 ? -1 : display.IndexOf(Mark, open + 1);
             if (close < 0 || open > index)
                 return null;
-            string name = display[(open + 1)..close];
-            var same = _known.Where(k => NameOf(k) == name).ToList();
-            if (same.Count == 0)
+            if (ByKey(display[(open + 1)..close]) is not { } item)
             {
                 at = close;   // not an item; the second mark may open one
                 continue;
             }
-            usedOfName.TryGetValue(name, out int nth);
-            usedOfName[name] = nth + 1;
             if (index <= close)
-                return same[nth % same.Count];
+                return item;
             at = close + 1;
         }
         return null;

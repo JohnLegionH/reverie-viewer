@@ -88,6 +88,11 @@ public static class GestureFormat
 {
     public const int Version = 2, MaxSteps = 1000, MaxBytes = 64 * 1024;
 
+    /// <summary>The largest gesture file the official viewer saves (llpreviewgesture.cpp saveIfNeeded: GestureSaveFailedTooManySteps).</summary>
+    public const int MaxSavedBytes = 1000;
+
+    public static bool FitsSave(byte[] file) => file.Length <= MaxSavedBytes;
+
     public static byte[] Write(GestureDocument g)
     {
         var sb = new StringBuilder();

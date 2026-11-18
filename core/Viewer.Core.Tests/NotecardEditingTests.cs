@@ -128,6 +128,41 @@ public class NotecardEditingTests
     }
 
     [Fact]
+    public void A_second_item_of_the_same_name_dropped_in_front_keeps_each_id_in_its_place()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var buffer = new NotecardEditBuffer(new NotecardDocument(2, "x" + E(0), [Item(0, first, "Box", ItemKind.Object, 6)]));
+        string shown = buffer.ToDisplay("x" + E(0));
+        shown = buffer.Insert(shown, 0, Item(0, second, "Box", ItemKind.Object, 6));   // the new one in front of the old one
+        var (_, items) = buffer.FromDisplay(shown);
+        Assert.Equal(new[] { second, first }, items.Select(i => i.ItemId).ToArray());
+        Assert.Equal(first, buffer.ItemAt(shown, shown.Length - 2)?.ItemId);
+    }
+
+    [Fact]
+    public void The_same_item_twice_is_one_entry_in_the_file()
+    {
+        var buffer = new NotecardEditBuffer(null);
+        var box = Item(0, Box, "Box", ItemKind.Object, 6);
+        string shown = buffer.Insert(buffer.Insert("ab", 1, box), 0, box);
+        var (text, items) = buffer.FromDisplay(shown);
+        Assert.Single(items);
+        Assert.Equal(E(0) + "a" + E(0) + "b", text);
+    }
+
+    [Fact]
+    public void Places_in_a_line_count_characters_as_the_editor_does_so_an_emoji_counts_once()
+    {
+        string text = "ab\n\U0001F600" + M + "Home" + M + "c";
+        // line 1, column 1 is just after the emoji: index 3 + 2 (the emoji is two UTF-16 units)
+        Assert.Equal(5, NotecardEditBuffer.IndexOf(text, 1, 1));
+        Assert.Equal((1, 1), NotecardEditBuffer.PlaceOf(text, 5));
+        Assert.Equal((1, 7), NotecardEditBuffer.PlaceOf(text, 11));
+        Assert.Equal(11, NotecardEditBuffer.IndexOf(text, 1, 7));
+    }
+
+    [Fact]
     public void A_mark_left_without_its_partner_is_dropped_and_the_item_with_it()
     {
         var buffer = new NotecardEditBuffer(new NotecardDocument(2, E(0), [Item(0, Home, "Home", ItemKind.Landmark, 3)]));

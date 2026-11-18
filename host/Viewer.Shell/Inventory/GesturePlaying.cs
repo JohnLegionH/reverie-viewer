@@ -17,14 +17,15 @@ public interface IGestureEffects
 /// <summary>
 /// Plays a gesture as the official gesture manager steps one (llgesturemgr.cpp stepGesture and runStep), in our words: the steps run one
 /// after another without pause until a wait step; a timed wait waits its seconds; "until animations are done" waits until the animations the
-/// gesture started have stopped; after the last step the gesture waits for its animations to stop, then stops any still playing. An
-/// animation asked for counts as playing once the region lists it, or for a short grace while it has not yet appeared.
+/// gesture started have stopped, for at most 30 seconds (MAX_WAIT_ANIM_SECS); after the last step the gesture waits, with no limit, until its
+/// animations have stopped of themselves, and stops none. An animation asked for counts as playing once the region lists it, or for a
+/// short grace while it has not yet appeared.
 /// </summary>
 public static class GesturePlayer
 {
-    private static readonly TimeSpan Poll = TimeSpan.FromSeconds(0.1), Grace = TimeSpan.FromSeconds(2), DefaultEndWait = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan Poll = TimeSpan.FromSeconds(0.1), Grace = TimeSpan.FromSeconds(2), StepWait = TimeSpan.FromSeconds(30);
 
-    public static async Task PlayAsync(GestureDocument gesture, IGestureEffects fx, Func<TimeSpan, CancellationToken, Task> delay, CancellationToken ct, TimeSpan? endWait = null)
+    public static async Task PlayAsync(GestureDocument gesture, IGestureEffects fx, Func<TimeSpan, CancellationToken, Task> delay, CancellationToken ct)
     {
         var started = new List<Guid>();
         var seen = new HashSet<Guid>();
@@ -51,14 +52,11 @@ public static class GesturePlayer
                         await delay(TimeSpan.FromSeconds(step.Seconds), ct).ConfigureAwait(false);
                     break;
                 case GestureStepKind.Wait when step.WaitsForAnimations:
-                    await WaitForAnimations(started, seen, fx, delay, DefaultEndWait, ct).ConfigureAwait(false);
+                    await WaitForAnimations(started, seen, fx, delay, StepWait, ct).ConfigureAwait(false);
                     break;
             }
         }
-        await WaitForAnimations(started, seen, fx, delay, endWait ?? DefaultEndWait, ct).ConfigureAwait(false);
-        foreach (var a in started)
-            if (fx.IsPlaying(a))
-                fx.Animate(a, false);
+        await WaitForAnimations(started, seen, fx, delay, TimeSpan.MaxValue, ct).ConfigureAwait(false);
     }
 
     private static async Task WaitForAnimations(List<Guid> started, HashSet<Guid> seen, IGestureEffects fx, Func<TimeSpan, CancellationToken, Task> delay, TimeSpan cap, CancellationToken ct)

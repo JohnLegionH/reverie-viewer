@@ -217,22 +217,10 @@ public partial class NotecardTextEdit : TextEdit
 
     private Vector2 _pressAt;
 
-    public int IndexOf(int line, int column)
-    {
-        int index = 0;
-        for (int i = 0; i < line && i < GetLineCount(); i++)
-            index += GetLine(i).Length + 1;
-        return index + column;
-    }
+    // the text box counts columns in characters, the text's offsets are UTF-16 units: an emoji is one column and two units
+    public int IndexOf(int line, int column) => NotecardEditBuffer.IndexOf(Text, line, column);
 
-    public (int Line, int Column) PlaceOf(int index)
-    {
-        string text = Text;
-        int line = 0, start = 0;
-        for (int i = 0; i < index && i < text.Length; i++)
-            if (text[i] == '\n') { line++; start = i + 1; }
-        return (line, index - start);
-    }
+    public (int Line, int Column) PlaceOf(int index) => NotecardEditBuffer.PlaceOf(Text, index);
 
     public int CaretIndex => IndexOf(GetCaretLine(), GetCaretColumn());
 
@@ -244,7 +232,7 @@ public partial class NotecardTextEdit : TextEdit
             (int Start, int Length)? span = k.Keycode switch
             {
                 Key.Backspace => NotecardEditBuffer.TokenSpanAt(Text, caret),
-                Key.Delete => NotecardEditBuffer.TokenSpanAt(Text, caret + 1) is { } s && s.Start >= caret ? s : null,
+                Key.Delete => NotecardEditBuffer.TokenSpanAt(Text, caret + 1),
                 _ => null,
             };
             if (span is { } t)

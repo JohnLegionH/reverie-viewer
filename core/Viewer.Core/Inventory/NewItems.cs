@@ -21,14 +21,17 @@ public sealed record NewItemEntry(string Id, NewItemGroup Group, string DefaultN
 /// Notecard, New Gesture, New Clothes and New Body Parts; menu_inventory.xml's "Create new" submenu holds the same), with its default
 /// names (llviewerinventory.cpp lines 1806-1808 for scripts, notecards and gestures; strings.xml "New Shirt" and the like for wearables,
 /// and "New Folder"). Scripts, notecards and gestures are made with no asset, so the grid gives them its own default content
-/// (create_new_item, llviewerinventory.cpp); scripts take next-owner rights move and transfer, notecards and gestures all
-/// (menu_create_inventory_item). New Material and New Settings are not offered here: this viewer has no editor for them yet.
+/// (create_new_item, llviewerinventory.cpp); scripts, notecards and gestures take the default next-owner rights (move, copy, modify
+/// and transfer). New Material and New Settings are not offered here: this viewer has no editor for them yet.
 /// </summary>
 public static class NewItemCatalog
 {
     // the protocol's asset and inventory type numbers (LLAssetType and LLInventoryType)
     private const int AssetLsl = 10, AssetNotecard = 7, AssetGesture = 21, InvLsl = 10, InvNotecard = 7, InvGesture = 20, InvWearable = 18;
-    private const uint PermMove = 0x80000, PermTransfer = 0x2000, PermAll = 0x7fffffff;
+    private const uint PermMove = 0x80000, PermCopy = 0x8000, PermModify = 0x4000, PermTransfer = 0x2000;
+    // create_new_item takes next-owner rights from LLFloaterPerms::getNextOwnerPerms (llviewerinventory.cpp lines 1728-1742), whose defaults
+    // are move, copy, modify and transfer (llfloaterperms.cpp; settings.xml ScriptsNextOwnerCopy and the like, all 1)
+    private const uint DefaultNextOwner = PermMove | PermCopy | PermModify | PermTransfer;
 
     public static IReadOnlyList<NewItemEntry> Entries { get; } = Build();
 
@@ -37,9 +40,9 @@ public static class NewItemCatalog
         var list = new List<NewItemEntry>
         {
             new("folder", NewItemGroup.Top, "New Folder", ItemKind.Other, -1, -1, WearableType.None, 0),
-            new("script", NewItemGroup.Top, "New Script", ItemKind.Script, AssetLsl, InvLsl, WearableType.None, PermMove | PermTransfer),
-            new("notecard", NewItemGroup.Top, "New Note", ItemKind.Notecard, AssetNotecard, InvNotecard, WearableType.None, PermAll),
-            new("gesture", NewItemGroup.Top, "New Gesture", ItemKind.Gesture, AssetGesture, InvGesture, WearableType.None, PermAll),
+            new("script", NewItemGroup.Top, "New Script", ItemKind.Script, AssetLsl, InvLsl, WearableType.None, DefaultNextOwner),
+            new("notecard", NewItemGroup.Top, "New Note", ItemKind.Notecard, AssetNotecard, InvNotecard, WearableType.None, DefaultNextOwner),
+            new("gesture", NewItemGroup.Top, "New Gesture", ItemKind.Gesture, AssetGesture, InvGesture, WearableType.None, DefaultNextOwner),
         };
         // the clothing submenu's order (menu_inventory_add.xml lines 130-228)
         foreach (var t in new[] { WearableType.Shirt, WearableType.Pants, WearableType.Shoes, WearableType.Socks, WearableType.Jacket, WearableType.Skirt,
@@ -57,6 +60,19 @@ public static class NewItemCatalog
         string label = char.ToUpperInvariant(id[0]) + id[1..];
         return new(id, g, "New " + label, WearableKinds.IsBodyPart(t) ? ItemKind.Bodypart : ItemKind.Clothing, WearableKinds.AssetType(t), InvWearable, t, PermMove | PermTransfer);
     }
+
+    /// <summary>A new item's description: the time and the type's readable name (llviewerassettype.cpp generateDescriptionFor; the names
+    /// from llassettype.cpp).</summary>
+    public static string DescriptionFor(NewItemEntry entry, DateTime local) =>
+        local.ToString("yyyy-MM-dd HH:mm:ss ", System.Globalization.CultureInfo.InvariantCulture) + entry.Kind switch
+        {
+            ItemKind.Notecard => "note card",
+            ItemKind.Script => "lsl2 script",
+            ItemKind.Gesture => "gesture",
+            ItemKind.Clothing => "clothing",
+            ItemKind.Bodypart => "body part",
+            _ => "",
+        };
 
     public static NewItemEntry? Of(string id) => Entries.FirstOrDefault(e => e.Id == id);
 

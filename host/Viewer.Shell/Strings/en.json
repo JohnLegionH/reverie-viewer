@@ -613,6 +613,7 @@
   "gesture.saving": "Saving…",
   "gesture.saved": "Saved.",
   "gesture.save.failed": "The gesture could not be saved.",
+  "gesture.save.too_big": "The gesture has too many steps to save. Remove some steps and save again.",
   "gesture.playing": "Playing the gesture.",
   "gesture.read_only": "Read only",
   "inventory.new": "Create new",

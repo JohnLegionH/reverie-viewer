@@ -70,14 +70,27 @@ public class GesturePlayerTests
     }
 
     [Fact]
-    public async Task A_stop_step_stops_its_animation_and_the_end_stops_any_still_playing()
+    public async Task A_stop_step_stops_its_animation_and_the_end_waits_for_the_rest_without_stopping_them()
     {
+        // llgesturemgr.cpp stepGesture: at the end the gesture waits, with no time limit, until its animations have stopped of themselves
         var g = new GestureDocument { Steps = { GestureStep.Animation("wave", Wave, stop: false), GestureStep.Animation("bow", Bow, stop: false), GestureStep.Animation("wave", Wave, stop: true) } };
-        var fx = new Fx { PlayTicks = 1000 };
-        await GesturePlayer.PlayAsync(g, fx, fx.Delay, CancellationToken.None, endWait: TimeSpan.FromSeconds(1));
-        Assert.Equal(new[] { "start wave", "start bow", "stop wave" }, fx.Log.Where(l => !l.StartsWith("wait ", StringComparison.Ordinal)).Take(3).ToArray());
-        Assert.Equal("stop bow", fx.Log[^1]);
+        var fx = new Fx { PlayTicks = 400 };   // 40 seconds of polls: longer than the 30-second limit of a wait step
+        await GesturePlayer.PlayAsync(g, fx, fx.Delay, CancellationToken.None);
+        var acts = fx.Log.Where(l => !l.StartsWith("wait ", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(new[] { "start wave", "start bow", "stop wave" }, acts);
+        Assert.Equal(400, fx.Log.Count(l => l.StartsWith("wait ", StringComparison.Ordinal)));
         Assert.Empty(fx.Playing);
+    }
+
+    [Fact]
+    public async Task A_wait_for_animations_step_gives_up_after_30_seconds()
+    {
+        // MAX_WAIT_ANIM_SECS = 30 (llgesturemgr.cpp), for the step only
+        var g = new GestureDocument { Steps = { GestureStep.Animation("wave", Wave, stop: false), GestureStep.WaitAnimations(), GestureStep.Chat("on"), GestureStep.Animation("wave", Wave, stop: true) } };
+        var fx = new Fx { PlayTicks = 100000 };
+        await GesturePlayer.PlayAsync(g, fx, fx.Delay, CancellationToken.None);
+        int said = fx.Log.IndexOf("say on");
+        Assert.Equal(300, fx.Log.Take(said).Count(l => l.StartsWith("wait ", StringComparison.Ordinal)));
     }
 
     [Fact]

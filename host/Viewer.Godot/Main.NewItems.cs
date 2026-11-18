@@ -14,8 +14,9 @@ namespace Viewer.Godot;
 /// <summary>
 /// Inventory › New in the running viewer, as the official viewer does it (llviewerinventory.cpp menu_create_inventory_item and its
 /// callbacks): the item goes into the folder chosen (the folder selected, or the folder of the item selected), else into the account's
-/// folder for its type; a new notecard, script or gesture then opens in its editor; a new clothing or body part item opens in the
-/// appearance editor where this viewer has one for that type, and otherwise the inventory window says it was made.
+/// folder for its type; a new gesture is activated and opens in its editor (create_gesture_cb), a new notecard or script opens nothing
+/// (create_notecard_cb, create_script_cb); a new clothing or body part item opens in the appearance editor where this viewer has one for
+/// that type, and otherwise the inventory window says it was made and that there is no editor for it yet.
 /// </summary>
 public partial class Main
 {
@@ -48,7 +49,7 @@ public partial class Main
         if (folder == Guid.Empty)
             folder = inv.RootId;
         byte[]? data = entry.IsWearable ? NewItemCatalog.DefaultWearable(entry.Wearable, entry.DefaultName, EditCatalog() ?? EditParamCatalog.Empty, session.AgentId) : null;
-        var request = new NewItemRequest(folder, entry.DefaultName, "", entry.AssetType, entry.InventoryType, entry.Wearable, entry.NextOwnerMask, data);
+        var request = new NewItemRequest(folder, entry.DefaultName, NewItemCatalog.DescriptionFor(entry, DateTime.Now), entry.AssetType, entry.InventoryType, entry.Wearable, entry.NextOwnerMask, data);
         _inventoryPanel.StatusLabel.Text = _strings.Get("inventory.new.making", entry.DefaultName);
         Log.Info("inventory.new", Viewer.Core.Diagnostics.CoreLog.F("entry", entry.Id));
         _ = transport.CreateItemAsync(request, CancellationToken.None).ContinueWith(t =>
@@ -68,8 +69,9 @@ public partial class Main
             return;
         }
         session.Inventory.Invalidate(folder);   // the folder's contents are read again, so the new item shows with the grid's own record of it
-        bool opens = entry.Kind is ItemKind.Notecard or ItemKind.Script or ItemKind.Gesture || entry.IsWearable && HasWearableEditor(entry.Wearable);
-        _inventoryPanel.StatusLabel.Text = _strings.Get(opens ? "inventory.new.made" : "inventory.new.made_no_editor", entry.DefaultName);
+        // the official viewer opens a new gesture (create_gesture_cb) and nothing else; a new wearable opens in the appearance editor here
+        bool opens = entry.Kind is ItemKind.Gesture || entry.IsWearable && HasWearableEditor(entry.Wearable);
+        _inventoryPanel.StatusLabel.Text = _strings.Get(opens || !entry.IsWearable ? "inventory.new.made" : "inventory.new.made_no_editor", entry.DefaultName);
         Log.Info("inventory.new-made", Viewer.Core.Diagnostics.CoreLog.F("entry", entry.Id), Viewer.Core.Diagnostics.CoreLog.F("opens", opens));
         if (opens)
             OpenWhenKnown(session, entry, made, 0);

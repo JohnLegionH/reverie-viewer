@@ -158,6 +158,11 @@ public partial class Main
             return;
         Guid item = _gestureItem;
         var copy = Copy(doc);
+        if (!GestureFormat.FitsSave(GestureFormat.Write(copy)))
+        {
+            panel.ShowStatus("gesture.save.too_big");   // GestureSaveFailedTooManySteps
+            return;
+        }
         panel.ShowStatus("gesture.saving");
         _ = transport.SaveGestureAsync(item, GestureFormat.Write(copy), _gestureCancel.Token).ContinueWith(t =>
         {

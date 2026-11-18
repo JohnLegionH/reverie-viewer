@@ -76,6 +76,18 @@ public class GestureTests
     }
 
     [Fact]
+    public void A_gesture_file_over_1000_bytes_is_not_saved()
+    {
+        // llpreviewgesture.cpp saveIfNeeded: GestureSaveFailedTooManySteps over 1000 bytes
+        var g = new GestureDocument();
+        Assert.True(GestureFormat.FitsSave(GestureFormat.Write(g)));
+        for (int i = 0; i < 60; i++)
+            g.Steps.Add(GestureStep.Chat("a line of chat"));
+        Assert.True(GestureFormat.Write(g).Length > 1000);
+        Assert.False(GestureFormat.FitsSave(GestureFormat.Write(g)));
+    }
+
+    [Fact]
     public void Steps_move_up_and_down_and_are_removed_in_place()
     {
         var g = Sample();

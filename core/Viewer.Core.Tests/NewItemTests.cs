@@ -61,12 +61,26 @@ public class NewItemTests
     }
 
     [Fact]
-    public void Scripts_and_gestures_take_next_owner_rights_copy_less_and_notecards_all()
+    public void Scripts_notecards_and_gestures_take_the_default_next_owner_rights()
     {
-        // create_new_item passes PERM_MOVE | PERM_TRANSFER for scripts and PERM_ALL for notecards and gestures (llviewerinventory.cpp)
-        Assert.Equal(0x80000u | 0x2000u, NewItemCatalog.Of("script")!.NextOwnerMask);
-        Assert.Equal(0x7fffffffu, NewItemCatalog.Of("notecard")!.NextOwnerMask);
-        Assert.Equal(0x7fffffffu, NewItemCatalog.Of("gesture")!.NextOwnerMask);
+        // create_new_item overrides the menu's value with LLFloaterPerms::getNextOwnerPerms (llviewerinventory.cpp), whose defaults are
+        // move, copy, modify and transfer (llfloaterperms.cpp; settings.xml *NextOwnerCopy, *NextOwnerModify, *NextOwnerTransfer = 1)
+        const uint all = 0x80000u | 0x8000u | 0x4000u | 0x2000u;
+        Assert.Equal(all, NewItemCatalog.Of("script")!.NextOwnerMask);
+        Assert.Equal(all, NewItemCatalog.Of("notecard")!.NextOwnerMask);
+        Assert.Equal(all, NewItemCatalog.Of("gesture")!.NextOwnerMask);
+    }
+
+    [Fact]
+    public void A_new_item_is_described_by_the_time_and_its_kind()
+    {
+        // generateDescriptionFor (llviewerassettype.cpp): "%Y-%m-%d %H:%M:%S " and the type's readable name (llassettype.cpp)
+        var at = new DateTime(2026, 3, 4, 5, 6, 7);
+        Assert.Equal("2026-03-04 05:06:07 note card", NewItemCatalog.DescriptionFor(NewItemCatalog.Of("notecard")!, at));
+        Assert.Equal("2026-03-04 05:06:07 lsl2 script", NewItemCatalog.DescriptionFor(NewItemCatalog.Of("script")!, at));
+        Assert.Equal("2026-03-04 05:06:07 gesture", NewItemCatalog.DescriptionFor(NewItemCatalog.Of("gesture")!, at));
+        Assert.Equal("2026-03-04 05:06:07 clothing", NewItemCatalog.DescriptionFor(NewItemCatalog.Of("skirt")!, at));
+        Assert.Equal("2026-03-04 05:06:07 body part", NewItemCatalog.DescriptionFor(NewItemCatalog.Of("eyes")!, at));
     }
 
     [Fact]

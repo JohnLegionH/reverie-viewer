@@ -459,7 +459,7 @@ public partial class InventoryPanel : VBoxContainer
         NewButton = new MenuButton { Name = "new_menu", Text = strings.Get("inventory.new.add"), Flat = false };
         NewButton.AccessibilityName = strings.Get("inventory.new.add.name");
         NewButton.TooltipText = strings.Get("inventory.new.add.name");
-        FillNewMenu(NewButton.GetPopup(), "new");
+        FillNewMenu(NewButton.GetPopup(), "new", fromRow: false);
         buttons.AddChild(NewButton);
         foreach (var b in new[] { NewFolderButton, RenameButton, TrashButton, RetryButton })
             buttons.AddChild(b);
@@ -505,7 +505,7 @@ public partial class InventoryPanel : VBoxContainer
         Context.AddItem(strings.Get("inventory.button.detach"), 8);
         Context.AddItem(strings.Get("inventory.button.open"), 9);
         ContextNew = new PopupMenu { Name = "context_new" };
-        FillNewMenu(ContextNew, "context_new");
+        FillNewMenu(ContextNew, "context_new", fromRow: true);
         Context.AddSubmenuNodeItem(strings.Get("inventory.new"), ContextNew, 10);
         Context.IdPressed += id => { switch (id) { case 0: OnNewFolder(); break; case 1: OnRename(); break; case 2: OnTrash(); break; case 3: OnRetry(); break;
             case 4: OnWear(); break; case 5: OnAdd(); break; case 6: OnTakeOff(); break; case 7: OnAttachMenu(); break; case 8: OnDetach(); break;
@@ -516,7 +516,7 @@ public partial class InventoryPanel : VBoxContainer
 
     /// <summary>Fills a menu with Inventory › New: New Folder, New Script, New Notecard, New Gesture, then New Clothes and New Body Parts as
     /// submenus, each in the official order. An entry's id is its index in the catalogue.</summary>
-    private void FillNewMenu(PopupMenu menu, string name)
+    private void FillNewMenu(PopupMenu menu, string name, bool fromRow)
     {
         PopupMenu? clothing = null, bodyParts = null;
         for (int i = 0; i < NewItemCatalog.Entries.Count; i++)
@@ -532,7 +532,7 @@ public partial class InventoryPanel : VBoxContainer
                     if (clothing is null)
                     {
                         clothing = new PopupMenu { Name = name + "_clothing" };
-                        clothing.IdPressed += id => PickNew((int)id);
+                        clothing.IdPressed += id => PickNew((int)id, fromRow);
                         menu.AddSubmenuNodeItem(_strings.Get("inventory.new.clothing"), clothing, 1000);
                     }
                     clothing.AddItem(label, i);
@@ -541,19 +541,20 @@ public partial class InventoryPanel : VBoxContainer
                     if (bodyParts is null)
                     {
                         bodyParts = new PopupMenu { Name = name + "_bodyparts" };
-                        bodyParts.IdPressed += id => PickNew((int)id);
+                        bodyParts.IdPressed += id => PickNew((int)id, fromRow);
                         menu.AddSubmenuNodeItem(_strings.Get("inventory.new.bodyparts"), bodyParts, 1001);
                     }
                     bodyParts.AddItem(label, i);
                     break;
             }
         }
-        menu.IdPressed += id => PickNew((int)id);
+        menu.IdPressed += id => PickNew((int)id, fromRow);
     }
 
     /// <summary>An Inventory › New entry picked (by its index in the catalogue): New Folder makes a folder as the New folder button does;
-    /// anything else is asked of the viewer.</summary>
-    public void PickNew(int index)
+    /// anything else is asked of the viewer. From the + menu the item goes to its type's folder (llpanelmaininventory.cpp passes no folder);
+    /// from a row's Create new, to that row's folder (llinventorypanel.cpp).</summary>
+    public void PickNew(int index, bool fromRow = false)
     {
         if (index < 0 || index >= NewItemCatalog.Entries.Count || _view is null)
             return;
@@ -561,7 +562,7 @@ public partial class InventoryPanel : VBoxContainer
         if (entry.IsFolder)
             OnNewFolder();
         else
-            NewRequested?.Invoke(entry.Id, _selected);
+            NewRequested?.Invoke(entry.Id, fromRow ? _selected : Guid.Empty);
     }
 
     /// <summary>Opens the + menu with the Clothing submenu shown (the pictures).</summary>
