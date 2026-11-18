@@ -204,10 +204,12 @@ Package versions are pinned in `Directory.Packages.props` and the `packages.lock
   "Copyright (c) 2024-2026, Sjofn LLC"; the package metadata also names JJ2000 Partners (1999-2000), Jason S. Clary
   (2007-2012) and Anders Gustafsson, Cureos AB (2013-2018). Licence text: `ThirdPartyLicenses/LICENSE-CoreJ2K.txt`; the
   package also ships a `COPYRIGHT-JJ2000-5.1` notice, which must travel with any redistribution of CoreJ2K.
-- **Godot 4.7.2 and GodotSharp 4.7.2** (MIT): "Copyright (c) Godot Engine contributors" (package metadata). I can't
-  confirm the Godot licence text from the NuGet packages, which do not ship it. The Godot 4.7.2 .NET editor binary the
-  viewer is exported with carries it: "Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md)" and "Copyright (c) 2007-2014
-  Juan Linietsky, Ariel Manzur"; the text is in `ThirdPartyLicenses/LICENSE-Godot-4.7.2.txt`. The engine bundles further
+- **Godot Engine 4.7.2 and GodotSharp 4.7.2** (MIT, https://godotengine.org). From Godot's `LICENSE.txt` at tag
+  `4.7.2-stable`:
+  "Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md).
+  Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur."
+  The full licence text is in `ThirdPartyLicenses/LICENSE-Godot-4.7.2.txt`. The GodotSharp NuGet packages give
+  "Copyright (c) Godot Engine contributors" in their metadata and ship no licence file. The engine bundles further
   third-party components; their notices are compiled into the engine (`Engine.GetCopyrightInfo` and
   `Engine.GetLicenseInfo`), and the viewer's About window shows them under Licences, read from the running engine.
   Three of them are compiled into Godot's standard export templates, which the viewer is exported with; their entries
