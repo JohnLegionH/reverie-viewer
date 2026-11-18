@@ -250,6 +250,8 @@ Check "3b Features: Material Metal from the list, Friction 0.3 typed, read back 
 [void](Wait-Until { $c = State; if ($null -ne $c.contents) { $c } } 15)
 [void](ClickCtl "new_script")
 $withScript = Wait-Until { $c = Contents; if ($c -contains "New Script") { $c } } 20
+# asked twice: the first ask scrolls the Contents list into view, which lays out on a later frame
+[void](Edit @{ action = "content_row"; text = "New Script" }); Start-Sleep -Milliseconds 300
 $row = (Edit @{ action = "content_row"; text = "New Script" }).done
 if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
 [void](ClickCtl "content_delete")
@@ -265,7 +267,11 @@ if ($boxB) { Add-Rezzed ([uint32]$boxB.local) }
 $B = [uint32]$boxB.local
 NoFocus
 Press "3" $true
-$sA = TopOf (OwnObj $A); $sB = TopOf (OwnObj $B)
+# the camera on the middle of the two boxes, so both tops stand clear of the Build window
+$oA2 = OwnObj $A; $oB2 = OwnObj $B
+[void](Interact @{ action = "aim"; x = ([double]$oA2.x + [double]$oB2.x) / 2; y = ([double]$oA2.y + [double]$oB2.y) / 2; z = [double]$oA2.z; distance = 7 }); Start-Sleep -Milliseconds 1500
+$sA = TopOf $oA2; $sB = TopOf $oB2
+Note ("the two tops at {0} and {1}" -f (@($sA) -join ","), (@($sB) -join ","))
 if ($sA) { ClickAt $sA[0] $sA[1] }
 if ($sB) { [void](MoveTo $sB[0] $sB[1]); Start-Sleep -Milliseconds 120; [void](Mouse "left" $true $sB[0] $sB[1] $true); Start-Sleep -Milliseconds 120; [void](Mouse "left" $false $sB[0] $sB[1] $true); Start-Sleep -Milliseconds 300 }
 [void](EditUntil { param($s) @($s.selection).Count -eq 2 })

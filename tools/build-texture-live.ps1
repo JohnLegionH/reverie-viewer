@@ -262,6 +262,8 @@ foreach ($l in @($B, $C)) { [void](Edit @{ action = "select"; text = "$l" }); [v
 [void](Wait-Until { $o = OwnObj $C; if ($o -and (Near $o.sx 1 0.01) -and (Near $o.x ([double]$made[0].x + 1.37) 0.02)) { $o } } 15)
 [void](Interact @{ action = "aim"; x = [double]$made[0].x + 0.7; y = [double]$made[0].y; z = [double]$made[0].z; distance = 5 }); Start-Sleep -Milliseconds 1500
 $oB = OwnObj $B; $oC = OwnObj $C
+# a shown control of the shell by name (the picker window's OK)
+function Ui([string]$name) { $d = (Edit @{ action = "ui_point"; text = $name }).done; if ($d) { @([double]$d[0], [double]$d[1]) } else { $null } }
 # a control's place on screen: asked twice, so a tab scrolled to bring it into view has laid out again before the place is read
 function CtlPoint([string]$name) { [void](Edit @{ action = "control"; text = $name }); Start-Sleep -Milliseconds 400; (Edit @{ action = "control"; text = $name }).done }
 function TopOf($o) { (Edit @{ action = "screen"; x = [double]$o.x; y = [double]$o.y; z = [double]$o.z + [double]$o.sz / 2 }).done }
@@ -286,8 +288,8 @@ $pickedName = $null
 if ($rows) {
     $row = (Edit @{ action = "picker_row"; text = "0" }).done
     if ($row) { ClickAt $row[0] $row[1]; $pickedName = @($rows)[0] }
-    $use = CtlPoint "pick_use"
-    Note ("picker row 0 at {0}, its Use button at {1}" -f (@($row) -join ","), (@($use) -join ","))
+    $use = Ui "pick_ok"
+    Note ("picker row 0 at {0}, its OK button at {1}" -f (@($row) -join ","), (@($use) -join ","))
     Shot "picker-open"
     if ($use) { ClickAt $use[0] $use[1] }
 }
@@ -330,7 +332,7 @@ $mrows = Wait-Until { $n = (Edit @{ action = "picker" }).done; if ($n -and @($n)
 if ($mrows) {
     $row = (Edit @{ action = "picker_row"; text = "0" }).done
     if ($row) { ClickAt $row[0] $row[1] }
-    $use = CtlPoint "pick_use"
+    $use = Ui "pick_ok"
     if ($use) { ClickAt $use[0] $use[1] }
     $f6 = Wait-Until { $s = Edit @{ action = "state" }; if (@($s.faces).Count -eq 2 -and $s.faces[0].settings.material -ne "00000000-0000-0000-0000-000000000000") { $s } } 20
     Check "5a a PBR material chosen in the picker is put on both selected faces" ([bool]$f6) ("material {0}" -f $(if ($f6) { $f6.faces[0].settings.material } else { "none" }))
@@ -340,7 +342,9 @@ if ($mrows) {
     Check "5b Remove takes it off again" ([bool]$f7) ""
 }
 else {
-    [void](In @{ kind = "key"; key = "ESCAPE"; down = $true; shift = $false; alt = $false; ctrl = $false }); [void](In @{ kind = "key"; key = "ESCAPE"; down = $false; shift = $false; alt = $false; ctrl = $false })
+    # the empty picker is a window over the Build window: closed by its own Cancel
+    $cancel = Ui "pick_cancel"
+    if ($cancel) { ClickAt $cancel[0] $cancel[1] }
     $report.pbr = "no material item in the inventory or the Library: the material is put on by its asset id through the automation, not by hand"
     Note $report.pbr
     if ($MaterialAsset) {
