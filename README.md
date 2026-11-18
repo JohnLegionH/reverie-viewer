@@ -155,7 +155,7 @@ The viewer is licensed under the GNU Lesser General Public License, version 2.1 
 - The project's own code is licensed LGPL-2.1-or-later: version 2.1 of the licence or, at your option, any later version.
 - Code ported from other projects keeps its upstream copyright and licence notice exactly as written, at the top of the
   file, under the licence that notice gives (for example LGPL-2.1-only for code from the Second Life viewer and the
-  Firestorm viewer, BSD-3-Clause, MPL-2.0 or Apache-2.0). `ThirdPartyLicenses/PORTED-FILES.tsv` lists those files.
+  Firestorm viewer, BSD-3-Clause, MPL-2.0 or MIT). `ThirdPartyLicenses/PORTED-FILES.tsv` lists those files.
 - The sample add-on in `samples/HelloAddon` is a template to copy and is licensed 0BSD (`samples/HelloAddon/LICENSE`):
   it may be copied, changed and used for any purpose, with no conditions. The add-on interface it builds against,
   `core/Viewer.Addons.Api`, stays LGPL-2.1-or-later like the rest of the viewer; see `Docs/ADDONS.md`, "Licences".

@@ -163,6 +163,21 @@ public class LicenceNoticeTests
         Assert.True(problems.Count == 0, $"{problems.Count} problems (first 40):\n" + string.Join("\n", problems.Take(40)));
     }
 
+    /// <summary>The sky probe's filtering and the tone mappers are our own code now (written from published maths; the Hill fit's numbers from Baking Lab,
+    /// MIT): nothing in the tree is under the glTF Sample Viewer's Apache licence or the Hammersley notes' CC BY 3.0, and nothing says it is.</summary>
+    [Fact]
+    public void No_file_is_listed_or_noticed_as_glTF_Sample_Viewer_or_Hammersley_notes_code()
+    {
+        var notices = Read("THIRD-PARTY-NOTICES.md");
+        Assert.DoesNotContain("glTF Sample Viewer", notices, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Dammertz", notices, StringComparison.Ordinal);
+        Assert.DoesNotContain(ManifestRows(), r => r.Spdx.Contains("Apache-2.0", StringComparison.Ordinal) || r.Spdx.Contains("CC-BY-3.0", StringComparison.Ordinal));
+        Assert.False(File.Exists(Path.Combine(TestPaths.RepoRoot, "ThirdPartyLicenses", "LICENSE-glTF-Sample-Viewer-Apache-2.0.txt")));
+        // the Apache License 2.0 text stays: a bundled package's notice (MessagePack's BufferWriter.cs) points to it
+        Assert.True(File.Exists(Path.Combine(TestPaths.RepoRoot, "ThirdPartyLicenses", "LICENSE-Apache-2.0.txt")));
+        Assert.Contains("ThirdPartyLicenses/LICENSE-Apache-2.0.txt", notices, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("Godot Engine")]
     [InlineData("LibreMetaverse")]
@@ -170,7 +185,7 @@ public class LicenceNoticeTests
     [InlineData("JoltPhysicsSharp")]
     [InlineData("joltc")]
     [InlineData("Jolt Physics")]
-    [InlineData("Khronos")]
+    [InlineData("Baking Lab")]
     [InlineData("Second Life viewer")]
     [InlineData("Firestorm")]
     [InlineData("Avatar data folder")]

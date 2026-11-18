@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0
+// SPDX-License-Identifier: LGPL-2.1-only
 /**
  * @file llreflectionmapmanager.cpp
  * @brief LLReflectionMapManager class implementation
@@ -103,21 +103,12 @@
 */
 
 // Adapted 2026 by Legion Builds. The sky probe follows the default reflection probe of the 26.4 viewer, as that viewer's source defines it: the capture and the
-// irradiance map in llreflectionmapmanager.cpp (LLReflectionMapManager::updateProbeFace), the irradiance generation in irradianceGenF.glsl (the Hammersley points
-// of Holger Dammertz's notes, cosine-weighted hemisphere sampling, and the mip-filtered sampling of GPU Gems 3, chapter 20.4, as the Khronos glTF sample viewer's
-// ibl_filtering.frag uses them), the parameters of the irradiance pass in llsettingsvo.cpp (draw_color, applySpecial), the probe's sampling for ambient in
+// irradiance map in llreflectionmapmanager.cpp (LLReflectionMapManager::updateProbeFace), the constants of the irradiance pass in irradianceGenF.glsl (its sample
+// count, source width and level bias), the parameters of the irradiance pass in llsettingsvo.cpp (draw_color, applySpecial), the probe's sampling for ambient in
 // reflectionProbeF.glsl (tapIrradianceMap, sampleProbeAmbient, sphereIntersect), and the ambiance scale in LLReflectionMapManager::updateUniforms, written in C#.
-// The rest of this file is our own code.
-// The irradiance generation in irradianceGenF.glsl is itself derived, as that file says, from the Khronos glTF Sample Viewer's ibl_filtering.frag (Apache License 2.0; the licence text
-// is in ThirdPartyLicenses) and uses the Hammersley points of Holger Dammertz's notes (CC-BY 3.0).
-// The irradiance generation in irradianceGenF.glsl says, in its own comment, word for word:
-//     Code below is derived from the Khronos GLTF Sample viewer:
-//     https://github.com/KhronosGroup/glTF-Sample-Viewer/blob/master/source/shaders/ibl_filtering.frag
-// That Khronos source is under the Apache License 2.0; the licence text is in ThirdPartyLicenses/LICENSE-glTF-Sample-Viewer-Apache-2.0.txt. The licence file in the Khronos repository is the
-// unfilled template and names no copyright holder, so no holder line is given here. Adapted 2026 by Legion Builds, and changed (Apache License 2.0, section 4(b)): this file is that filtering
-// rewritten from GLSL in C#, with the cosine-weighted sampling, the sample count and the mip level fixed to the official viewer's constants, and with the cube read done in code.
-// The same shader credits its Hammersley points as "CC BY 3.0 (Holger Dammertz)", http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html, "with adapted interface";
-// that credit stays with RadicalInverse below, which is that code.
+// The irradiance filtering itself (Irradiance, SampleLod, VanDerCorput) is our own code, written from published mathematics: a Hammersley point set (the base-2
+// Van der Corput sequence), cosine-weighted hemisphere sampling by Malley's method (a point of the unit disc lifted onto the hemisphere), and the choice of the
+// source level from the sample's solid angle described in GPU Gems 3, chapter 20.4 ("GPU-Based Importance Sampling"). The rest of this file is our own code.
 
 // Copyright (c) 2026 Legion Builds
 
@@ -302,27 +293,50 @@ public static class SkyProbe
 
     // ---------------------------------------------------------------- the irradiance map
 
-    // Hammersley Points on the Hemisphere
-    // CC BY 3.0 (Holger Dammertz)
-    // http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
-    // with adapted interface
-    private static float RadicalInverse(uint bits)
+    /// <summary>
+    /// The mip level a sample with the given density reads: half the base-2 logarithm of the ratio of the solid angle the sample stands for, 1 / (N pdf), to the solid
+    /// angle of one texel of the source (GPU Gems 3, chapter 20.4), plus the bias, clamped to 0 to <see cref="MaxLod"/>. The texel's share is taken as 1 / (6 w^2) without
+    /// the sphere's 4 pi, as the official pass's constants do. Always <see cref="MaxLod"/> for the official constants.
+    /// </summary>
+    public static float SampleLod(float pdf)
     {
-        bits = (bits << 16) | (bits >> 16);
-        bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
-        bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
-        bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
-        bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
-        return bits * 2.3283064365386963e-10f;
+        float sampleShare = 1f / (SampleCount * pdf), texelShare = 1f / (6f * SourceWidth * SourceWidth);
+        return Math.Clamp(0.5f * MathF.Log2(sampleShare / texelShare) + LodBias, 0f, MaxLod);
     }
 
-    /// <summary>The mip level a sample with the given density reads (computeLod, plus the bias, clamped to 0 to <see cref="MaxLod"/>): always <see cref="MaxLod"/> for the official constants.</summary>
-    public static float SampleLod(float pdf) => Math.Clamp(0.5f * MathF.Log2(6f * SourceWidth * SourceWidth / (SampleCount * pdf)) + LodBias, 0f, MaxLod);
+    /// <summary>The base-2 Van der Corput value of <paramref name="i"/>: its binary digits mirrored about the point (0.b0 b1 b2 ...).</summary>
+    private static float VanDerCorput(uint i)
+    {
+        uint mirrored = 0;
+        for (int digit = 0; digit < 32; digit++, i >>= 1) mirrored = (mirrored << 1) | (i & 1u);
+        return mirrored / 4294967296f;
+    }
 
-    /// <summary>The irradiance map of the capture's mip chain: 16 x 16 per face, each texel the mean of 32 cosine-weighted samples (filterColor).</summary>
+    /// <summary>
+    /// The sample directions around +z, worked out once: a Hammersley set of <see cref="SampleCount"/> points (azimuth from i / N, the second coordinate from the
+    /// Van der Corput value of i) mapped onto the hemisphere with a density of cos(theta) / pi by Malley's method: the second coordinate is the squared radius of a
+    /// point of the unit disc, which is lifted straight up onto the hemisphere (height sqrt(1 - r^2)). Each with the mip level its density reads.
+    /// </summary>
+    private static readonly (Vector3 Direction, float Lod)[] Kernel = BuildKernel();
+
+    private static (Vector3, float)[] BuildKernel()
+    {
+        var kernel = new (Vector3, float)[SampleCount];
+        for (int i = 0; i < SampleCount; i++)
+        {
+            float azimuth = 2f * MathF.PI * (i / (float)SampleCount);
+            float radiusSquared = VanDerCorput((uint)i);
+            float radius = MathF.Sqrt(radiusSquared), height = MathF.Sqrt(1f - radiusSquared);
+            var direction = Vector3.Normalize(new Vector3(radius * MathF.Cos(azimuth), radius * MathF.Sin(azimuth), height));
+            kernel[i] = (direction, SampleLod(height / MathF.PI));
+        }
+        return kernel;
+    }
+
+    /// <summary>The irradiance map of the capture's mip chain: 16 x 16 per face, each texel the mean of 32 cosine-weighted samples of the chain around its direction.</summary>
     public static Vector3[][] Irradiance(Vector3[][][] chain)
     {
-        int size = Resolution >> MaxLod;   // 2
+        int coarsest = Resolution >> MaxLod;   // 2
         var irr = new Vector3[6][];
         for (int face = 0; face < 6; face++)
         {
@@ -330,21 +344,18 @@ public static class SkyProbe
             for (int y = 0; y < IrradianceSize; y++)
                 for (int x = 0; x < IrradianceSize; x++)
                 {
-                    var n = Vector3.Normalize(FaceDirection(face, (x + 0.5f) / IrradianceSize, (y + 0.5f) / IrradianceSize));
-                    var tangent = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, n));
-                    var bitangent = Vector3.Cross(n, tangent);
-                    var acc = Vector3.Zero;
-                    for (int i = 0; i < SampleCount; i++)
+                    // a frame around the texel's direction, built from the world's up axis
+                    var normal = Vector3.Normalize(FaceDirection(face, (x + 0.5f) / IrradianceSize, (y + 0.5f) / IrradianceSize));
+                    var side = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, normal));
+                    var up = Vector3.Cross(normal, side);
+                    var sum = Vector3.Zero;
+                    foreach (var (d, lod) in Kernel)
                     {
-                        float xi1 = i / (float)SampleCount, xi2 = RadicalInverse((uint)i);
-                        float cosT = MathF.Sqrt(1f - xi2), sinT = MathF.Sqrt(xi2), phi = 2f * MathF.PI * xi1;
-                        var local = Vector3.Normalize(new Vector3(sinT * MathF.Cos(phi), sinT * MathF.Sin(phi), cosT));
-                        var h = tangent * local.X + bitangent * local.Y + n * local.Z;
-                        float lod = SampleLod(cosT / MathF.PI);
-                        // the official lookup reads level 'lod' trilinearly; with these constants lod is exactly the coarsest level
-                        acc += lod >= MaxLod ? Sample(chain[MaxLod], size, h) : SampleLevels(chain, lod, h);
+                        var world = side * d.X + up * d.Y + normal * d.Z;
+                        // a level between two is read from both and blended; with the official constants every sample reads the coarsest level
+                        sum += lod >= MaxLod ? Sample(chain[MaxLod], coarsest, world) : SampleLevels(chain, lod, world);
                     }
-                    o[y * IrradianceSize + x] = acc / SampleCount;
+                    o[y * IrradianceSize + x] = sum / SampleCount;
                 }
             irr[face] = o;
         }

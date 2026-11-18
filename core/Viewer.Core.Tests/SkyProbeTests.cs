@@ -141,14 +141,12 @@ public class SkyProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         return acc;
     }
 
-    private static double Radical(uint bits)
+    // the base-2 Van der Corput value of i: its binary digits read after the point in reverse order (sum of digit_k / 2^(k+1))
+    private static double Radical(uint i)
     {
-        bits = (bits << 16) | (bits >> 16);
-        bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
-        bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
-        bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
-        bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
-        return bits * 2.3283064365386963e-10;
+        double value = 0, weight = 0.5;
+        for (; i != 0; i >>= 1, weight /= 2) if ((i & 1) != 0) value += weight;
+        return value;
     }
 
     private static double[][][] OfficialIrradiance(SkyFrame f, Func<double, double, double, double[]?>? ground = null)
@@ -174,7 +172,7 @@ public class SkyProbeTests(Xunit.Abstractions.ITestOutputHelper output)
                 {
                     var (nx, ny, nz) = Dir(face, (x + 0.5) / 16, (y + 0.5) / 16);
                     double nl = Math.Sqrt(nx * nx + ny * ny + nz * nz); nx /= nl; ny /= nl; nz /= nl;
-                    // generateTBN: bitangent starts as +Y
+                    // a frame around the normal built from the world's up axis
                     double tx = 1 * nz - 0 * ny, ty = 0 * nx - 0 * nz, tz = 0 * ny - 1 * nx;   // cross((0,1,0), n)
                     double tl = Math.Sqrt(tx * tx + ty * ty + tz * tz); tx /= tl; ty /= tl; tz /= tl;
                     double bx = ny * tz - nz * ty, by = nz * tx - nx * tz, bz = nx * ty - ny * tx;   // cross(n, tangent)

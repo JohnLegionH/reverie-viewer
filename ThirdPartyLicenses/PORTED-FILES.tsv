@@ -91,14 +91,12 @@ core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2022, Linden R
 core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
 core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
 core/Viewer.Core/World/SkyLighting.cs	LGPL-2.1-only	Copyright (C) 2011, Linden Research, Inc.
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file llreflectionmapmanager.cpp
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file irradianceGenF.glsl
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file class3/deferred/reflectionProbeF.glsl
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	@file llsettingsvo.cpp
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	Code below is derived from the Khronos GLTF Sample viewer:
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	The same shader credits its Hammersley points as "CC BY 3.0 (Holger Dammertz)", http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html, "with adapted interface";
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	Copyright (C) 2022, Linden Research, Inc.
-core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only AND Apache-2.0 AND CC-BY-3.0	Copyright (C) 2017, Linden Research, Inc.
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only	@file llreflectionmapmanager.cpp
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only	@file irradianceGenF.glsl
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only	@file class3/deferred/reflectionProbeF.glsl
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only	@file llsettingsvo.cpp
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only	Copyright (C) 2022, Linden Research, Inc.
+core/Viewer.Core/World/SkyProbe.cs	LGPL-2.1-only	Copyright (C) 2017, Linden Research, Inc.
 core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	@file llvosky.cpp
 core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	@file sunDiscF.glsl
 core/Viewer.Core/World/SunDisc.cs	LGPL-2.1-only	@file indra_constants.cpp
@@ -110,16 +108,18 @@ core/Viewer.Core/World/TerrainComposition.cs	LGPL-2.1-only	Copyright (C) 2007, L
 core/Viewer.Core/World/TerrainComposition.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
 core/Viewer.Core/World/TerrainRamp.cs	LGPL-2.1-only	@file class1\deferred\terrainF.glsl
 core/Viewer.Core/World/TerrainRamp.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2024, Linden Research, Inc.
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file postDeferredTonemap.glsl
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file llsettingssky.cpp
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file llsettingsvo.cpp
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file pipeline.cpp
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file exposureF.glsl
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	@file luminanceF.glsl
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2017, Linden Research, Inc.
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
-core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only	Copyright (C) 2023, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	Copyright (C) 2024, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	Copyright (c) 2016 MJP
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	The code in this file was originally written by Stephen Hill (@self_shadow), who deserves all
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	@file postDeferredTonemap.glsl
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	@file llsettingssky.cpp
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	@file llsettingsvo.cpp
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	@file pipeline.cpp
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	@file exposureF.glsl
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	@file luminanceF.glsl
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	Copyright (C) 2017, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/ToneMap.cs	LGPL-2.1-only AND MIT	Copyright (C) 2023, Linden Research, Inc.
 core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	@file llvotree.cpp
 core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
 core/Viewer.Core/World/TreeNoise.cs	LGPL-2.1-only	@file noise.h
@@ -173,9 +173,11 @@ host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	Copyright (C) 2022, L
 host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
 host/Viewer.Godot/Presentation/GlowPass.cs	LGPL-2.1-only	@file glowF.glsl
 host/Viewer.Godot/Presentation/GlowPass.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
-host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	Copyright (C) 2024, Linden Research, Inc.
-host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	@file exposureF.glsl
-host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	@file luminanceF.glsl
-host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only	Copyright (C) 2023, Linden Research, Inc.
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	Copyright (C) 2024, Linden Research, Inc.
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	Copyright (c) 2016 MJP
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	The code in this file was originally written by Stephen Hill (@self_shadow), who deserves all
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	@file exposureF.glsl
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	@file luminanceF.glsl
+host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	Copyright (C) 2023, Linden Research, Inc.
 host/Viewer.Godot/Presentation/TerrainView.cs	LGPL-2.1-only	@file class1\deferred\terrainF.glsl
 host/Viewer.Godot/Presentation/TerrainView.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.

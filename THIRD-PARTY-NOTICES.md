@@ -252,7 +252,7 @@ The six packages above ship no licence file. Their projects publish one each; wh
   (https://github.com/MessagePack-CSharp/MessagePack-CSharp). The packages carry no licence file; the project's licence file,
   which also carries the notices of lz4net (BSD 2-clause, "Copyright (c) 2013-2017, Milosz Krajewski") and of BufferWriter.cs
   (Apache License 2.0, "Copyright 2019 .NET Foundation"), is under "Licence texts of the packages" below. The full Apache
-  License 2.0 text is in `ThirdPartyLicenses/LICENSE-glTF-Sample-Viewer-Apache-2.0.txt`.
+  License 2.0 text is in `ThirdPartyLicenses/LICENSE-Apache-2.0.txt`.
 - **ZLogger 2.5.10** (MIT): "Copyright (c) 2020 Cysharp, Inc." (https://github.com/Cysharp/ZLogger). No licence file in the
   package; the project's licence text is below.
 - **Utf8StringInterpolation 1.3.1** (MIT): "Copyright (c) 2023 Cysharp, Inc." (https://github.com/Cysharp/Utf8StringInterpolation).
@@ -598,11 +598,16 @@ their origin from the source. The avatar data folder is kept unchanged in this r
 - **Copyright:** "Second Life(TM) Viewer Artwork. Copyright (C) 2008 Linden Research, Inc." (the artwork notice) and
   "Second Life Viewer Source Code, Copyright (C) 2010, Linden Research, Inc." (the source notice).
 
-## Khronos glTF Sample Viewer (Apache License 2.0) and Hammersley points (CC BY 3.0)
+## Baking Lab: the ACES fit by Stephen Hill (MIT)
 
-The 26.4 viewer's `irradianceGenF.glsl` says, in its own comment: "Code below is derived from the Khronos GLTF Sample viewer:
-https://github.com/KhronosGroup/glTF-Sample-Viewer/blob/master/source/shaders/ibl_filtering.frag". `core/Viewer.Core/World/SkyProbe.cs` translates that filtering,
-so the Apache License 2.0 text is kept in `ThirdPartyLicenses/LICENSE-glTF-Sample-Viewer-Apache-2.0.txt`. The licence file in the Khronos repository is the unfilled Apache
-template and names no copyright holder; the 26.4 viewer gives none either, so none is given here. The file carries a notice that it was changed (Apache License 2.0, section 4(b)).
-The same shader credits its Hammersley points "CC BY 3.0 (Holger Dammertz)", http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html, "with adapted interface";
-that credit is kept with the radical inverse function in `SkyProbe.cs`.
+- **Files:** `core/Viewer.Core/World/ToneMap.cs` (`AcesHill`) and the compute shader in
+  `host/Viewer.Godot/Presentation/HdrTonemap.cs` use the fitted curve and its two matrices from Baking Lab's `ACES.hlsl`,
+  written again in C# and GLSL. Both files carry the source file's credit and the MIT notice in their headers.
+- **Source:** https://github.com/TheRealMJP/BakingLab, `BakingLab/ACES.hlsl` ("The code in this file was originally written by
+  Stephen Hill (@self_shadow), who deserves all credit for coming up with this fit and implementing it.").
+- **Copyright:** "Copyright (c) 2016 MJP" (the project's `LICENSE`, kept as it is in `ThirdPartyLicenses/LICENSE-BakingLab.txt`).
+- **Licence:** MIT, full text in `ThirdPartyLicenses/LICENSE-BakingLab.txt`.
+
+The PBR Neutral tone mapper in the same two files and the sky probe's irradiance filtering in `core/Viewer.Core/World/SkyProbe.cs`
+are this project's own code, written from published mathematics (the PBR Neutral specification's equations; Hammersley points,
+cosine-weighted hemisphere sampling and GPU Gems 3, chapter 20.4), and carry no third-party notice.

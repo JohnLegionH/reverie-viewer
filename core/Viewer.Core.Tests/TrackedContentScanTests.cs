@@ -44,7 +44,7 @@ public class TrackedContentScanTests
         [
             "github.com", "schemas.microsoft.com", "raw.githubusercontent.com", "api.github.com", "nuget.org", "api.nuget.org", "www.nuget.org", "godotengine.org", "docs.godotengine.org",
             "opensimulator.org", "mozilla.org", "learn.microsoft.com", "aka.ms", "www.w3.org", "json-schema.org", "creativecommons.org", "www.gnu.org", "opensource.org", "dotnet.microsoft.com",
-            "claude.com", "claude.ai", "www.apache.org", "secondlife.com", "wiki.secondlife.com", "jpeg.org", "khronos.org", "www.khronos.org", "holger.dammertz.org",
+            "claude.com", "claude.ai", "www.apache.org", "secondlife.com", "wiki.secondlife.com", "jpeg.org", "khronos.org", "www.khronos.org", "mynameismjp.wordpress.com",
             // Second Life's own login hosts, which the script editor tells apart from other grids (BuildContentTabTests)
             "login.agni.lindenlab.com", "login.aditi.lindenlab.com",
             // a lookalike that ends in Linden Lab's domain name without being under it, which the grid switch must not take for Second Life (GridPolicyTests)
