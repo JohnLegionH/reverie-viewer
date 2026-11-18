@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ namespace Viewer.Godot;
 /// when the inventory arrives; a line of open chat with a trigger plays its gesture and is said revised; F2 to F12, with Shift or Ctrl, play
 /// the gesture bound to them; a gesture opened from the inventory (or made new, which also activates it, as create_gesture_cb does) shows in
 /// the gesture editor, whose Preview plays the gesture as it stands and whose Save stores it and, when active, activates the saved version.
+/// The Gestures window (Avatar > Gestures..., Ctrl+G) lists them, activates and deactivates them, plays them and opens them in the editor.
 /// </summary>
 public partial class Main
 {
@@ -37,6 +39,8 @@ public partial class Main
         DetachGestures();
         _gesturesFor = session;
         _gestureSet = new ActiveGestures(g => PlayGesture(session, g), pick: n => System.Random.Shared.Next(n));
+        InstallGestureList();
+        session.Inventory.Changed += OnGestureInventoryChanged;
         if (!_gestureOpenHooked && _inventoryPanel is not null)
         {
             _inventoryPanel.OpenRequested += id => { if (_inventoryFor?.Inventory.Item(id) is { Kind: ItemKind.Gesture }) OpenGesture(id); };
@@ -55,11 +59,14 @@ public partial class Main
                     set.Set(item, doc);
             }
             Log.Info("gestures.active", Viewer.Core.Diagnostics.CoreLog.F("count", transport.ActiveGestures().Count));
+            Callable.From(RefreshGestureList).CallDeferred();   // their triggers and keys show in the Gestures window
         }, token);
     }
 
     private void DetachGestures()
     {
+        if (_gesturesFor is { } old)
+            old.Inventory.Changed -= OnGestureInventoryChanged;
         _gestureCancel.Cancel();
         _gestureCancel = new CancellationTokenSource();
         _gestureSet?.Clear();
@@ -67,6 +74,8 @@ public partial class Main
         _gesturesFor = null;
         if (_gesturePanel is not null && _shell is not null)
             _shell.Shell.Floaters.Close(GesturePanel.FloaterId, force: true);
+        if (_gestureList is not null && _shell is not null)
+            _shell.Shell.Floaters.Close(GesturesFeature.FloaterId, force: true);
     }
 
     /// <summary>Plays a gesture on the user: animations through the region, sounds as a triggered sound, chat said on channel 0.</summary>
@@ -183,6 +192,7 @@ public partial class Main
                     _gestureSet?.Set(item, copy);
                 }
                 Log.Info("gesture.saved");
+                RefreshGestureList();   // a changed trigger or key shows in the Gestures window
             }).CallDeferred();
         }, TaskScheduler.Default);
     }
@@ -198,6 +208,7 @@ public partial class Main
         else
             _gestureSet?.Remove(_gestureItem);
         Log.Info("gesture.active", Viewer.Core.Diagnostics.CoreLog.F("on", on));
+        RefreshGestureList();
     }
 
     /// <summary>A new gesture is activated as soon as it is made (llviewerinventory.cpp create_gesture_cb), then opened.</summary>
@@ -207,5 +218,111 @@ public partial class Main
             return;
         transport.SetGestureActive(itemId, transport.GestureAssetOf(itemId), true);
         _gestureSet?.Set(itemId, new GestureDocument());
+        RefreshGestureList();
+    }
+
+    // ---------------- the Gestures window (Avatar > Gestures..., Ctrl+G) ----------------
+
+    private GesturesWindow? _gestureList;
+    private int _gestureListDirty;
+
+    /// <summary>The Gestures window and its menu entry, made once, with the first session.</summary>
+    private void InstallGestureList()
+    {
+        if (_gestureList is not null || _shell is null)
+            return;
+        _gestureList = GesturesFeature.Install(_shell);
+        _gestureList.Opened = RefreshGestureList;
+        _gestureList.EditRequested = OpenGesture;
+        _gestureList.PlayRequested = PlayFromList;
+        _gestureList.ToggleRequested = ToggleFromList;
+        // Make new gesture: made as Inventory > New Gesture makes it, in the Gestures folder, then activated and opened (onClickNew,
+        // GestureShowCallback)
+        _gestureList.NewRequested = () => OnNewRequested("gesture", Guid.Empty);
+    }
+
+    /// <summary>The inventory changed (on the network thread): the open window reads its rows again once, on the main thread.</summary>
+    private void OnGestureInventoryChanged()
+    {
+        if (Interlocked.Exchange(ref _gestureListDirty, 1) == 0)
+            Callable.From(() => { Interlocked.Exchange(ref _gestureListDirty, 0); RefreshGestureList(); }).CallDeferred();
+    }
+
+    /// <summary>The window's rows from the inventory and the active gestures; nothing is done while it is closed. The Gestures folder
+    /// and its subfolders are read when not yet loaded, as the official window fetches them on opening (postBuild startFetch).</summary>
+    private void RefreshGestureList()
+    {
+        if (_gestureList is null || _shell is null || !_shell.Shell.Floaters.IsOpen(GesturesFeature.FloaterId) || _gesturesFor is not { IsEnded: false } session)
+            return;
+        var inv = session.Inventory;
+        Guid folder = inv.FolderOfKind(FolderKind.Gesture);
+        if (folder != Guid.Empty)
+        {
+            inv.EnsureLoaded(folder);
+            foreach (var sub in inv.AllFolders().Where(f => inv.IsDescendantOf(f.Id, folder) && inv.LoadState(f.Id) == FolderLoad.NotLoaded))
+                inv.EnsureLoaded(sub.Id);
+        }
+        var active = (session.Gestures?.ActiveGestures().Select(g => g.ItemId) ?? []).Concat(_gestureSet?.Items() ?? []).ToHashSet();
+        _gestureList.Show(GestureListRows.Build(inv, active, id => _gestureSet?.Get(id), _shell.Shell.Strings.Get("gestures.loading")));
+    }
+
+    /// <summary>The activate button: each gesture activated (its file read so its trigger and key work) or deactivated, as the official
+    /// gesture manager does (llgesturemgr.cpp activateGesture, deactivateGesture); the editor's Active box follows.</summary>
+    private void ToggleFromList(IReadOnlyList<(Guid ItemId, bool Activate)> changes)
+    {
+        if (_gesturesFor is not { IsEnded: false } session || session.Gestures is not { } transport)
+            return;
+        foreach (var (item, on) in changes)
+        {
+            Guid asset = transport.GestureAssetOf(item);
+            transport.SetGestureActive(item, asset, on);
+            if (on)
+                LoadActiveGesture(session, item, asset, play: false);
+            else
+                _gestureSet?.Remove(item);
+            if (_gestureItem == item && _gesturePanel is { } panel)
+                panel.ActiveCheck.SetPressedNoSignal(on);
+        }
+        Log.Info("gestures.toggle", Viewer.Core.Diagnostics.CoreLog.F("count", changes.Count));
+        RefreshGestureList();
+    }
+
+    /// <summary>Play or a double-click: an active gesture plays; an inactive one is activated first (the grid told) and plays once its
+    /// file is read (llfloatergesture.cpp onClickPlay: activateGestureWithAsset, then playGesture from the loaded callback).</summary>
+    private void PlayFromList(Guid item)
+    {
+        if (_gesturesFor is not { IsEnded: false } session || session.Gestures is not { } transport)
+            return;
+        if (_gestureSet?.Get(item) is { } doc)
+        {
+            PlayGesture(session, doc);
+            return;
+        }
+        Guid asset = transport.GestureAssetOf(item);
+        transport.SetGestureActive(item, asset, true);
+        LoadActiveGesture(session, item, asset, play: true);
+        RefreshGestureList();
+    }
+
+    /// <summary>Reads a gesture just made active and adds it to the active set (and plays it, when asked), then shows it in the list.</summary>
+    private void LoadActiveGesture(ViewerSession session, Guid item, Guid asset, bool play)
+    {
+        if (session.Gestures is not { } transport || asset == Guid.Empty)
+            return;
+        if (_gestureSet is not { } set)
+            return;
+        _ = transport.FetchGestureAsync(asset, _gestureCancel.Token).ContinueWith(t =>
+        {
+            var doc = t.IsCompletedSuccessfully && t.Result.Status == AssetFetchStatus.Ok ? GestureFormat.Parse(t.Result.Bytes.Span) : null;
+            Callable.From(() =>
+            {
+                if (doc is null || session.IsEnded || !ReferenceEquals(set, _gestureSet))
+                    return;
+                set.Set(item, doc);
+                if (play)
+                    PlayGesture(session, doc);
+                RefreshGestureList();
+            }).CallDeferred();
+        }, TaskScheduler.Default);
     }
 }
