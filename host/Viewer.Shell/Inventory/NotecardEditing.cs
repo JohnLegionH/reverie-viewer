@@ -190,6 +190,28 @@ public sealed class NotecardEditBuffer
         return null;
     }
 
+    /// <summary>Every embedded item in the editor's text: where its name starts, how long it is (the marks left out), and the item.</summary>
+    public IReadOnlyList<(int Start, int Length, NotecardEmbeddedItem Item)> ItemSpans(string display)
+    {
+        var spans = new List<(int, int, NotecardEmbeddedItem)>();
+        int at = 0;
+        while (at < display.Length)
+        {
+            int open = display.IndexOf(Mark, at);
+            int close = open < 0 ? -1 : display.IndexOf(Mark, open + 1);
+            if (close < 0)
+                break;
+            if (ByKey(display[(open + 1)..close]) is not { } item)
+            {
+                at = close;   // not an item; the second mark may open one
+                continue;
+            }
+            spans.Add((open + 1, close - open - 1, item));
+            at = close + 1;
+        }
+        return spans;
+    }
+
     /// <summary>
     /// The item a caret touches: the span (start, length, marks included) of the item that holds the caret, or that ends just before it.
     /// A Backspace or Delete there takes the whole item, as the official editor deletes an embedded item as one character.

@@ -141,14 +141,26 @@ public sealed class NotecardWindowModel(NotecardOpenResult opened)
         return OpenUrlIntent.IsOpenable(url) ? new OpenUrlIntent(url) : null;
     }
 
-    /// <summary>The card's text as rich text: plain runs escaped, embedded items in bold, links through the one link renderer.</summary>
+    /// <summary>The rich-text target of an embedded item: this prefix and the item's index in the card.</summary>
+    public const string ItemMetaPrefix = "item:";
+
+    /// <summary>The embedded item's index a rich-text target names, or null when it names none.</summary>
+    public static int? ItemOfMeta(string meta) =>
+        meta is not null && meta.StartsWith(ItemMetaPrefix, StringComparison.Ordinal)
+            && int.TryParse(meta.AsSpan(ItemMetaPrefix.Length), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int index)
+            ? index : null;
+
+    /// <summary>The card's text as rich text: plain runs escaped, embedded items as links that open them (the official viewer draws an
+    /// embedded item underlined in the embedded-item colour: llviewertexteditor.cpp LLEmbeddedItemSegment::draw), web and place links
+    /// through the one link renderer.</summary>
     public string RenderText(Func<string, string> escape, Viewer.Shell.Links.LinkRouter? router)
     {
         var bb = new System.Text.StringBuilder();
         foreach (var segment in _segments)
         {
             if (segment.Kind == NotecardSegmentKind.Item)
-                bb.Append("[b]").Append(escape(segment.Text)).Append("[/b]");
+                bb.Append("[url=").Append(ItemMetaPrefix).Append(segment.ItemIndex.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Append(']').Append(escape(segment.Text)).Append("[/url]");
             else if (router is not null)
                 Viewer.Shell.Links.LinkText.AppendSegment(bb, segment, escape, router);
             else

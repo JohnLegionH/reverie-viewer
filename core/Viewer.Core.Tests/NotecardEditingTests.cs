@@ -253,6 +253,43 @@ public class NotecardEditingTests
         Assert.Equal(NotecardCloseVerdict.Close, session.RequestClose());
     }
 
+    [Fact]
+    public void Each_embedded_item_is_found_as_a_link_over_its_name_and_a_stray_mark_pair_is_not()
+    {
+        var doc = new NotecardDocument(2, "Go " + E(0) + " and " + E(1), [Item(0, Home, "Home", ItemKind.Landmark, 3), Item(1, Box, "Box", ItemKind.Object, 6)]);
+        var buffer = new NotecardEditBuffer(doc);
+        string shown = buffer.ToDisplay(doc.Text) + " " + M + "typed" + M;
+        var spans = buffer.ItemSpans(shown);
+        Assert.Equal(2, spans.Count);
+        Assert.Equal("Home", shown.Substring(spans[0].Start, spans[0].Length));
+        Assert.Equal(Home, spans[0].Item.ItemId);
+        Assert.Equal("Box", shown.Substring(spans[1].Start, spans[1].Length));
+        Assert.Equal(Box, spans[1].Item.ItemId);
+    }
+
+    [Fact]
+    public void A_read_card_draws_each_embedded_item_as_a_link_that_names_the_item()
+    {
+        var doc = new NotecardDocument(2, "Go " + E(0) + " now", [Item(0, Home, "Home", ItemKind.Landmark, 3)]);
+        var model = new NotecardWindowModel(new NotecardOpenResult(NotecardOpenStatus.Ok, Card, "Card", "", Access(All), doc));
+        string bb = model.RenderText(s => s, null);
+        Assert.Contains("[url=" + NotecardWindowModel.ItemMetaPrefix + "0]Home[/url]", bb);
+        Assert.DoesNotContain("[b]", bb);
+        Assert.Equal(0, NotecardWindowModel.ItemOfMeta(NotecardWindowModel.ItemMetaPrefix + "0"));
+        Assert.Null(NotecardWindowModel.ItemOfMeta("link:https%3A%2F%2Fexample.org"));
+    }
+
+    [Fact]
+    public void The_editor_draws_embedded_items_in_the_link_colour_underlined_with_the_name_and_description_as_tooltip()
+    {
+        string src = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "NotecardPanels.cs"));
+        Assert.Contains(".ItemSpans(", src);
+        Assert.Contains("DrawLine(", src);
+        Assert.Contains("SetTooltipRequestFunc(", src);
+        Assert.Contains("NotecardWindowModel.ItemOfMeta(", src);
+        Assert.DoesNotContain("new Color(", src);
+    }
+
     private sealed class FakeSave(NotecardSaveResult answer) : INotecardSaveTransport
     {
         public byte[]? Sent { get; private set; }

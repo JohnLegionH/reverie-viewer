@@ -215,7 +215,98 @@ public partial class NotecardTextEdit : TextEdit
     /// <summary>A click at a character offset.</summary>
     public Action<int>? Clicked;
 
+    /// <summary>The embedded items in the text, as spans over their names (set by the panel).</summary>
+    public Func<IReadOnlyList<(int Start, int Length, NotecardEmbeddedItem Item)>>? Items;
+
     private Vector2 _pressAt;
+    private readonly Control _links = new() { Name = "item_links", MouseFilter = MouseFilterEnum.Ignore };
+
+    public override void _Ready()
+    {
+        // embedded items are drawn as links over the text, underlined in the link colour (the official editor draws each one's
+        // name underlined in TextEmbeddedItemColor, llviewertexteditor.cpp LLEmbeddedItemSegment::draw); the engine's code
+        // highlighter cannot mark them, as it takes only ASCII symbols to start a colour region
+        _links.SetAnchorsPreset(LayoutPreset.FullRect);
+        _links.Draw += DrawItemLinks;
+        AddChild(_links, false, InternalMode.Front);
+        TextChanged += _links.QueueRedraw;
+        CaretChanged += _links.QueueRedraw;
+        Resized += _links.QueueRedraw;
+        GetVScrollBar().ValueChanged += _ => _links.QueueRedraw();
+        GetHScrollBar().ValueChanged += _ => _links.QueueRedraw();
+        // the item's name and description as its tooltip, as the official segment's handleToolTip shows them
+        SetTooltipRequestFunc(Callable.From((string _) => TooltipAt(GetLocalMousePosition())));
+    }
+
+    private (int Start, int Length, NotecardEmbeddedItem Item)? SpanAt(Vector2 position)
+    {
+        var at = GetLineColumnAtPos((Vector2I)position, false);
+        if (at.X < 0 || at.Y < 0 || Items is null)
+            return null;
+        int index = IndexOf(at.Y, at.X);
+        foreach (var span in Items())
+            if (index >= span.Start && index < span.Start + span.Length)
+                return span;
+        return null;
+    }
+
+    private string TooltipAt(Vector2 position) =>
+        SpanAt(position) is { } s ? (string.IsNullOrEmpty(s.Item.Description) ? s.Item.Name : s.Item.Name + "\n" + s.Item.Description) : "";
+
+    private void DrawItemLinks()
+    {
+        if (Items is null)
+            return;
+        var font = GetThemeFont("font");
+        int size = GetThemeFontSize("font_size");
+        var link = ShellTheme.C(UiTheme.Tokens.Accent);
+        var cover = GetThemeStylebox(Editable ? "normal" : "read_only") is StyleBoxFlat box ? box.BgColor : (Color?)null;
+        string text = Text;
+        foreach (var (start, length, _) in Items())
+        {
+            // one run per screen row: a long name can wrap
+            int i = start, end = Math.Min(text.Length, start + length);
+            while (i < end)
+            {
+                var (line, column) = PlaceOf(i);
+                var first = GetRectAtLineColumn(line, column);
+                int runStart = i;
+                Rect2I last = first;
+                int next = i + (char.IsHighSurrogate(text[i]) && i + 1 < end ? 2 : 1);
+                while (next < end)
+                {
+                    var (l2, c2) = PlaceOf(next);
+                    var r = GetRectAtLineColumn(l2, c2);
+                    if (r.Position.Y != first.Position.Y)
+                        break;
+                    last = r;
+                    next += char.IsHighSurrogate(text[next]) && next + 1 < end ? 2 : 1;
+                }
+                i = next;
+                if (first.Position.X < 0 || first.Position.Y < 0)
+                    continue;   // scrolled out of view
+                var row = new Rect2(first.Position, new Vector2(last.End.X - first.Position.X, first.Size.Y));
+                bool selected = HasSelection() && SelectionTouches(runStart, next);
+                if (cover is { } bg && font is not null && !selected)
+                {
+                    DrawRect(row, bg);
+                    float baseline = row.Position.Y + (row.Size.Y - font.GetHeight(size)) / 2 + font.GetAscent(size);
+                    _links.DrawString(font, new Vector2(row.Position.X, baseline), text[runStart..next], HorizontalAlignment.Left, -1, size, link);
+                }
+                float under = row.End.Y - 2;
+                _links.DrawLine(new Vector2(row.Position.X, under), new Vector2(row.End.X, under), link, 1);
+            }
+        }
+
+        void DrawRect(Rect2 r, Color c) => _links.DrawRect(r, c);
+    }
+
+    private bool SelectionTouches(int from, int to)
+    {
+        int a = IndexOf(GetSelectionFromLine(), GetSelectionFromColumn());
+        int b = IndexOf(GetSelectionToLine(), GetSelectionToColumn());
+        return a < to && b > from;
+    }
 
     // the text box counts columns in characters, the text's offsets are UTF-16 units: an emoji is one column and two units
     public int IndexOf(int line, int column) => NotecardEditBuffer.IndexOf(Text, line, column);
@@ -415,8 +506,7 @@ public partial class NotecardPanel : VBoxContainer
         UnsavedPrompt.AddChild(PromptCancel);
         AddChild(UnsavedPrompt);
 
-        // embedded items are not coloured yet: the engine's code highlighter takes only ASCII symbols as a colour region's start, and the
-        // marks around an item are invisible on purpose
+        Editor.Items = () => _session is { } s ? s.Buffer.ItemSpans(Editor.Text) : [];
         Clear();
     }
 
@@ -576,8 +666,13 @@ public partial class NotecardPanel : VBoxContainer
     /// <summary>A click on the text: on an embedded item it opens the item or offers a copy (llviewertexteditor.cpp openEmbeddedItem).</summary>
     public void ClickAt(int index)
     {
-        if (_session is not { } s || s.Buffer.ItemAt(Editor.Text, index) is not { } item)
-            return;
+        if (_session is { } s && s.Buffer.ItemAt(Editor.Text, index) is { } item)
+            OpenItem(item);
+    }
+
+    /// <summary>An embedded item clicked, in the editor or in the read view: opened, or a copy offered.</summary>
+    private void OpenItem(NotecardEmbeddedItem item)
+    {
         switch (NotecardEditRules.ClickOf(item.Kind))
         {
             case EmbeddedClick.Open:
@@ -652,7 +747,15 @@ public partial class NotecardPanel : VBoxContainer
 
     private void OnMeta(Variant meta)
     {
-        if (_model is null || Viewer.Shell.Links.LinkText.LinkOf(meta.AsString()) is not { } link)
+        if (_model is null)
+            return;
+        if (NotecardWindowModel.ItemOfMeta(meta.AsString()) is { } index)
+        {
+            if (_model.Opened.Document?.Items.FirstOrDefault(i => i.Index == index) is { } item)
+                OpenItem(item);
+            return;
+        }
+        if (Viewer.Shell.Links.LinkText.LinkOf(meta.AsString()) is not { } link)
             return;
         StatusLabel.Text = HostLinks.Click(link) ?? "";
     }
