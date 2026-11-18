@@ -74,6 +74,7 @@ public partial class TestRender
         Keep("PipelineWarmup.LeakOneForTest", () => PipelineWarmup.LeakOneForTest, v => PipelineWarmup.LeakOneForTest = v);
         Keep("PipelineWarmup.WithoutLightsForTest", () => PipelineWarmup.WithoutLightsForTest, v => PipelineWarmup.WithoutLightsForTest = v);
         Keep("SkinTextures.DeviceAtlas", () => SkinTextures.DeviceAtlas, v => SkinTextures.DeviceAtlas = v);
+        Keep("ReverieRestyle.Enabled", () => ReverieRestyle.Enabled, v => ReverieRestyle.Enabled = v);
         Keep("EnvironmentLayer.ProbeHazeOff", () => EnvironmentLayer.ProbeHazeOff, v => EnvironmentLayer.ProbeHazeOff = v);
         Keep("EnvironmentLayer.HazeOff", () => EnvironmentLayer.HazeOff, v => EnvironmentLayer.HazeOff = v);
         Keep("EnvironmentLayer.DynamicExposure", () => EnvironmentLayer.DynamicExposure, v => EnvironmentLayer.DynamicExposure = v);
