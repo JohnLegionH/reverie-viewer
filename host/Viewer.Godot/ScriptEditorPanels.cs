@@ -718,7 +718,7 @@ public sealed class ScriptQueueWindow
         Queue = queue;
         _lines.Clear();
         _shown = 0;
-        _count.Text = "";
+        _count.Text = string.Empty;
         Close.Disabled = true;
         Refresh();
     }
@@ -732,7 +732,7 @@ public sealed class ScriptQueueWindow
             if (line.Length > 0)
                 _lines.AddItem(line);
         _shown = 0;
-        _count.Text = "";
+        _count.Text = string.Empty;
         Close.Disabled = false;
     }
 

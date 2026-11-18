@@ -183,6 +183,7 @@ if (-not (@($sel.selection) -contains $boxLocal)) { Note "the click did not sele
 [void](Wait-Until { $c = Edit @{ action = "state" }; if ($null -ne $c.contents) { $c } } 15)
 [void](ClickCtl "new_script")
 $listed = Wait-Until { $c = @((Edit @{ action = "state" }).contents); if ($c -contains "New Script") { $c } } 20
+[void](Edit @{ action = "content_row"; text = "New Script" }); Start-Sleep -Milliseconds 300   # the first ask scrolls the list into view
 $row = (Edit @{ action = "content_row"; text = "New Script" }).done
 if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
 [void](ClickCtl "content_open")
@@ -210,11 +211,13 @@ Press "BACKSPACE"
 $bad = Wait-Until { $s = SState; if (-not $s.saving -and @(Errs $s).Count -gt 0) { $s } } 30
 Shot "error"
 Check "3a a mistake saved: the compiler's error is listed" ([bool]$bad) ("errors {0}; first at {1}" -f @(Errs $bad).Count, $(if (@(Errs $bad).Count -gt 0) { "{0},{1}" -f $bad.errors[0].line, $bad.errors[0].column } else { "-" }))
-[void](ClickS "code"); Press "HOME" $true; Start-Sleep -Milliseconds 200
+[void](ClickS "code"); Press "END" $true; Start-Sleep -Milliseconds 200
+$lastLine = [int](SState).caret[0]   # the text's last line, from the editor (Ctrl+End): an error past the end puts the caret there
+Press "HOME" $true; Start-Sleep -Milliseconds 200
 $caretBefore = SState
 [void](ClickS "error:0"); Start-Sleep -Milliseconds 500
 $at = SState
-$expectLine = if (@(Errs $bad).Count -gt 0) { [Math]::Min([int]$bad.errors[0].line, 5) } else { -1 }
+$expectLine = if (@(Errs $bad).Count -gt 0) { [Math]::Min([int]$bad.errors[0].line, $lastLine) } else { -1 }
 Check "3b a click on the error puts the caret on its line" ($bad -and $caretBefore.caret[0] -eq 0 -and [int]$at.caret[0] -eq $expectLine) ("caret before {0}; after {1}; error line {2}" -f (@($caretBefore.caret) -join ","), (@($at.caret) -join ","), $expectLine)
 [void](ClickS "code"); Start-Sleep -Milliseconds 300
 Press "END" $true; Typed "}"
@@ -243,6 +246,7 @@ Check "4 Running unticked (a reset says nothing), ticked again, Reset: the line 
 [void](Api "notecard" @{ action = "list"; text = "load" })
 [void](Wait-Until { $l = Api "notecard" @{ action = "list" }; if ($l -and [int]$l.folders_unloaded -eq 0) { $l } } 30)
 $invBefore = @((Scr @{ action = "list" }).scripts | ForEach-Object { $_.id })
+[void](Edit @{ action = "content_row"; text = "New Script" }); Start-Sleep -Milliseconds 300   # the first ask scrolls the list into view
 $row = (Edit @{ action = "content_row"; text = "New Script" }).done
 if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
 [void](ClickCtl "content_copy")
