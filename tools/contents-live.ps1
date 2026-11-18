@@ -203,6 +203,8 @@ Check "2 the text typed and saved: Save complete, and the box says the line in n
 
 function State() { Edit @{ action = "state" } }
 function Row([string]$name) { [void](Edit @{ action = "content_row"; text = $name }); Start-Sleep -Milliseconds 300; (Edit @{ action = "content_row"; text = $name }).done }
+# an inventory row's point: the first ask scrolls the row into view, which the tree applies on a later frame, so the point is read again after it
+function InvRow([string]$id) { [void](Edit @{ action = "inventory_row"; text = $id }); Start-Sleep -Milliseconds 300; (Edit @{ action = "inventory_row"; text = $id }).done }
 function NoId([string]$t) { $t -and $t -notmatch '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-' -and $t -notmatch 'Loading' }
 function DragFromTo($from, $to) {
     [void](MoveTo ([double]$from[0]) ([double]$from[1])); Start-Sleep -Milliseconds 150
@@ -269,17 +271,17 @@ else {
         [void](Mouse "left" $true $title[0] $title[1]); Start-Sleep -Milliseconds 120
         for ($i = 1; $i -le 8; $i++) { [void](MoveTo ($title[0] + 70 * $i) $title[1]); Start-Sleep -Milliseconds 60 }
         [void](Mouse "left" $false ($title[0] + 560) $title[1]); Start-Sleep -Milliseconds 600
-        $fr = (Edit @{ action = "inventory_row"; text = $ncFolder }).done
+        $fr = InvRow $ncFolder
         # the Notecards folder opened: its row chosen by a click, then the Right arrow opens it (the tree's own key)
-        if ($fr -and -not (Edit @{ action = "inventory_row"; text = [string]$card6.id }).done) { ClickAt ([double]$fr[0]) ([double]$fr[1]); Press "RIGHT"; Start-Sleep -Milliseconds 1500 }
+        if ($fr -and -not (InvRow ([string]$card6.id))) { ClickAt ([double]$fr[0]) ([double]$fr[1]); Press "RIGHT"; Start-Sleep -Milliseconds 1500 }
     }
-    $from = Wait-Until { (Edit @{ action = "inventory_row"; text = [string]$card6.id }).done } 10
+    $from = Wait-Until { InvRow ([string]$card6.id) } 10
     $to = CtlPoint "contents"
     if ($from -and $to) { DragFromTo $from $to }
     $in = Wait-Until { $c = @((State).contents); if ($c -contains [string]$card6.name) { $c } } 30
     Shot "notecard-in"
     $cr = Row ([string]$card6.name)
-    $fr = (Edit @{ action = "inventory_row"; text = $ncFolder }).done
+    $fr = InvRow $ncFolder
     if ($cr -and $fr) { DragFromTo $cr $fr }
     $out = Wait-Until { $n = [int](State).notecards_in_folder; if ($n -gt $countBefore) { $n } } 30
     Shot "notecard-out"
