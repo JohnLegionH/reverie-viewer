@@ -309,26 +309,31 @@ public partial class InventoryTree : Tree
     private static Viewer.Shell.Build.TaskDrag? TaskDragOf(Variant data) =>
         data.VariantType == Variant.Type.String ? Viewer.Shell.Build.TaskDrag.Decode(data.AsString()) : null;
 
+    // where a drop lands: the point the automation holds for its injected pointer (development builds only), else the engine's own
+    private Vector2 DropAt(Vector2 atPosition) => _dragAt ?? atPosition;
+
     public override bool _CanDropData(Vector2 atPosition, Variant data)
     {
+        var at = DropAt(atPosition);
         if (TaskDragOf(data) is { } task)
-            return IdOf(GetItemAtPosition(atPosition)) is var row && row != Guid.Empty && (CanTakeTaskItem?.Invoke(task, row) ?? false);
+            return IdOf(GetItemAtPosition(at)) is var row && row != Guid.Empty && (CanTakeTaskItem?.Invoke(task, row) ?? false);
         var dragged = DraggedIds(data);
-        var target = IdOf(GetItemAtPosition(atPosition));
+        var target = IdOf(GetItemAtPosition(at));
         // the drop is offered when any dragged row may go there; each is checked again when it lands
         return target != Guid.Empty && dragged.Any(d => CanDropOn?.Invoke(d, target) ?? false);
     }
 
     public override void _DropData(Vector2 atPosition, Variant data)
     {
+        var at = DropAt(atPosition);
         if (TaskDragOf(data) is { } task)
         {
-            if (IdOf(GetItemAtPosition(atPosition)) is var row && row != Guid.Empty)
+            if (IdOf(GetItemAtPosition(at)) is var row && row != Guid.Empty)
                 TaskItemDropped?.Invoke(task, row);
             return;
         }
         var dragged = DraggedIds(data);
-        var target = IdOf(GetItemAtPosition(atPosition));
+        var target = IdOf(GetItemAtPosition(at));
         if (dragged.Count > 0 && target != Guid.Empty)
             Dropped?.Invoke(dragged, target);
     }

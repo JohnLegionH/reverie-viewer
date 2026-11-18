@@ -475,6 +475,11 @@ public partial class Main
                 var win = GetWindow().Size; var vis = GetViewport().GetVisibleRect().Size;
                 var at = new Vector2(x * win.X / vis.X, y * win.Y / vis.Y);   // the script gives viewport coordinates; an operating-system event carries window pixels
                 var index = button switch { "left" => MouseButton.Left, "right" => MouseButton.Right, "middle" => MouseButton.Middle, _ => MouseButton.None };
+                // while the engine drags it places the drop from the system cursor, which an injected pointer is not: the inventory tree is
+                // told where the injected pointer is (as the S-1 pointer check tells it), up to and including the release that drops
+                if (_inventoryPanel?.TreeView is { } dragTree)
+                    dragTree.HoldDragAt(GetViewport().GuiIsDragging() || (_injectedLeftDown && index == MouseButton.None)
+                        ? dragTree.GetGlobalTransformWithCanvas().AffineInverse() * at : null);
                 if (index == MouseButton.None)
                 {
                     var mask = (MouseButtonMask)(_injectedLeftDown ? 1 : 0);   // the buttons held, as the operating system's motion event carries them
