@@ -248,4 +248,7 @@ public interface IGestureTransport
 
     /// <summary>Plays a gesture on the agent by its asset id: its animations, sounds, chat and waits in order.</summary>
     Task PlayGestureAsync(Guid assetId, CancellationToken ct);
+
+    /// <summary>Plays a sound at the agent for everyone near (the SoundTrigger message, as a gesture's sound step sends it). False when not sent.</summary>
+    bool TriggerSound(Guid sound) => false;
 }

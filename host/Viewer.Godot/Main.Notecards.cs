@@ -46,6 +46,8 @@ public partial class Main
         _notecards.Bind(session.Inventory, session.Notecards, session.Actions.Submit, session.NotecardSaves);
         _notecardsBoundFor = session;
         Scripts().Bind(session.Scripts, !Viewer.Shell.Inventory.ScriptEditing.IsSecondLifeGrid(session.LoginUri));
+        AttachNewItems();
+        AttachGestures(session);
     }
 
     /// <summary>The script editor windows, made once.</summary>
@@ -160,6 +162,7 @@ public partial class Main
     {
         _notecards?.Bind(null, null, null);
         _scripts?.Bind(null, true);
+        DetachGestures();
     }
 
     private void OpenNotecard(Guid itemId)

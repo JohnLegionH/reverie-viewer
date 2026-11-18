@@ -185,6 +185,14 @@ internal sealed partial class LmvTransport : INotecardSaveTransport, IItemCreate
         }
     }
 
+    public bool TriggerSound(Guid sound)
+    {
+        if (_disposed || !_client.Network.Connected || sound == Guid.Empty)
+            return false;
+        _client.Sound.SendSoundTrigger(new UUID(sound), _client.Self.SimPosition, 1f);
+        return true;
+    }
+
     public async Task PlayGestureAsync(Guid assetId, CancellationToken ct)
     {
         if (_disposed || !_client.Network.Connected || assetId == Guid.Empty)

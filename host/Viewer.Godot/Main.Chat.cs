@@ -68,6 +68,7 @@ public partial class Main
                 // chat from beyond the grid's say range is dimmed; chat places are in the speaker's region, as the agent's own is
                 _comms.Nearby.IsBeyondSayRange = at => s.World.LastSelfMotion is { } me
                     && s.GridFeatures.BeyondSayRange(System.Numerics.Vector3.Distance(at, me.Motion.Position - s.World.OriginOffset));
+                _comms.Nearby.Revise = line => _gestureSet?.Revise(line);   // active gestures' chat triggers
                 s.Communication += _comms.Enqueue;
                 _commsFor = s;
                 AttachLinks(s);
