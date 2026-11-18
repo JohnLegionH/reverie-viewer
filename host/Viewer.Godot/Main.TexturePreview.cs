@@ -16,7 +16,7 @@ namespace Viewer.Godot;
 /// </summary>
 public partial class Main
 {
-    private const string TexturePreviewId = "texture_preview";
+    internal const string TexturePreviewId = "texture_preview";
     private TexturePreviewPanel? _texturePreview;
     private Guid _previewing;
 

@@ -571,8 +571,12 @@ public partial class ShellRoot : Control
         Shell.Floaters.Register(spec);
         AddFrame(spec);
         _frames[spec.Id].SetContent(content);
+        ReverieRestyle.ApplyIfListed(spec.Id, content);   // the windows already in the Reverie look (UI spec section 4)
         if (footer is not null)
+        {
             _frames[spec.Id].SetFooter(footer);   // stays in view below the scrolled content (a dialog's OK and Cancel)
+            ReverieRestyle.ApplyIfListed(spec.Id, footer);
+        }
         SyncFloaters();
     }
 

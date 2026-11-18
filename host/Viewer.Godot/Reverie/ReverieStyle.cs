@@ -24,7 +24,8 @@ public static class ReverieStyle
         SegmentSelected = "RvSegmentSelected", Window = "RvWindow", TitleBar = "RvTitleBar", WindowTitle = "RvWindowTitle",
         Popup = "RvPopup", Slider = "RvSlider", Switch = "RvSwitch", Stepper = "RvStepper", Caption = "RvCaption",
         Dock = "RvDock", DockButton = "RvDockButton", DockButtonOn = "RvDockButtonOn", DockButtonAttention = "RvDockButtonAttention",
-        DockLabel = "RvDockLabel", DockDivider = "RvDockDivider", DockDot = "RvDockDot", Pill = "RvPill";
+        DockLabel = "RvDockLabel", DockDivider = "RvDockDivider", DockDot = "RvDockDot", Pill = "RvPill",
+        Select = "RvSelect", Field = "RvField", List = "RvList", TreeList = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel";
 
     /// <summary>The variant the tokens are: light when the bar is light.</summary>
     public static ReverieVariant VariantOf(ThemeTokens t) => t.Bar.Luminance > 0.5 ? ReverieVariant.Light : ReverieVariant.Dark;
@@ -194,6 +195,71 @@ public static class ReverieStyle
         theme.SetColor("accent", Status, C(r.Accent));
         theme.SetColor("muted", Status, C(r["text.muted"]));
         theme.SetColor("text", Status, C(r["text.primary"]));
+
+        AddRestyleParts(theme, r, clear, hover, selected, control, semibold);
+    }
+
+    /// <summary>The components the restyled classic windows take (ReverieRestyle): a dropdown (select) button, a text field, a list and a
+    /// tree whose rows are list rows, a tab bar drawn as a segmented control, and a menu drawn as a panel of rows. Same tokens and states.</summary>
+    private static void AddRestyleParts(Theme theme, ReverieTokens r, Color clear, Color hover, Color selected, int control, Font? semibold)
+    {
+        // the select: a secondary button that keeps the option button's arrow
+        ButtonVariation(theme, Select, r, normal: clear, hover, selected, border: C(r["border.control"]), 1, control, 12, 6, r["text.primary"], ReverieTheme.TypeBody, null, "OptionButton");
+        theme.SetColor("font_disabled_color", Select, C(ControlStates.Faded(r["text.primary"])));
+
+        // the text field: the raised surface in the control's radius, the focus ring outside it
+        theme.SetTypeVariation(Field, "LineEdit");
+        theme.SetStylebox("normal", Field, Face(C(r["surface.raised"]), C(r["border.control"]), 1, control, 10, 4));
+        theme.SetStylebox("read_only", Field, Face(C(r["surface.sunken"]), C(r["border.default"]), 1, control, 10, 4));
+        theme.SetStylebox("focus", Field, FocusRing(r, control));
+        theme.SetColor("font_color", Field, C(r["text.primary"]));
+        theme.SetColor("font_placeholder_color", Field, C(r["text.muted"]));
+        theme.SetColor("font_uneditable_color", Field, C(r["text.secondary"]));
+        theme.SetColor("caret_color", Field, C(r.Accent));
+        theme.SetColor("selection_color", Field, A(r.Accent, 0.35f));
+
+        // lists and trees: the sunken surface, rows in the list row's states (hover 60 %, selected on the selected surface)
+        var sunken = Face(C(r["surface.sunken"]), C(r["border.default"]), 1, control, 4, 4);
+        var rowSelected = Face(selected, selected, 0, control, 6, 2);
+        var rowHover = Face(hover, hover, 0, control, 6, 2);
+        var none = new StyleBoxEmpty();
+        foreach (var (name, type) in new[] { (List, "ItemList"), (TreeList, "Tree") })
+        {
+            theme.SetTypeVariation(name, type);
+            theme.SetStylebox("panel", name, sunken);
+            theme.SetStylebox("focus", name, FocusRing(r, control));
+            theme.SetStylebox("selected", name, rowSelected);
+            theme.SetStylebox("selected_focus", name, rowSelected);
+            theme.SetStylebox("hovered", name, rowHover);
+            theme.SetStylebox("cursor", name, none);
+            theme.SetStylebox("cursor_unfocused", name, none);
+            theme.SetColor("font_color", name, C(r["text.primary"]));
+            theme.SetColor("font_selected_color", name, C(r["text.strong"]));
+            theme.SetColor("font_hovered_color", name, C(r["text.primary"]));
+        }
+
+        // the tab bar as the segmented control: a track, the open tab on the strong selected surface
+        theme.SetTypeVariation(Tabs, "TabContainer");
+        theme.SetStylebox("tabbar_background", Tabs, Face(C(r["surface.raised"]), C(r["border.control"]), 1, ReverieTheme.RadiusTrack, 2, 2));
+        theme.SetStylebox("tab_selected", Tabs, Face(C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), 0, control, 12, 3));
+        theme.SetStylebox("tab_unselected", Tabs, Face(clear, clear, 0, control, 12, 3));
+        theme.SetStylebox("tab_hovered", Tabs, Face(hover, hover, 0, control, 12, 3));
+        var tabFaded = clear;
+        theme.SetStylebox("tab_disabled", Tabs, Face(tabFaded, tabFaded, 0, control, 12, 3));
+        theme.SetStylebox("tab_focus", Tabs, FocusRing(r, control));
+        theme.SetStylebox("panel", Tabs, Face(clear, clear, 0, 0, 0, 6));
+        theme.SetColor("font_selected_color", Tabs, C(r["text.strong"]));
+        theme.SetColor("font_unselected_color", Tabs, C(r["text.secondary"]));
+        theme.SetColor("font_hovered_color", Tabs, C(r["text.primary"]));
+        theme.SetColor("font_disabled_color", Tabs, C(ControlStates.Faded(r["text.secondary"])));
+        theme.SetFontSize("font_size", Tabs, Px(ReverieTheme.TypeSmall));
+        if (semibold is not null)
+            theme.SetFont("font", Tabs, semibold);
+
+        // a menu drawn as a panel of buttons: the dropdown menu's face
+        var menu = Face(C(r["surface.base"]), C(r["border.control"]), 1, control, 6, 6);
+        Shadow(menu);
+        Panel(theme, MenuPanel, menu);
     }
 
     private static StyleBoxFlat Edge(Color fill, Color border, int bottom, float margin)
@@ -220,9 +286,9 @@ public static class ReverieStyle
     }
 
     private static void ButtonVariation(Theme theme, string name, ReverieTokens r, Color normal, Color hover, Color pressed, Color border, int borderWidth,
-        int radius, float marginH, float marginV, UiColour text, float size, Font? font)
+        int radius, float marginH, float marginV, UiColour text, float size, Font? font, string baseType = "Button")
     {
-        theme.SetTypeVariation(name, "Button");
+        theme.SetTypeVariation(name, baseType);
         theme.SetStylebox("normal", name, Face(normal, border, borderWidth, radius, marginH, marginV));
         theme.SetStylebox("hover", name, Face(hover, border, borderWidth, radius, marginH, marginV));
         theme.SetStylebox("pressed", name, Face(pressed, border, borderWidth, radius, marginH, marginV));

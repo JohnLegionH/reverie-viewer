@@ -207,6 +207,7 @@ public static class InteractFeature
         var menu = new ContextMenuPanel(s.Strings);
         shell.MainView.AddChild(menu);
         shell.ContextMenu = menu;
+        ReverieRestyle.Apply(menu, RestylePlace.Menu);   // drawn as the dropdown menu (UI spec section 4)
         var inspect = new RowsPanel(s.Strings, "inspect_rows");
         var land = new RowsPanel(s.Strings, "land_rows");
         var contents = new ContentsPanel(s.Strings);

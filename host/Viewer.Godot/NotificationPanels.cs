@@ -33,6 +33,7 @@ public static class NotificationFeature
         var list = new NotificationListPanel(s.Strings);
         var obj = new ObjectInfoPanel(s.Strings);
         shell.MainView.AddChild(toasts);
+        ReverieRestyle.Apply(toasts);   // notices, script dialogs and permission questions in the Reverie look
         shell.AddFloater(new FloaterSpec(ListId, "notifications.title", new UiSize(380, 440), new UiSize(320, 220)), list);
         shell.AddFloater(new FloaterSpec(ObjectId, "object.info.title", new UiSize(360, 220), new UiSize(280, 160)), obj);
         s.Commands.Register("floater.notifications", () => s.Floaters.Toggle(ListId));
@@ -91,7 +92,7 @@ internal static class NotificationView
         if (n.Subtitle is not null && Words(n.Subtitle, strings) is { Length: > 0 } owner)
         {
             string shown = n.ScriptDialog || n.Source != Guid.Empty ? strings.Get("script.dialog.owner", owner) : owner;
-            box.AddChild(Note("owner", shown, strings.Get("script.dialog.owner", owner), ShellTheme.C(theme.MutedText)));
+            box.AddChild(Note("owner", shown, strings.Get("script.dialog.owner", owner), UiTheme.MutedLabel));
         }
 
         string body = Words(n.Body, strings);
@@ -103,13 +104,13 @@ internal static class NotificationView
                 Name = "message_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
                 CustomMinimumSize = new Vector2(ToastWidth - 30, MessageHeight(body)),
             };
-            var text = Note("message", body, body, n.Caution ? ShellTheme.C(theme.Error) : ShellTheme.C(theme.Text));
+            var text = Note("message", body, body, n.Caution ? UiTheme.ErrorLabel : "");
             text.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             scroll.AddChild(text);
             box.AddChild(scroll);
         }
         for (int i = 0; i < n.Details.Count; i++)
-            box.AddChild(Note("detail_" + i, "  • " + Words(n.Details[i], strings), Words(n.Details[i], strings), ShellTheme.C(theme.Text)));
+            box.AddChild(Note("detail_" + i, "  • " + Words(n.Details[i], strings), Words(n.Details[i], strings), ""));
 
         if (n.TextEntry)
             BuildTextEntry(box, n, strings, answer);
@@ -136,11 +137,11 @@ internal static class NotificationView
         return Math.Clamp(lines * 22f, 24f, MaxMessageHeight);
     }
 
-    private static Label Note(string name, string text, string accessible, Color colour)
+    private static Label Note(string name, string text, string accessible, string variation)
     {
         var label = new Label { Name = name, Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(ToastWidth - 40, 0) };
         label.AccessibilityName = accessible;
-        label.AddThemeColorOverride("font_color", colour);
+        label.ThemeTypeVariation = variation;   // muted, error or the body text, from the theme
         return label;
     }
 
