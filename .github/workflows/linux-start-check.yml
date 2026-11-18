@@ -7,6 +7,9 @@
 # Pass: started through the package's launcher, the login screen draws on each Ubuntu, the built-in start check (S-1)
 # passes and nothing crashes. A third job installs everything but the display libraries: the launcher must name what
 # is missing and exit 1 without starting the engine. The screenshot, the logs and a summary are kept as artifacts.
+# The same three jobs run for the linux-arm64 package on GitHub's ARM64 runner, only while the repository is public
+# (standard runners, ARM64 among them, are free for public repositories; a private repository pays for them) and only
+# when its checksum is given. While the repository is private they are skipped.
 # Started by hand (Actions, "Run workflow", or gh workflow run) with the release's tag, version and package checksum.
 name: Linux start check
 
@@ -22,6 +25,10 @@ on:
       package_sha256:
         description: "SHA-256 of the linux-x86_64 package as it was built"
         required: true
+      arm64_sha256:
+        description: "SHA-256 of the linux-arm64 package as it was built (public repository only; empty skips ARM64)"
+        required: false
+        default: ""
 
 # A draft release and its files are visible only to a token that may write the repository's contents: with read
 # alone the release is not found. The workflow only reads; nothing in it writes to the repository or the release.
@@ -66,7 +73,7 @@ jobs:
 
       - name: Start Reverie in ubuntu:${{ matrix.ubuntu }}
         run: |
-          docker run --rm -e PACKAGE -e MODE=${{ matrix.mode }} -v "$RUNNER_TEMP/work:/work" -v "$RUNNER_TEMP/out:/out" \
+          docker run --rm -e PACKAGE -e ENGINE -e MODE=${{ matrix.mode }} -v "$RUNNER_TEMP/work:/work" -v "$RUNNER_TEMP/out:/out" \
             -v "$GITHUB_WORKSPACE/.github/scripts:/scripts:ro" -v "$GITHUB_WORKSPACE/README.md:/readme/README.md:ro" \
             "ubuntu:${{ matrix.ubuntu }}" bash /scripts/linux-start-check.sh
 
@@ -85,6 +92,65 @@ jobs:
         if: always()
         with:
           name: ${{ matrix.mode }}-ubuntu-${{ matrix.ubuntu }}
+          path: |
+            ${{ runner.temp }}/out/
+            !${{ runner.temp }}/out/*.xwd
+
+  start-arm64:
+    name: Ubuntu ${{ matrix.ubuntu }} ARM64 (${{ matrix.mode }})
+    # public repository only: the ARM64 runner is free there and billed on a private one
+    if: ${{ !github.event.repository.private && inputs.arm64_sha256 != '' }}
+    runs-on: ubuntu-24.04-arm
+    env:
+      PACKAGE: reverie-viewer-${{ inputs.version }}-linux-arm64
+      PACKAGE_SHA256: ${{ inputs.arm64_sha256 }}
+      ENGINE: Reverie.arm64
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # 26.10: the newest release; 26.04: the newest LTS. "start": the README's packages; "no-display-libs": all
+        # but the display libraries, where the launcher must say what is missing.
+        include:
+          - { ubuntu: "26.10", mode: start }
+          - { ubuntu: "26.04", mode: start }
+          - { ubuntu: "26.04", mode: no-display-libs }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch the package from the release and check its checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/work" "$RUNNER_TEMP/out"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/work" \
+            --pattern "$PACKAGE.tar.gz" --pattern "$SUMS"
+          grep "  $PACKAGE.tar.gz\$" "$RUNNER_TEMP/work/$SUMS" | sed "s#  #  $RUNNER_TEMP/work/#" | sha256sum -c -
+          echo "$PACKAGE_SHA256  $RUNNER_TEMP/work/$PACKAGE.tar.gz" | sha256sum -c -
+
+      - name: Start Reverie in ubuntu:${{ matrix.ubuntu }}
+        run: |
+          docker run --rm -e PACKAGE -e ENGINE -e MODE=${{ matrix.mode }} -v "$RUNNER_TEMP/work:/work" -v "$RUNNER_TEMP/out:/out" \
+            -v "$GITHUB_WORKSPACE/.github/scripts:/scripts:ro" -v "$GITHUB_WORKSPACE/README.md:/readme/README.md:ro" \
+            "ubuntu:${{ matrix.ubuntu }}" bash /scripts/linux-start-check.sh
+
+      - name: Screenshot
+        if: always() && matrix.mode == 'start'
+        run: |
+          test -f "$RUNNER_TEMP/out/screen.xwd" || { echo "no screenshot was taken"; exit 1; }
+          python3 .github/scripts/xwd-to-png.py "$RUNNER_TEMP/out/splash.xwd" "$RUNNER_TEMP/out/splash-arm64-ubuntu-${{ matrix.ubuntu }}.png" || true
+          python3 .github/scripts/xwd-to-png.py "$RUNNER_TEMP/out/screen.xwd" "$RUNNER_TEMP/out/screen-arm64-ubuntu-${{ matrix.ubuntu }}.png"
+
+      - name: Summary
+        if: always()
+        run: cat "$RUNNER_TEMP/out/result.txt" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-${{ matrix.mode }}-ubuntu-${{ matrix.ubuntu }}
           path: |
             ${{ runner.temp }}/out/
             !${{ runner.temp }}/out/*.xwd
