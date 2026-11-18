@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # =====================================================================================
 # editors-live.ps1 - the notecard editor, gestures and Inventory > New, live, through the automation API on the development export.
-#   Logs in as -Account and, in its own inventory: makes a notecard (Inventory > New), opens it, types a marker, drops one of its
-#   landmarks into the text, saves, closes and opens it again, and checks the marker and the embedded landmark came back; makes a
-#   script and checks the item arrived; makes a gesture (it opens in the gesture editor and is activated), gives it a trigger and a chat
+#   Logs in as -Account and, in its own inventory: makes a script and checks the item arrived; makes a notecard (Inventory > New),
+#   opens it, types a marker, drops one of its landmarks into the text (the new script when it has no landmark), saves, closes and
+#   opens it again, and checks the marker and the embedded item came back; makes a gesture (it opens in the gesture editor and is activated), gives it a trigger and a chat
 #   step, saves, says the trigger in nearby chat and checks the chat step was heard; makes a skirt and checks the item arrived. Logs out.
 #   Every item it makes is new and named by the grid's defaults; nothing else in the inventory is changed.
 #
@@ -129,18 +129,25 @@ try {
     $list = Until $V "notecard" @{ action = "list"; text = "load" } { param($x) $x.folders_unloaded -eq 0 } 120
     Note "inventory loaded (folders unloaded $($list.folders_unloaded))"
 
-    # ---- notecard: make, type, embed a landmark, save, close, open again ----
+    # ---- script (first: when the account has no landmark, the new script is the item dropped into the card) ----
+    $script = Make $V "script" "New Script" "Script"
+    Check "script.made" ([bool]$script) "item $script"
+
+    # ---- notecard: make, type, embed a landmark (else the new script), save, close, open again ----
     $card = Make $V "notecard" "New Note" "Notecard"
     Check "notecard.made" ([bool]$card) "item $card"
     $landmark = [string](Nc $V "find_item" @{ text = "*|Landmark" }).id
+    $embedKind = "Landmark"
+    if (-not $landmark -or $landmark -eq "00000000-0000-0000-0000-000000000000") { Note "the account has no landmark: the new script is dropped in instead"; $landmark = $script; $embedKind = "Script" }
+    $result.embedded_kind = $embedKind
     if ($card) {
         [void](Nc $V "open" @{ id = $card })
         $f = Until $V "notecard" @{ action = "front" } { param($x) $x.editor -and [string]$x.item -eq $card } 45
         Check "notecard.opens_editable" ($f -and $f.editor -and $f.can_edit -and $f.save_visible) "editor $($f.editor), can edit $($f.can_edit), save shown $($f.save_visible)"
         [void](Nc $V "type" @{ text = "$marker`n" })
-        if ($landmark -and $landmark -ne "00000000-0000-0000-0000-000000000000") { [void](Nc $V "embed" @{ id = $landmark }) } else { Note "the account has no landmark" }
+        if ($landmark) { [void](Nc $V "embed" @{ id = $landmark }) }
         $f = Nc $V "front" @{ text = $marker }
-        Check "notecard.edited" ($f.dirty -and $f.has_marker -and [int]$f.items -eq 1 -and @($f.kinds)[0] -eq "Landmark") "dirty $($f.dirty), marker $($f.has_marker), items $($f.items) $(@($f.kinds) -join ',')"
+        Check "notecard.edited" ($f.dirty -and $f.has_marker -and [int]$f.items -eq 1 -and @($f.kinds)[0] -eq $embedKind) "dirty $($f.dirty), marker $($f.has_marker), items $($f.items) $(@($f.kinds) -join ',')"
         [void](Nc $V "save")
         $f = Until $V "notecard" @{ action = "front"; text = $marker } { param($x) $x.saved -and -not $x.dirty } 45
         Check "notecard.saved" ($f -and $f.saved -and -not $f.dirty) "saved $($f.saved), dirty $($f.dirty)"
@@ -149,13 +156,9 @@ try {
         Start-Sleep -Seconds 1
         [void](Nc $V "open" @{ id = $card })
         $f = Until $V "notecard" @{ action = "front"; text = $marker } { param($x) $x.editor -and [string]$x.item -eq $card -and $x.has_marker } 45
-        Check "notecard.reopened_with_text_and_landmark" ($f -and $f.has_marker -and [int]$f.items -eq 1 -and @($f.kinds)[0] -eq "Landmark") "marker $($f.has_marker), items $($f.items) $(@($f.kinds) -join ','), bytes $($f.bytes)"
+        Check "notecard.reopened_with_text_and_item" ($f -and $f.has_marker -and [int]$f.items -eq 1 -and @($f.kinds)[0] -eq $embedKind) "marker $($f.has_marker), items $($f.items) $(@($f.kinds) -join ','), bytes $($f.bytes)"
         [void](Nc $V "close")
     }
-
-    # ---- script ----
-    $script = Make $V "script" "New Script" "Script"
-    Check "script.made" ([bool]$script) "item $script"
 
     # ---- gesture: made, opens, trigger and a chat step, saved, played by its trigger ----
     $gesture = Make $V "gesture" "New Gesture" "Gesture"
