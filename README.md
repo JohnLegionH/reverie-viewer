@@ -2,7 +2,7 @@
 
 **Your dreams, in view.**
 
-Reverie Viewer is a modern, open-source viewer for OpenSimulator grids. It is a desktop
+Reverie Viewer is a modern, open-source viewer for OpenSimulator grids and Second Life. It is a desktop
 program built on the Godot engine with a .NET core, and it draws with Vulkan or Direct3D 12.
 
 > **Early preview.** Version 0.1.3 is an early public release. Expect missing features and rough edges, and keep a
@@ -88,9 +88,16 @@ OpenGL mode. On older hardware the viewer refuses to start and says why; on Wind
 12 is new enough, it uses Direct3D 12 by itself. Memory, graphics cards by family and what has been measured:
 [Docs/SPECS.md](Docs/SPECS.md).
 
+| | Minimum | Suggested |
+|---|---|---|
+| System | Windows 10 or 11 (64-bit), or 64-bit Linux (x86_64 or ARM64) with glibc 2.34 or newer | Windows 11 (64-bit) |
+| Graphics | Vulkan 1.3, or Direct3D 12 at feature level 12_0 | The newest driver for your card |
+| Video memory | 2 GB | 4 GB or more |
+| Memory (RAM) | 8 GB | 16 GB |
+
 ## What works today
 
-- Logging in to OpenSimulator grids from your own list of grids, with an optional remembered password (kept protected
+- Logging in to Second Life and to OpenSimulator grids from your own list of grids, with an optional remembered password (kept protected
   for your user account, never as the plain password), the grid's name, colours and links, and its login messages.
   If the connection drops, the viewer reconnects.
 - The world: terrain, water, sky and environment settings, prims, sculpties and mesh objects, glow, projected lights,
@@ -99,10 +106,15 @@ OpenGL mode. On older hardware the viewer refuses to start and says why; on Wind
   without server-side baking.
 - Walking, flying, sitting, mouselook, the camera controls, teleporting, home, the world map and the mini-map.
 - Nearby chat, instant messages, group chat, the friends list, teleport offers and notifications.
-- Inventory: browsing, searching, new folders, renaming, moving and moving to the trash; outfits, and the appearance
-  editors for shape, skin, hair, eyes and clothing.
+- Inventory: browsing, searching, renaming, moving and moving to the trash; making new folders, scripts, notecards,
+  gestures, clothing and body parts; outfits, and the appearance editors for shape, skin, hair, eyes and clothing.
 - Building: the Build window with its General, Object, Texture, Features and Content tabs, the move, rotate and stretch
-  handles, linking and unlinking, PBR materials, undo and redo, and grid snapping.
+  handles, linking and unlinking, PBR materials, a colour picker, undo and redo, and grid snapping. The Content tab
+  shows what is inside an object; items can be dragged in and out, and scripts and notecards opened from it.
+- The script editor (compile errors, Running, Reset and Mono), the notecard editor (with embedded items) and the
+  gesture editor, with gestures played from chat triggers and function keys.
+- A command list on Ctrl+Shift+K that finds any window, command or setting, also by its Second Life or Firestorm
+  name.
 - Uploading images and static mesh models.
 - Touching, sitting on, buying and paying objects, and script dialogs.
 - World sounds, with interface sounds and a mono option.
@@ -117,13 +129,12 @@ What you will notice is missing in this preview:
 - No giving or paying people, no profiles and no list of people nearby.
 - No landmarks yet (making one, a places list, teleport history).
 - No saved chat logs, no snapshots and no particles.
-- No script or notecard editing, no gestures, and no rigged mesh, sound or animation upload.
+- No rigged mesh, sound or animation upload.
 - No land, parcel or estate tools, and no search.
 - No groups beyond group chat, notices and your active group and title.
 - No music, media or voice.
 - No hypergrid travel.
 - RLV is only partly supported, and off until you turn it on.
-- Logging in to Second Life with a real account has not been tried yet.
 - The Linux builds have started and drawn their login screen with software graphics only; they have not been run on a
   real Linux desktop yet.
 

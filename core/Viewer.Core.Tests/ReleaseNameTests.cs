@@ -33,7 +33,7 @@ public class ReleaseNameTests
         var id = ViewerIdentity.Current;
         Assert.Equal("Reverie Viewer", id.Name);
         Assert.Equal("Reverie Viewer", id.Channel);
-        Assert.Matches(@"^0\.1\.2\.\d+$", id.Version);   // the core's version and the build number (ViewerIdentityTests)
+        Assert.Matches(@"^0\.1\.3\.\d+$", id.Version);   // the core's version and the build number (ViewerIdentityTests)
         Assert.Equal("ReverieViewer/" + id.Version, id.UserAgent);
     }
 

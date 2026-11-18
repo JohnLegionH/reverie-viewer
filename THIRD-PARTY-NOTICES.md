@@ -573,8 +573,7 @@ The manifests of `fixtures/materials`, `fixtures/meshes`, `fixtures/prims`, `fix
 "generated in this repo; no third-party content", so those meshes, textures and golden images are generated in this
 repository and no outside licence applies to them. `fixtures/primmesher` and `fixtures/sculpts` hold geometry generated
 from the BSD-licensed code above over synthetic input (their PROVENANCE.md files say so). `fixtures/colour`,
-`fixtures/environment` and `fixtures/orientation` have no manifest that states where they come from: I can't confirm
-their origin from the source. The avatar data folder is kept unchanged in this repository as
+`fixtures/environment` and `fixtures/orientation` have no manifest that states where they come from. The avatar data folder is kept unchanged in this repository as
 `vendor/second-life-character/` (with its `NOTICE.txt` and `UPSTREAM.md`), and the build copies it into the shipped build
 (see the next section).
 
