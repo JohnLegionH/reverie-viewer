@@ -141,7 +141,13 @@ public partial class Main
         var feature = new NotecardFeature(shell, (status, reason) =>
             Log.Info("notecard.not-opened", Viewer.Core.Diagnostics.CoreLog.F("status", status), Viewer.Core.Diagnostics.CoreLog.F("reason", reason ?? "")));
         feature.OpenEmbedded = OpenEmbeddedItem;
-        feature.Saved += _ => Log.Info("notecard.saved");
+        feature.Saved += access =>
+        {
+            Log.Info("notecard.saved", Viewer.Core.Diagnostics.CoreLog.F("in_object", access.ObjectId != Guid.Empty));
+            // a card saved inside the object the Build window shows: its listed asset is the saved one, and the contents are read again
+            if (access.ObjectId != Guid.Empty)
+                _edit?.ItemSaved(access.ObjectId, access.ItemId, access.AssetId);
+        };
         return feature;
     }
 

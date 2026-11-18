@@ -49,6 +49,23 @@ public class BuildContentTabTests
     }
 
     [Fact]
+    public void A_card_saved_into_the_prim_takes_its_new_asset_and_the_contents_are_read_again()
+    {
+        // llpreviewnotecard.cpp finishTaskUpload: the window takes the new asset id from the upload's answer and reads the card again
+        var r = Selected();
+        r.C.Receive(new TaskInventoryReceived(G(1), [Item(11, "card") with { AssetId = G(50) }, Item(12, "other") with { AssetId = G(60) }]));
+        int sent = r.Sent.Count;
+        Assert.True(r.C.ItemSaved(G(1), G(11), G(51)));
+        Assert.Equal(G(51), r.C.ContentItem(G(11))!.AssetId);
+        Assert.Equal(G(60), r.C.ContentItem(G(12))!.AssetId);
+        Assert.Equal(new RequestContentsIntent(1, G(1)), Assert.IsType<RequestContentsIntent>(r.Sent[^1]));
+        Assert.True(r.Sent.Count > sent);
+        // a save into another object changes nothing here
+        Assert.False(r.C.ItemSaved(G(9), G(11), G(52)));
+        Assert.Equal(G(51), r.C.ContentItem(G(11))!.AssetId);
+    }
+
+    [Fact]
     public void An_answer_with_nothing_in_it_shows_an_empty_list_even_one_the_region_could_not_read()
     {
         var r = Selected();

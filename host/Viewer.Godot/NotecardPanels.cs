@@ -63,8 +63,8 @@ public sealed class NotecardFeature
     /// <summary>Opens an embedded landmark, texture or sound (set by the viewer).</summary>
     public Action<NotecardEmbeddedItem>? OpenEmbedded { get; set; }
 
-    /// <summary>A card was saved (its item id), so the inventory shows its new state.</summary>
-    public event Action<Guid>? Saved;
+    /// <summary>A card was saved: its access as it stands after the save (the object it is in, and the asset the save stored).</summary>
+    public event Action<NotecardAccess>? Saved;
 
     /// <summary>A session's inventory and pipeline (null: logged out; every notecard window closes).</summary>
     public void Bind(InventoryModel? model, INotecardTransport? transport, Func<ActionIntent, ActionResult>? submit, INotecardSaveTransport? saves = null)
@@ -314,8 +314,8 @@ public partial class NotecardPanel : VBoxContainer
     public Action? Closing;
     /// <summary>Opens an embedded landmark, texture or sound (set by the feature).</summary>
     public Action<NotecardEmbeddedItem>? OpenEmbedded;
-    /// <summary>The card was saved (its item id).</summary>
-    public Action<Guid>? SavedItem;
+    /// <summary>The card was saved (its access after the save: the new asset, and the object for a card inside one).</summary>
+    public Action<NotecardAccess>? SavedItem;
 
     public NotecardPanel(StringTable strings, int slot)
     {
@@ -415,9 +415,8 @@ public partial class NotecardPanel : VBoxContainer
         UnsavedPrompt.AddChild(PromptCancel);
         AddChild(UnsavedPrompt);
 
-        UiTheme.Changed += ApplyTheme;
-        TreeExiting += () => UiTheme.Changed -= ApplyTheme;
-        ApplyTheme();
+        // embedded items are not coloured yet: the engine's code highlighter takes only ASCII symbols as a colour region's start, and the
+        // marks around an item are invisible on purpose
         Clear();
     }
 
@@ -429,18 +428,6 @@ public partial class NotecardPanel : VBoxContainer
         return b;
     }
 
-    /// <summary>Each embedded item (its name between the two marks) in the theme's accent, as a link; the rest in the text colour.</summary>
-    private void ApplyTheme()
-    {
-        var t = UiTheme.Tokens;
-        var h = new CodeHighlighter
-        {
-            NumberColor = ShellTheme.C(t.Text), SymbolColor = ShellTheme.C(t.Text), FunctionColor = ShellTheme.C(t.Text), MemberVariableColor = ShellTheme.C(t.Text),
-        };
-        string mark = NotecardEditBuffer.Mark.ToString();
-        h.AddColorRegion(mark, mark, ShellTheme.C(t.Accent));
-        Editor.SyntaxHighlighter = h;
-    }
 
     /// <summary>The window's model, for the development automation.</summary>
     internal NotecardWindowModel? Model => _model;
@@ -735,7 +722,7 @@ public partial class NotecardPanel : VBoxContainer
         Sync();
         if (result.Status == NotecardSaveStatus.Saved)
         {
-            SavedItem?.Invoke(s.Access.ItemId);
+            SavedItem?.Invoke(s.Access);
             if (_closeAfterSave)
                 Closing?.Invoke();
         }
