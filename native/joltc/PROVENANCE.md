@@ -23,7 +23,7 @@ The viewer uses the **patched** joltc of the Tranquillity (OpenSim) fork's Jolt 
 |---|---|
 | Expected, from the source README | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
 | Extracted `win-x64/joltc.dll` | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
-| A region server's `joltc.dll` built from the same commit (read-only) | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
+| A region server's installed `joltc.dll` from that fork (read-only) | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
 
 The joltc blob is the same in two later commits of that fork: the job-pool teardown (`a8e918b3cf`) and a merge that
 carries it (`c0193d1bbf`).

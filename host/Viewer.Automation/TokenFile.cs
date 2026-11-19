@@ -165,7 +165,8 @@ public static class AccountsFile
             throw new InvalidOperationException($"{NotApproved}: no test-account pool file is set ({PoolVariable}, or {PoolFileName} beside {ClaimScriptVariable})");
         if (!File.Exists(poolPath))
             throw new InvalidOperationException($"{NotApproved}: the test-account pool file {poolPath} does not exist");
-        if (!ReadPool(poolPath).Contains(alias.Trim().ToLowerInvariant()))
+        // exact: the accounts file below is searched with this same spelling, so no other spelling reaches an account the pool leaves out
+        if (!ReadPool(poolPath).Contains(alias))
             throw new InvalidOperationException($"{NotApproved}: {alias} is not in the test-account pool file {poolPath}");
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         foreach (var a in doc.RootElement.GetProperty("accounts").EnumerateArray())

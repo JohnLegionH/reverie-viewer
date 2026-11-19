@@ -118,6 +118,18 @@ public class AccountPoolTests
         Assert.Contains("not in the accounts file", ex.Message);
     }
 
+    [Theory]
+    [InlineData("Tester1")]
+    [InlineData(" tester1")]
+    [InlineData("tester1 ")]
+    public void An_alias_is_matched_exactly_so_another_spelling_cannot_reach_an_account_the_pool_leaves_out(string alias)
+    {
+        // the pool's aliases are lower case; the accounts file may hold another account under another spelling
+        string accounts = Accounts(("tester1", "Test", "One"), (alias, "Not", "Pooled"));
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, alias, Pool("tester1")));
+        Assert.Contains("is not in the test-account pool file", ex.Message);
+    }
+
     // ---------------- the owner's account: never, whatever the file says ----------------
 
     [Theory]

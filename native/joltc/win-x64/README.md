@@ -1,6 +1,6 @@
 # Patched joltc.dll — per-system TempAllocator
 
-The grid's Jolt physics module REQUIRES this patched native. The stock NuGet
+The Jolt physics module REQUIRES this patched native. The stock NuGet
 `JoltPhysics.Native 1.0.4` joltc.dll supplies ONE process-global
 `TempAllocatorImpl` (a LIFO stack, not thread-safe) to every physics system.
 With multiple regions stepping in parallel that shared scratch produces
@@ -9,7 +9,7 @@ multi-region grid). The managed backend (`JoltPhysicsBackend._simLock`,
 per-INSTANCE since this patch) relies on each `JPH_PhysicsSystem` owning its
 own allocator — **stock joltc.dll + instance locks = crashes return.**
 
-The grid's deploy script asserts the live bin's joltc.dll is this build and
+The fork's deploy script asserts the installed region server's joltc.dll is this build and
 fails loudly otherwise (here: `tools/assert-joltc.ps1`). If a build/restore ever clobbers a bin copy with the
 stock NuGet DLL, restore from `win-x64/joltc.dll` in this directory.
 
@@ -109,7 +109,7 @@ the full stress sequence (multi-region + vehicle + llCastRay load test,
   test); `_simLock` reverted to per-instance — regions step in parallel.
 - The full investigation trail (commit identification, PDB forensics,
   verification runs) is in the comment block above `_simLock` in
-  the grid's physics add-on, `JoltPhysicsBackend.cs`.
+  the fork's physics add-on, `JoltPhysicsBackend.cs`.
 - Upstream later added a TempAllocator C-API + `JPH_PhysicsSystem_Update2`
   (joltc PR #74, first shipped in JoltPhysics.Native 1.1.0 / Jolt 5.6.0) —
   but it does NOT cover the six CharacterVirtual sites. If the grid ever
