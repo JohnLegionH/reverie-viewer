@@ -64,8 +64,13 @@ public static class ReverieRestyle
             case LineEdit when node.GetParent() is SpinBox or Window:
                 break;
             case Control control:
-                if (ReverieRestyleRules.VariationFor(control.GetClass(), control.ThemeTypeVariation.ToString(), control is BaseButton { } b && b is Button { Flat: true }, place) is { } v)
+                bool toggle = control is BaseButton { ToggleMode: true };
+                if (ReverieRestyleRules.VariationFor(control.GetClass(), control.ThemeTypeVariation.ToString(), control is BaseButton { } b && b is Button { Flat: true }, place, toggle) is { } v)
                     control.ThemeTypeVariation = v;
+                // a push button in a column is sized to its label, never stretched to the column's width
+                if (place == RestylePlace.Window && ReverieRestyleRules.SizedToLabel(control.GetClass(), toggle, control.GetParent() is VBoxContainer,
+                        expands: control.SizeFlagsHorizontal != Control.SizeFlags.Fill))
+                    control.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
                 break;
             case PopupMenu popup:
                 if (ReverieRestyleRules.VariationFor(popup.GetClass(), popup.ThemeTypeVariation.ToString(), false, place) is { } p)

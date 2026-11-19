@@ -25,19 +25,29 @@ public static class ReverieStyle
         Popup = "RvPopup", Slider = "RvSlider", Switch = "RvSwitch", Stepper = "RvStepper", Caption = "RvCaption",
         Dock = "RvDock", DockButton = "RvDockButton", DockButtonOn = "RvDockButtonOn", DockButtonAttention = "RvDockButtonAttention",
         DockLabel = "RvDockLabel", DockDivider = "RvDockDivider", DockDot = "RvDockDot", Pill = "RvPill",
-        Select = "RvSelect", Field = "RvField", List = "RvList", TreeList = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel";
+        Select = "RvSelect", Field = "RvField", List = "RvList", TreeList = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel",
+        Check = "RvCheck", TabBar = "RvTabBar", SectionHeader = "RvSectionHeader", SectionDivider = "RvSectionDivider";
 
     /// <summary>The variant the tokens are: light when the bar is light.</summary>
     public static ReverieVariant VariantOf(ThemeTokens t) => ReverieTheme.VariantFor(t);
 
     /// <summary>The design tokens behind the current engine tokens.</summary>
-    public static ReverieTokens TokensFor(ThemeTokens t) => ReverieTheme.Tokens(VariantOf(t), t.Accent);
+    public static ReverieTokens TokensFor(ThemeTokens t) => ReverieTheme.LookFor(t).Tokens;
+
+    // the look being built: its border width, the factor on every type size, and whether rows and segments are outlined (set at the
+    // start of Add, read by the helpers below; main thread only, as the theme is built)
+    private static int _bw = 1;
+    private static float _typeScale = 1f;
+    private static bool _outlined;
 
     private static Color C(UiColour c) => ShellTheme.C(c);
 
     private static Color A(UiColour c, float alpha) => new(c.R, c.G, c.B, alpha);
 
     private static int Px(float v) => (int)MathF.Round(v);
+
+    /// <summary>A type size of the design, times the look's text factor.</summary>
+    private static int Type(float size) => Px(size * _typeScale);
 
     /// <summary>A face: fill, border colour and width, radius, and content margins left-right and top-bottom.</summary>
     public static StyleBoxFlat Face(Color fill, Color border, int borderWidth, int radius, float marginH, float marginV)
@@ -70,7 +80,17 @@ public static class ReverieStyle
 
     public static void Add(Theme theme, ThemeTokens tokens)
     {
-        var r = TokensFor(tokens);
+        // a look that keeps its own (high contrast) gives its colours, border width and text size; rows and segments then carry an
+        // outline, the selected one in the accent, as its classic controls do
+        var look = ReverieTheme.LookFor(tokens);
+        var r = look.Tokens;
+        _bw = look.BorderWidth;
+        _typeScale = look.TypeScale;
+        _outlined = look.OutlinedRows;
+        int bw = _bw;
+        var rowBorder = _outlined ? C(r["border.control"]) : A(r["surface.base"], 0f);
+        var rowSelectedBorder = _outlined ? C(r.Accent) : A(r["surface.base"], 0f);
+        int rowBw = _outlined ? bw : 0;
         var clear = A(r["surface.base"], 0f);
         var hover = A(r["surface.selected"], 0.6f);
         var selected = C(r["surface.selected"]);
@@ -79,7 +99,7 @@ public static class ReverieStyle
 
         // bars and windows
         Panel(theme, TopBar, Edge(C(r["surface.base"]), C(r["border.default"]), bottom: 1, margin: 8));
-        var window = Face(C(r["surface.base"]), C(r["border.control"]), 1, ReverieTheme.RadiusWindow, 0, 0);
+        var window = Face(C(r["surface.base"]), C(r["border.control"]), bw, ReverieTheme.RadiusWindow, 0, 0);
         Shadow(window);
         Panel(theme, Window, window);
         var titleBar = Face(clear, C(r["border.default"]), 0, 0, 12, 6);
@@ -88,10 +108,10 @@ public static class ReverieStyle
         Panel(theme, TitleBar, titleBar);
         LabelVariation(theme, WindowTitle, r["text.primary"], ReverieTheme.TypeTitle, semibold);
         Panel(theme, Sidebar, Face(C(r["surface.sunken"]), C(r["surface.sunken"]), 0, 0, 6, 6));
-        Panel(theme, Card, Face(C(r["surface.card"]), C(r["border.default"]), 1, ReverieTheme.RadiusCard, 14, 12));
-        Panel(theme, CardWarning, Face(C(r["warn.surface"]), C(r["warn.border"]), 1, ReverieTheme.RadiusCard, 14, 12));
-        Panel(theme, Track, Face(C(r["surface.raised"]), C(r["border.control"]), 1, ReverieTheme.RadiusTrack, 2, 2));
-        Panel(theme, Location, Face(C(r["surface.raised"]), C(r["border.control"]), 1, Px(ReverieTheme.LocationHeight / 2), 10, 0));
+        Panel(theme, Card, Face(C(r["surface.card"]), C(r["border.default"]), bw, ReverieTheme.RadiusCard, 14, 12));
+        Panel(theme, CardWarning, Face(C(r["warn.surface"]), C(r["warn.border"]), bw, ReverieTheme.RadiusCard, 14, 12));
+        Panel(theme, Track, Face(C(r["surface.raised"]), C(r["border.control"]), bw, ReverieTheme.RadiusTrack, 2, 2));
+        Panel(theme, Location, Face(C(r["surface.raised"]), C(r["border.control"]), bw, Px(ReverieTheme.LocationHeight / 2), 10, 0));
 
         // text
         LabelVariation(theme, AppName, r["text.primary"], ReverieTheme.TypeMenu, semibold);
@@ -114,22 +134,27 @@ public static class ReverieStyle
                 theme.SetColor(icon, name, new Color(1, 1, 1));
         ButtonVariation(theme, IconButton, r, normal: clear, hover, selected, border: clear, 0, control, 6, 6, r["text.primary"], ReverieTheme.TypeBody, null);
         ButtonVariation(theme, LocationButton, r, normal: clear, A(r["surface.selected"], 0.35f), A(r["surface.selected"], 0.6f), border: clear, 0, Px(ReverieTheme.LocationHeight / 2), 2, 0, r["text.primary"], ReverieTheme.TypeStatus, null);
-        ButtonVariation(theme, Secondary, r, normal: clear, hover, selected, border: C(r["border.control"]), 1, Px(ReverieTheme.ButtonHeight / 2), 16, 6, r["text.primary"], ReverieTheme.TypeSmall, null);
-        ButtonVariation(theme, Primary, r, normal: C(r.Accent), C(r.Accent).Darkened(0.12f), C(r.Accent).Darkened(0.22f), border: C(r.Accent), 1, Px(ReverieTheme.ButtonHeight / 2), 18, 6, r.OnAccent, ReverieTheme.TypeBody, semibold);
-        ButtonVariation(theme, Chip, r, normal: C(r["surface.raised"]), C(r["surface.selected"]), C(r["surface.selected.strong"]), border: C(r["border.control"]), 1, Px(ReverieTheme.ChipHeight / 2), 12, 3, r["text.primary"], ReverieTheme.TypeSmall, null);
-        ButtonVariation(theme, ListRow, r, normal: clear, hover, selected, border: clear, 0, control, 8, 4, r["text.primary"], ReverieTheme.TypeBody, null);
-        ButtonVariation(theme, ListRowSelected, r, normal: selected, selected, selected, border: clear, 0, control, 8, 4, r["text.strong"], ReverieTheme.TypeBody, semibold);
-        ButtonVariation(theme, Segment, r, normal: clear, hover, selected, border: clear, 0, control, 12, 3, r["text.secondary"], ReverieTheme.TypeSmall, null);
-        ButtonVariation(theme, SegmentSelected, r, normal: C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), border: clear, 0, control, 12, 3, r["text.strong"], ReverieTheme.TypeSmall, semibold);
+        ButtonVariation(theme, Secondary, r, normal: clear, hover, selected, border: C(r["border.control"]), bw, Px(ReverieTheme.ButtonHeight / 2), 16, 6, r["text.primary"], ReverieTheme.TypeSmall, null);
+        ButtonVariation(theme, Primary, r, normal: C(r.Accent), C(r.Accent).Darkened(0.12f), C(r.Accent).Darkened(0.22f), border: C(r.Accent), bw, Px(ReverieTheme.ButtonHeight / 2), 18, 6, r.OnAccent, ReverieTheme.TypeBody, semibold);
+        ButtonVariation(theme, Chip, r, normal: C(r["surface.raised"]), C(r["surface.selected"]), C(r["surface.selected.strong"]), border: C(r["border.control"]), bw, Px(ReverieTheme.ChipHeight / 2), 12, 3, r["text.primary"], ReverieTheme.TypeSmall, null);
+        ButtonVariation(theme, ListRow, r, normal: clear, hover, selected, border: rowBorder, rowBw, control, 8, 4, r["text.primary"], ReverieTheme.TypeBody, null);
+        // a row that stays pressed (a sidebar page, a preset) shows the selected face, with the accent outline when rows are outlined
+        foreach (var state in new[] { "pressed", "hover_pressed" })
+            theme.SetStylebox(state, ListRow, Face(selected, rowSelectedBorder, rowBw, control, 8, 4));
+        theme.SetColor("font_pressed_color", ListRow, C(r["text.strong"]));
+        theme.SetColor("font_hover_pressed_color", ListRow, C(r["text.strong"]));
+        ButtonVariation(theme, ListRowSelected, r, normal: selected, selected, selected, border: rowSelectedBorder, rowBw, control, 8, 4, r["text.strong"], ReverieTheme.TypeBody, semibold);
+        ButtonVariation(theme, Segment, r, normal: clear, hover, selected, border: rowBorder, rowBw, control, 12, 3, r["text.secondary"], ReverieTheme.TypeSmall, null);
+        ButtonVariation(theme, SegmentSelected, r, normal: C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), border: rowSelectedBorder, rowBw, control, 12, 3, r["text.strong"], ReverieTheme.TypeSmall, semibold);
         foreach (var name in new[] { ListRow, ListRowSelected })
             theme.SetConstant("align_to_largest_stylebox", name, 0);
 
         // the dock and the floating pills: the base surface at 95 %, the dock's radius (a pill's is half its height), the floating
         // shadow; dock buttons in the same family of states, the "on" one on the selected surface, attention a 2-pixel accent ring
-        var dockPanel = Face(A(r["surface.base"], ReverieTheme.FloatingOpacity), C(r["border.control"]), 1, ReverieTheme.RadiusDock, ReverieTheme.DockPadding, ReverieTheme.DockPadding);
+        var dockPanel = Face(A(r["surface.base"], ReverieTheme.FloatingOpacity), C(r["border.control"]), bw, ReverieTheme.RadiusDock, ReverieTheme.DockPadding, ReverieTheme.DockPadding);
         Shadow(dockPanel);
         Panel(theme, Dock, dockPanel);
-        var pillPanel = Face(A(r["surface.base"], ReverieTheme.FloatingOpacity), C(r["border.control"]), 1, Px(ReverieTheme.PillHeight / 2), 14, 0);
+        var pillPanel = Face(A(r["surface.base"], ReverieTheme.FloatingOpacity), C(r["border.control"]), bw, Px(ReverieTheme.PillHeight / 2), 14, 0);
         Shadow(pillPanel);
         Panel(theme, Pill, pillPanel);
         ButtonVariation(theme, DockButton, r, normal: clear, hover, selected, border: clear, 0, ReverieTheme.RadiusDockButton, 2, 4, r["text.primary"], ReverieTheme.TypeDock, null);
@@ -141,18 +166,18 @@ public static class ReverieStyle
 
         // the location field's edit mode
         theme.SetTypeVariation(LocationEdit, "LineEdit");
-        var pill = Face(C(r["surface.raised"]), C(r.Accent), 1, Px(ReverieTheme.LocationHeight / 2), 12, 0);
+        var pill = Face(C(r["surface.raised"]), C(r.Accent), bw, Px(ReverieTheme.LocationHeight / 2), 12, 0);
         theme.SetStylebox("normal", LocationEdit, pill);
         theme.SetStylebox("focus", LocationEdit, FocusRing(r, Px(ReverieTheme.LocationHeight / 2)));
         theme.SetColor("font_color", LocationEdit, C(r["text.primary"]));
         theme.SetColor("font_placeholder_color", LocationEdit, C(r["text.muted"]));
         theme.SetColor("caret_color", LocationEdit, C(r.Accent));
         theme.SetColor("selection_color", LocationEdit, A(r.Accent, 0.35f));
-        theme.SetFontSize("font_size", LocationEdit, Px(ReverieTheme.TypeStatus));
+        theme.SetFontSize("font_size", LocationEdit, Type(ReverieTheme.TypeStatus));
 
         // the dropdown menu: a 16-pixel icon column, the label, the shortcut text right-aligned and muted, separators, submenu arrows
         theme.SetTypeVariation(Popup, "PopupMenu");
-        var menuPanel = Face(C(r["surface.base"]), C(r["border.control"]), 1, control, 6, 6);
+        var menuPanel = Face(C(r["surface.base"]), C(r["border.control"]), bw, control, 6, 6);
         Shadow(menuPanel);
         theme.SetStylebox("panel", Popup, menuPanel);
         theme.SetStylebox("hover", Popup, Face(selected, selected, 0, 6, 8, 4));
@@ -166,11 +191,11 @@ public static class ReverieStyle
         theme.SetConstant("icon_max_width", Popup, Px(ReverieTheme.IconSmall));
         theme.SetConstant("h_separation", Popup, 10);
         theme.SetConstant("v_separation", Popup, 8);
-        theme.SetFontSize("font_size", Popup, Px(ReverieTheme.TypeBody));
+        theme.SetFontSize("font_size", Popup, Type(ReverieTheme.TypeBody));
 
         // the slider: a raised track filled with the accent up to the knob
         theme.SetTypeVariation(Slider, "HSlider");
-        var track = Face(C(r["surface.raised"]), C(r["border.control"]), 1, 3, 0, 3);
+        var track = Face(C(r["surface.raised"]), C(r["border.control"]), bw, 3, 0, 3);
         theme.SetStylebox("slider", Slider, track);
         theme.SetStylebox("grabber_area", Slider, Face(C(r.Accent), C(r.Accent), 0, 3, 0, 3));
         theme.SetStylebox("grabber_area_highlight", Slider, Face(C(r.Accent), C(r.Accent), 0, 3, 0, 3));
@@ -196,21 +221,23 @@ public static class ReverieStyle
         theme.SetColor("muted", Status, C(r["text.muted"]));
         theme.SetColor("text", Status, C(r["text.primary"]));
 
-        AddRestyleParts(theme, r, clear, hover, selected, control, semibold);
+        AddRestyleParts(theme, r, clear, hover, selected, control, semibold, rowBorder, rowSelectedBorder, rowBw);
     }
 
     /// <summary>The components the restyled classic windows take (ReverieRestyle): a dropdown (select) button, a text field, a list and a
     /// tree whose rows are list rows, a tab bar drawn as a segmented control, and a menu drawn as a panel of rows. Same tokens and states.</summary>
-    private static void AddRestyleParts(Theme theme, ReverieTokens r, Color clear, Color hover, Color selected, int control, Font? semibold)
+    private static void AddRestyleParts(Theme theme, ReverieTokens r, Color clear, Color hover, Color selected, int control, Font? semibold,
+        Color rowBorder, Color rowSelectedBorder, int rowBw)
     {
+        int bw = _bw;
         // the select: a secondary button that keeps the option button's arrow
-        ButtonVariation(theme, Select, r, normal: clear, hover, selected, border: C(r["border.control"]), 1, control, 12, 6, r["text.primary"], ReverieTheme.TypeBody, null, "OptionButton");
+        ButtonVariation(theme, Select, r, normal: clear, hover, selected, border: C(r["border.control"]), bw, control, 12, 6, r["text.primary"], ReverieTheme.TypeBody, null, "OptionButton");
         theme.SetColor("font_disabled_color", Select, C(ControlStates.Faded(r["text.primary"])));
 
         // the text field: the raised surface in the control's radius, the focus ring outside it
         theme.SetTypeVariation(Field, "LineEdit");
-        theme.SetStylebox("normal", Field, Face(C(r["surface.raised"]), C(r["border.control"]), 1, control, 10, 4));
-        theme.SetStylebox("read_only", Field, Face(C(r["surface.sunken"]), C(r["border.default"]), 1, control, 10, 4));
+        theme.SetStylebox("normal", Field, Face(C(r["surface.raised"]), C(r["border.control"]), bw, control, 10, 4));
+        theme.SetStylebox("read_only", Field, Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 10, 4));
         theme.SetStylebox("focus", Field, FocusRing(r, control));
         theme.SetColor("font_color", Field, C(r["text.primary"]));
         theme.SetColor("font_placeholder_color", Field, C(r["text.muted"]));
@@ -219,8 +246,8 @@ public static class ReverieStyle
         theme.SetColor("selection_color", Field, A(r.Accent, 0.35f));
 
         // lists and trees: the sunken surface, rows in the list row's states (hover 60 %, selected on the selected surface)
-        var sunken = Face(C(r["surface.sunken"]), C(r["border.default"]), 1, control, 4, 4);
-        var rowSelected = Face(selected, selected, 0, control, 6, 2);
+        var sunken = Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 4, 4);
+        var rowSelected = Face(selected, rowSelectedBorder, rowBw, control, 6, 2);
         var rowHover = Face(hover, hover, 0, control, 6, 2);
         var none = new StyleBoxEmpty();
         foreach (var (name, type) in new[] { (List, "ItemList"), (TreeList, "Tree") })
@@ -243,9 +270,9 @@ public static class ReverieStyle
 
         // the tab bar as the segmented control: a track, the open tab on the strong selected surface
         theme.SetTypeVariation(Tabs, "TabContainer");
-        theme.SetStylebox("tabbar_background", Tabs, Face(C(r["surface.raised"]), C(r["border.control"]), 1, ReverieTheme.RadiusTrack, 2, 2));
-        theme.SetStylebox("tab_selected", Tabs, Face(C(r["surface.selected.strong"]), C(r["surface.selected.strong"]), 0, control, 12, 3));
-        theme.SetStylebox("tab_unselected", Tabs, Face(clear, clear, 0, control, 12, 3));
+        theme.SetStylebox("tabbar_background", Tabs, Face(C(r["surface.raised"]), C(r["border.control"]), bw, ReverieTheme.RadiusTrack, 2, 2));
+        theme.SetStylebox("tab_selected", Tabs, Face(C(r["surface.selected.strong"]), rowSelectedBorder, rowBw, control, 12, 3));
+        theme.SetStylebox("tab_unselected", Tabs, Face(clear, rowBorder, rowBw, control, 12, 3));
         theme.SetStylebox("tab_hovered", Tabs, Face(hover, hover, 0, control, 12, 3));
         var tabFaded = clear;
         theme.SetStylebox("tab_disabled", Tabs, Face(tabFaded, tabFaded, 0, control, 12, 3));
@@ -255,12 +282,50 @@ public static class ReverieStyle
         theme.SetColor("font_unselected_color", Tabs, C(r["text.secondary"]));
         theme.SetColor("font_hovered_color", Tabs, C(r["text.primary"]));
         theme.SetColor("font_disabled_color", Tabs, C(ControlStates.Faded(r["text.secondary"])));
-        theme.SetFontSize("font_size", Tabs, Px(ReverieTheme.TypeSmall));
+        theme.SetFontSize("font_size", Tabs, Type(ReverieTheme.TypeSmall));
         if (semibold is not null)
             theme.SetFont("font", Tabs, semibold);
 
+        // the tab bar on its own (a TabBar, not a TabContainer) as the segments of the segmented control; the window puts a track
+        // behind it where it can (Inventory)
+        theme.SetTypeVariation(TabBar, "TabBar");
+        theme.SetStylebox("tab_selected", TabBar, Face(C(r["surface.selected.strong"]), rowSelectedBorder, rowBw, control, 12, 3));
+        theme.SetStylebox("tab_unselected", TabBar, Face(clear, rowBorder, rowBw, control, 12, 3));
+        theme.SetStylebox("tab_hovered", TabBar, Face(hover, rowBorder, rowBw, control, 12, 3));
+        theme.SetStylebox("tab_disabled", TabBar, Face(clear, clear, 0, control, 12, 3));
+        theme.SetStylebox("tab_focus", TabBar, FocusRing(r, control));
+        theme.SetColor("font_selected_color", TabBar, C(r["text.strong"]));
+        theme.SetColor("font_unselected_color", TabBar, C(r["text.secondary"]));
+        theme.SetColor("font_hovered_color", TabBar, C(r["text.primary"]));
+        theme.SetColor("font_disabled_color", TabBar, C(ControlStates.Faded(r["text.secondary"])));
+        theme.SetFontSize("font_size", TabBar, Type(ReverieTheme.TypeSmall));
+        if (semibold is not null)
+            theme.SetFont("font", TabBar, semibold);
+
+        // the check box: the tick and its label, as the official viewer draws one, with no bar around the row; dimmed when off
+        theme.SetTypeVariation(Check, "CheckBox");
+        var bare = new StyleBoxEmpty { ContentMarginLeft = 2, ContentMarginRight = 4, ContentMarginTop = 2, ContentMarginBottom = 2 };
+        foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "disabled" })
+            theme.SetStylebox(state, Check, bare);
+        theme.SetStylebox("focus", Check, FocusRing(r, 4));
+        foreach (var colour in new[] { "font_color", "font_pressed_color", "font_focus_color" })
+            theme.SetColor(colour, Check, C(r["text.primary"]));
+        theme.SetColor("font_hover_color", Check, C(r["text.strong"]));
+        theme.SetColor("font_hover_pressed_color", Check, C(r["text.strong"]));
+        theme.SetColor("font_disabled_color", Check, C(ControlStates.Faded(r["text.primary"])));
+        theme.SetConstant("h_separation", Check, 6);
+        theme.SetFontSize("font_size", Check, Type(ReverieTheme.TypeBody));
+
+        // a collapsible section header: flat, a chevron icon, the label in weight 600; the window draws the thin divider under it.
+        // Open or shut, the face stays flat: the chevron shows which.
+        ButtonVariation(theme, SectionHeader, r, normal: clear, hover, clear, border: clear, 0, control, 4, 4, r["text.primary"], ReverieTheme.TypeBody, semibold);
+        theme.SetStylebox("hover_pressed", SectionHeader, Face(hover, clear, 0, control, 4, 4));
+        theme.SetTypeVariation(SectionDivider, "HSeparator");
+        theme.SetStylebox("separator", SectionDivider, new StyleBoxLine { Color = C(r["border.default"]), Thickness = bw });
+        theme.SetConstant("separation", SectionDivider, 2);
+
         // a menu drawn as a panel of buttons: the dropdown menu's face
-        var menu = Face(C(r["surface.base"]), C(r["border.control"]), 1, control, 6, 6);
+        var menu = Face(C(r["surface.base"]), C(r["border.control"]), bw, control, 6, 6);
         Shadow(menu);
         Panel(theme, MenuPanel, menu);
     }
@@ -283,7 +348,7 @@ public static class ReverieStyle
     {
         theme.SetTypeVariation(name, "Label");
         theme.SetColor("font_color", name, C(colour));
-        theme.SetFontSize("font_size", name, Px(size));
+        theme.SetFontSize("font_size", name, Type(size));
         if (font is not null)
             theme.SetFont("font", name, font);
     }
@@ -308,7 +373,7 @@ public static class ReverieStyle
             theme.SetColor(colour, name, c);
         theme.SetColor("font_disabled_color", name, C(ControlStates.Faded(text)));
         theme.SetColor("icon_disabled_color", name, C(ControlStates.Faded(text)));
-        theme.SetFontSize("font_size", name, Px(size));
+        theme.SetFontSize("font_size", name, Type(size));
         theme.SetConstant("icon_max_width", name, Px(ReverieTheme.IconSmall));
         theme.SetConstant("h_separation", name, 6);
         if (font is not null)

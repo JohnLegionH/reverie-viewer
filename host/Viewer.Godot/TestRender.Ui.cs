@@ -120,12 +120,12 @@ public partial class TestRender
         var perms = new Viewer.Core.Inventory.NotecardPermissions(owner, owner, full, readOnly ? full & ~Viewer.Core.Inventory.NotecardPermissions.Modify : full, 0,
             readOnly ? Viewer.Core.Inventory.NotecardPermissions.Copy : 0, full);
         var access = new Viewer.Core.Inventory.NotecardAccess(G(40), G(41), G(1), perms, InLibrary: false);
-        var landmark = new Viewer.Core.Inventory.NotecardEmbeddedItem(0, G(42), G(43), "Harbour", "Example Region (128, 64, 22)", 3, 3, Viewer.Core.Inventory.ItemKind.Landmark,
+        var landmark = new Viewer.Core.Inventory.NotecardEmbeddedItem(0, G(42), G(43), "Example landmark", "Example Region (128, 64, 22)", 3, 3, Viewer.Core.Inventory.ItemKind.Landmark,
             new Viewer.Core.Inventory.NotecardPermissions(G(1), G(1), full, full, 0, 0, full));
-        string text = "Welcome to the harbour!\n\nMeet us at the pier: " + char.ConvertFromUtf32(Viewer.Core.Inventory.NotecardFormat.FirstEmbeddedChar)
+        string text = "Welcome!\n\nMeet us here: " + char.ConvertFromUtf32(Viewer.Core.Inventory.NotecardFormat.FirstEmbeddedChar)
             + "\n\nBring a friend, and see https://example.org/events for the times.";
         var doc = new Viewer.Core.Inventory.NotecardDocument(2, text, [landmark]);
-        var opened = new Viewer.Shell.Inventory.NotecardOpenResult(Viewer.Shell.Inventory.NotecardOpenStatus.Ok, G(40), readOnly ? "Club rules" : "Harbour welcome",
+        var opened = new Viewer.Shell.Inventory.NotecardOpenResult(Viewer.Shell.Inventory.NotecardOpenStatus.Ok, G(40), readOnly ? "Club rules" : "Example welcome",
             "Where to find us", access, doc);
         var panel = feature.ShowOpened(opened);
         if (panel is not null && !readOnly)

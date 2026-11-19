@@ -204,6 +204,7 @@ public partial class ShellRoot : Control
     public override void _Ready()
     {
         Shell.Focus.SetWindowFocused(GetWindow().HasFocus());
+        DropdownPlacer.Watch(GetTree());   // every menu button's and select's menu opens below it, or above when it does not fit
         ApplyScale();
         GetViewport().SizeChanged += ApplyLayout;
         ApplyLayout();

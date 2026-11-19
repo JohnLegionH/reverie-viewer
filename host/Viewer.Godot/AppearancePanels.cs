@@ -432,7 +432,12 @@ public partial class AppearancePanel : VBoxContainer
     private void AddGroup(WearableEditor editor, EditSubpart tab)
     {
         bool open = _openGroups.Contains(tab.EditGroup);
-        var header = new Button { Name = "group_" + tab.EditGroup, Text = (open ? "▾ " : "▸ ") + GroupTitle(tab.EditGroup), ToggleMode = true, ButtonPressed = open, Alignment = HorizontalAlignment.Left };
+        // a collapsible section header: flat, a chevron (down when open, right when shut), the label in weight 600, a thin divider under it
+        var header = new Button
+        {
+            Name = "group_" + tab.EditGroup, Text = GroupTitle(tab.EditGroup), ToggleMode = true, ButtonPressed = open, Alignment = HorizontalAlignment.Left,
+            ThemeTypeVariation = ReverieStyle.SectionHeader, Icon = ReverieIcons.Get(open ? LucideIcons.Down : LucideIcons.Submenu),
+        };
         header.AccessibilityName = _strings.Get("appearance.group.more", GroupTitle(tab.EditGroup));
         header.Toggled += on =>
         {
@@ -440,6 +445,7 @@ public partial class AppearancePanel : VBoxContainer
             _rebuild = _dirty = true;
         };
         Body.AddChild(header);
+        Body.AddChild(new HSeparator { Name = "group_" + tab.EditGroup + "_divider", ThemeTypeVariation = ReverieStyle.SectionDivider, MouseFilter = MouseFilterEnum.Ignore });
         if (!open)
             return;
         foreach (var p in tab.Params)

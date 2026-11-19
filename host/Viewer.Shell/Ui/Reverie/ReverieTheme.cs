@@ -146,4 +146,46 @@ public static class ReverieTheme
     public static ReverieVariant VariantFor(ThemeTokens t) => t.Panel.Opaque().Luminance > 0.5 ? ReverieVariant.Light : ReverieVariant.Dark;
 
     public static ReverieVariant? VariantOf(string? id) => id switch { DarkId => ReverieVariant.Dark, LightId => ReverieVariant.Light, _ => null };
+
+    /// <summary>The body text size the Reverie type scale is drawn for (its theme tokens' body size).</summary>
+    public const int BaseFontBody = 13;
+
+    /// <summary>Whether a look asks for heavier lines or larger text than the Reverie design draws (the high-contrast preset does:
+    /// 2-pixel borders and 16-pixel text). Such a look keeps its own colours, outlines and text size in the Reverie components.</summary>
+    public static bool KeepsOwnLook(ThemeTokens t) => t.BorderWidth > 1 || t.FontBody > BaseFontBody;
+
+    /// <summary>
+    /// What the Reverie components draw with for the person's look. For the Reverie, classic and power-user looks: the Reverie tokens of
+    /// the variant the window panel calls for, with the look's accent, 1-pixel borders and the Reverie type sizes. For a look that keeps
+    /// its own (<see cref="KeepsOwnLook"/>): the look's own colours (panel, field, border, text, accent and its selected fill), its border
+    /// width and its text size, and every row and segment outlined, the selected one in the accent, as the classic controls draw it.
+    /// </summary>
+    public static ReverieLook LookFor(ThemeTokens t)
+    {
+        var variant = VariantFor(t);
+        if (!KeepsOwnLook(t))
+            return new ReverieLook(Tokens(variant, t.Accent), 1, 1f, false);
+        var panel = t.Panel.Opaque();
+        var input = t.Input.Opaque();
+        var selected = Over(t.Selection, panel);
+        var colours = new Dictionary<string, UiColour>
+        {
+            ["surface.base"] = panel, ["surface.sunken"] = input, ["surface.raised"] = input, ["surface.card"] = panel,
+            ["surface.selected"] = selected, ["surface.selected.strong"] = selected,
+            ["border.default"] = t.Border, ["border.control"] = t.Border, ["border.strong"] = t.Border,
+            ["text.primary"] = t.Text, ["text.strong"] = t.Text, ["text.secondary"] = t.TextSecondary, ["text.muted"] = t.TextSecondary,
+            ["text.on-accent"] = t.AccentFillText, ["status.ok"] = t.Success,
+            ["warn.surface"] = t.Warning, ["warn.border"] = t.Warning, ["warn.text"] = t.WarningText,
+        };
+        var tokens = new ReverieTokens(variant, colours, t.Accent.Opaque(), t.AccentFillText);
+        return new ReverieLook(tokens, t.BorderWidth, MathF.Max(1f, t.FontBody / (float)BaseFontBody), true);
+    }
+
+    /// <summary><paramref name="top"/> drawn over the opaque <paramref name="under"/>.</summary>
+    private static UiColour Over(UiColour top, UiColour under) =>
+        new(top.R * top.A + under.R * (1 - top.A), top.G * top.A + under.G * (1 - top.A), top.B * top.A + under.B * (1 - top.A));
 }
+
+/// <summary>What the Reverie components draw with: the colour tokens, the border width, the factor on every type size, and whether
+/// every row and segment carries an outline (the selected one in the accent).</summary>
+public sealed record ReverieLook(ReverieTokens Tokens, int BorderWidth, float TypeScale, bool OutlinedRows);

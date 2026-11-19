@@ -421,12 +421,15 @@ public partial class InventoryPanel : VBoxContainer
         top.AddChild(SortChoice);
         AddChild(top);
 
-        Tabs = new TabBar { Name = "tabs" };
+        // All items / Recent items: the segmented control (one tab style for switching views within a window), the tabs on a track
+        Tabs = new TabBar { Name = "tabs", ThemeTypeVariation = ReverieStyle.TabBar };
         Tabs.AccessibilityName = strings.Get("inventory.tabs");
         Tabs.AddTab(strings.Get("inventory.tab.all"));
         Tabs.AddTab(strings.Get("inventory.tab.recent"));
         Tabs.TabChanged += i => { if (_view is not null) { _view.Tab = i == 1 ? InventoryTab.Recent : InventoryTab.All; _dirty = true; } };
-        AddChild(Tabs);
+        var track = new PanelContainer { Name = "tabs_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+        track.AddChild(Tabs);
+        AddChild(track);
 
         TreeView = new InventoryTree
         {

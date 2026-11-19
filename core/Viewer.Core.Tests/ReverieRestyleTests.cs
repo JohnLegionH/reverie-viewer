@@ -40,7 +40,6 @@ public class ReverieRestyleTests
     [InlineData("Button", "RvPrimary")]
     [InlineData("Label", "")]
     [InlineData("Label", "ErrorLabel")]
-    [InlineData("CheckBox", "")]
     [InlineData("CheckButton", "")]
     [InlineData("TextEdit", "")]
     [InlineData("RichTextLabel", "")]

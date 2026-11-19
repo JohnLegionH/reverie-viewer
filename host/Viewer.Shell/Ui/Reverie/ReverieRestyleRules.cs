@@ -8,7 +8,8 @@ public static class ReverieVariations
 {
     public const string Primary = "RvPrimary", Secondary = "RvSecondary", IconButton = "RvIconButton", ListRow = "RvListRow",
         Muted = "RvMuted", Caption = "RvCaption", CardHeading = "RvCardHeading", Popup = "RvPopup",
-        Select = "RvSelect", Field = "RvField", List = "RvList", Tree = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel";
+        Select = "RvSelect", Field = "RvField", List = "RvList", Tree = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel",
+        Check = "RvCheck", TabBar = "RvTabBar", SectionHeader = "RvSectionHeader";
 }
 
 /// <summary>Where a control stands: in a window, or in a menu drawn as a panel of buttons (the right-click menu).</summary>
@@ -24,9 +25,13 @@ public static class ReverieRestyleRules
 {
     /// <summary>The Reverie variation for a control of engine class <paramref name="kind"/> whose variation is
     /// <paramref name="current"/> ("" for none), or null to leave it as it is.</summary>
-    public static string? VariationFor(string kind, string current, bool flat, RestylePlace place = RestylePlace.Window)
+    public static string? VariationFor(string kind, string current, bool flat, RestylePlace place = RestylePlace.Window, bool toggle = false)
     {
         current ??= "";
+        // a button that stays pressed to show which page or preset is chosen (a sidebar, a set of presets) is a list row: no outline
+        // when not chosen, the selected surface when chosen, as the Gestures window's rows (UI spec section 4, List row)
+        if (toggle && kind == "Button" && current.Length == 0 && place == RestylePlace.Window)
+            return ReverieVariations.ListRow;
         if (place == RestylePlace.Menu)
         {
             // the right-click menu is a panel of buttons: drawn as the dropdown menu with its rows (UI spec section 4, Dropdown menu)
@@ -50,7 +55,16 @@ public static class ReverieRestyleRules
             ("Tree", "") => ReverieVariations.Tree,
             ("TabContainer", "") => ReverieVariations.Tabs,
             ("PopupMenu", "") => ReverieVariations.Popup,
+            // a check box is a tick and its label, as the official viewer draws one, with no bar around the row
+            ("CheckBox", "") => ReverieVariations.Check,
+            // one tab style: switching views within a window is the segmented control
+            ("TabBar", "") => ReverieVariations.TabBar,
             _ => null,
         };
     }
+
+    /// <summary>Whether a button standing in a column (where it would be stretched to the column's width) is sized to its label
+    /// instead: every push button, not a row that stays pressed, and not one its window asks to grow.</summary>
+    public static bool SizedToLabel(string kind, bool toggle, bool inColumn, bool expands) =>
+        kind is "Button" or "MenuButton" && !toggle && inColumn && !expands;
 }
