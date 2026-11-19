@@ -68,6 +68,10 @@ public partial class TestRender
             if (!margins) _failures.Add($"the card ({card.Position.X:F0} to {card.End.X:F0}) is closer than {LoginCardLayout.SideMargin} to a side of the {window.Size.X:F0} wide window");
             if (!inside) _failures.Add($"the card ({card.Position.Y:F0} to {card.End.Y:F0}) is not wholly inside the {CardHeight} px window");
             if (!aboveRelease) _failures.Add($"the card ends at {card.End.Y:F0}, below the release line's top {release.Position.Y:F0}");
+            // the form scrolls inside the card, so a status area that grows with its text no longer pushes the card out of the window:
+            // its own bound is checked
+            float statusMax = LoginCardLayout.StatusMaxHeight(window.Size.Y);
+            if (scroll.Size.Y > statusMax + 0.5f) _failures.Add($"the status area ({scroll.Size.Y:F0}) is taller than its bound ({statusMax:F0})");
         }
         else
         {
