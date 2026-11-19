@@ -440,7 +440,7 @@ public partial class NotecardPanel : VBoxContainer
     public Label StatusLabel { get; }
     public Label PositionLabel { get; }
     public Label CountLabel { get; }
-    public HBoxContainer UnsavedPrompt { get; }
+    public VBoxContainer UnsavedPrompt { get; }
     public Button PromptSave { get; }
     public Button PromptDontSave { get; }
     public Button PromptCancel { get; }
@@ -543,16 +543,20 @@ public partial class NotecardPanel : VBoxContainer
         foot.AddChild(CountLabel);
         AddChild(foot);
 
-        UnsavedPrompt = new HBoxContainer { Name = "unsaved", Visible = false };
-        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(48, 0) });   // wraps, so the three buttons stay inside a narrow window
+        UnsavedPrompt = new VBoxContainer { Name = "unsaved", Visible = false };
+        var promptAnswers = new HFlowContainer { Name = "unsaved_buttons" };   // the three answers wrap to a second row in a narrow window
+        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(48, 0) });   // wraps, and the buttons are on a row of their own
         PromptSave = Btn("prompt_save", "script.unsaved.save", () => Answer(0));
         PromptSave.ThemeTypeVariation = UiTheme.PrimaryButton;
-        UnsavedPrompt.AddChild(PromptSave);
+        promptAnswers.AddChild(PromptSave);
         PromptDontSave = Btn("prompt_dont_save", "script.unsaved.dont_save", () => Answer(1));
-        UnsavedPrompt.AddChild(PromptDontSave);
+        promptAnswers.AddChild(PromptDontSave);
         PromptCancel = Btn("prompt_cancel", "script.unsaved.cancel", () => Answer(2));
-        UnsavedPrompt.AddChild(PromptCancel);
+        promptAnswers.AddChild(PromptCancel);
+        UnsavedPrompt.AddChild(promptAnswers);
         AddChild(UnsavedPrompt);
+        // while the question shows, the rows of embedded items give up their room, so the question fits in a short window (at a large interface size)
+        UnsavedPrompt.VisibilityChanged += () => ItemRows.Visible = !UnsavedPrompt.Visible;
 
         Editor.Items = () => _session is { } s ? s.Buffer.ItemSpans(Editor.Text) : [];
         Clear();

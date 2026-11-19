@@ -571,12 +571,6 @@ public partial class TestRender
                 continue;
             }
             question.Visible = true;   // what the editors' close guard does when there are unsaved changes
-            // negative control (NV_TR_UNWRAPPED_QUESTION=1): the question as it was drawn before it wrapped; the check MUST then fail
-            if (System.Environment.GetEnvironmentVariable("NV_TR_UNWRAPPED_QUESTION") == "1" && question.FindChild("question", true, false) is Label words)
-            {
-                words.AutowrapMode = TextServer.AutowrapMode.Off;
-                words.CustomMinimumSize = Vector2.Zero;
-            }
             var spec = floaters.SpecOf(id)!;
             foreach (var (label, w, h) in new[] { ("minimum", spec.MinSize.W, spec.MinSize.H), ("default", spec.DefaultSize.W, spec.DefaultSize.H) })
             {

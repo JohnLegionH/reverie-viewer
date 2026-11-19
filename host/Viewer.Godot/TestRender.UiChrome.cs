@@ -25,7 +25,7 @@ public partial class TestRender
         // A picture must not depend on the desktop it is taken on: the real pointer is ignored (the viewport takes no input events) and the
         // dock's attention pulse, which runs on the wall clock, is off. --tr-alter=livepointer and --tr-alter=pulse switch one of them back on, as
         // negative controls: with --tr-pointer=notices a pointer hover is put on the Notices button, and the picture MUST then differ (livepointer).
-        Dock.PulseEnabled = alter != "pulse";
+        Dock.PulseEnabled = alter == "pulse";
         var parts = spec.Split(':', 'x');
         if (parts.Length != 3 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int pct)
             || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int w) || !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out int h))

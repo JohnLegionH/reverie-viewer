@@ -209,7 +209,7 @@ public partial class ScriptEditorPanel : VBoxContainer
     public ItemList Errors { get; }
     public Label PositionLabel { get; }
     public Label StatusLabel { get; }
-    public HBoxContainer UnsavedPrompt { get; }
+    public VBoxContainer UnsavedPrompt { get; }
     public Button PromptSave { get; }
     public Button PromptDontSave { get; }
     public Button PromptCancel { get; }
@@ -307,16 +307,20 @@ public partial class ScriptEditorPanel : VBoxContainer
         foot.AddChild(PositionLabel);
         AddChild(foot);
 
-        UnsavedPrompt = new HBoxContainer { Name = "unsaved", Visible = false };
-        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(48, 0) });   // wraps, so the three buttons stay inside a narrow window
+        UnsavedPrompt = new VBoxContainer { Name = "unsaved", Visible = false };
+        var promptAnswers = new HFlowContainer { Name = "unsaved_buttons" };   // the three answers wrap to a second row in a narrow window
+        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(48, 0) });   // wraps, and the buttons are on a row of their own
         PromptSave = Btn("prompt_save", "script.unsaved.save", () => Answer(ScriptCloseAnswer.Save));
         PromptSave.ThemeTypeVariation = UiTheme.PrimaryButton;
-        UnsavedPrompt.AddChild(PromptSave);
+        promptAnswers.AddChild(PromptSave);
         PromptDontSave = Btn("prompt_dont_save", "script.unsaved.dont_save", () => Answer(ScriptCloseAnswer.DontSave));
-        UnsavedPrompt.AddChild(PromptDontSave);
+        promptAnswers.AddChild(PromptDontSave);
         PromptCancel = Btn("prompt_cancel", "script.unsaved.cancel", () => Answer(ScriptCloseAnswer.Cancel));
-        UnsavedPrompt.AddChild(PromptCancel);
+        promptAnswers.AddChild(PromptCancel);
+        UnsavedPrompt.AddChild(promptAnswers);
         AddChild(UnsavedPrompt);
+        // while the question shows, the error list gives up its height, so the question fits in a short window (at a large interface size)
+        UnsavedPrompt.VisibilityChanged += () => Errors.CustomMinimumSize = new Vector2(0, UnsavedPrompt.Visible ? 24 : 72);
 
         UiTheme.Changed += ApplyTheme;
         TreeExiting += () => UiTheme.Changed -= ApplyTheme;
