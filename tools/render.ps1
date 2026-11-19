@@ -977,7 +977,9 @@ function Invoke-LoginCardCases {
             Add-Case "$($name.Replace('-', '_'))_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary); $($r.Json.logincard | ConvertTo-Json -Compress)$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
         }
         $n = Invoke-Render $be "logincard-long-unbounded-$be" "--tr-logincard=long --tr-alter=unbounded"
-        if ($n.Exit -eq 1 -and $n.Json -and $n.Json.logincard -and -not ($n.Json.logincard.inside -and $n.Json.logincard.above_release) -and $n.Json.backend.driver -eq $be) {
+        # rejected: the card leaves the window or the release line, or (the form scrolls inside the card) the status area outgrows its bound
+        $statusOver = @($n.Json.failures) -match '^the status area .* is taller than its bound'
+        if ($n.Exit -eq 1 -and $n.Json -and $n.Json.logincard -and (-not ($n.Json.logincard.inside -and $n.Json.logincard.above_release) -or $statusOver) -and $n.Json.backend.driver -eq $be) {
             Add-Case "logincard_long_negative_$be" "PASS" "the unbounded status area was rejected: $($n.Json.failures -join ' | ')" $n.Seconds
         } else { Add-Case "logincard_long_negative_$be" "FAIL" "the unbounded status area was not rejected (exit $($n.Exit))" $n.Seconds }
     }
