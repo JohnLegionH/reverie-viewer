@@ -119,8 +119,9 @@ public static class AccountsFile
     public const string ClaimScriptVariable = "NV_CLAIM_CHECK_SCRIPT";
     public const string PoolFileName = "avatar-pool.txt";
 
-    /// <summary>The grid owner's own account: a person's real account, never a test account. Matched as a whole alias, first or last name.</summary>
-    private const string OwnerName = "legion";
+    /// <summary>The grid owner's own account: a person's real account, never a test account. Kept as the SHA-256 (lower-case hex) of
+    /// the name in lower case, so the published source does not name it; matched as a whole alias, first or last name.</summary>
+    public static readonly IReadOnlyList<string> OwnerDigests = ["1614ceeec50a9336ebf690886caa747d6811c45d37086a3fa7b11c9e83926c6c"];
 
     private const string NotApproved = "account alias not approved for automation logins";
 
@@ -150,16 +151,27 @@ public static class AccountsFile
     }
 
     /// <summary>The hard check: true for the grid owner's account, by alias or by its first or last name.</summary>
-    public static bool NeverAllowed(string alias, string? first = null, string? last = null) =>
-        new[] { alias, first, last }.Any(n => n is not null && string.Equals(n.Trim(), OwnerName, StringComparison.OrdinalIgnoreCase));
+    public static bool NeverAllowed(string alias, string? first = null, string? last = null) => NeverAllowed(OwnerDigests, alias, first, last);
+
+    /// <summary>The hard check against <paramref name="digests"/> (tests pass their own).</summary>
+    public static bool NeverAllowed(IReadOnlyList<string> digests, string alias, string? first = null, string? last = null) =>
+        new[] { alias, first, last }.Any(n => n is not null && digests.Contains(Digest(n)));
+
+    /// <summary>SHA-256, lower-case hex, of a name trimmed and in lower case.</summary>
+    public static string Digest(string name) =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(name.Trim().ToLowerInvariant())));
 
     /// <summary>The account for <paramref name="alias"/>, allowed by the pool file the environment names.</summary>
     public static (string First, string Last, Secret Password) Load(string path, string alias) =>
         Load(path, alias, PoolPath(Environment.GetEnvironmentVariable));
 
-    public static (string First, string Last, Secret Password) Load(string path, string alias, string? poolPath)
+    public static (string First, string Last, Secret Password) Load(string path, string alias, string? poolPath) =>
+        Load(path, alias, poolPath, OwnerDigests);
+
+    /// <summary>As <see cref="Load(string, string, string?)"/>, with the owner's digests given (tests pass their own).</summary>
+    public static (string First, string Last, Secret Password) Load(string path, string alias, string? poolPath, IReadOnlyList<string> ownerDigests)
     {
-        if (NeverAllowed(alias))
+        if (NeverAllowed(ownerDigests, alias))
             throw new InvalidOperationException($"the account {alias} is never allowed for automation logins (it is the grid owner's own account, not a test account)");
         if (poolPath is null)
             throw new InvalidOperationException($"{NotApproved}: no test-account pool file is set ({PoolVariable}, or {PoolFileName} beside {ClaimScriptVariable})");
@@ -173,7 +185,7 @@ public static class AccountsFile
             if (a.GetProperty("alias").GetString() == alias)
             {
                 string first = a.GetProperty("first").GetString()!, last = a.GetProperty("last").GetString()!;
-                if (NeverAllowed(alias, first, last))
+                if (NeverAllowed(ownerDigests, alias, first, last))
                     throw new InvalidOperationException($"the account {alias} is never allowed for automation logins (it is the grid owner's own account, not a test account)");
                 return (first, last, new Secret(a.GetProperty("password").GetString()!, SensitiveKind.PasswordDigest));
             }

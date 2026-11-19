@@ -131,38 +131,73 @@ public class AccountPoolTests
     }
 
     // ---------------- the owner's account: never, whatever the file says ----------------
+    // The tests use a stand-in owner, "owner", by its digest; the last test checks the shipped digest against the
+    // specific-words list kept outside the repository.
+
+    private static readonly string[] StandIn = [AccountsFile.Digest("owner")];
+
+    [Fact]
+    public void The_digest_is_sha256_hex_of_the_trimmed_lower_case_name()
+    {
+        Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", AccountsFile.Digest("abc"));   // FIPS 180-2 test vector
+        Assert.Equal(AccountsFile.Digest("abc"), AccountsFile.Digest(" ABC "));
+    }
 
     [Theory]
-    [InlineData("legion")]
-    [InlineData("Legion")]
-    [InlineData("LEGION")]
+    [InlineData("owner")]
+    [InlineData("Owner")]
+    [InlineData("OWNER")]
     public void The_owners_account_is_refused_even_when_the_pool_file_lists_it(string alias)
     {
         string accounts = Accounts((alias, "Some", "Body"));
-        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, alias, Pool(alias, "tester1")));
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, alias, Pool(alias, "tester1"), StandIn));
         Assert.Contains("never allowed for automation logins", ex.Message);
         Assert.DoesNotContain("pool file", ex.Message);
     }
 
     [Theory]
-    [InlineData("Legion", "Resident")]
-    [InlineData("Some", "legion")]
+    [InlineData("Owner", "Resident")]
+    [InlineData("Some", "owner")]
     public void The_owners_account_is_refused_under_any_alias_by_its_name(string first, string last)
     {
         string accounts = Accounts(("helper", first, last));
-        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "helper", Pool("helper")));
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "helper", Pool("helper"), StandIn));
         Assert.Contains("never allowed for automation logins", ex.Message);
     }
 
     [Fact]
     public void The_hard_check_on_its_own()
     {
-        Assert.True(AccountsFile.NeverAllowed("legion"));
-        Assert.True(AccountsFile.NeverAllowed(" Legion "));
-        Assert.True(AccountsFile.NeverAllowed("x", "Legion", "Resident"));
-        Assert.True(AccountsFile.NeverAllowed("x", "Some", "LEGION"));
+        Assert.True(AccountsFile.NeverAllowed(StandIn, "owner"));
+        Assert.True(AccountsFile.NeverAllowed(StandIn, " Owner "));
+        Assert.True(AccountsFile.NeverAllowed(StandIn, "x", "Owner", "Resident"));
+        Assert.True(AccountsFile.NeverAllowed(StandIn, "x", "Some", "OWNER"));
+        Assert.False(AccountsFile.NeverAllowed(StandIn, "tester1", "Test", "One"));
+        Assert.False(AccountsFile.NeverAllowed(StandIn, "owner2"));   // only the whole name
+        Assert.False(AccountsFile.NeverAllowed(StandIn, "x", "Owners", "Resident"));
+    }
+
+    [Fact]
+    public void The_shipped_check_has_a_digest_and_uses_it_by_default()
+    {
+        Assert.NotEmpty(AccountsFile.OwnerDigests);
+        Assert.All(AccountsFile.OwnerDigests, d => Assert.Matches("^[0-9a-f]{64}$", d));
         Assert.False(AccountsFile.NeverAllowed("tester1", "Test", "One"));
-        Assert.False(AccountsFile.NeverAllowed("legion2"));   // only the whole name
-        Assert.False(AccountsFile.NeverAllowed("x", "Legionnaire", "Resident"));
+        Assert.False(AccountsFile.NeverAllowed("owner"));   // the stand-in is not the shipped name
+    }
+
+    [HygieneWordsFact]
+    public void The_shipped_digest_is_the_owners_name_from_the_specific_words_list()
+    {
+        // the list's entries are names, a trailing * marking a prefix; the owner's name is one of them
+        var names = File.ReadAllLines(Environment.GetEnvironmentVariable(HygieneScanTests.WordsVariable)!)
+            .Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#') && !l.StartsWith("allow:", StringComparison.OrdinalIgnoreCase))
+            .Select(l => l.TrimEnd('*').Trim()).ToList();
+        foreach (string digest in AccountsFile.OwnerDigests)
+            Assert.Contains(names, n => AccountsFile.Digest(n) == digest);
+        var owner = names.First(n => AccountsFile.Digest(n) == AccountsFile.OwnerDigests[0]);
+        string accounts = Accounts((owner.ToLowerInvariant(), "Some", "Body"));
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, owner.ToLowerInvariant(), Pool(owner.ToLowerInvariant())));
+        Assert.Contains("never allowed for automation logins", ex.Message);
     }
 }
