@@ -37,7 +37,7 @@ The joltc blob is the same in the grid's job-pool teardown commit (`a8e918b3cf`)
 
 ## Re-pointing
 
-When the grid's Jolt work is ported to NGC develop, the pin and this source are re-pointed there (ADR-009).
+When the patched joltc is published upstream, the pin and this source are re-pointed there.
 
 ## Linux builds (linux-x64, linux-arm64): upstream, unpatched
 

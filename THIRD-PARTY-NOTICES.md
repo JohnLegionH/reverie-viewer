@@ -204,12 +204,22 @@ Package versions are pinned in `Directory.Packages.props` and the `packages.lock
   "Copyright (c) 2024-2026, Sjofn LLC"; the package metadata also names JJ2000 Partners (1999-2000), Jason S. Clary
   (2007-2012) and Anders Gustafsson, Cureos AB (2013-2018). Licence text: `ThirdPartyLicenses/LICENSE-CoreJ2K.txt`; the
   package also ships a `COPYRIGHT-JJ2000-5.1` notice, which must travel with any redistribution of CoreJ2K.
-- **Godot 4.7.2 and GodotSharp 4.7.2** (MIT): "Copyright (c) Godot Engine contributors" (package metadata). I can't
-  confirm the Godot licence text from the NuGet packages, which do not ship it. The Godot 4.7.2 .NET editor binary the
-  viewer is exported with carries it: "Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md)" and "Copyright (c) 2007-2014
-  Juan Linietsky, Ariel Manzur"; the text is in `ThirdPartyLicenses/LICENSE-Godot-4.7.2.txt`. The engine bundles further
+- **Godot Engine 4.7.2 and GodotSharp 4.7.2** (MIT, https://godotengine.org). From Godot's `LICENSE.txt` at tag
+  `4.7.2-stable`:
+  "Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md).
+  Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur."
+  The full licence text is in `ThirdPartyLicenses/LICENSE-Godot-4.7.2.txt`. The GodotSharp NuGet packages give
+  "Copyright (c) Godot Engine contributors" in their metadata and ship no licence file. The engine bundles further
   third-party components; their notices are compiled into the engine (`Engine.GetCopyrightInfo` and
   `Engine.GetLicenseInfo`), and the viewer's About window shows them under Licences, read from the running engine.
+  Three of them are compiled into Godot's standard export templates, which the viewer is exported with; their entries
+  below are quoted from Godot's `COPYRIGHT.txt` at tag `4.7.2-stable`, and the versions from its `thirdparty/README.md`.
+  The licence texts, quoted from the same `COPYRIGHT.txt`, are in `ThirdPartyLicenses/LICENSE-Godot-4.7.2-thirdparty.txt`.
+  - **FreeType 2.14.3** (FreeType License): "Copyright: 1996-2025, David Turner, Robert Wilhelm, and Werner Lemberg."
+    Portions of this software are copyright © 2026 The FreeType Project (https://freetype.org). All rights reserved.
+  - **ENet 1.3.18** (MIT, "Expat" in `COPYRIGHT.txt`): "Copyright: 2002-2024, Lee Salzman".
+  - **Mbed TLS 3.6.7** (Apache License 2.0): "Copyright: The Mbed TLS Contributors". The licence text is in
+    `ThirdPartyLicenses/LICENSE-Apache-2.0.txt`.
 - **JoltPhysicsSharp 2.19.1** (MIT): "Copyright (c) Amer Koleci and Contributors" (package metadata). The package does not
   ship a licence file; the same holder's MIT text is in `native/joltc/win-x64/LICENSE-joltc.txt`.
 - **JoltPhysics.Native 1.0.4** (MIT): the package ships `LICENSE.MIT.txt` (Jolt Physics, "Copyright 2021 Jorrit Rouwe"),
@@ -573,8 +583,7 @@ The manifests of `fixtures/materials`, `fixtures/meshes`, `fixtures/prims`, `fix
 "generated in this repo; no third-party content", so those meshes, textures and golden images are generated in this
 repository and no outside licence applies to them. `fixtures/primmesher` and `fixtures/sculpts` hold geometry generated
 from the BSD-licensed code above over synthetic input (their PROVENANCE.md files say so). `fixtures/colour`,
-`fixtures/environment` and `fixtures/orientation` have no manifest that states where they come from: I can't confirm
-their origin from the source. The avatar data folder is kept unchanged in this repository as
+`fixtures/environment` and `fixtures/orientation` have no manifest that states where they come from. The avatar data folder is kept unchanged in this repository as
 `vendor/second-life-character/` (with its `NOTICE.txt` and `UPSTREAM.md`), and the build copies it into the shipped build
 (see the next section).
 

@@ -1,7 +1,4 @@
 # Copyright (c) 2026 Legion Builds
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# Security problems: GitHub adds its own "Report a vulnerability" entry to the chooser (private vulnerability reporting is on).
 blank_issues_enabled: false
-contact_links:
-  - name: Report a security problem privately
-    url: https://github.com/JohnLegionH/reverie-viewer/security/advisories/new
-    about: Security problems go through GitHub's private vulnerability reporting, not a public issue.

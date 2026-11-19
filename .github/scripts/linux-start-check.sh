@@ -45,13 +45,13 @@ result install ok
 
 # ---- 2. unpack and look at what the package needs ----
 tar -xzf "/work/$PACKAGE.tar.gz" -C /work
-engine="/work/$PACKAGE/Reverie.x86_64"
+engine="/work/$PACKAGE/${ENGINE:-Reverie.x86_64}"   # ENGINE: Reverie.arm64 for the ARM64 package
 app="/work/$PACKAGE/reverie"
 [ -x "$engine" ] || { result unpack "no executable at $engine"; exit 1; }
 [ -x "$app" ] || { result unpack "no launcher at $app"; exit 1; }
 result unpack ok
 {
-    echo "== ldd Reverie.x86_64"; ldd "$engine"
+    echo "== ldd $(basename "$engine")"; ldd "$engine"
     find "/work/$PACKAGE" -name '*.so' -print | sort | while read -r so; do echo "== ldd $so"; ldd "$so"; done
 } > "$out/ldd.txt" 2>&1
 missing=$(grep -c 'not found' "$out/ldd.txt")

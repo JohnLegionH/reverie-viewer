@@ -8,7 +8,7 @@
 #
 # Files that draw nothing and are proven by other checks: the .NET suite (tests), running the live script (live checks).
 #pattern	areas
-^(Docs/|\.github/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|PRIVACY\.md$|BUILDING\.md$|THIRD-PARTY-NOTICES\.md$|ThirdPartyLicenses/|LICENSE$|\.gitignore$|\.gitattributes$)	none
+^(Docs/|\.github/|\.attribution-rulings\.tsv$|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|PRIVACY\.md$|BUILDING\.md$|THIRD-PARTY-NOTICES\.md$|ThirdPartyLicenses/|LICENSE$|\.gitignore$|\.gitattributes$)	none
 ^core/Viewer\.Core\.Tests/	none
 ^core/Viewer\.Core\.ArchFixture/	none
 \.uid$	none

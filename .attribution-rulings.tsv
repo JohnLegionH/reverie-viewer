@@ -1,0 +1,8 @@
+# Copyright (c) 2026 Legion Builds
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Recorded rulings on attribution-check findings: a removed copyright, licence or credit line that was reviewed and
+# found right to remove (its holders are still credited elsewhere). One tab-separated row per removed line, the line
+# exactly as it was. The check reads this file from the commit it checks.
+path	check	line	why
+THIRD-PARTY-NOTICES.md	C-REMOVED	- **Godot 4.7.2 and GodotSharp 4.7.2** (MIT): "Copyright (c) Godot Engine contributors" (package metadata). I can't	the Godot credit was reworded with every holder and year kept (the new wording quotes LICENSE.txt at 4.7.2-stable)
+THIRD-PARTY-NOTICES.md	C-REMOVED	  viewer is exported with carries it: "Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md)" and "Copyright (c) 2007-2014	the Godot credit was reworded with every holder and year kept (the new wording quotes LICENSE.txt at 4.7.2-stable)

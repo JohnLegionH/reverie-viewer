@@ -87,6 +87,17 @@ public class CheckSelectorTests
         Assert.Contains("login", s.FileAreas[file]);   // a panel also takes the interface area through the panels rule (a file takes every rule it matches)
     }
 
+    // The attribution rulings file is read by the attribution check only, never by the build or the viewer.
+    [Fact]
+    public void The_attribution_rulings_file_selects_no_render_case_and_no_smoke()
+    {
+        var s = Select(".attribution-rulings.tsv");
+        Assert.False(s.Full);
+        Assert.False(s.Smoke);
+        Assert.Null(s.Cases);
+        Assert.Empty(s.Unplaced);
+    }
+
     [Fact]
     public void A_none_file_beside_a_smoke_file_still_runs_the_smoke_and_none_alone_does_not()
     {
