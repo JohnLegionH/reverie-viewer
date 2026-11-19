@@ -140,6 +140,18 @@ public class ReverieLookFixTests
     }
 
     [Fact]
+    public void A_menu_that_fits_on_neither_side_is_held_to_the_room_on_its_side_so_it_scrolls_instead_of_covering_the_button()
+    {
+        var area = new PlacementRect(0, 0, 960, 600);
+        Assert.Equal(166, DropdownPlacement.Room(new PlacementRect(46, 436, 40, 26), 166, area));
+        Assert.Equal(600 - 126, DropdownPlacement.Room(new PlacementRect(46, 100, 40, 26), 700, area));
+        Assert.Equal(500, DropdownPlacement.Room(new PlacementRect(46, 500, 40, 26), 700, area));
+        string placer = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "Reverie", "DropdownPlacer.cs"));
+        Assert.Contains("DropdownPlacement.Room(", placer);
+        Assert.Contains("MaxSize", placer);
+    }
+
+    [Fact]
     public void Every_menu_button_and_select_opens_its_menu_through_the_placement()
     {
         string file = Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "Reverie", "DropdownPlacer.cs");

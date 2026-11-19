@@ -273,7 +273,7 @@ public static class ReverieStyle
         theme.SetStylebox("tabbar_background", Tabs, Face(C(r["surface.raised"]), C(r["border.control"]), bw, ReverieTheme.RadiusTrack, 2, 2));
         theme.SetStylebox("tab_selected", Tabs, Face(C(r["surface.selected.strong"]), rowSelectedBorder, rowBw, control, 12, 3));
         theme.SetStylebox("tab_unselected", Tabs, Face(clear, rowBorder, rowBw, control, 12, 3));
-        theme.SetStylebox("tab_hovered", Tabs, Face(hover, hover, 0, control, 12, 3));
+        theme.SetStylebox("tab_hovered", Tabs, Face(hover, rowBorder, rowBw, control, 12, 3));
         var tabFaded = clear;
         theme.SetStylebox("tab_disabled", Tabs, Face(tabFaded, tabFaded, 0, control, 12, 3));
         theme.SetStylebox("tab_focus", Tabs, FocusRing(r, control));

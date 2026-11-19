@@ -10,8 +10,9 @@ namespace Viewer.Godot;
 
 /// <summary>
 /// The Reverie look given to a window built with the classic theme: every control in it, and every control added to it later (rows
-/// made when a list fills), takes the Reverie component of its role (<see cref="ReverieRestyleRules"/>). Only the theme type
-/// variation changes: no control is made, moved or removed, and no text, state or handler is touched, so the window does what it did.
+/// made when a list fills), takes the Reverie component of its role (<see cref="ReverieRestyleRules"/>). The theme type variation
+/// changes, and a push button in a column is sized to its label (its horizontal size flag): no control is made, moved or removed, and
+/// no text, state or handler is touched, so the window does what it did.
 /// Main thread only.
 /// </summary>
 public static class ReverieRestyle

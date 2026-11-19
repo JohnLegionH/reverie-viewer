@@ -51,13 +51,18 @@ public static class DropdownPlacer
         var xf = button.GetScreenTransform();
         var size = button.Size * xf.Scale;
         var anchor = new PlacementRect((int)xf.Origin.X, (int)xf.Origin.Y, (int)size.X, (int)size.Y);
-        var menu = popup.GetContentsMinimumSize();
+        // the menu's size in the same units as the button's (a menu of its own window is drawn at its content scale)
+        var menu = popup.GetContentsMinimumSize() * (popup.IsEmbedded() ? 1f : popup.ContentScaleFactor);
         int width = (int)System.MathF.Max(menu.X, popup.Size.X);
         // an embedded menu stays inside the viewport that draws it; a menu of its own stays on the screen
         Rect2I area = popup.IsEmbedded()
             ? new Rect2I(Vector2I.Zero, (Vector2I)button.GetViewport().GetVisibleRect().Size)
             : DisplayServer.ScreenGetUsableRect(popup.CurrentScreen);
-        var (x, y) = DropdownPlacement.Place(anchor, width, (int)menu.Y, new PlacementRect(area.Position.X, area.Position.Y, area.Size.X, area.Size.Y));
+        var bounds = new PlacementRect(area.Position.X, area.Position.Y, area.Size.X, area.Size.Y);
+        var (x, y) = DropdownPlacement.Place(anchor, width, (int)menu.Y, bounds);
         popup.Position = new Vector2I(x, y);
+        // a menu that fits on neither side scrolls within the room it has, so the engine never slides it over the button
+        int room = DropdownPlacement.Room(anchor, (int)menu.Y, bounds);
+        popup.MaxSize = room < (int)menu.Y ? new Vector2I(0, room) : Vector2I.Zero;
     }
 }

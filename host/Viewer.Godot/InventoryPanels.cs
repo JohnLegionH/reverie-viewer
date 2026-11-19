@@ -422,7 +422,7 @@ public partial class InventoryPanel : VBoxContainer
         AddChild(top);
 
         // All items / Recent items: the segmented control (one tab style for switching views within a window), the tabs on a track
-        Tabs = new TabBar { Name = "tabs", ThemeTypeVariation = ReverieStyle.TabBar };
+        Tabs = new TabBar { Name = "tabs", ThemeTypeVariation = ReverieStyle.TabBar, ClipTabs = false };   // unclipped, so the track is as wide as the tabs
         Tabs.AccessibilityName = strings.Get("inventory.tabs");
         Tabs.AddTab(strings.Get("inventory.tab.all"));
         Tabs.AddTab(strings.Get("inventory.tab.recent"));

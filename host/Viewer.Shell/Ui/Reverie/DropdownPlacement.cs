@@ -29,4 +29,15 @@ public static class DropdownPlacement
         int x = Math.Max(area.X, Math.Min(anchor.X, area.Right - menuWidth));
         return (x, y);
     }
+
+    /// <summary>The height the menu has on the side <see cref="Place"/> picks: the whole menu when it fits, else the room on that side
+    /// (the menu then scrolls instead of being pushed over its button).</summary>
+    public static int Room(PlacementRect anchor, int menuHeight, PlacementRect area)
+    {
+        int roomBelow = area.Bottom - anchor.Bottom;
+        int roomAbove = anchor.Y - area.Y;
+        if (menuHeight <= roomBelow || menuHeight <= roomAbove)
+            return menuHeight;
+        return Math.Max(roomBelow, roomAbove);
+    }
 }
