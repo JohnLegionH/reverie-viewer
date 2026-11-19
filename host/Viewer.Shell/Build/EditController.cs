@@ -27,6 +27,7 @@ public sealed partial class EditController
 {
     private readonly WorldState _world;
     private readonly Func<ActionIntent, ActionResult> _submit;
+    private readonly Func<long> _clock;   // milliseconds; the handles' hold after a drag runs on it
     private readonly Func<EditLimits> _limits;
     private readonly Func<float, float, float>? _ground;
     private readonly Func<IReadOnlyList<RegionArea>>? _regions;
@@ -39,8 +40,9 @@ public sealed partial class EditController
     /// <param name="regions">The regions the viewer knows, relative to the agent's own (a typed position must lie in one); the agent's region
     /// alone when not given.</param>
     public EditController(WorldState world, Func<ActionIntent, ActionResult> submit, Func<EditLimits>? limits = null, Func<float, float, float>? ground = null,
-        Func<IReadOnlyList<RegionArea>>? regions = null)
+        Func<IReadOnlyList<RegionArea>>? regions = null, Func<long>? clock = null)
     {
+        _clock = clock ?? (() => Environment.TickCount64);
         _world = world;
         _submit = submit;
         _limits = limits ?? (() => EditLimits.Official);
@@ -412,22 +414,54 @@ public sealed partial class EditController
         if (starts.Count == 0)
             return false;
         _manip = starts;
+        _held = null;
         _manipPivot = Pivot ?? starts[0].Position;
         _manipCentre = _manipPivot;
         _manipSize = _manipStartSize = HandleSize;
         return true;
     }
 
-    public void EndManip() => _manip = null;
+    /// <summary>Ends a handle drag. The handles stay where the drag left the selection (<see cref="ManipCentre"/>, <see cref="ManipSize"/>)
+    /// until the region's own update of the objects arrives, or <see cref="HoldMilliseconds"/> pass: the region answers a move a moment
+    /// later, and until then the world still holds the old place, so the handles would jump back to it.</summary>
+    public void EndManip()
+    {
+        if (_manip is not null)
+        {
+            _held = (_manipCentre, _manipSize, _clock() + HoldMilliseconds);
+        }
+        _manip = null;
+    }
+
+    /// <summary>How long after a drag the handles wait for the region's update of the moved objects (the region may refuse the move).</summary>
+    public const long HoldMilliseconds = 2000;
 
     private Vector3 _manipCentre, _manipSize, _manipStartSize;
+    private (Vector3 Centre, Vector3 Size, long Until)? _held;
+
+    /// <summary>The kept place of the handles after a drag, while it still stands: until the world's selection has reached it (the region's
+    /// update arrived: the same centre and box within a centimetre), the time runs out, the selection is empty, or a new drag starts.</summary>
+    private (Vector3 Centre, Vector3 Size)? Held()
+    {
+        if (_held is not { } h)
+            return null;
+        if (_clock() > h.Until || _selection.Count == 0 || Pivot is not { } now
+            || (Vector3.Distance(now, h.Centre) <= 0.01f && Vector3.Distance(HandleSize, h.Size) <= 0.01f))
+        {
+            _held = null;
+            return null;
+        }
+        return (h.Centre, h.Size);
+    }
 
     /// <summary>While a handle is dragged, the selection's centre as the drag's latest step put it, so the handles move with the
-    /// selection as the official manipulators do (they are drawn at the selection's box, which each drag step updates); null otherwise.</summary>
-    public Vector3? ManipCentre => _manip is null ? null : _manipCentre;
+    /// selection as the official manipulators do (they are drawn at the selection's box, which each drag step updates); after the drag
+    /// the same place, until the region's update arrives (<see cref="EndManip"/>); null otherwise.</summary>
+    public Vector3? ManipCentre => _manip is null ? Held()?.Centre : _manipCentre;
 
-    /// <summary>While a handle is dragged, the Stretch box's size as the drag's latest step made it; null otherwise.</summary>
-    public Vector3? ManipSize => _manip is null ? null : _manipSize;
+    /// <summary>While a handle is dragged, the Stretch box's size as the drag's latest step made it (and after it, until the region's update
+    /// arrives); null otherwise.</summary>
+    public Vector3? ManipSize => _manip is null ? Held()?.Size : _manipSize;
 
     /// <summary>A Move handle's drag: every object moves by <paramref name="delta"/> from where it began; with snapping on, the selection's centre
     /// lands on the grid along the axes being moved (the grid's own axes).</summary>

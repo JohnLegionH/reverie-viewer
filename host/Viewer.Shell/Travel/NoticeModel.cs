@@ -47,6 +47,10 @@ public sealed class NoticeModel
     /// <summary>Raised when anything shown changed.</summary>
     public event Action? Changed;
 
+    /// <summary>Raised with the grid's words when it confirms that a notecard or script was saved or updated: the editors show them in their
+    /// status line, and no notice is made.</summary>
+    public event Action<string>? AssetSaved;
+
     /// <summary>Raised for the grid's region-restart warning, known by its notification id (RegionRestartMinutes or RegionRestartSeconds),
     /// the alert the official viewer plays its restart sound for, and for OpenSim's warning sent as plain text without that id.</summary>
     public event Action? RestartWarned;
@@ -83,6 +87,11 @@ public sealed class NoticeModel
             || (a.Text ?? "").Contains("Cannot enter parcel", StringComparison.Ordinal))
             BanLines.Denied(_clock());   // the official viewer starts its ban lines on this text or on the matching notifications
         string text = ServerAlerts.Words(a.Text ?? "");   // the region server's leading slash is not part of the words
+        if (kind == AlertKind.AssetSaved)
+        {
+            AssetSaved?.Invoke(text);   // the editor's status line shows it; no pop-up
+            return;
+        }
         Notice? notice = kind switch
         {
             AlertKind.HomeSet => new("notice.home.set", null, kind, NoticeSeverity.Tip),

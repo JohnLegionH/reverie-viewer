@@ -74,7 +74,7 @@ public class BuildLayoutTests
     public void Placement_look_and_object_are_open_the_first_time()
     {
         var memory = new BuildSectionMemory(new SettingsService(new MemoryStore()));
-        Assert.Equal([true, false, true, true, false, false], BuildLayout.Sections.Select(memory.IsOpen).ToArray());
+        Assert.Equal([false, true, false, true, true, false], BuildLayout.Sections.Select(memory.IsOpen).ToArray());   // Contents, Placement, Shape, Look, Object, Behaviour
     }
 
     [Fact]

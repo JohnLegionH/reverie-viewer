@@ -80,8 +80,32 @@ public sealed class EditContentTab
         _list.Accepts = ids => ids.Count > 0 && _edit()?.Object() is not null;
         _list.Dropped += Drop;
         _list.DragOut = DragOut;
-        _list.ItemActivated += i => { if (i < _rows.Count) OpenRequested?.Invoke(_rows[(int)i]); };
-        _list.ItemClicked += (index, at, button) => { if (button == (long)MouseButton.Right && index < _rows.Count) ShowMenu((int)index, at); };
+        _list.SelectMode = ItemList.SelectModeEnum.Multi;   // Ctrl-click and Shift-click choose several rows
+        _list.ItemActivated += i => { if (i < _rows.Count) OpenRow(_rows[(int)i]); };
+        _list.ItemClicked += (index, at, button) =>
+        {
+            if (index >= _rows.Count)
+                return;
+            if (button == (long)MouseButton.Right)
+                ShowMenu((int)index, at);
+            else if (button == (long)MouseButton.Left && _pair.Click(_rows[(int)index]))
+                OpenRow(_rows[(int)index]);   // a double-click the engine did not see (the list was drawn again between the two clicks)
+        };
+        _list.GuiInput += e =>
+        {
+            if (e is not InputEventKey { Pressed: true, Echo: false } key)
+                return;
+            if (key.Keycode == Key.Delete)
+            {
+                DeleteChosen();   // the Delete key removes the chosen items, as the official folder view's does
+                _list.AcceptEvent();
+            }
+            else if (key.Keycode == Key.F2 && Chosen() is { } renaming && ItemOf(renaming) is { } item && TaskItemRules.CanRename(item, _agent()))
+            {
+                ShowProperties(renaming, true);   // F2 renames the chosen item
+                _list.AcceptEvent();
+            }
+        };
         page.AddChild(_list);
         _menu = new PopupMenu { Name = "content_menu" };
         _menu.IdPressed += MenuChosen;
@@ -151,6 +175,28 @@ public sealed class EditContentTab
     }
 
     private Guid? Chosen() => _list.GetSelectedItems() is [var i, ..] && i < _rows.Count ? _rows[i] : null;
+
+    /// <summary>Every chosen row (Ctrl-click and Shift-click choose several).</summary>
+    private List<Guid> ChosenAll() => _list.GetSelectedItems().Where(i => i < _rows.Count).Select(i => _rows[i]).ToList();
+
+    private readonly Viewer.Shell.Inventory.DoubleClickTracker _pair = new(() => (long)Time.GetTicksMsec());
+    private ulong _openedAt;
+
+    /// <summary>Open on a row, once for one double-click (the engine's own and the tracker's can both see it).</summary>
+    private void OpenRow(Guid id)
+    {
+        if (Time.GetTicksMsec() - _openedAt < 400)
+            return;
+        _openedAt = Time.GetTicksMsec();
+        OpenRequested?.Invoke(id);
+    }
+
+    /// <summary>The Delete key: each chosen item goes as the Delete button sends it (an object the agent may not change keeps its contents).</summary>
+    private void DeleteChosen()
+    {
+        foreach (var id in ChosenAll())
+            Delete(id);
+    }
 
     private TaskItem? ItemOf(Guid id) => _edit()?.ContentItem(id);
 

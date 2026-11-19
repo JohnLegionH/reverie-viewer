@@ -8,8 +8,8 @@ namespace Viewer.Shell.Build;
 
 /// <summary>The Build window's collapsible sections, top to bottom. They replace the official floater's tabs (General, Object, Features,
 /// Texture, Content; floater_tools.xml): Placement and Shape hold the Object tab, Look the Texture tab, Object the General tab, Behaviour
-/// the Features tab and Contents the Content tab.</summary>
-public enum BuildSection { Placement, Shape, Look, Object, Behaviour, Contents }
+/// the Features tab and Contents the Content tab. Contents comes first: it was last, below every other section, and had to be scrolled to.</summary>
+public enum BuildSection { Contents, Placement, Shape, Look, Object, Behaviour }
 
 /// <summary>One row of the Build window: the control's name, the section it sits in (null: the tool rows at the top), the string key of
 /// its label, and other names people search for it by (the official viewer's names where they differ from ours).</summary>
@@ -36,6 +36,10 @@ public static class BuildLayout
 
     /// <summary>The sections open the first time the window is shown (the ones a builder reaches for most).</summary>
     public static IReadOnlyList<BuildSection> OpenByDefault { get; } = [BuildSection.Placement, BuildSection.Look, BuildSection.Object];
+
+    /// <summary>Whether the Contents section opens by itself for a selected object: when the object holds something (the count is null while
+    /// its contents are not known yet). The person's own open or closed choice for the section is kept apart from this.</summary>
+    public static bool ContentsOpenFor(int? contentCount) => contentCount is > 0;
 
     /// <summary>The string key of a section's title.</summary>
     public static string TitleKey(BuildSection s) => "edit.section." + s.ToString().ToLowerInvariant();

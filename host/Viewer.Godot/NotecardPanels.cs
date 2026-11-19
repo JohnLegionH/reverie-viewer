@@ -55,6 +55,14 @@ public sealed class NotecardFeature
     public IReadOnlyList<Guid> Open => _set.Open;
 
     /// <summary>The window showing an item, for the development automation.</summary>
+    /// <summary>Shows the grid's confirmation of a save in the status line of every open notecard window.</summary>
+    public void SayStatus(string text)
+    {
+        foreach (var p in _panels)
+            if (p is not null && p.IsVisibleInTree())
+                p.StatusLabel.Text = text;
+    }
+
     public NotecardPanel? PanelOf(Guid itemId) => _slotOf.TryGetValue(itemId, out int slot) ? _panels[slot] : null;
 
     /// <summary>The window in front, or null.</summary>

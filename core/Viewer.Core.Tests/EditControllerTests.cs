@@ -455,7 +455,7 @@ public class EditControllerTests
         Assert.True(r.C.ManipMove(new Vector3(1.2f, 0, 0)));          // snapped: 11.2 lands on 11.0
         Near(new Vector3(11, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
         r.C.EndManip();
-        Assert.Null(r.C.ManipCentre);
+        Near(new Vector3(11, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));   // after the drag the handles stay put until the region answers (the world here never does)
 
         Assert.True(r.C.BeginManip());
         Assert.True(r.C.ManipScaleFace(0, 1, 3));                       // the +x face out to 3 m: the middle moves 1 m along x
@@ -464,7 +464,7 @@ public class EditControllerTests
         Assert.True(r.C.ManipRotate(Vector3.UnitZ, 45));               // a turn about the centre leaves it where it is
         Near(new Vector3(10, 10, 30), r.C.ManipCentre ?? new Vector3(float.NaN));
         r.C.EndManip();
-        Assert.Null(r.C.ManipSize);
+        Near(new Vector3(3, 1, 1), r.C.ManipSize ?? new Vector3(float.NaN));      // held the same way, until the region's update of the box arrives
     }
 
     [Fact]

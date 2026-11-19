@@ -76,6 +76,14 @@ public sealed class ScriptEditorFeature
 
     /// <summary>Closes the window of a script inside an object, unsaved changes and all (the script was deleted; llpanelobjectinventory.cpp
     /// LLTaskLSLBridge::removeItem hides its editor).</summary>
+    /// <summary>Shows the grid's confirmation of a save in the status line of every open script window.</summary>
+    public void SayStatus(string text)
+    {
+        foreach (var p in _panels)
+            if (p is not null && p.IsVisibleInTree())
+                p.StatusLabel.Text = text;
+    }
+
     public void CloseItem(Guid objectId, Guid itemId)
     {
         if (SlotOf((objectId, itemId)) is int open)

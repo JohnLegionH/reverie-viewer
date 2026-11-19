@@ -71,8 +71,9 @@ public partial class Main
             return false;
         if (!e.Selection.Any(l => e.Access(l).CanPlace))
             return false;
-        centre = pivot;
-        size = e.HandleSize;
+        // after a drag the handles stay where it left the selection until the region's own update arrives (EditController.EndManip)
+        centre = e.ManipCentre ?? pivot;
+        size = e.ManipSize ?? e.HandleSize;
         if (mode == ManipMode.Scale)
         {
             if (e.Selection.Count == 1 && e.Object() is { } o && ObjectPicker.WorldPose(s.World, o, out _, out var turn))
