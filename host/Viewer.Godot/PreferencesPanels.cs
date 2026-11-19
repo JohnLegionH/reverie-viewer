@@ -176,7 +176,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
             foreach (var colour in new[] { look.Panel.Opaque(), look.Bar, look.Accent })
                 swatches.AddChild(new ColorRect { CustomMinimumSize = new Vector2(24, 14), Color = ShellTheme.C(colour), MouseFilter = MouseFilterEnum.Ignore });
             card.AddChild(swatches);
-            var button = new Button { Name = "preset_" + id, Text = ThemePresets.NameOf(id), ToggleMode = true };
+            var button = new Button { Name = "preset_" + id, Text = ThemePresets.NameOf(id), ToggleMode = true, ThemeTypeVariation = ReverieStyle.Segment };
             button.AccessibilityName = ThemePresets.NameOf(id);
             string preset = id;
             button.Pressed += () => { if (!_syncing) _page.SelectPreset(preset); else button.SetPressedNoSignal(true); };
@@ -184,7 +184,10 @@ public sealed partial class PreferencesPanel : VBoxContainer
             _cards[id] = button;
             cards.AddChild(card);
         }
-        box.AddChild(cards);
+        // picking one preset is the segmented control: the presets are its segments on one track (the swatches above each)
+        var presetsTrack = new PanelContainer { Name = "presets_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+        presetsTrack.AddChild(cards);
+        box.AddChild(presetsTrack);
 
         // accent
         box.AddChild(Heading(strings.Get("prefs.accent.heading")));
@@ -573,7 +576,10 @@ public sealed partial class PreferencesPanel : VBoxContainer
         _syncing = true;
         var t = _page.Tokens;
         foreach (var (id, button) in _cards)
+        {
             button.SetPressedNoSignal(_page.Working.Preset == id);
+            button.ThemeTypeVariation = _page.Working.Preset == id ? ReverieStyle.SegmentSelected : ReverieStyle.Segment;
+        }
         _scale.Value = _page.EffectiveScale;
         _scaleValue.Text = _strings.Get("prefs.scale.value", _page.EffectiveScale);
         _gridAccent.ButtonPressed = _page.Working.UseGridAccent;

@@ -111,7 +111,7 @@ public partial class TestRender
     /// The notecard editor with an example card holding an embedded landmark: "notecard", the user's own card, editable, with the caret at
     /// the end; "notecard-readonly", someone else's card that may be copied but not modified (Save hidden, "Read only" shown). No session or grid.
     /// </summary>
-    private static void ExampleNotecard(ShellRoot shell, bool readOnly)
+    private static NotecardPanel? ExampleNotecard(ShellRoot shell, bool readOnly)
     {
         static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         const uint full = 0x7fffffff;
@@ -133,6 +133,7 @@ public partial class TestRender
             panel.Editor.SetCaretLine(panel.Editor.GetLineCount() - 1);
             panel.Editor.SetCaretColumn(panel.Editor.GetLine(panel.Editor.GetLineCount() - 1).Length);
         }
+        return panel;
     }
 
     /// <summary>The gesture editor with an example gesture: a trigger and its replacement, Shift+F2, and five steps (an animation started,
@@ -248,6 +249,7 @@ public partial class TestRender
 
         string open = "";
         LoginScreen? loginShown = null;
+        NotecardPanel? notecardShown = null;
         InventoryPanel? newMenuOf = null;
         switch (scene)
         {
@@ -272,7 +274,7 @@ public partial class TestRender
                 break;
             case "notecard":
             case "notecard-readonly":
-                ExampleNotecard(shell, scene == "notecard-readonly");
+                notecardShown = ExampleNotecard(shell, scene == "notecard-readonly");
                 break;
             case "gesture":
                 ExampleGesture(shell, strings);
@@ -372,6 +374,25 @@ public partial class TestRender
             _result["password_room"] = new { textEnd, eyeStart };
             if (textEnd > eyeStart + 0.5f)
                 _failures.Add($"the password field's text runs under its show button: text to {textEnd:F1}, button from {eyeStart:F1}");
+        }
+        if (notecardShown is not null)
+        {
+            // every embedded item's link covers its whole name: each run the overlay draws is at least as wide as its text in the editor's font
+            var editor = notecardShown.Editor;
+            var font = editor.GetThemeFont("font");
+            int size = editor.GetThemeFontSize("font_size");
+            var runs = editor.LinkRuns();
+            var found = new List<object>();
+            foreach (var run in runs)
+            {
+                float textWidth = font.GetStringSize(run.Text, HorizontalAlignment.Left, -1, size).X;
+                found.Add(new { text = run.Text, x = run.Row.Position.X, width = run.Row.Size.X, textWidth });
+                if (run.Row.Size.X + 0.5f < textWidth)
+                    _failures.Add($"the link over \"{run.Text}\" is {run.Row.Size.X:F1} px wide, its text {textWidth:F1} px: the name's end is not covered");
+            }
+            _result["item_links"] = found;
+            if (runs.Count == 0)
+                _failures.Add("the notecard shows no embedded item link");
         }
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);

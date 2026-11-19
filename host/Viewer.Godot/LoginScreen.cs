@@ -203,6 +203,10 @@ public partial class LoginScreen : Control
         ticks.AddThemeConstantOverride("separation", 16);
         _remember = Register(new CheckBox { Text = strings.Get("login.remember") }, Spec("remember"));
         _rememberPassword = Register(new CheckBox { Text = strings.Get("login.remember_password") }, Spec("remember_password"));
+        // plain tick boxes with their labels, as the official viewer and Firestorm draw their login options: the check box look of
+        // the restyled windows (no bar around the row; dimmed when off limits), which follows every theme preset, high contrast included
+        _remember.ThemeTypeVariation = ReverieStyle.Check;
+        _rememberPassword.ThemeTypeVariation = ReverieStyle.Check;
         ticks.AddChild(_remember);
         ticks.AddChild(_rememberPassword);
         box.AddChild(ticks);
@@ -213,6 +217,10 @@ public partial class LoginScreen : Control
         Field(Spec("start"));
         _start = Register(new RvSegmented(strings.Get("login.start.label"),
             [strings.Get("login.start.last"), strings.Get("login.start.home"), strings.Get("login.start.region")]), Spec("start"));
+        // the same segmented control as the windows' view switches (Inventory's tabs): its track as wide as its segments, the segments
+        // as tall as their label
+        _start.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        RvSegmented.Compact(_start);
         box.AddChild(_start);
         _startRegion = Register(new LineEdit { PlaceholderText = strings.Get(Spec("start_region").HintKey!), Visible = false, CustomMinimumSize = new Vector2(CardWidth - 40, 0) }, Spec("start_region"));
         box.AddChild(_startRegion);

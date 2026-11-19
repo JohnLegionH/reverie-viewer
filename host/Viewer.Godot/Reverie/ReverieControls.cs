@@ -208,6 +208,13 @@ public partial class RvSegmented : PanelContainer
 
     public IReadOnlyList<Button> Segments => _segments;
 
+    /// <summary>Segments as tall as their label, as a tab bar's tabs on their track are (the windows' view switches).</summary>
+    public static void Compact(RvSegmented segmented)
+    {
+        foreach (var b in segmented._segments)
+            b.CustomMinimumSize = Vector2.Zero;
+    }
+
     public void Select(int index)
     {
         _selected = Math.Clamp(index, 0, _segments.Count - 1);

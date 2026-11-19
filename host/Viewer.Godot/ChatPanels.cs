@@ -226,6 +226,7 @@ public partial class ConversationsPanel : VBoxContainer
 
     // the answer to the last friendship offer from this panel (shown when the conversation has no status of its own)
     private string _offerNote = "";
+    private readonly PanelContainer _tabsTrack;
 
     public ConversationsPanel(StringTable strings, SettingsService settings, FloaterManager floaters, string floaterId)
     {
@@ -234,10 +235,14 @@ public partial class ConversationsPanel : VBoxContainer
         _floaters = floaters;
         _floaterId = floaterId;
         Name = "conversations_panel";
-        Tabs = new TabBar { Name = "tabs", ClipTabs = true };
+        // switching conversations is the segmented control on its track, as Inventory's tabs are; the track spans the window so many
+        // conversations clip instead of widening it
+        Tabs = new TabBar { Name = "tabs", ClipTabs = true, ThemeTypeVariation = ReverieStyle.TabBar };
         Tabs.AccessibilityName = strings.Get("im.tabs");
         Tabs.TabChanged += i => { if (!_syncingTabs && _hub is not null && i >= 0 && i < _hub.Ims.Open.Count) _hub.Ims.Activate(_hub.Ims.Open[(int)i].SessionId); };
-        AddChild(Tabs);
+        _tabsTrack = new PanelContainer { Name = "tabs_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _tabsTrack.AddChild(Tabs);
+        AddChild(_tabsTrack);
         EmptyNote = ChatFeature.Note("empty", strings.Get("im.none"), _theme);
         EmptyNote.Text = strings.Get("im.none");
         AddChild(EmptyNote);
@@ -376,6 +381,7 @@ public partial class ConversationsPanel : VBoxContainer
         bool any = active is not null;
         EmptyNote.Visible = !any;
         Tabs.Visible = any;
+        _tabsTrack.Visible = any;
         Input.Editable = any;
         SendButton.Disabled = !any;
         CloseButton.Disabled = !any;

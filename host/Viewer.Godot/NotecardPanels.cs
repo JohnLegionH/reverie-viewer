@@ -253,6 +253,10 @@ public partial class NotecardTextEdit : TextEdit
     private string TooltipAt(Vector2 position) =>
         SpanAt(position) is { } s ? (string.IsNullOrEmpty(s.Item.Description) ? s.Item.Name : s.Item.Name + "\n" + s.Item.Description) : "";
 
+    /// <summary>One screen row of an embedded item's name as the overlay draws it: the row's rectangle, the text on it and where it lies
+    /// in the editor's text.</summary>
+    public readonly record struct LinkRun(Rect2 Row, string Text, int Start, int End);
+
     private void DrawItemLinks()
     {
         if (Items is null)
@@ -261,7 +265,6 @@ public partial class NotecardTextEdit : TextEdit
         int size = GetThemeFontSize("font_size");
         var link = ShellTheme.C(UiTheme.Tokens.Accent);
         var cover = GetThemeStylebox(Editable ? "normal" : "read_only") is StyleBoxFlat box ? box.BgColor : (Color?)null;
-        // the text is read once per draw and walked forward once (the spans come in text order), so a long card costs one pass
         string text = Text;
         int caret = NotecardEditBuffer.IndexOf(text, GetCaretLine(), GetCaretColumn());
         int selFrom = -1, selTo = -1;
@@ -270,6 +273,35 @@ public partial class NotecardTextEdit : TextEdit
             selFrom = NotecardEditBuffer.IndexOf(text, GetSelectionFromLine(), GetSelectionFromColumn());
             selTo = NotecardEditBuffer.IndexOf(text, GetSelectionToLine(), GetSelectionToColumn());
         }
+        foreach (var run in LinkRuns(text))
+        {
+            var row = run.Row;
+            bool selected = selFrom >= 0 && selFrom < run.End && selTo > run.Start;
+            // the caret on this run's edge or inside it stays visible: the run keeps the text box's own drawing, underlined
+            bool caretHere = caret >= run.Start - 1 && caret <= run.End + 1;
+            if (cover is { } bg && font is not null && !selected && !caretHere)
+            {
+                _links.DrawRect(row, bg);
+                float baseline = row.Position.Y + (row.Size.Y - font.GetHeight(size)) / 2 + font.GetAscent(size);
+                _links.DrawString(font, new Vector2(row.Position.X, baseline), run.Text, HorizontalAlignment.Left, -1, size, link);
+            }
+            float under = row.End.Y - 2;
+            _links.DrawLine(new Vector2(row.Position.X, under), new Vector2(row.End.X, under), link, 1);
+        }
+    }
+
+    /// <summary>Where the overlay draws each embedded item's name, one run per screen row (a long name can wrap); runs scrolled out
+    /// of view are left out.</summary>
+    public List<LinkRun> LinkRuns() => LinkRuns(Text);
+
+    private List<LinkRun> LinkRuns(string text)
+    {
+        var runs = new List<LinkRun>();
+        if (Items is null)
+            return runs;
+        var font = GetThemeFont("font");
+        int size = GetThemeFontSize("font_size");
+        // the text is walked forward once (the spans come in text order), so a long card costs one pass
         int at = 0, line = 0, column = 0;
         void WalkTo(int target)
         {
@@ -304,22 +336,16 @@ public partial class NotecardTextEdit : TextEdit
                 i = next;
                 if (first.Position.X < 0 || first.Position.Y < 0)
                     continue;   // scrolled out of view
-                var row = new Rect2(first.Position, new Vector2(last.End.X - first.Position.X, first.Size.Y));
-                bool selected = selFrom >= 0 && selFrom < next && selTo > runStart;
-                // the caret on this run's edge or inside it stays visible: the run keeps the text box's own drawing, underlined
-                bool caretHere = caret >= runStart - 1 && caret <= next + 1;
-                if (cover is { } bg && font is not null && !selected && !caretHere)
-                {
-                    DrawRect(row, bg);
-                    float baseline = row.Position.Y + (row.Size.Y - font.GetHeight(size)) / 2 + font.GetAscent(size);
-                    _links.DrawString(font, new Vector2(row.Position.X, baseline), text[runStart..next], HorizontalAlignment.Left, -1, size, link);
-                }
-                float under = row.End.Y - 2;
-                _links.DrawLine(new Vector2(row.Position.X, under), new Vector2(row.End.X, under), link, 1);
+                // the run is as wide as its text drawn in the editor's font: the engine's rectangles for the name's characters can end
+                // short of it, which left the name's last character outside the link
+                float width = last.End.X - first.Position.X;
+                if (font is not null)
+                    width = Math.Max(width, font.GetStringSize(text[runStart..next], HorizontalAlignment.Left, -1, size).X);
+                var row = new Rect2(first.Position, new Vector2(width, first.Size.Y));
+                runs.Add(new LinkRun(row, text[runStart..next], runStart, next));
             }
         }
-
-        void DrawRect(Rect2 r, Color c) => _links.DrawRect(r, c);
+        return runs;
     }
 
     // the text box counts columns in characters, the text's offsets are UTF-16 units: an emoji is one column and two units
