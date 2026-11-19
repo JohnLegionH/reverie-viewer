@@ -44,7 +44,7 @@ public class PreferenceCatalogTests
         new("clouds_enabled", PrefPage.Graphics, PrefKind.Switch, Live, PrefScope.Global, true),
         new("neighbours", PrefPage.Graphics, PrefKind.Switch, Next, PrefScope.Global, true),
         new("graphics_backend", PrefPage.Graphics, PrefKind.Choice, Restart, PrefScope.Global, "auto"),
-        new("window_mode", PrefPage.Graphics, PrefKind.Choice, Live, PrefScope.Global, "windowed"),
+        new("window_mode", PrefPage.Graphics, PrefKind.Choice, Live, PrefScope.Global, "fullscreen"),
 
         new("audio_level_master", PrefPage.Sound, PrefKind.Real, Live, PrefScope.Global, 1.0, 0, 1),
         new("audio_mute_master", PrefPage.Sound, PrefKind.Switch, Live, PrefScope.Global, false),

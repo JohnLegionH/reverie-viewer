@@ -217,7 +217,7 @@ public class PreferenceLogicTests
     [InlineData("borderless", false, true)]
     [InlineData("fullscreen", true, false)]
     [InlineData("nonsense", false, false)]
-    [InlineData(null, false, false)]
+    [InlineData(null, true, false)]
     public void Each_window_mode_asks_for_the_right_window(string? mode, bool fullscreen, bool borderless)
     {
         Assert.Equal(new DisplayPlan(fullscreen, borderless), DisplayPlan.For(mode));

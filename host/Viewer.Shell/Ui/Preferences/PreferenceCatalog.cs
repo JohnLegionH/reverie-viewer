@@ -42,7 +42,7 @@ public static class PreferenceCatalog
         P(Settings.CloudsEnabled, PrefPage.Graphics, PrefApply.Live),
         P(Settings.NeighbourRegions, PrefPage.Graphics, PrefApply.NextUse),
         new TextPref(Settings.GraphicsBackendKey, PrefPage.Graphics, PrefApply.Restart, "auto", Backends),
-        new TextPref(Settings.WindowModeKey, PrefPage.Graphics, PrefApply.Live, "windowed", WindowModes),
+        new TextPref(Settings.WindowModeKey, PrefPage.Graphics, PrefApply.Live, "fullscreen", WindowModes),
 
         // Sound (the interface sounds; each sound's own source, level and switch are listed under these, see PreferencesModel)
         // the levels over everything, object sounds in the world, and ambient sounds (footsteps), as the official Sound & Media page

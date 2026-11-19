@@ -10,10 +10,10 @@ public readonly record struct DisplayPlan(bool Fullscreen, bool Borderless)
     /// system's own fullscreen already does).</summary>
     public bool FillsScreen => Borderless;
 
-    /// <summary>The plan for a saved window mode (windowed for anything unknown).</summary>
+    /// <summary>The plan for a saved window mode: fullscreen when none is saved (a normal launch opens full screen), windowed for an unknown one.</summary>
     public static DisplayPlan For(string? mode) => mode switch
     {
-        "fullscreen" => new DisplayPlan(true, false),
+        null or "fullscreen" => new DisplayPlan(true, false),
         "borderless" => new DisplayPlan(false, true),
         _ => new DisplayPlan(false, false),
     };
