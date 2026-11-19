@@ -90,6 +90,21 @@ public class NotecardEditingTests
     }
 
     [Fact]
+    public void Several_items_dropped_together_are_kept_apart_by_a_space_and_the_caret_ends_after_the_last()
+    {
+        var buffer = new NotecardEditBuffer(null);
+        var a = Item(0, Box, "Box", ItemKind.Object, 6);
+        var b = Item(1, Other, "Hat", ItemKind.Object, 6);
+        var (shown, caret) = buffer.InsertAll("xy", 1, [a, b]);
+        Assert.Equal("x" + M + "Box" + M + " " + M + "Hat" + M + "y", shown);
+        Assert.Equal(shown.IndexOf("y", StringComparison.Ordinal), caret);
+        var (single, _) = buffer.InsertAll("xy", 1, [a]);
+        Assert.Equal("x" + M + "Box" + M + "y", single);   // one item alone gets no extra space
+        var (spaced, _) = buffer.InsertAll("x y", 2, [a, b]);
+        Assert.Equal("x " + M + "Box" + M + " " + M + "Hat" + M + "y", spaced);
+    }
+
+    [Fact]
     public void An_item_inserted_into_the_text_is_written_into_the_file_as_an_embedded_item()
     {
         var buffer = new NotecardEditBuffer(null);

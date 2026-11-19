@@ -682,17 +682,15 @@ public partial class NotecardPanel : VBoxContainer
         if (NotecardEditBuffer.TokenSpanAt(text, put) is { } inside && put < inside.Start + inside.Length)
             put = inside.Start + inside.Length;
         int refused = 0;
+        var accepted = new List<NotecardEmbeddedItem>();
         foreach (var id in ids)
         {
             if (_saves.EmbeddableItem(id) is not { } item || !NotecardEditRules.CanEmbed(item.Kind, item.Permissions.NextOwnerMask))
-            {
                 refused++;
-                continue;
-            }
-            string next = s.Buffer.Insert(text, put, item);
-            put += next.Length - text.Length;
-            text = next;
+            else
+                accepted.Add(item);
         }
+        (text, put) = s.Buffer.InsertAll(text, put, accepted);   // a space keeps neighbouring items from running together
         Editor.BeginComplexOperation();
         Editor.SelectAll();
         Editor.InsertTextAtCaret(text);
