@@ -106,20 +106,76 @@ public static class TokenFile
 
 /// <summary>
 /// The session command's login reads its account from the test client's accounts file itself (the test strategy 2.2:
-/// account-from-secrets-file): only a path and an alias cross the API, never a password. Only the approved aliases.
+/// account-from-secrets-file): only a path and an alias cross the API, never a password.
+/// The aliases it may use are the test-account pool file's, the same file the machine's claim script hands avatar accounts
+/// out from (one alias per line, # comments, aliases only, no secrets), so a live check can log in with whichever account
+/// its avatar claim was given. There is no list in the code. The grid owner's own account is refused whatever the file says.
 /// </summary>
 public static class AccountsFile
 {
-    public static readonly string[] Approved = ["tester1", "viewer1", "truly", "stocktester1", "stocktester2"];
+    /// <summary>Names the pool file directly.</summary>
+    public const string PoolVariable = "NV_AVATAR_POOL";
+    /// <summary>The claim check script (see the launchers' claim guard); without <see cref="PoolVariable"/> the pool file is the one beside it.</summary>
+    public const string ClaimScriptVariable = "NV_CLAIM_CHECK_SCRIPT";
+    public const string PoolFileName = "avatar-pool.txt";
 
-    public static (string First, string Last, Secret Password) Load(string path, string alias)
+    /// <summary>The grid owner's own account: a person's real account, never a test account. Matched as a whole alias, first or last name.</summary>
+    private const string OwnerName = "legion";
+
+    private const string NotApproved = "account alias not approved for automation logins";
+
+    /// <summary>The pool file: <see cref="PoolVariable"/>, else <see cref="PoolFileName"/> beside the claim check script, else none.</summary>
+    public static string? PoolPath(Func<string, string?> env)
     {
-        if (!Approved.Contains(alias))
-            throw new InvalidOperationException("account alias not approved for automation logins");
+        if (env(PoolVariable) is { Length: > 0 } named)
+            return named;
+        if (env(ClaimScriptVariable) is { Length: > 0 } script && Path.GetDirectoryName(script) is { Length: > 0 } dir)
+            return Path.Combine(dir, PoolFileName);
+        return null;
+    }
+
+    /// <summary>The pool file's aliases as the claim script reads them: text after # dropped, trimmed, lower case, only
+    /// [a-z0-9._-] aliases kept, each once, in file order.</summary>
+    public static IReadOnlyList<string> ReadPool(string poolPath)
+    {
+        var aliases = new List<string>();
+        foreach (string raw in File.ReadAllLines(poolPath))
+        {
+            int hash = raw.IndexOf('#');
+            string line = (hash >= 0 ? raw[..hash] : raw).Trim().ToLowerInvariant();
+            if (line.Length > 0 && line.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '.' or '_' or '-') && !aliases.Contains(line))
+                aliases.Add(line);
+        }
+        return aliases;
+    }
+
+    /// <summary>The hard check: true for the grid owner's account, by alias or by its first or last name.</summary>
+    public static bool NeverAllowed(string alias, string? first = null, string? last = null) =>
+        new[] { alias, first, last }.Any(n => n is not null && string.Equals(n.Trim(), OwnerName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The account for <paramref name="alias"/>, allowed by the pool file the environment names.</summary>
+    public static (string First, string Last, Secret Password) Load(string path, string alias) =>
+        Load(path, alias, PoolPath(Environment.GetEnvironmentVariable));
+
+    public static (string First, string Last, Secret Password) Load(string path, string alias, string? poolPath)
+    {
+        if (NeverAllowed(alias))
+            throw new InvalidOperationException($"the account {alias} is never allowed for automation logins (it is the grid owner's own account, not a test account)");
+        if (poolPath is null)
+            throw new InvalidOperationException($"{NotApproved}: no test-account pool file is set ({PoolVariable}, or {PoolFileName} beside {ClaimScriptVariable})");
+        if (!File.Exists(poolPath))
+            throw new InvalidOperationException($"{NotApproved}: the test-account pool file {poolPath} does not exist");
+        if (!ReadPool(poolPath).Contains(alias.Trim().ToLowerInvariant()))
+            throw new InvalidOperationException($"{NotApproved}: {alias} is not in the test-account pool file {poolPath}");
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         foreach (var a in doc.RootElement.GetProperty("accounts").EnumerateArray())
             if (a.GetProperty("alias").GetString() == alias)
-                return (a.GetProperty("first").GetString()!, a.GetProperty("last").GetString()!, new Secret(a.GetProperty("password").GetString()!, SensitiveKind.PasswordDigest));
+            {
+                string first = a.GetProperty("first").GetString()!, last = a.GetProperty("last").GetString()!;
+                if (NeverAllowed(alias, first, last))
+                    throw new InvalidOperationException($"the account {alias} is never allowed for automation logins (it is the grid owner's own account, not a test account)");
+                return (first, last, new Secret(a.GetProperty("password").GetString()!, SensitiveKind.PasswordDigest));
+            }
         throw new InvalidOperationException("account alias not in the accounts file");
     }
 }

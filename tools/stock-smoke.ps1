@@ -26,7 +26,7 @@
 # NV_STOCK_GRID_INFO_URL (the stock server's get_grid_info address), NV_STOCK_SERVER_CONTROL (the control script stock-server.ps1
 # uses). Any of them can instead be a NAME=VALUE line of one settings file kept outside the repository, named by -Settings or
 # NV_STOCK_SETTINGS (tools\stock-settings.ps1); a parameter wins over the environment, which wins over the file. With a setting
-# missing the script exits 3 and names it and where it looked. The accounts must exist on the stock server and be in the viewer's approved list. Nothing here touches any other grid.
+# missing the script exits 3 and names it and where it looked. The accounts must exist on the stock server and be in the viewer's test-account pool file (NV_AVATAR_POOL). Nothing here touches any other grid.
 # Claims: when NV_CLAIM_WRAPPER names a bash script that runs a command under a lane claim (claim.sh's form), the script runs itself
 # under an avatar claim for each account, for the lane NV_CLAIM_LANE (default viewer), and inside them a build claim on this checkout:
 # the avatar claims keep two sessions off an account, the build claim is the kind the machine's guard accepts for starting a viewer.

@@ -205,10 +205,12 @@ public class AutomationSafetyTests : IDisposable
     {
         string f = Path.Combine(_dir, "accounts.json");
         File.WriteAllText(f, """{"accounts":[{"alias":"tester1","first":"Test","last":"User","password":"pw-not-real"},{"alias":"someone","first":"S","last":"O","password":"x"}]}""");
-        var (first, last, pw) = AccountsFile.Load(f, "tester1");
+        string pool = Path.Combine(_dir, AccountsFile.PoolFileName);
+        File.WriteAllText(pool, "tester1\n");   // the test-account pool file (AccountPoolTests)
+        var (first, last, pw) = AccountsFile.Load(f, "tester1", pool);
         Assert.Equal(("Test", "User"), (first, last));
         Assert.Equal("[redacted:PasswordDigest]", pw.ToString());
-        Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(f, "someone"));
+        Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(f, "someone", pool));
     }
 }
 

@@ -20,7 +20,7 @@ public sealed class StockSmokeScriptTests
     private static string Script => Path.Combine(TestPaths.RepoRoot, "tools", "stock-smoke.ps1");
     private static readonly string[] SettingNames =
         ["NV_TEST_ACCOUNTS", "NV_STOCK_ACCOUNT_A", "NV_STOCK_ACCOUNT_B", "NV_STOCK_REGION", "NV_STOCK_GRID_INFO_URL", "NV_STOCK_SERVER_CONTROL",
-         "NV_CLAIM_WRAPPER", "NV_CLAIM_LANE", "NV_CLAIM_ORDER", "NV_STOCK_SMOKE_CLAIMED", "CLAIM_TOKEN", "NV_CLAIM_CHECK_SCRIPT", "NV_CLAIM_KINDS"];
+         "NV_CLAIM_WRAPPER", "NV_CLAIM_LANE", "NV_CLAIM_ORDER", "NV_STOCK_SMOKE_CLAIMED", "CLAIM_TOKEN", "NV_CLAIM_CHECK_SCRIPT", "NV_CLAIM_KINDS", "NV_AVATAR_POOL"];
 
     private sealed record Setup(string Root, string Sandbox, string Accounts, string Exe, string Control, string GridInfo);
 
