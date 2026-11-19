@@ -431,8 +431,8 @@ public partial class TestRender
 
     /// <summary>
     /// The Preferences window's right margin, checked after the picture is taken (the picture does not change): on every page, at the
-    /// interface sizes 100, 150 and 200 % (drawn as the window applies its content scale) and at every window width from the window's
-    /// minimum to the widest the main view allows, nothing seen in the window comes nearer its right border than the content is to its
+    /// interface sizes 100, 150 and 200 % (drawn as the window applies its content scale) and at window widths from the window's minimum
+    /// to the widest the main view allows (every 40 px, plus the minimum, the default and the widest; one height), nothing seen in the window comes nearer its right border than the content is to its
     /// left border (the room between the border and the list of pages). What is seen is the control as its scroll areas cut it: a page
     /// wider than its place scrolls sideways inside that margin, while content that runs under the border fails.
     /// </summary>
