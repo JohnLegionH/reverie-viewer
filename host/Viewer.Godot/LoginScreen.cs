@@ -269,6 +269,12 @@ public partial class LoginScreen : Control
         _links.AddChild(_register);
         _links.AddChild(_forgot);
         box.AddChild(_links);
+        // a link button draws its underline below its own text rect; the form scrolls inside the card, and the scroll area clips what
+        // its children draw outside their rects, so the links row keeps room under the text for the underline (in the link's font)
+        foreach (var link in new[] { _register, _forgot })
+            link.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+        _register.ThemeChanged += FitLinkRoom;
+        FitLinkRoom();
 
         // the version at the bottom left; Preferences and Help at the bottom right
         var release = new Label { Name = "release", ThemeTypeVariation = UiTheme.MutedLabel, MouseFilter = MouseFilterEnum.Ignore,
@@ -404,6 +410,21 @@ public partial class LoginScreen : Control
     public const float StatusMaxHeight = 100;
 
     /// <summary>The status area is as tall as its text, up to <see cref="StatusMaxHeight"/>; a longer text scrolls inside it.</summary>
+    /// <summary>The links row's height: the link text and, below its baseline, the underline as the link button draws it (its theme's
+    /// underline spacing, the font's underline position and thickness), plus one pixel.</summary>
+    private void FitLinkRoom()
+    {
+        var font = _register.GetThemeFont("font");
+        int size = _register.GetThemeFontSize("font_size");
+        if (font is null || size <= 0)
+            return;
+        float under = font.GetAscent(size) + _register.GetThemeConstant("underline_spacing") + font.GetUnderlinePosition(size)
+            + MathF.Max(1, font.GetUnderlineThickness(size));
+        float h = MathF.Ceiling(MathF.Max(font.GetHeight(size), under)) + 1;
+        if (!Mathf.IsEqualApprox(_links.CustomMinimumSize.Y, h))
+            _links.CustomMinimumSize = new Vector2(0, h);
+    }
+
     private void FitStatus()
     {
         float h = _statusUnbounded ? _status.GetCombinedMinimumSize().Y : Math.Min(_status.GetCombinedMinimumSize().Y, LoginCardLayout.StatusMaxHeight(Size.Y > 0 ? Size.Y : 648));

@@ -367,6 +367,31 @@ public partial class TestRender
             newMenuOf.ShowNewMenu(clothing: true);   // the + menu with New Clothes open
             await Frames(10);
         }
+        if (scene == "build-look" && shell.FindChild("section_box_look", true, false) is Control lookBox)
+        {
+            // the case shows the open Look section: its body must be in the Build window's view, not below the fold
+            await Frames(4);
+            ScrollContainer? lookScroll = null;
+            for (Node? n = lookBox.GetParent(); n is not null && lookScroll is null; n = n.GetParent())
+                lookScroll = n as ScrollContainer;
+            var body = lookBox.FindChild("look_page", false, false) as Control;
+            if (lookScroll is not null && lookBox.GetParent() is Control lookCard)
+            {
+                // Contents comes first and Look is below the fold: the window is scrolled so the Look section's card is at the top
+                lookScroll.ScrollVertical = (int)(lookCard.GetGlobalRect().Position.Y - lookScroll.GetGlobalRect().Position.Y + lookScroll.ScrollVertical);
+                await Frames(4);
+            }
+            if (lookScroll is null || body is null)
+                _failures.Add("build-look: the Look section's body or its scroll area was not found");
+            else
+            {
+                var view = lookScroll.GetGlobalRect();
+                var b = body.GetGlobalRect();
+                _result["look_in_view"] = new { view = new[] { view.Position.Y, view.End.Y }, body = new[] { b.Position.Y, b.End.Y } };
+                if (b.Position.Y < view.Position.Y - 0.5f || b.Position.Y + 24 > view.End.Y)
+                    _failures.Add($"build-look: the Look section's body ({b.Position.Y:F0}) is not in the Build window's view ({view.Position.Y:F0} to {view.End.Y:F0})");
+            }
+        }
         if (loginShown is not null && loginShown.ById["password"] is LineEdit field && loginShown.ById["reveal"] is Control eye)
         {
             // the field's text area ends where its face's right margin begins; the show button must start at or after it
@@ -397,6 +422,8 @@ public partial class TestRender
         }
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);
+        if (loginShown is not null)
+            LinkUnderlines(loginShown, img, rig.Viewport.GetVisibleRect().Size);
         Directory.CreateDirectory(_out);
         img.SavePng(Path.Combine(_out, _tag + ".png"));
         if (System.Environment.GetEnvironmentVariable("NV_UI_CONTROLS") == "1")
@@ -439,6 +466,44 @@ public partial class TestRender
     /// left border (the room between the border and the list of pages). What is seen is the control as its scroll areas cut it: a page
     /// wider than its place scrolls sideways inside that margin, while content that runs under the border fails.
     /// </summary>
+    /// <summary>The login card's account links are drawn with their underline, on the picture itself: below each shown link's text there is a
+    /// row whose pixels differ from the card's background across at least 80 percent of the link's width (a glyph row never covers that much).
+    /// A scroll area that clips the underline away fails here.</summary>
+    private void LinkUnderlines(LoginScreen login, Image img, Vector2 layoutSize)
+    {
+        float sx = img.GetWidth() / layoutSize.X, sy = img.GetHeight() / layoutSize.Y;
+        var found = new List<object>();
+        foreach (var name in new[] { "register", "forgot" })
+        {
+            if (login.FindChild(name, true, false) is not LinkButton link || !link.IsVisibleInTree())
+                continue;
+            var r = link.GetGlobalRect();
+            int x0 = (int)MathF.Ceiling(r.Position.X * sx), x1 = (int)MathF.Floor(r.End.X * sx) - 1;
+            int yTop = (int)MathF.Floor(r.Position.Y * sy), yEnd = Math.Min(img.GetHeight() - 1, (int)MathF.Ceiling(r.End.Y * sy) + 8);
+            if (x1 <= x0 || yTop < 0 || yTop >= img.GetHeight())
+                continue;
+            var bg = img.GetPixel(Math.Max(0, x0 - 3), yTop);   // the card just left of the link, above its text
+            var ink = link.GetThemeColor("font_color");
+            float span = MathF.Max(0.15f, MathF.Abs(ink.R - bg.R) + MathF.Abs(ink.G - bg.G) + MathF.Abs(ink.B - bg.B));
+            int width = x1 - x0 + 1, best = 0, bestRow = -1;
+            for (int y = yTop + (int)(r.Size.Y * sy / 2); y <= yEnd; y++)
+            {
+                int count = 0;
+                for (int x = x0; x <= x1; x++)
+                {
+                    var p = img.GetPixel(x, y);
+                    if (MathF.Abs(p.R - bg.R) + MathF.Abs(p.G - bg.G) + MathF.Abs(p.B - bg.B) > span * 0.4f)
+                        count++;
+                }
+                if (count > best) { best = count; bestRow = y; }
+            }
+            found.Add(new { name, rect = new[] { r.Position.X, r.Position.Y, r.End.X, r.End.Y }, width, best, row = bestRow });
+            if (best < width * 0.8f)
+                _failures.Add($"the {name} link is drawn without its underline: the fullest row below its text covers {best} of {width} px");
+        }
+        _result["link_underlines"] = found;
+    }
+
     private async Task PreferencesFit(StringTable strings, ThemeTokens tokens)
     {
         const float slack = 0.5f;
