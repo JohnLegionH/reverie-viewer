@@ -34,7 +34,7 @@ public class InteractionControllerTests
         public bool Friend;
         public List<ObjectId> Opened = new(), Inspected = new();
         public List<Guid> AvatarInspected = new();
-        public int AboutLand, AppearanceOpened;
+        public int AboutLand, AppearanceOpened, BuildOpened;
 
         public Rig()
         {
@@ -48,6 +48,7 @@ public class InteractionControllerTests
             C.InspectRequested += Inspected.Add;
             C.AvatarInspectRequested += AvatarInspected.Add;
             C.AboutLandRequested += () => AboutLand++;
+            C.BuildRequested += () => BuildOpened++;
             C.AppearanceRequested += () => AppearanceOpened++;
         }
 
@@ -444,21 +445,22 @@ public class InteractionControllerTests
     }
 
     [Fact]
-    public void The_land_menu_sits_sets_home_and_asks_about_the_land()
+    public void The_land_menu_sits_asks_about_the_land_and_opens_the_build_tool()
     {
         var r = new Rig();
         r.C.RightClick(r.Down(101, 100));   // 1 m from the own avatar: within reach
         Assert.Equal(MenuKind.Land, r.C.Menu);
         Assert.True(r.C.Choose("sit_here"));
         Assert.IsType<SitGroundIntent>(Assert.Single(r.Sent));
-        Assert.True(r.C.Choose("set_home"));
-        Assert.Equal(["home"], r.Social);
         r.Sent.Clear();
         Assert.True(r.C.Choose("about_land"));
         var parcel = Assert.IsType<ParcelInfoIntent>(Assert.Single(r.Sent));
         Assert.Equal(101f, parcel.X, 1);
         Assert.Equal(100f, parcel.Y, 1);
         Assert.Equal(1, r.AboutLand);
+        Assert.True(r.C.Choose("build"));
+        Assert.Equal(1, r.BuildOpened);
+        Assert.False(r.C.Choose("set_home"));   // not an item of the official ground menu
     }
 
     [Fact]

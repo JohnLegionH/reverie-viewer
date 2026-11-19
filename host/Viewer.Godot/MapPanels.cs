@@ -439,8 +439,15 @@ public partial class MiniMapView : Control
         DrawCircle(centre, 6, ShellTheme.C(UiTheme.Tokens.Outline));
         DrawCircle(centre, 4.5f, ShellTheme.C(UiTheme.Tokens.Text));
         var font = ThemeDB.FallbackFont;
-        var north = new Vector2(f.NorthX, f.NorthY);
-        DrawString(font, north + new Vector2(-4, 5), "N", HorizontalAlignment.Left, -1, UiTheme.Tokens.FontBody, ShellTheme.C(_theme.Error));
+        // the eight compass labels turn with the map; north is picked out in the error colour, the others are quieter
+        foreach (var c in f.Compass)
+        {
+            bool north = c.Label == "N";
+            int size = north ? UiTheme.Tokens.FontBody : UiTheme.Tokens.FontCaption;
+            var width = font.GetStringSize(c.Label, HorizontalAlignment.Left, -1, size).X;
+            DrawString(font, new Vector2(c.X - width / 2f, c.Y + size * 0.35f), c.Label, HorizontalAlignment.Left, -1, size,
+                ShellTheme.C(north ? _theme.Error : _theme.MutedText));
+        }
     }
 }
 
