@@ -229,7 +229,7 @@ if ($Mode -eq "A") {
     $ran2 = Said "lua again $tok" 1
     $s3 = OpenRow "New Script"
     Shot "a2-lua-again"
-    Check "A2 opened again and saved without touching the engine row, the Lua script stays Lua (F-1091)" ($s2.runtime.Luau -and $s2.runtime.LuauLanguage -and $before2.target -eq "luau" -and [bool]$saved2 -and [bool]$ran2 -and $s3.runtime.Luau -and $s3.runtime.LuauLanguage) ("after first save: {0}; target sent {1}; said {2}; after second save: {3}" -f (Rt $s2), $before2.target, [bool]$ran2, (Rt $s3))
+    Check "A2 opened again and saved without touching the engine row, the Lua script stays Lua" ($s2.runtime.Luau -and $s2.runtime.LuauLanguage -and $before2.target -eq "luau" -and [bool]$saved2 -and [bool]$ran2 -and $s3.runtime.Luau -and $s3.runtime.LuauLanguage) ("after first save: {0}; target sent {1}; said {2}; after second save: {3}" -f (Rt $s2), $before2.target, [bool]$ran2, (Rt $s3))
     CloseEditors
 
     # ---- A3. an LSL-on-Lua script: SLua (LSL) chosen in a second box, saved ----
