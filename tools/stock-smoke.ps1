@@ -291,6 +291,10 @@ try {
             if ($null -eq $secs) { return @{ pass = $false; detail = "B did not reach the world" } }
             $seen = Wait-Until { $oa = Api $A "observe" '{}'; $ob = Api $B "observe" '{}'
                 if (@(Others $oa | Where-Object { $_.placed }).Count -ge 1 -and @(Others $ob | Where-Object { $_.placed }).Count -ge 1) { $true } } 60
+            # Listing the other avatar comes before drawing it: the second body can be a moment behind on a busy machine.
+            # Wait (up to 90 s) until each viewer draws both bodies, then judge exactly as before.
+            if ($seen) { [void](Wait-Until { $xa = Api $A "observe" '{}'; $xb = Api $B "observe" '{}'
+                if (($xa.presentation.avatars.body -eq "ready") -and ($xa.presentation.avatars.drawn -ge 2) -and ($xb.presentation.avatars.body -eq "ready") -and ($xb.presentation.avatars.drawn -ge 2)) { $true } } 90) }
             $oa = Api $A "observe" '{}'; $ob = Api $B "observe" '{}'
             Save-Json "observe-A-pair.json" $oa; Save-Json "observe-B-pair.json" $ob
             $gap = $null
