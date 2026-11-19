@@ -45,6 +45,7 @@ public partial class Main
         inventory_context = _inventoryPanel?.Context.Visible ?? false,
         open_windows = _shell?.Shell.Floaters.OpenFloaters.Select(f => f.Id).ToArray() ?? [],
         inventory_selected = _inventoryPanel?.SelectedItem is { } sel && sel != Guid.Empty ? sel.ToString() : null,
+        content_menu = _editPanel?.ContentTab.MenuReport(),
     };
 
     /// <summary>{page}: opens Preferences on <paramref name="page"/> and answers, for each control of the page, its top and bottom against the

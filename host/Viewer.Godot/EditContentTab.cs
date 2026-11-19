@@ -250,6 +250,15 @@ public sealed class EditContentTab
         _menu.Popup();
     }
 
+    /// <summary>The right-click menu as it stands, for the live checks: whether it is shown, and each entry's text, whether it is greyed and
+    /// its tooltip; the Engine entry's own entries likewise.</summary>
+    public object MenuReport()
+    {
+        static object[] Entries(PopupMenu m) => Enumerable.Range(0, m.ItemCount)
+            .Select(i => (object)new { text = m.GetItemText(i), disabled = m.IsItemDisabled(i), tooltip = m.GetItemTooltip(i) }).ToArray();
+        return new { visible = _menu.Visible, items = Entries(_menu), engine_items = Entries(_engineMenu) };
+    }
+
     /// <summary>Engine > the engine choices for a listed script, where the region saves a choice. For a script the agent may not modify the entry
     /// is offered only where the region allows an owner to set it; otherwise it is greyed with the reason as its tooltip.</summary>
     private void AddEngineMenu(TaskItem item, ScriptRegion region)

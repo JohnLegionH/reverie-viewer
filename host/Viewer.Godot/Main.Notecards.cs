@@ -415,6 +415,14 @@ public partial class Main
                     at = ctl.GetGlobalTransformWithCanvas() * (ctl.Size / 2);
                 return at is { } a ? new { x = a.X, y = a.Y } : new { error = "not shown" };
             }
+            case "pick":
+                // an entry of the front window's engine or compiler drop-down chosen, as choosing it in the open list does (the list's
+                // entries have no place on screen until it opens); text is the entry's index
+                if (front is null || !int.TryParse(text, out int pick) || pick < 0 || pick >= front.TargetCombo.ItemCount || front.TargetCombo.IsItemDisabled(pick))
+                    return new { error = "no such entry" };
+                front.TargetCombo.Select(pick);
+                front.TargetCombo.EmitSignal(OptionButton.SignalName.ItemSelected, (long)pick);
+                break;
         }
         var e = front?.Editing;
         return new
@@ -436,6 +444,15 @@ public partial class Main
             text_chars = front?.Code.Text.Length ?? -1,
             text = text == "text" ? front?.Code.Text : null,
             focused = front is not null && front.GetViewport().GuiGetFocusOwner() == front.Code,
+            // the engine row and what a save sends: the compile target, the tick, the drop-down's entries, and the region's last running reply
+            target = e?.Target.Value,
+            engine_row = front?.EngineCheck.Visible ?? false,
+            choose_engine = e?.ChooseEngine ?? false,
+            combo_selected = front?.TargetCombo.Selected ?? -1,
+            combo_items = front is null ? null : Enumerable.Range(0, front.TargetCombo.ItemCount)
+                .Select(i => new { text = front.TargetCombo.GetItemText(i), disabled = front.TargetCombo.IsItemDisabled(i) }).ToArray(),
+            runtime = e?.Runtime is { } rt ? new { rt.Running, rt.Mono, rt.Luau, rt.LuauLanguage, rt.Engine, rt.EngineChoice } : null,
+            why = e?.Why is { } w ? new { engine = w.Engine, reason = w.ReasonKey } : null,
         };
     }
 
