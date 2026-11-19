@@ -29,13 +29,20 @@ public partial class TestRender
     private async Task<int> LoginCardRun(string what, string? golden, bool unbounded)
     {
         var strings = StringTable.English();
+        // "scale100", "scale150", "scale200": the long-refusal card at that interface size, laid out as the window applies its content scale
+        int pct = what.StartsWith("scale", StringComparison.Ordinal) && int.TryParse(what.AsSpan(5), out int p) ? p : 100;
+        bool scaled = what.StartsWith("scale", StringComparison.Ordinal);
+        if (scaled) what = "long";
+        UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), pct);
         var rig = MakeRig(new Vector2I(CardWidth, CardHeight));
-        var shell = new ShellRoot(new ShellController(strings, () => { })) { FixedClockText = TestClockText };
+        rig.Viewport.Size2DOverride = new Vector2I((int)MathF.Round(CardWidth * 100f / pct), (int)MathF.Round(CardHeight * 100f / pct));
+        rig.Viewport.Size2DOverrideStretch = true;
+        var shell = new ShellRoot(new ShellController(strings, () => { })) { ScaleSink = _ => { }, FixedClockText = TestClockText };
         rig.Viewport.AddChild(shell);
         var login = new LoginScreen(strings, null);
         shell.MainView.AddChild(login);
         login.ShowExampleGrid(ExampleGrid());
-        var window = new Rect2(0, 0, CardWidth, CardHeight);
+        var window = new Rect2(0, 0, CardWidth * 100f / pct, CardHeight * 100f / pct);   // in layout units
         if (what == "long")
             login.ShowStatusForTest(LongRefusal, unbounded);
         else if (LoginDialogSamples.For(strings, what) is { Kind: LoginDialogKind.Disclosure } dialog)
@@ -51,6 +58,9 @@ public partial class TestRender
             var scroll = ((Control)login.FindChild("status_scroll", true, false)).GetGlobalRect();
             bool inside = window.Encloses(card), aboveRelease = card.End.Y <= release.Position.Y;
             _result["logincard"] = new { what, unbounded, card = new[] { card.Position.Y, card.End.Y }, release_top = release.Position.Y, status_height = scroll.Size.Y, inside, above_release = aboveRelease };
+            bool margins = card.Position.X >= LoginCardLayout.SideMargin - 0.5f && card.End.X <= window.End.X - LoginCardLayout.SideMargin + 0.5f;
+            _result["logincard_scale"] = new { percent = pct, window = new[] { window.Size.X, window.Size.Y }, card_width = card.Size.X, margins };
+            if (!margins) _failures.Add($"the card ({card.Position.X:F0} to {card.End.X:F0}) is closer than {LoginCardLayout.SideMargin} to a side of the {window.Size.X:F0} wide window");
             if (!inside) _failures.Add($"the card ({card.Position.Y:F0} to {card.End.Y:F0}) is not wholly inside the {CardHeight} px window");
             if (!aboveRelease) _failures.Add($"the card ends at {card.End.Y:F0}, below the release line's top {release.Position.Y:F0}");
         }

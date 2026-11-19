@@ -91,10 +91,12 @@ public class ContextMenusTests
     }
 
     [Fact]
-    public void A_land_menu_has_sit_set_home_and_about_land()
+    public void A_land_menu_has_the_official_items_Reverie_can_do_in_the_official_order()
     {
         var m = ContextMenus.ForLand(new(PointKnown: true, WithinSitReach: true));
-        Assert.Equal(["sit_here", "set_home", "about_land"], Ids(m));
+        // the official ground menu (menu_land.xml): About Land, Sit Here, Buy This Land, Buy Pass, Build, Edit Terrain, Block Particle Owner;
+        // the ones Reverie cannot do yet (buying land, terrain, blocking a particle owner) are left out
+        Assert.Equal(["about_land", "sit_here", "build"], Ids(m));
         Assert.True(Entry(m, "sit_here").Enabled);
     }
 

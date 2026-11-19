@@ -163,8 +163,10 @@ public static class ContextMenus
 
     public static IReadOnlyList<ContextEntry> ForLand(LandMenuContext c) =>
     [
-        new("sit_here", "menu.sit_here", c.PointKnown && c.WithinSitReach),
-        new("set_home", "menu.set_home"),
+        // the official ground menu (menu_land.xml) in its order: About Land, Sit Here, Buy This Land, Buy Pass, Build, Edit Terrain, Block
+        // Particle Owner. Only what Reverie can do is here; buying land, editing terrain and blocking a particle owner wait for their features.
         new("about_land", "menu.about_land"),
+        new("sit_here", "menu.sit_here", c.PointKnown && c.WithinSitReach),
+        new("build", "menu.build"),
     ];
 }

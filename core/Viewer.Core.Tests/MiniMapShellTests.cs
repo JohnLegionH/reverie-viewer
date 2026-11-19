@@ -256,4 +256,53 @@ public class MiniMapShellTests
         foreach (var key in new[] { "minimap.title", "minimap.view", "minimap.zoom_in", "minimap.zoom_out", "minimap.rotate", "minimap.north", "menu.world", "menu.world.minimap" })
             Assert.True(en.Has(key), key);
     }
+
+    // ---------------- compass labels: N, E, S, W and the diagonals ----------------
+
+    [Fact]
+    public void The_frame_carries_all_eight_compass_labels_clockwise_from_north()
+    {
+        var f = Model(rotate: false).Build(Input(0), Size, Size);
+        Assert.Equal(new[] { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }, f.Compass.Select(c => c.Label).ToArray());
+    }
+
+    [Fact]
+    public void With_north_up_the_labels_sit_on_their_sides_of_the_window()
+    {
+        var f = Model(rotate: false).Build(Input(0), Size, Size);
+        var by = f.Compass.ToDictionary(c => c.Label);
+        Assert.Equal(100, by["N"].X, 2); Assert.True(by["N"].Y < 100);
+        Assert.Equal(100, by["S"].X, 2); Assert.True(by["S"].Y > 100);
+        Assert.Equal(100, by["E"].Y, 2); Assert.True(by["E"].X > 100);
+        Assert.Equal(100, by["W"].Y, 2); Assert.True(by["W"].X < 100);
+        Assert.True(by["NE"].X > 100 && by["NE"].Y < 100);
+        Assert.True(by["SE"].X > 100 && by["SE"].Y > 100);
+        Assert.True(by["SW"].X < 100 && by["SW"].Y > 100);
+        Assert.True(by["NW"].X < 100 && by["NW"].Y < 100);
+        Assert.Equal(f.NorthX, by["N"].X, 3);
+        Assert.Equal(f.NorthY, by["N"].Y, 3);
+    }
+
+    [Fact]
+    public void The_labels_turn_with_the_map_when_it_rotates()
+    {
+        var f = Model(rotate: true).Build(Input(0), Size, Size);   // the camera looks east: east is up
+        var by = f.Compass.ToDictionary(c => c.Label);
+        Assert.Equal(100, by["E"].X, 2); Assert.True(by["E"].Y < 100);
+        Assert.Equal(100, by["N"].Y, 2); Assert.True(by["N"].X < 100);
+        Assert.True(by["NE"].X < 100 && by["NE"].Y < 100);
+    }
+
+    [Fact]
+    public void Every_label_stays_on_the_circle_inside_the_window_whatever_the_heading()
+    {
+        var m = Model(rotate: true);
+        for (int deg = -180; deg <= 180; deg += 15)
+            foreach (var c in m.Build(Input(deg * MathF.PI / 180), 300, 200).Compass)
+            {
+                Assert.InRange(c.X, 0, 300);
+                Assert.InRange(c.Y, 0, 200);
+                Assert.Equal(92, Math.Sqrt((c.X - 150) * (c.X - 150) + (c.Y - 100) * (c.Y - 100)), 1);
+            }
+    }
 }

@@ -126,7 +126,11 @@ public partial class LoginScreen : Control
         card.AddChild(margin);
         var box = new VBoxContainer { Name = "card_box", CustomMinimumSize = new Vector2(CardWidth - 40, 0) };
         box.AddThemeConstantOverride("separation", 6);
-        margin.AddChild(box);
+        // a form taller than the window scrolls inside the card (see FitCard) instead of running past the window's edges
+        _cardScroll = new ScrollContainer { Name = "card_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
+        _cardScroll.AddChild(box);
+        margin.AddChild(_cardScroll);
+        _cardBox = box;
 
         // the viewer's mark and name
         var brandRow = new HBoxContainer { Name = "brand_row", MouseFilter = MouseFilterEnum.Ignore };
@@ -281,7 +285,8 @@ public partial class LoginScreen : Control
         prefs.Pressed += () => PreferencesRequested?.Invoke();
         help.Pressed += () => HelpRequested?.Invoke(_grids.Selected?.Info?.Help);
 
-        Resized += () => _newsPanel.Visible = _hasNews && Size.X >= NewsMinWindow;
+        Resized += () => { _newsPanel.Visible = _hasNews && Size.X >= NewsMinWindow; FitCard(); };
+        box.MinimumSizeChanged += FitCard;
         FillGrids();
         _grid.ItemSelected += OnGridItem;
         _savedNames.GetPopup().IdPressed += OnSavedName;
@@ -325,6 +330,31 @@ public partial class LoginScreen : Control
             ShowPasswordTick();
         Restyle();
         ApplyBranding(GridBranding.None);
+    }
+
+    private ScrollContainer _cardScroll = null!;
+    private VBoxContainer _cardBox = null!;
+    private float _cardWidth = CardWidth;
+
+    /// <summary>Sizes the card for the window (<see cref="LoginCardLayout"/>): its width is a share of the window's, and the form inside scrolls
+    /// when the window is too short to show it all, so at any interface size nothing is pushed past an edge.</summary>
+    private void FitCard()
+    {
+        if (_cardScroll is null || Size.X <= 0 || Size.Y <= 0)
+            return;
+        float width = LoginCardLayout.Width(Size.X);
+        if (!Mathf.IsEqualApprox(width, _cardWidth))
+        {
+            _cardWidth = width;
+            _cardBox.CustomMinimumSize = new Vector2(width - 40, 0);
+            _startRegion.CustomMinimumSize = new Vector2(width - 40, 0);
+            _status.CustomMinimumSize = new Vector2(width - 40, 0);
+        }
+        // the card's own padding (20 each side) and its border come off the height the form may have
+        float room = Math.Max(0, LoginCardLayout.MaxHeight(Size.Y) - 48);
+        float h = Math.Min(_cardBox.GetCombinedMinimumSize().Y, room);
+        if (!Mathf.IsEqualApprox(_cardScroll.CustomMinimumSize.Y, h))
+            _cardScroll.CustomMinimumSize = new Vector2(0, h);
     }
 
     /// <summary>The tallest the status area grows before it scrolls: about five lines of the status text.</summary>

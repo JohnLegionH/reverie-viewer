@@ -133,6 +133,7 @@ public partial class Main
                 _interact.AvatarInspectRequested += a => { _inspectingAvatar = true; _inspectedAvatar = a; _shell.Shell.Floaters.Open(InteractFeature.InspectId); RefreshInteractWindows(); };
                 _interact.AppearanceRequested += () => _shell.Shell.Floaters.Open(AppearanceFeature.FloaterId);
                 _interact.AboutLandRequested += () => { _shell.Shell.Floaters.Open(InteractFeature.LandId); RefreshInteractWindows(); };
+                _interact.BuildRequested += () => _shell.Shell.Commands.Execute(Viewer.Shell.BuildMenu.CreateCommand);
                 _interact.Changed += RefreshInteractWindows;
                 _interactUi.Stand.Pressed += () => _interact?.Stand();
                 _interactUi.StopFlying.Pressed += () => _interact?.StopFlying();

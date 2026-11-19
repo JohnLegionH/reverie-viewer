@@ -295,6 +295,9 @@ public sealed class InteractionController
     public event Action? AppearanceRequested;
     public event Action? AboutLandRequested;
 
+    /// <summary>Right-click ground > Build: the build tool opens with the Create tool (the official menu's Build entry).</summary>
+    public event Action? BuildRequested;
+
     /// <summary>World > About Land: the parcel the own avatar stands on (the official window selects the parcel at the agent's position
     /// when it opens with nothing selected, llfloaterland.cpp onOpen). False before the own avatar is known.</summary>
     public bool AboutLandHere()
@@ -638,7 +641,7 @@ public sealed class InteractionController
                 switch (entryId)
                 {
                     case "sit_here": _submit(new SitGroundIntent()); break;
-                    case "set_home": _social.SetHome(); break;
+                    case "build": BuildRequested?.Invoke(); break;
                     case "about_land":
                         Parcel = null;
                         _submit(new ParcelInfoIntent(pick.Point.X, pick.Point.Y));

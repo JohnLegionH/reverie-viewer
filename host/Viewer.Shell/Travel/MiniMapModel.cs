@@ -20,7 +20,16 @@ public sealed record MiniMapInput(Guid Self, Vector3 SelfPosition, float CameraH
 /// <summary>One frame of the mini-map: where everything goes in window pixels (y down). Angles are counter-clockwise from the right
 /// of the window.</summary>
 public sealed record MiniMapFrame(float CentreX, float CentreY, IReadOnlyList<(float X, float Y)> RegionCorners, IReadOnlyList<MiniMapDot> Dots,
-    float NorthX, float NorthY, float NorthAngle, float FrustumCentre, float FrustumHalf, double PixelsPerRegion, bool Rotated);
+    float NorthX, float NorthY, float NorthAngle, float FrustumCentre, float FrustumHalf, double PixelsPerRegion, bool Rotated,
+    IReadOnlyList<MiniMapCompassPoint>? CompassPoints = null)
+{
+    /// <summary>The eight compass labels (N, NE, E, SE, S, SW, W, NW), turned with the map.</summary>
+    public IReadOnlyList<MiniMapCompassPoint> Compass => CompassPoints ?? [];
+}
+
+/// <summary>One compass label at the edge of the mini-map: its text (N, NE, E ...), where it sits in window pixels (y down) and its angle
+/// counter-clockwise from the right of the window.</summary>
+public sealed record MiniMapCompassPoint(string Label, float X, float Y, float Angle);
 
 /// <summary>The mini-map as data: the area around the agent, other avatars as dots, north and the turn with the camera. No engine types.</summary>
 public sealed class MiniMapModel
@@ -32,6 +41,9 @@ public sealed class MiniMapModel
 
     /// <summary>The north marker sits this many pixels inside the nearer edge of the window.</summary>
     public const float NorthMargin = 8f;
+
+    /// <summary>The compass labels, clockwise from north.</summary>
+    public static readonly string[] CompassLabels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
     private double _scale = DefaultScale;
     private bool _rotate = true;
@@ -115,7 +127,13 @@ public sealed class MiniMapModel
         float northAngle = MathF.PI / 2 + turn;
         float radius = MathF.Max(0, MathF.Min(width, height) / 2f - NorthMargin);
         float fov = float.IsFinite(input.CameraFov) && input.CameraFov > 0 ? input.CameraFov : 1f;
+        var compass = new List<MiniMapCompassPoint>();
+        for (int i = 0; i < CompassLabels.Length; i++)
+        {
+            float a = MathF.PI / 2 - i * MathF.PI / 4 + turn;   // north, then clockwise in eighths of a turn
+            compass.Add(new MiniMapCompassPoint(CompassLabels[i], cx + radius * MathF.Cos(a), cy - radius * MathF.Sin(a), a));
+        }
         return new MiniMapFrame(cx, cy, corners, dots, cx + radius * MathF.Cos(northAngle), cy - radius * MathF.Sin(northAngle), northAngle,
-            rotated ? MathF.PI / 2 : heading, fov / 2f, _scale, rotated);
+            rotated ? MathF.PI / 2 : heading, fov / 2f, _scale, rotated, compass);
     }
 }
