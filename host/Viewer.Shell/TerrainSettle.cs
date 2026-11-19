@@ -17,7 +17,7 @@ namespace Viewer.Shell;
 /// </summary>
 public sealed class TerrainSettle
 {
-    /// <summary>The quiet time a chunk's patches need before it starts. From the patch arrival times of the live grid's
+    /// <summary>The quiet time a chunk's patches need before it starts. From the patch arrival times of recorded
     /// captures: the gaps between arrivals to one chunk's read set were p95 168.7 ms, p99 239.1 ms on region B v3
     /// (4,096 patches over 14.2 s) and at most 41.6 ms on region A v5 (256 over 90 ms); 250 ms waits out all but the longest.</summary>
     public const double DefaultWindowMs = 250;

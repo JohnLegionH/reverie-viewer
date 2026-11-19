@@ -180,7 +180,7 @@ Note "viewer exit: $(if ($p.HasExited) { $p.ExitCode } else { 'still running' })
 $confirmed = $false
 if ($RegionServerLog) {
     for ($i = 0; $i -lt 30 -and -not $confirmed; $i++) { if ((LogoutLines) -gt $logoutsBefore) { $confirmed = $true } else { Start-Sleep -Seconds 1 } }
-    Note "logout in the regionserver log: $(if ($confirmed) { 'confirmed' } else { 'NOT confirmed' })"
+    Note "logout in the region server log: $(if ($confirmed) { 'confirmed' } else { 'NOT confirmed' })"
 }
 [pscustomobject]@{ mode = $Mode; region = $Region; in_world_s = $inWorld; back_at_s = $backAt; at_desired_s = $atDesiredAt;
     at_desired_after_back_s = $(if ($atDesiredAt) { [math]::Round($atDesiredAt - $backAt, 1) } else { $null }); logout_confirmed = $confirmed;
@@ -189,5 +189,5 @@ if ($RegionServerLog) {
     ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Sandbox "summary.json") -Encoding utf8
 Write-Output ""
 if ($confirmed) { Write-Output "LIVE LOGIN $LoginNumber DONE - other work may run again" }
-elseif (-not $RegionServerLog) { Write-Output "LIVE LOGIN $LoginNumber ENDED - logout not yet confirmed (no -RegionServerLog): check the regionserver log before other work runs" }
-else { Write-Output "LIVE LOGIN $LoginNumber ENDED - logout NOT confirmed in the regionserver log: check before other work runs" }
+elseif (-not $RegionServerLog) { Write-Output "LIVE LOGIN $LoginNumber ENDED - logout not yet confirmed (no -RegionServerLog): check the region server log before other work runs" }
+else { Write-Output "LIVE LOGIN $LoginNumber ENDED - logout NOT confirmed in the region server log: check before other work runs" }

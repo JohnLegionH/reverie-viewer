@@ -4,12 +4,11 @@
 # =====================================================================================
 # assert-joltc.ps1 - asserts that EVERY joltc*.dll under a directory is the PATCHED joltc.
 #
-# The viewer uses the grid's patched joltc (per-system TempAllocator); see
+# The viewer uses the patched joltc of the Tranquillity fork's Jolt physics module (per-system TempAllocator); see
 # native/joltc/PROVENANCE.md and native/joltc/README.md. The stock JoltPhysics.Native 1.0.4
-# joltc must never be accepted. Modelled on the grid's assert-patched-joltc.ps1 (in its Jolt physics module,
-# branch feature/ais-v3),
-# including its PHYS-4b lesson: check EVERY copy, because which one the loader picks depends on
-# paths this script does not control. Stricter than the grid's: joltc_double.dll is not exempt.
+# joltc must never be accepted. Modelled on assert-patched-joltc.ps1 in that module (branch feature/ais-v3),
+# including its lesson: check EVERY copy, because which one the loader picks depends on
+# paths this script does not control. Stricter than that script: joltc_double.dll is not exempt.
 #
 # Usage:
 #     powershell -NoProfile -File <repo>\tools\assert-joltc.ps1 -Path <directory>

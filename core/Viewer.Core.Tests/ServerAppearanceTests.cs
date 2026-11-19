@@ -20,7 +20,7 @@ public class ServerAppearanceTests
 {
     internal static readonly SimRef Alpha = new(256000UL << 32 | 256000UL, "Alpha");
     private static readonly SimRef Beta = new(256256UL << 32 | 256000UL, "Beta");
-    private static readonly SimRef Transylvania = new(256512UL << 32 | 256000UL, "Transylvania");
+    private static readonly SimRef Gamma = new(256512UL << 32 | 256000UL, "Gamma");
     internal static readonly Guid Me = Guid.Parse("11111111-2222-3333-4444-555555555555");   // FakeTransport's default login agent
 
     internal static (ViewerSession Session, FakeTransport Transport, ListSink Log) LoggedIn()
@@ -85,7 +85,7 @@ public class ServerAppearanceTests
         var (s, t, _) = LoggedIn();
         Arrive(t, Alpha, serverBaked: true);
         Assert.Equal(AppearanceMode.Server, s.World.AppearanceMode);
-        t.Raise(new SimConnected(Transylvania, 256, 256, ServerBakedAppearance: false));
+        t.Raise(new SimConnected(Gamma, 256, 256, ServerBakedAppearance: false));
         Assert.Equal(AppearanceMode.Client, s.World.AppearanceMode);
     }
 
@@ -95,7 +95,7 @@ public class ServerAppearanceTests
         var (s, t, log) = LoggedIn();
         Arrive(t, Alpha, serverBaked: true);
         var onServer = s.World.AppearanceMode;
-        t.Raise(new SimConnected(Transylvania, 256, 256, false));
+        t.Raise(new SimConnected(Gamma, 256, 256, false));
         var onClient = s.World.AppearanceMode;
         t.Raise(new SimConnected(Alpha, 256, 256, true));
 
@@ -108,7 +108,7 @@ public class ServerAppearanceTests
         Assert.Equal(3, chosen.Count);
         Assert.Contains("Alpha", chosen[0]);
         Assert.Contains("bit0=set", chosen[0]);
-        Assert.Contains("Transylvania", chosen[1]);
+        Assert.Contains("Gamma", chosen[1]);
         Assert.Contains("bit0=clear", chosen[1]);
     }
 

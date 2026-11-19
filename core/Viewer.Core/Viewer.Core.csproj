@@ -77,9 +77,9 @@
          mapping, the directory falls off the native probe path, and joltc fails to load at FIRST
          PHYSICS USE, not at startup.
          VIEWER NOTE (measured): with SDK 10.0.400 the generated deps.json carries NO
-         joltc mapping at all (ours, and the grid's live regionserver bin too), so runtimes/win-x64/native
-         is not on the probe path. The grid's live bin loads the copy in its APPLICATION ROOT. The
-         reference above is kept exactly as the grid's; the vendored joltc is copied to the output root
+         joltc mapping at all (ours, and a region server built from the same source too), so runtimes/win-x64/native
+         is not on the probe path. Such a region server loads the copy in its APPLICATION ROOT. The
+         reference above is kept exactly as the source's; the vendored joltc is copied to the output root
          below, where the loader actually looks. -->
     <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
   </ItemGroup>

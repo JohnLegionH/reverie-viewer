@@ -1,19 +1,19 @@
 # joltc provenance (vendored, patched)
 
-The viewer uses the grid's **patched** joltc (per-system TempAllocator), never the stock
+The viewer uses the **patched** joltc of the Tranquillity (OpenSim) fork's Jolt physics module (per-system TempAllocator), never the stock
 `JoltPhysics.Native 1.0.4` joltc. What the patch does and how to rebuild it: `win-x64/README.md`
-(copied from the source below, with grid-specific names, local paths and dates generalised).
+(copied from the source below, with site-specific names, local paths and dates generalised).
 
 | Item | Value |
 |---|---|
-| Source repository | the grid's Tranquillity (OpenSim) fork, read with non-writing git only |
+| Source repository | the Tranquillity (OpenSim) fork that carries the Jolt physics module, read with non-writing git only |
 | Branch | `feature/ais-v3` |
 | Commit | `1bb1131cfdc447929d42c1e17f9aaeac8d7b9c22` |
 | Extracted | `git show feature/ais-v3:<path> > <file>` |
 
 | Vendored file | Source path in that commit | SHA-256 |
 |---|---|---|
-| `win-x64/joltc.dll` | the grid's Jolt physics module, `runtimes/win-x64/native/joltc.dll` (blob `2d2bfccb6ce07fdd4ce4f3f0a500af600db9e644`) | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
+| `win-x64/joltc.dll` | the Jolt physics module, `runtimes/win-x64/native/joltc.dll` (blob `2d2bfccb6ce07fdd4ce4f3f0a500af600db9e644`) | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
 | `win-x64/README.md` | `native/joltc/README.md` | adapted (see above); the source blob's SHA-256 began `1C94394051C11BE5` |
 | `win-x64/per-system-tempallocator.patch` | `native/joltc/per-system-tempallocator.patch` | `037AE504FC03AC95…` (byte-identical to the blob before the licence notice header was added above its first diff line) |
 
@@ -23,10 +23,10 @@ The viewer uses the grid's **patched** joltc (per-system TempAllocator), never t
 |---|---|
 | Expected, from the source README | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
 | Extracted `win-x64/joltc.dll` | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
-| Live grid regionserver `joltc.dll` (read-only) | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
+| A region server's `joltc.dll` built from the same commit (read-only) | `16AF76381387DADD7DFA5E10D6E3AD025AB624F22187D7442D1BDB88146743B5` |
 
-The joltc blob is the same in the grid's job-pool teardown commit (`a8e918b3cf`) and its deploy integration
-(`c0193d1bbf`).
+The joltc blob is the same in two later commits of that fork: the job-pool teardown (`a8e918b3cf`) and a merge that
+carries it (`c0193d1bbf`).
 
 **Stock (must never be accepted):** `67BECFC70CFBDA643AB9B75ABA895042900C3E339B001080BA4107E4929B0910`.
 
