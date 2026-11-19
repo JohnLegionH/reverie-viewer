@@ -30,7 +30,7 @@ public sealed class ScriptEditing
         Access = access;
         Name = name;
         View = ScriptRules.ViewOf(access);
-        Target = ScriptTarget.Mono;
+        Target = InitialTarget;
         if (View == ScriptView.NotAllowed)
             StatusKey = "script.not_allowed";
     }
@@ -144,11 +144,73 @@ public sealed class ScriptEditing
     }
 
     /// <summary>The region's answer about the running state (ScriptRunningReply: Running and Mono).</summary>
-    public void RunningKnown(bool running, bool mono)
+    public void RunningKnown(ScriptRuntime runtime)
     {
-        Running = running;
-        Target = mono ? ScriptTarget.Mono : ScriptTarget.Lsl2;
+        Running = runtime.Running;
+        Runtime = runtime;
+        if (!_targetChosen)
+            Target = runtime.Current;   // a save sends back the target the script has, unless the person changed it
     }
+
+    /// <summary>Whether the grid is Second Life's: its four-way compiler choice is offered. Elsewhere the engine row is.</summary>
+    public bool SecondLife { get; set; }
+
+    /// <summary>What the agent's region offers for choosing an engine.</summary>
+    public ScriptRegion Region { get; set; } = ScriptRegion.None;
+
+    /// <summary>What the region last said of the script; null until it has.</summary>
+    public ScriptRuntime? Runtime { get; private set; }
+
+    /// <summary>"Choose engine myself" is ticked (not on Second Life).</summary>
+    public bool ChooseEngine { get; private set; }
+
+    /// <summary>The entries of the compiler or engine drop-down now: Second Life's four, or on other grids the engine entries once
+    /// "Choose engine myself" is ticked (none before).</summary>
+    public IReadOnlyList<ScriptChoice> Choices =>
+        SecondLife ? ScriptEngineChoices.SecondLife(Region) : ChooseEngine ? ScriptEngineChoices.OpenSim(Region) : [];
+
+    /// <summary>The engine row (the tick box and its drop-down) is shown: not on Second Life, and only where the region lists an engine or runs Lua.</summary>
+    public bool EngineRowVisible => !SecondLife && (Region.Engines.Count > 0 || Region.LuaEnabled);
+
+    /// <summary>What runs the script and why, for the greyed drop-down; null when there is nothing to say.</summary>
+    public ScriptEngineWhy? Why => SecondLife || Region.Engines.Count == 0 && Runtime is not { Luau: true } ? null : ScriptEngineChoices.Why(Region, Runtime, Text);
+
+    /// <summary>The script is Lua (SLua): it will be compiled as Lua, or its first line says so (--!slua). The editor then colours Lua's words and
+    /// the ll, ossl, iw and bot functions instead of LSL's.</summary>
+    public bool IsLua => Target == ScriptTarget.Luau || Text.StartsWith("--!slua", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The person ticks or unticks "Choose engine myself". Unticking goes back to the script's own target; true when a saved choice
+    /// is to be cleared with SetScriptEngine.</summary>
+    public bool SetChooseEngine(bool on)
+    {
+        if (SecondLife || on && !EngineRowVisible)
+            return false;
+        ChooseEngine = on;
+        if (on)
+            return false;
+        bool hadSaved = Runtime is { EngineChoice.Length: > 0 };
+        if (hadSaved && Runtime is { } r)
+            Runtime = r with { EngineChoice = "" };
+        _targetChosen = false;
+        Target = Runtime?.Current ?? InitialTarget;
+        return hadSaved && Region.ChoiceSaved;
+    }
+
+    /// <summary>The person picks an entry of the drop-down; an entry that is greyed, or a pick on another grid's unticked row, changes nothing.</summary>
+    public void Choose(ScriptTarget target)
+    {
+        if (!SecondLife && !ChooseEngine)
+            return;
+        if (Choices.FirstOrDefault(c => c.Target == target) is { Enabled: true })
+        {
+            Target = target;
+            _targetChosen = true;
+        }
+    }
+
+    private bool _targetChosen;
+
+    private ScriptTarget InitialTarget => Access.LuaSubtype ? ScriptTarget.Luau : ScriptTarget.Mono;
 
     /// <summary>The Running tick changed by the person: true when the change is to be sent.</summary>
     public bool SetRunning(bool running)

@@ -34,7 +34,7 @@ internal sealed partial class LmvTransport : IScriptTransport
         var agent = _client.Self.AgentID;
         return new ScriptAccess(itemId, item.AssetUUID.Guid, agent.Guid,
             new NotecardPermissions(item.CreatorID.Guid, item.OwnerID.Guid, (uint)p.BaseMask, (uint)p.OwnerMask, (uint)p.GroupMask, (uint)p.EveryoneMask, (uint)p.NextOwnerMask),
-            InLibrary: item.OwnerID != agent);
+            InLibrary: item.OwnerID != agent, LuaSubtype: (item.Flags & 0xFF) == 1);
     }
 
     public async Task<AssetFetchResult> FetchScriptAsync(ScriptAccess access, CancellationToken ct)
@@ -88,7 +88,7 @@ internal sealed partial class LmvTransport : IScriptTransport
         var body = new OSDMap
         {
             ["item_id"] = OSD.FromUUID(new UUID(access.ItemId)),
-            ["target"] = OSD.FromString(target == ScriptTarget.Mono ? "mono" : "lsl2"),
+            ["target"] = OSD.FromString(target.ToString()),
         };
         if (access.InObject)
         {
@@ -152,15 +152,31 @@ internal sealed partial class LmvTransport : IScriptTransport
         }
     }
 
-    public async Task<(bool Running, bool Mono)?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct)
+    /// <summary>The richer replies the event-queue tap has seen, by script (object, item), until the library's own event for the same reply takes them.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid, Guid), ScriptRuntime> _scriptReplies = new();
+
+    /// <summary>Keeps the Engine and EngineChoice of a ScriptRunningReply, which the library does not (called by the event-queue tap before the library parses the answer).</summary>
+    internal void NoteScriptReplies(OSD answer)
+    {
+        if (_scriptReplies.Count > 256)
+            _scriptReplies.Clear();   // replies nobody asked for
+        foreach (var (obj, item, runtime) in LmvScriptReply.Read(answer))
+            _scriptReplies[(obj, item)] = runtime;
+    }
+
+    public async Task<ScriptRuntime?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct)
     {
         if (!access.InObject || _disposed || !_client.Network.Connected)
             return null;
-        var done = new TaskCompletionSource<(bool, bool)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var done = new TaskCompletionSource<ScriptRuntime>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnReply(object? sender, ScriptRunningReplyEventArgs e)
         {
-            if (e.ObjectID.Guid == access.ObjectId && e.ScriptID.Guid == access.ItemId)
-                done.TrySetResult((e.IsRunning, e.IsMono));
+            if (e.ObjectID.Guid != access.ObjectId || e.ScriptID.Guid != access.ItemId)
+                return;
+            // the tap saw the whole reply first; without it (no event-queue answer passed through it) the library's flags are all there is
+            done.TrySetResult(_scriptReplies.TryRemove((access.ObjectId, access.ItemId), out var full)
+                ? full
+                : new ScriptRuntime(e.IsRunning, e.IsMono, e.IsLuau, e.IsLuaLanguage));
         }
         _client.Inventory.ScriptRunningReply += OnReply;
         try
@@ -172,6 +188,59 @@ internal sealed partial class LmvTransport : IScriptTransport
         }
         catch (OperationCanceledException) { return null; }
         finally { _client.Inventory.ScriptRunningReply -= OnReply; }
+    }
+
+    internal const string ScriptEngineCapability = "SetScriptEngine";
+
+    /// <summary>The body of the SetScriptEngine request: the object, the script item and the target; an empty target clears the choice.</summary>
+    internal static OSDMap ScriptEngineBody(ScriptAccess access, ScriptTarget? target) => new()
+    {
+        ["task_id"] = OSD.FromUUID(new UUID(access.ObjectId)),
+        ["item_id"] = OSD.FromUUID(new UUID(access.ItemId)),
+        ["target"] = OSD.FromString(target?.ToString() ?? ""),
+    };
+
+    public ScriptRegion Region
+    {
+        get
+        {
+            try
+            {
+                var features = _client.Network.CurrentSim?.Features;
+                bool lua = features?.Get("LuaScriptsEnabled") is { } l && l.AsBoolean();
+                return ScriptRegion.From(LmvGridFeatures.Extras(features?.Get("OpenSimExtras")), lua);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                return ScriptRegion.None;
+            }
+        }
+    }
+
+    public async Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct)
+    {
+        if (!access.InObject || _disposed || !_client.Network.Connected)
+            return false;
+        Uri? cap;
+        try { cap = _client.Network.CurrentSim?.Caps?.CapabilityURI(ScriptEngineCapability); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { cap = null; }
+        if (cap is null)
+            return false;
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        limit.CancelAfter(ScriptWait);
+        try
+        {
+            var (response, _) = await _client.HttpCapsClient.PostAsync(cap, OSDFormat.Xml, ScriptEngineBody(access, target), limit.Token).ConfigureAwait(false);
+            bool ok = response?.IsSuccessStatusCode == true;
+            _log.Info("script.engine-set", CoreLog.F("ok", ok));
+            return ok;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _log.Warn("script.engine-set-failed", CoreLog.F("error", ex.GetType().Name));
+            return false;
+        }
     }
 
     public bool SetScriptRunning(ScriptAccess access, bool running)

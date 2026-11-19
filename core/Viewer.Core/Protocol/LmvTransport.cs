@@ -270,6 +270,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         // the reply's fields. Simulator circuits are governed through the cancellable SimConnecting in strict mode.
         _loginTap = new LmvLoginTap(OutboundHttp.CreateHandler(_outbound, _log, _certificates), _log);
         _client.HttpCapsClient = new HttpCapsClient(_loginTap);
+        _loginTap.EventQueueAnswer = NoteScriptReplies;
         // strict mode refuses internal addresses here; in every mode a second circuit to an address that already has one is refused
         _client.Network.SimConnecting += OnSimConnecting;
 

@@ -324,7 +324,9 @@ public class ObjectContentsTests
             Saved.Add((access.ItemId, target, running, System.Text.Encoding.UTF8.GetString(text)));
             return Task.FromResult(Answers.TryGetValue(access.ItemId, out var a) ? a : new ScriptSaveResult(ScriptSaveStatus.Saved, true, G(99), []));
         }
-        public Task<(bool Running, bool Mono)?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct) => Task.FromResult<(bool, bool)?>(null);
+        public Task<ScriptRuntime?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct) => Task.FromResult<ScriptRuntime?>(null);
+        public ScriptRegion Region => ScriptRegion.None;
+        public Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct) => Task.FromResult(false);
         public bool SetScriptRunning(ScriptAccess access, bool running) { Set.Add((access.ItemId, running)); return true; }
         public bool ResetScript(ScriptAccess access) { Reset.Add(access.ItemId); return true; }
     }
@@ -437,7 +439,9 @@ public class ObjectContentsTests
         public ScriptAccess? ScriptAccessOf(Guid itemId) => null;
         public Task<AssetFetchResult> FetchScriptAsync(ScriptAccess access, CancellationToken ct) => throw new InvalidOperationException("gone");
         public Task<ScriptSaveResult> SaveScriptAsync(ScriptAccess access, byte[] text, ScriptTarget target, bool running, CancellationToken ct) => throw new InvalidOperationException();
-        public Task<(bool Running, bool Mono)?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<ScriptRuntime?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct) => throw new InvalidOperationException();
+        public ScriptRegion Region => ScriptRegion.None;
+        public Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct) => throw new InvalidOperationException();
         public bool SetScriptRunning(ScriptAccess access, bool running) => throw new InvalidOperationException();
         public bool ResetScript(ScriptAccess access) => throw new InvalidOperationException();
     }

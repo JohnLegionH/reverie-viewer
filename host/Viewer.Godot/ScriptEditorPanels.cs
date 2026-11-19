@@ -111,7 +111,7 @@ public sealed class ScriptEditorFeature
         }
         _keyIn[slot] = key;
         _open.Add(key);
-        var editing = new ScriptEditing(access, name);
+        var editing = new ScriptEditing(access, name) { SecondLife = !_openSim, Region = _transport?.Region ?? Viewer.Core.Inventory.ScriptRegion.None };
         var p = _panels[slot]!;
         p.Show(editing, _transport, LslKeywords.Shipped(_openSim), _cancel.Token);
         _shell.SetFloaterTitle(FloaterId(slot), string.IsNullOrEmpty(name) ? _strings.Get("script.title") : name);
@@ -161,8 +161,10 @@ public partial class ScriptCodeEdit : CodeEdit
 
     public override string _GetTooltip(Vector2 atPosition)
     {
-        string word = GetWordAtPos(atPosition);
-        return word.Length > 0 && Words?.Find(word) is { } w && w.Tooltip.Length > 0 ? w.Tooltip : "";
+        var at = GetLineColumnAtPos(new Vector2I((int)atPosition.X, (int)atPosition.Y), false);
+        if (at.Y < 0 || at.Y >= GetLineCount())
+            return "";
+        return Words?.FindAt(GetLine(at.Y), at.X) is { } w && w.Tooltip.Length > 0 ? w.Tooltip : "";
     }
 }
 
@@ -179,7 +181,8 @@ public partial class ScriptEditorPanel : VBoxContainer
     public Button SaveButton { get; }
     public CheckBox RunningCheck { get; }
     public Button ResetButton { get; }
-    public CheckBox MonoCheck { get; }
+    public CheckBox EngineCheck { get; }
+    public OptionButton TargetCombo { get; }
     public Button FindButton { get; }
     public Button GoToButton { get; }
     public Button SmallerButton { get; }
@@ -224,10 +227,14 @@ public partial class ScriptEditorPanel : VBoxContainer
         bar.AddChild(RunningCheck);
         ResetButton = Btn("reset", "script.reset", Reset);
         bar.AddChild(ResetButton);
-        MonoCheck = new CheckBox { Name = "mono", Text = strings.Get("script.mono"), ButtonPressed = true };
-        MonoCheck.AccessibilityName = MonoCheck.Text;
-        MonoCheck.Toggled += on => { if (!_syncing && _editing is { } e) e.Target = on ? ScriptTarget.Mono : ScriptTarget.Lsl2; };
-        bar.AddChild(MonoCheck);
+        EngineCheck = new CheckBox { Name = "engine_choose", Text = strings.Get("script.engine.choose"), Visible = false };
+        EngineCheck.AccessibilityName = EngineCheck.Text;
+        EngineCheck.Toggled += OnEngineToggled;
+        bar.AddChild(EngineCheck);
+        TargetCombo = new OptionButton { Name = "target", Visible = false, FitToLongestItem = false };
+        TargetCombo.AccessibilityName = strings.Get("script.target");
+        TargetCombo.ItemSelected += OnTargetSelected;
+        bar.AddChild(TargetCombo);
         bar.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
         FindButton = Btn("find", "script.find", () => { FindBar!.Visible = !FindBar.Visible; if (FindBar.Visible) FindField!.GrabFocus(); });
         bar.AddChild(FindButton);
@@ -323,7 +330,8 @@ public partial class ScriptEditorPanel : VBoxContainer
         _editing = editing;
         _transport = transport;
         _token = token;
-        Code.Words = words;
+        Code.Words = _lslWords = words;
+        _luaShown = false;
         ApplyTheme();
         if (editing.View != ScriptView.NotAllowed)
             StatusLabel.Text = _s.Get("script.loading");
@@ -369,7 +377,7 @@ public partial class ScriptEditorPanel : VBoxContainer
         _ = transport.GetScriptRunningAsync(e.Access, token).ContinueWith(t =>
         {
             if (t.IsCompletedSuccessfully && t.Result is { } r && !token.IsCancellationRequested)
-                Callable.From(() => { if (_editing == e) { e.RunningKnown(r.Running, r.Mono); Sync(); } }).CallDeferred();
+                Callable.From(() => { if (_editing == e) { e.RunningKnown(r); Sync(); } }).CallDeferred();
         }, TaskScheduler.Default);
     }
 
@@ -408,10 +416,20 @@ public partial class ScriptEditorPanel : VBoxContainer
             MemberVariableColor = ShellTheme.C(t.Text),
         };
         if (Code.Words is { } words)
-            foreach (var w in words.Words.Values)
-                h.AddKeywordColor(w.Word, ShellTheme.Syntax(t, w.Kind));
-        h.AddColorRegion("//", "", ShellTheme.SyntaxComment(t), lineOnly: true);
-        h.AddColorRegion("/*", "*/", ShellTheme.SyntaxComment(t));
+            foreach (var (word, kind) in words.Coloured())
+                h.AddKeywordColor(word, ShellTheme.Syntax(t, kind));
+        if (Code.Words is { IsSlua: true })
+        {
+            // Lua: "--[[ ]]" blocks and "--" lines are comments, strings take either quote
+            h.AddColorRegion("--[[", "]]", ShellTheme.SyntaxComment(t));
+            h.AddColorRegion("--", "", ShellTheme.SyntaxComment(t), lineOnly: true);
+            h.AddColorRegion("'", "'", ShellTheme.SyntaxString(t));
+        }
+        else
+        {
+            h.AddColorRegion("//", "", ShellTheme.SyntaxComment(t), lineOnly: true);
+            h.AddColorRegion("/*", "*/", ShellTheme.SyntaxComment(t));
+        }
         h.AddColorRegion("\"", "\"", ShellTheme.SyntaxString(t));
         Code.SyntaxHighlighter = h;
         ApplyFont();
@@ -441,12 +459,12 @@ public partial class ScriptEditorPanel : VBoxContainer
         _syncing = true;
         Code.Editable = e.CanEdit;
         SaveButton.Disabled = !e.CanSave;
-        RunningCheck.Visible = ResetButton.Visible = MonoCheck.Visible = e.InObject;
+        RunningCheck.Visible = ResetButton.Visible = e.InObject;
         RunningCheck.Disabled = !e.CanSetRunning;
         RunningCheck.ButtonPressed = e.Running ?? false;
         ResetButton.Disabled = e.View != ScriptView.Editable || e.Saving;
-        MonoCheck.ButtonPressed = e.Target == ScriptTarget.Mono;
-        MonoCheck.Disabled = !e.CanEdit || e.Saving;
+        SyncTarget(e);
+        SyncWords(e);
         ReplaceButton.Disabled = ReplaceAllButton.Disabled = !e.CanEdit;
         _syncing = false;
         StatusLabel.Text = e.StatusKey is { } key ? _s.Get(key, e.StatusArg) : "";
@@ -459,6 +477,97 @@ public partial class ScriptEditorPanel : VBoxContainer
         ShowPosition();
     }
 
+    private LslKeywords? _lslWords;
+    private bool _luaShown;
+
+    /// <summary>Lua's words and colours while the script is Lua, LSL's otherwise.</summary>
+    private void SyncWords(ScriptEditing e)
+    {
+        if (e.IsLua == _luaShown)
+            return;
+        _luaShown = e.IsLua;
+        Code.Words = _luaShown ? LslKeywords.ShippedSlua() : _lslWords;
+        ApplyTheme();
+    }
+
+    private IReadOnlyList<ScriptChoice> _shownChoices = [];
+    private string _comboKey = "";
+
+    private string LabelOf(ScriptChoice c) => _s.Get(c.LabelKey, c.LabelArg);
+
+    /// <summary>The compiler or engine drop-down as the model says. Second Life: the four compiler choices, the Lua two greyed where the region
+    /// sends no LuaScriptsEnabled. Elsewhere: the tick box, and the drop-down greyed with what runs the script and why until it is ticked, then the
+    /// engines with those the region cannot save greyed and explained in their tooltip.</summary>
+    private void SyncTarget(ScriptEditing e)
+    {
+        bool show = e.SecondLife || e.EngineRowVisible;
+        EngineCheck.Visible = !e.SecondLife && e.EngineRowVisible;
+        TargetCombo.Visible = show;
+        if (!show)
+            return;
+        EngineCheck.Disabled = !e.CanEdit || e.Saving;
+        EngineCheck.ButtonPressed = e.ChooseEngine;
+        var choices = e.Choices;
+        if (choices.Count == 0)
+        {
+            // unticked: what runs the script and why, greyed
+            string text = e.Why is { } why ? _s.Get(why.ReasonKey, why.Engine) : "";
+            string key = "why|" + text;
+            if (key != _comboKey)
+            {
+                TargetCombo.Clear();
+                TargetCombo.AddItem(text, 0);
+                _comboKey = key;
+            }
+            _shownChoices = choices;
+            TargetCombo.Select(0);
+            TargetCombo.Disabled = true;
+            TargetCombo.TooltipText = string.Empty;
+            return;
+        }
+        string listKey = string.Join("|", choices.Select(c => c.Target.Value + (c.Enabled ? "+" : "-")));
+        if (listKey != _comboKey)
+        {
+            TargetCombo.Clear();
+            for (int i = 0; i < choices.Count; i++)
+            {
+                TargetCombo.AddItem(LabelOf(choices[i]), i);
+                TargetCombo.SetItemDisabled(i, !choices[i].Enabled);
+                if (choices[i].DisabledKey is { } reason)
+                    TargetCombo.SetItemTooltip(i, _s.Get(reason));
+            }
+            _comboKey = listKey;
+        }
+        _shownChoices = choices;
+        int at = -1;
+        for (int i = 0; i < choices.Count; i++)
+            if (choices[i].Target == e.Target) at = i;
+        if (at >= 0)
+            TargetCombo.Select(at);
+        else
+            TargetCombo.Selected = -1;
+        TargetCombo.Disabled = !e.CanEdit || e.Saving;
+        TargetCombo.TooltipText = choices.Any(c => !c.Enabled) && choices.First(c => !c.Enabled).DisabledKey is { } why2 ? _s.Get(why2) : "";
+    }
+
+    private void OnTargetSelected(long index)
+    {
+        if (_syncing || _editing is not { } e || index < 0 || index >= _shownChoices.Count)
+            return;
+        e.Choose(_shownChoices[(int)index].Target);
+        Sync();
+    }
+
+    private void OnEngineToggled(bool on)
+    {
+        if (_syncing || _editing is not { } e)
+            return;
+        bool clear = e.SetChooseEngine(on);
+        if (clear && _transport is { } t)
+            _ = t.SetScriptEngineAsync(e.Access, null, _token);   // unticking drops the choice the region saved
+        Sync();
+    }
+
     private void ShowPosition() => PositionLabel.Text = _s.Get("script.position", Code.GetCaretLine() + 1, Code.GetCaretColumn() + 1);
 
     private void OnTextChanged()
@@ -467,6 +576,9 @@ public partial class ScriptEditorPanel : VBoxContainer
             return;
         e.Text = Code.Text;
         SaveButton.Disabled = !e.CanSave;
+        SyncWords(e);
+        if (!e.SecondLife && !e.ChooseEngine)
+            SyncTarget(e);   // the greyed drop-down names the engine the first line asks for
     }
 
     /// <summary>Save (the button, and Ctrl+S as the official editor has it).</summary>
@@ -660,7 +772,7 @@ public partial class ScriptEditorPanel : VBoxContainer
     /// <summary>Shows a running state without a grid (the pictures).</summary>
     public void ShowRunning(bool running, bool mono)
     {
-        _editing?.RunningKnown(running, mono);
+        _editing?.RunningKnown(new ScriptRuntime(running, mono));
         Sync();
     }
 

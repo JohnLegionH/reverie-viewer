@@ -45,6 +45,17 @@ public sealed class EditContentTab
 
     /// <summary>An item was deleted (the host closes its script or notecard window, as removeItem hides the preview).</summary>
     public Action<Guid>? Deleted;
+
+    /// <summary>What the agent's region offers for choosing a script's engine (the host supplies it from the session; none when logged out).</summary>
+    public Func<ScriptRegion>? ScriptRegionOf;
+
+    /// <summary>Sets the engine of a listed script without saving its text (a null target clears the choice); true when the region accepted it.</summary>
+    public Func<Guid, ScriptTarget?, System.Threading.Tasks.Task<bool>>? SetEngine;
+
+    private readonly PopupMenu _engineMenu;
+    private readonly List<ScriptTarget?> _engineTargets = new();
+    private Guid _engineItem;
+    private const int MenuEngine = 4;
     private readonly Label _status;
     private Guid _askedFor;
     private readonly List<Guid> _rows = new();
@@ -74,6 +85,9 @@ public sealed class EditContentTab
         page.AddChild(_list);
         _menu = new PopupMenu { Name = "content_menu" };
         _menu.IdPressed += MenuChosen;
+        _engineMenu = new PopupMenu { Name = "content_engine_menu" };
+        _engineMenu.IdPressed += EngineChosen;
+        _menu.AddChild(_engineMenu);
         page.AddChild(_menu);
         var row = new HFlowContainer { Name = "content_buttons" };
         _open = Btn("content_open", "edit.content.open", () => { if (Chosen() is { } id) OpenRequested?.Invoke(id); });
@@ -180,8 +194,51 @@ public sealed class EditContentTab
             _menu.AddItem(_s.Get("edit.content.rename"), MenuRename);
         if (modify || youOwn)
             _menu.AddItem(_s.Get("edit.content.delete"), MenuDelete);
+        if (item is { AssetType: 10 } && ScriptRegionOf?.Invoke() is { } region)
+            AddEngineMenu(item, region);
         _menu.Position = (Vector2I)(_list.GetScreenPosition() + at);
         _menu.Popup();
+    }
+
+    /// <summary>Engine > the engine choices for a listed script, where the region saves a choice. For a script the agent may not modify the entry
+    /// is offered only where the region allows an owner to set it; otherwise it is greyed with the reason as its tooltip.</summary>
+    private void AddEngineMenu(TaskItem item, ScriptRegion region)
+    {
+        uint mask = item.OwnerId == _agent() ? item.OwnerMask : item.EveryoneMask;
+        var offer = ScriptEngineChoices.ContentsMenu(region, (mask & NotecardPermissions.Modify) != 0);
+        if (!offer.Offered)
+            return;
+        _engineItem = item.ItemId;
+        _engineTargets.Clear();
+        _engineMenu.Clear();
+        foreach (var c in ScriptEngineChoices.OpenSim(region))
+        {
+            _engineMenu.AddItem(_s.Get(c.LabelKey, c.LabelArg), _engineTargets.Count);
+            _engineMenu.SetItemDisabled(_engineMenu.ItemCount - 1, !c.Enabled);
+            _engineTargets.Add(c.Target);
+        }
+        _engineMenu.AddItem(_s.Get("script.engine.menu.clear"), _engineTargets.Count);   // no choice: the first line or the region default
+        _engineTargets.Add(null);
+        _menu.AddSubmenuNodeItem(_s.Get("script.engine.menu"), _engineMenu, MenuEngine);
+        int at = _menu.ItemCount - 1;
+        _menu.SetItemDisabled(at, !offer.Enabled);
+        if (offer.DisabledKey is { } reason)
+            _menu.SetItemTooltip(at, _s.Get(reason));
+    }
+
+    private async void EngineChosen(long index)
+    {
+        if (index < 0 || index >= _engineTargets.Count || SetEngine is not { } set)
+            return;
+        try
+        {
+            bool ok = await set(_engineItem, _engineTargets[(int)index]);
+            _status.Text = _s.Get(ok ? "script.engine.set" : "script.engine.set_failed");
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _status.Text = _s.Get("script.engine.set_failed");
+        }
     }
 
     private void MenuChosen(long id)

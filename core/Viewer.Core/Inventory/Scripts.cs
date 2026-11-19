@@ -6,16 +6,49 @@ using Viewer.Core.Assets;
 
 namespace Viewer.Core.Inventory;
 
-/// <summary>What a script is compiled to. The official viewer offers Mono and LSL2 only (indra/newview/llviewerassetupload.h,
-/// the "mono" and "lsl2" targets); it has no other compile target.</summary>
-public enum ScriptTarget { Mono, Lsl2 }
+/// <summary>
+/// What a script is compiled to, as the "target" a save or a recompile sends: "lsl2", "mono", "lsl-luau" and "luau" (the official viewer's
+/// four, indra/newview/llviewerassetupload.h), or "engine:&lt;Name&gt;" where a region saves a person's choice of script engine.
+/// </summary>
+public readonly record struct ScriptTarget(string Value)
+{
+    public static readonly ScriptTarget Mono = new("mono"), Lsl2 = new("lsl2"), LslLuau = new("lsl-luau"), Luau = new("luau");
+
+    private const string EnginePrefix = "engine:";
+
+    /// <summary>The target that names one engine, as a region lists it in its script engines.</summary>
+    public static ScriptTarget Engine(string name) => new(EnginePrefix + name);
+
+    public bool IsEngine => Value?.StartsWith(EnginePrefix, StringComparison.Ordinal) == true;
+
+    /// <summary>The engine an "engine:&lt;Name&gt;" target names; empty for any other target.</summary>
+    public string EngineName => IsEngine ? Value![EnginePrefix.Length..] : "";
+
+    public override string ToString() => Value ?? "";
+}
+
+/// <summary>
+/// What a region says about a script it runs (the ScriptRunningReply on the event queue). <paramref name="Mono"/>, <paramref name="Luau"/> and
+/// <paramref name="LuauLanguage"/> are the official viewer's three flags; <paramref name="Engine"/> is the engine running the script and
+/// <paramref name="EngineChoice"/> the engine a person saved for it, both empty on a region that does not send them.
+/// </summary>
+public sealed record ScriptRuntime(bool Running, bool Mono, bool Luau = false, bool LuauLanguage = false, string Engine = "", string EngineChoice = "")
+{
+    /// <summary>The target the script has now, which a save sends back unless the person changes it (the official editor reads the same flags,
+    /// indra/newview/llpreviewscript.cpp): Lua when both Luau flags are set, LSL on Lua for Luau alone, a saved engine choice, then Mono or LSL2.</summary>
+    public ScriptTarget Current =>
+        Luau ? (LuauLanguage ? ScriptTarget.Luau : ScriptTarget.LslLuau)
+        : EngineChoice.Length > 0 ? ScriptTarget.Engine(EngineChoice)
+        : Mono ? ScriptTarget.Mono : ScriptTarget.Lsl2;
+}
 
 /// <summary>A script the editor works on: in the agent's inventory (no object), or inside an object (its task inventory).</summary>
 /// <param name="AssetId">The text's asset; empty for a new script with no text yet.</param>
 /// <param name="ObjectId">The object the script is in; empty for a script in the inventory.</param>
 /// <param name="LocalId">The object's region-local id (the region's handle on it); 0 for a script in the inventory.</param>
+/// <param name="LuaSubtype">The item's subtype says it is a Lua script (the low byte of its flags is 1); the grid sends that for a script in the inventory.</param>
 public sealed record ScriptAccess(Guid ItemId, Guid AssetId, Guid AgentId, NotecardPermissions Permissions, bool InLibrary,
-    Guid ObjectId = default, uint LocalId = 0)
+    Guid ObjectId = default, uint LocalId = 0, bool LuaSubtype = false)
 {
     public bool InObject => ObjectId != Guid.Empty;
 }
@@ -94,8 +127,15 @@ public interface IScriptTransport
     /// script inside an object, then the uploader those name.</summary>
     Task<ScriptSaveResult> SaveScriptAsync(ScriptAccess access, byte[] text, ScriptTarget target, bool running, CancellationToken ct);
 
-    /// <summary>Asks whether a script inside an object runs; the answer is (running, mono), or null when none came.</summary>
-    Task<(bool Running, bool Mono)?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct);
+    /// <summary>Asks whether a script inside an object runs and what it is compiled for; null when no answer came.</summary>
+    Task<ScriptRuntime?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct);
+
+    /// <summary>What the agent's region offers for choosing a script's engine or compiler.</summary>
+    ScriptRegion Region { get; }
+
+    /// <summary>Sets a script's engine without saving its text (the SetScriptEngine capability); a null target clears the choice. False when
+    /// the region refused or has no such capability.</summary>
+    Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct);
 
     /// <summary>Starts or stops a script inside an object. False when it could not be sent.</summary>
     bool SetScriptRunning(ScriptAccess access, bool running);
