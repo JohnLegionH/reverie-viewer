@@ -18,6 +18,9 @@ public sealed partial class AoAddon : IAddon, IAddonDiagnostics
 {
     private const string UseKey = "use", SetKey = "set";
 
+    /// <summary>The AO is on unless the person turned it off: a fresh install has no saved choice and starts on.</summary>
+    private static bool UseOn(string? saved) => saved != "false";
+
     private IAddonContext? _context;
     private AoEngine? _engine;
     private AddonWindow? _window;
@@ -32,7 +35,7 @@ public sealed partial class AoAddon : IAddon, IAddonDiagnostics
     {
         _context = context;
         _window = context.AddWindow("overrider", "Animation Overrider");
-        _use = _window.Add(new AddonToggle("use") { Text = "Use my animation set", On = context.GetSetting(UseKey) == "true" });
+        _use = _window.Add(new AddonToggle("use") { Text = "Use my animation set", On = UseOn(context.GetSetting(UseKey)) });
         _use.Toggled += Use;
         _sets = _window.Add(new AddonChoice("sets") { Text = "Set:" });
         _sets.Chosen += index => { if (index >= 0 && index < _names.Length) Select(_names[index]); };
@@ -105,7 +108,7 @@ public sealed partial class AoAddon : IAddon, IAddonDiagnostics
         {
             SavedSetName = context.GetSetting(SetKey),
         };
-        engine.SetUseAo(context.GetSetting(UseKey) == "true");
+        engine.SetUseAo(UseOn(context.GetSetting(UseKey)));
         engine.Updated += Show;
         _engine = engine;
         engine.LoginComplete();
@@ -170,7 +173,7 @@ public sealed partial class AoAddon : IAddon, IAddonDiagnostics
             return;
         var engine = _engine;
         bool attached = engine is not null;
-        bool use = engine?.UseAo ?? _context?.GetSetting(UseKey) == "true";
+        bool use = engine?.UseAo ?? UseOn(_context?.GetSetting(UseKey));
         bool loaded = engine?.Loaded ?? false;
         _names = engine?.Sets.Select(s => s.Name).ToArray() ?? [];
         _use.On = use;

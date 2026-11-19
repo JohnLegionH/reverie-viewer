@@ -95,7 +95,22 @@ public class AoAddonTests
         Assert.Equal("Animation Overrider", Assert.Single(host.MenuItems).Label);
         Assert.Equal(["use", "sets", "stand_row", "reload", "edit", "status"], Window(host).Controls.Select(c => c.Id));
         Assert.Equal("Use my animation set", Use(host).Text);
-        Assert.False(Use(host).On);                                    // off until the user turns it on, as before
+        Assert.True(Use(host).On);                                     // on from the first run; the AO button turns it off
+    }
+
+    [Fact]
+    public void On_a_fresh_install_it_plays_the_stand_as_soon_as_it_has_a_set_and_the_button_turns_it_off()
+    {
+        var (host, services) = Rig();
+        InWorld(host, services);
+        host.Frame();
+        Assert.Contains((SetStand, true), services.Sent);          // no click needed
+        services.Sent.Clear();
+
+        host.Run("ao", () => Use(host).Turn(false));
+        host.Frame();
+        Assert.False(Use(host).On);
+        Assert.Contains((SetStand, false), services.Sent);
     }
 
     [Fact]
