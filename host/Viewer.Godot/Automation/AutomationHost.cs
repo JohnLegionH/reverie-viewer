@@ -149,6 +149,7 @@ public partial class AutomationHost : Node
                     else
                     {
                         try { var acct = AccountsFile.Load(accounts, alias); name = acct.First + " " + acct.Last; password = acct.Password; }
+                        catch (InvalidOperationException ex) { return AutomationReply.Error(400, "account not available: " + ex.Message); }   // the alias is not approved or not in the file
                         catch (Exception) { return AutomationReply.Error(400, "account not available"); }
                     }
                 }
@@ -498,6 +499,7 @@ public partial class AutomationHost : Node
                         var typedAccount = AccountsFile.Load(accountsFile, accountAlias);
                         return AutomationReply.Ok(m.TypeText(part == "name" ? typedAccount.First + " " + typedAccount.Last : typedAccount.Password.Reveal()));
                     }
+                    catch (InvalidOperationException ex) { return AutomationReply.Error(400, "account not available: " + ex.Message); }   // the alias is not approved or not in the file
                     catch (Exception) { return AutomationReply.Error(400, "account not available"); }
                 }
                 bool Flag(string key) => call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty(key, out var fv) && fv.ValueKind == JsonValueKind.True;
@@ -552,6 +554,7 @@ public partial class AutomationHost : Node
                     return AutomationReply.Error(403, "automation is not allowed on this grid");   // the per-grid switch: never a login to Second Life
                 (string first, string last, Secret password) acct;
                 try { acct = AccountsFile.Load(accounts, alias); }
+                catch (InvalidOperationException ex) { return AutomationReply.Error(400, "account not available: " + ex.Message); }   // the alias is not approved or not in the file
                 catch (Exception) { return AutomationReply.Error(400, "account not available"); }
                 model.LoginUri = uri;
                 model.UserName = acct.first + " " + acct.last;   // the whole name in the one username field, split as typed text is

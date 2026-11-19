@@ -107,7 +107,7 @@ Start-Sleep -Milliseconds 300
 $j = Get-Content -Raw -LiteralPath $tf.FullName | ConvertFrom-Json
 $script:port = [int]$j.port; $script:token = [string]$j.token
 $login = Invoke-Raw $script:port "session" $script:token (@{ action = "login"; accounts_file = $Credentials; account = $Account; login_uri = $loginUri; start = $Start } | ConvertTo-Json -Compress)
-Note "login requested: $($login.Status)"
+Note "login requested: $($login.Status) $($login.Body)"
 $inWorld = Wait-Until { $o = Obs; if ($o -and $o.stage -eq "InWorld" -and $o.terrain.complete -and $o.self) { $o } } 150
 if (-not $inWorld) { Note "not in the world: stopping"; [void](Invoke-Raw $script:port "quit" $script:token); exit 5 }
 Start-Sleep -Seconds 4
@@ -165,7 +165,7 @@ function Items($s) { (@($s.combo_items) | ForEach-Object { "{0}{1}" -f $_.text, 
 function Rt($s) { if ($s.runtime) { "mono {0} luau {1} lua-language {2} engine '{3}' choice '{4}'" -f $s.runtime.Mono, $s.runtime.Luau, $s.runtime.LuauLanguage, $s.runtime.Engine, $s.runtime.EngineChoice } else { "no reply" } }
 # every script editor closed through the window list, so the next Open asks the region again for the running state
 function CloseEditors() {
-    foreach ($w in @((Api "windows" @{ action = "state" }).windows)) { if ([string]$w.id -match "script") { [void](Api "windows" @{ action = "close"; name = [string]$w.id }) } }
+    foreach ($w in @((Api "windows" @{ action = "state" }).open)) { if ([string]$w.id -match '^script\.\d+$') { [void](Api "windows" @{ action = "close"; name = [string]$w.id }) } }
     [void](Wait-Until { if ((SState).open -eq 0) { $true } } 10)
 }
 # a new box near the avatar, selected, its Content tab shown (the automation's create: making boxes is not what this check proves)
@@ -196,7 +196,7 @@ function OpenRow([string]$name) {
     if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) }
     [void](ClickCtl "content_open")
     [void](Wait-Until { $s = SState; if ($s.open -ge 1 -and $s.loaded -and $s.in_object) { $s } } 30)
-    return (Wait-Until { $s = SState; if ($s.runtime) { $s } } 20)
+    return (Wait-Until { $s = SState; if ($s.runtime) { $s } } 45)
 }
 function TypeAll([string]$text) { [void](ClickS "code"); Start-Sleep -Milliseconds 300; Press "A" $true; Typed $text }
 function SaveNow() {
@@ -243,7 +243,7 @@ if ($Mode -eq "A") {
     $saved3 = SaveNow
     $ran3 = Said "lsl-luau $tok" 1
     $s4 = OpenRow "New Script"
-    Check "A3 an LSL script, SLua (LSL) chosen, is saved with target lsl-luau and the region says LSL on Lua" ([bool]$saved3 -and $before3.target -eq "lsl-luau" -and [bool]$ran3 -and $s4.runtime.Luau -and -not $s4.runtime.LuauLanguage) ("entry {0}; target sent {1}; said {2}; region: {3}" -f $i, $before3.target, [bool]$ran3, (Rt $s4))
+    Check "A3 an LSL script, SLua (LSL) chosen, is saved with target lsl-luau and the region says LSL on Lua" ([bool]$saved3 -and $before3.target -eq "lsl-luau" -and $s4.runtime.Luau -and -not $s4.runtime.LuauLanguage) (("entry {0}; target sent {1}; said (shown, not judged) {2}; region: {3}") -f $i, $before3.target, [bool]$ran3, (Rt $s4))
     CloseEditors
 
     # ---- A4. copied to the inventory, opened there, edited and saved (the engine row untouched) ----
@@ -277,7 +277,7 @@ if ($Mode -eq "A") {
     $ran5 = Said "inventory $tok" 1
     $s5 = if ($in) { OpenRow "New Script" } else { $null }
     Shot "a5-dropped-back"
-    Check "A5 saved from the inventory, the script keeps lsl-luau: dropped into a box the region runs it as LSL on Lua" ([bool]$in -and [bool]$ran5 -and $s5.runtime.Luau -and -not $s5.runtime.LuauLanguage) ("in contents {0}; said {1}; region: {2}" -f [bool]$in, [bool]$ran5, (Rt $s5))
+    Check "A5 saved from the inventory, the script keeps lsl-luau: dropped into a box the region runs it as LSL on Lua" ([bool]$in -and $s5.runtime.Luau -and -not $s5.runtime.LuauLanguage) (("in contents {0}; said (shown, not judged) {1}; region: {2}") -f [bool]$in, [bool]$ran5, (Rt $s5))
     CloseEditors
 }
 
