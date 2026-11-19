@@ -148,4 +148,33 @@ public class ScriptItemTargetTests
         var plain = OSDParser.SerializeLLSDXmlBytes(new OSDMap { ["ok"] = OSD.FromBoolean(true) });
         Assert.Empty((await Get("application/llsd+xml", plain)).Handed);
     }
+
+    // ---------------- a script inside an object, before the region says how it runs ----------------
+
+    private static Viewer.Core.Session.TaskItem InObject(uint flags) =>
+        new(Item, "Script", 10, 10, Agent, All, 0, Asset, Agent, 0x7fffffff, 0, 0, Flags: flags);
+
+    private static ScriptEditing OpenedInObject(uint flags, bool secondLife) =>
+        Opened(ScriptEditing.AccessFor(InObject(flags), G(5), 77, Agent)!, secondLife);
+
+    [Fact]
+    public void A_lua_script_in_an_object_saves_as_lua_before_the_region_says_how_it_runs()
+    {
+        Assert.Equal("luau", Body(OpenedInObject(1, secondLife: true))["target"].AsString());
+        Assert.Equal("luau", Body(OpenedInObject(1, secondLife: false))["target"].AsString());
+    }
+
+    [Fact]
+    public void An_lsl_on_lua_script_in_an_object_saves_as_lsl_on_lua_before_the_region_says_how_it_runs()
+    {
+        Assert.Equal("lsl-luau", Body(OpenedInObject(ScriptAccess.LslOnLuauFlag, secondLife: true))["target"].AsString());
+        Assert.Equal("lsl-luau", Body(OpenedInObject(ScriptAccess.LslOnLuauFlag, secondLife: false))["target"].AsString());
+    }
+
+    [Fact]
+    public void A_plain_lsl_script_in_an_object_still_saves_as_mono_on_second_life_until_the_region_says_otherwise()
+    {
+        Assert.Equal("mono", Body(OpenedInObject(0, secondLife: true))["target"].AsString());
+        Assert.False(Body(OpenedInObject(0, secondLife: false)).ContainsKey("target"));
+    }
 }

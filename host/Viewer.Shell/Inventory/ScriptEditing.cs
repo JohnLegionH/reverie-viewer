@@ -309,10 +309,12 @@ public sealed class ScriptEditing
     public static bool IsSecondLifeGrid(string? loginUri) =>
         Viewer.Core.Session.GridPolicy.KindOf(loginUri) == Viewer.Core.Session.GridKind.SecondLife;
 
-    /// <summary>A script listed inside an object as the editor's access to it; null when the item is not a script (asset type 10).</summary>
+    /// <summary>A script listed inside an object as the editor's access to it; null when the item is not a script (asset type 10). The item's
+    /// flags carry the Lua subtype (low byte 1) and the LSL-on-Lua bit, as an inventory item's do, so a save made before the region has said
+    /// how the script runs keeps its Lua target.</summary>
     public static ScriptAccess? AccessFor(Viewer.Core.Session.TaskItem item, Guid objectId, uint localId, Guid agent) =>
         item.AssetType != 10 ? null
             : new ScriptAccess(item.ItemId, item.AssetId, agent,
                 new NotecardPermissions(item.CreatorId, item.OwnerId, item.BaseMask, item.OwnerMask, item.GroupMask, item.EveryoneMask, item.NextOwnerMask),
-                false, objectId, localId);
+                false, objectId, localId, LuaSubtype: (item.Flags & 0xFF) == 1, LslOnLuau: (item.Flags & ScriptAccess.LslOnLuauFlag) != 0);
 }
