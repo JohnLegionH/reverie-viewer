@@ -34,6 +34,11 @@ public static class PeopleFeature
             if (conversations.OpenWith(agent))
                 s.Floaters.Open(ChatFeature.ConversationsId);
         };
+        panel.ConferenceRequested += agents =>
+        {
+            if (conversations.OpenConference(agents))
+                s.Floaters.Open(ChatFeature.ConversationsId);
+        };
         panel.GroupChatRequested += (group, name) =>
         {
             if (conversations.OpenGroup(group, name))
@@ -73,6 +78,7 @@ public partial class PeoplePanel : VBoxContainer
     private CommsHub? _hub;
     private bool _dirty = true, _syncing;
     private Guid _selectedFriend, _selectedGroup, _selectedNotice;
+    private readonly List<Guid> _pickedFriends = new();   // every friend picked in the list (Ctrl and Shift pick several); _selectedFriend is the one when exactly one is
     private (string Text, Action Confirm)? _confirm;
 
     public TabContainer Tabs { get; }
@@ -120,6 +126,9 @@ public partial class PeoplePanel : VBoxContainer
     /// <summary>"Message" was pressed for a friend.</summary>
     public event Action<Guid>? MessageRequested;
 
+    /// <summary>"Start conference" was pressed with several friends picked: their ids.</summary>
+    public event Action<IReadOnlyList<Guid>>? ConferenceRequested;
+
     /// <summary>"Open group chat" was pressed for a group: its id and name.</summary>
     public event Action<Guid, string>? GroupChatRequested;
 
@@ -138,8 +147,10 @@ public partial class PeoplePanel : VBoxContainer
         friends.AddChild(OffersTitle);
         OffersBox = new VBoxContainer { Name = "offers" };
         friends.AddChild(OffersBox);
-        FriendList = MakeList("friend_list", strings.Get("friends.list"));
-        FriendList.ItemSelected += i => { if (!_syncing) { _selectedFriend = FriendIdAt((int)i); _dirty = true; } };
+        FriendList = MakeList("friend_list", strings.Get("friends.list"), multi: true);
+        FriendList.ItemSelected += _ => OnFriendsPicked();
+        FriendList.MultiSelected += (_, _) => OnFriendsPicked();
+        FriendList.ItemActivated += OnFriendActivated;   // a double-click: the default action, a message to that friend
         friends.AddChild(FriendList);
         FriendsNote = Note("friends_note", strings.Get("friends.none"));
         FriendsNote.Text = strings.Get("friends.none");
@@ -184,6 +195,7 @@ public partial class PeoplePanel : VBoxContainer
         groups.AddChild(ActiveLabel);
         GroupList = MakeList("group_list", strings.Get("groups.list"));
         GroupList.ItemSelected += i => { if (!_syncing) { _selectedGroup = GroupIdAt((int)i); _dirty = true; _hub?.Groups.LoadTitles(_selectedGroup); } };
+        GroupList.ItemActivated += i => { if (GroupIdAt((int)i) != Guid.Empty) { _selectedGroup = GroupIdAt((int)i); OnGroupChat(); } };   // a double-click opens the group's chat
         groups.AddChild(GroupList);
         GroupsNote = Note("groups_note", strings.Get("groups.none"));
         GroupsNote.Text = strings.Get("groups.none");
@@ -256,9 +268,9 @@ public partial class PeoplePanel : VBoxContainer
 
     private Label Note(string name, string accessibleName) => ChatFeature.Note(name, accessibleName, _theme);
 
-    private static ItemList MakeList(string name, string accessibleName)
+    private static ItemList MakeList(string name, string accessibleName, bool multi = false)
     {
-        var l = new ItemList { Name = name, SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(200, 80), SelectMode = ItemList.SelectModeEnum.Single };
+        var l = new ItemList { Name = name, SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(200, 80), SelectMode = multi ? ItemList.SelectModeEnum.Multi : ItemList.SelectModeEnum.Single };
         l.AccessibilityName = accessibleName;
         return l;
     }
@@ -313,6 +325,7 @@ public partial class PeoplePanel : VBoxContainer
         }
         _hub = hub;
         _selectedFriend = _selectedGroup = _selectedNotice = Guid.Empty;
+        _pickedFriends.Clear();
         _confirm = null;
         if (hub is not null)
         {
@@ -324,8 +337,39 @@ public partial class PeoplePanel : VBoxContainer
 
     private void MarkDirty() => _dirty = true;
 
+    /// <summary>The friends picked in the list changed (a click, Ctrl-click or Shift-click): the single friend the other buttons act on is
+    /// the one picked when exactly one is.</summary>
+    private void OnFriendsPicked()
+    {
+        if (_syncing)
+            return;
+        _pickedFriends.Clear();
+        foreach (int i in FriendList.GetSelectedItems())
+            if (FriendIdAt(i) is var id && id != Guid.Empty)
+                _pickedFriends.Add(id);
+        _selectedFriend = _pickedFriends.Count == 1 ? _pickedFriends[0] : Guid.Empty;
+        _dirty = true;
+    }
+
+    /// <summary>A double-click on a friend: with several picked, the conference; otherwise a message to that friend.</summary>
+    private void OnFriendActivated(long index)
+    {
+        var id = FriendIdAt((int)index);
+        if (id == Guid.Empty)
+            return;
+        if (_pickedFriends.Count > 1 && _pickedFriends.Contains(id))
+            ConferenceRequested?.Invoke(_pickedFriends.ToList());
+        else
+            MessageRequested?.Invoke(id);
+    }
+
     private void OnMessage()
     {
+        if (_pickedFriends.Count > 1)
+        {
+            ConferenceRequested?.Invoke(_pickedFriends.ToList());
+            return;
+        }
         if (_selectedFriend != Guid.Empty)
             MessageRequested?.Invoke(_selectedFriend);
     }
@@ -398,11 +442,10 @@ public partial class PeoplePanel : VBoxContainer
         FriendList.Clear();
         foreach (var f in _friendRows)
             FriendList.AddItem(f.Online ? _strings.Get("friends.row.online", f.Name) : _strings.Get("friends.row", f.Name));
-        int sel = _friendRows.FindIndex(f => f.Id == _selectedFriend);
-        if (sel >= 0)
-            FriendList.Select(sel);
-        else
-            _selectedFriend = Guid.Empty;
+        _pickedFriends.RemoveAll(id => _friendRows.FindIndex(f => f.Id == id) < 0);   // a friend who left the list is no longer picked
+        foreach (var id in _pickedFriends)
+            FriendList.Select(_friendRows.FindIndex(f => f.Id == id), single: false);
+        _selectedFriend = _pickedFriends.Count == 1 ? _pickedFriends[0] : Guid.Empty;
         FriendsNote.Visible = _friendRows.Count == 0;
         var offers = hub?.Friends.Offers ?? [];
         OffersTitle.Visible = offers.Count > 0;
@@ -426,7 +469,8 @@ public partial class PeoplePanel : VBoxContainer
             OffersBox.AddChild(row);
         }
         var current = FriendRow(_selectedFriend);
-        MessageButton.Disabled = current is null;
+        MessageButton.Disabled = _pickedFriends.Count == 0;
+        MessageButton.Text = _pickedFriends.Count > 1 ? _strings.Get("friends.conference") : _strings.Get("friends.message");
         RemoveButton.Disabled = current is null;
         foreach (var c in new CheckBox[] { RightOnline, RightMap, RightModify })
             c.Disabled = current is null;

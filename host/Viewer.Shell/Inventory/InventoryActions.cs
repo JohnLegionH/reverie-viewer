@@ -79,7 +79,12 @@ public sealed class InventoryActions
             return "inventory.library";
         if (folder is not null)
             return _model.IsSystemFolder(id) || folder.Kind == FolderKind.Other ? "inventory.protected" : null;
-        return item!.Kind == ItemKind.CallingCard ? "inventory.not_renameable" : null;
+        if (item!.Kind == ItemKind.CallingCard)
+            return "inventory.not_renameable";
+        // LLItemBridge::isItemRenameable: only an item the agent may modify (a link is the agent's own, whatever it points to)
+        if (item.Permissions is { } rights && item.Kind is not (ItemKind.Link or ItemKind.LinkFolder) && !rights.AllowsModifyBy(_model.OwnerId))
+            return "inventory.no_modify";
+        return null;
     }
 
     public string? WhyNotMove(Guid id, Guid newParent)
@@ -172,7 +177,10 @@ public sealed class InventoryActions
         if (_model.Folder(id) is { } f)
             return Run(new InventoryFolderRenameIntent(id, f.ParentId, (int)f.Kind, newName), f.ParentId);
         var item = _model.Item(id)!;
-        return Run(new InventoryMoveIntent(id, item.ParentId, newName), item.ParentId);
+        // the official viewer renames an item by updating the whole item; an item whose rights the grid did not describe goes by a move that names it
+        return item.Permissions is not null
+            ? Run(new InventoryItemUpdateIntent(item with { Name = newName }), item.ParentId)
+            : Run(new InventoryMoveIntent(id, item.ParentId, newName), item.ParentId);
     }
 
     public InventoryActionResult Move(Guid id, Guid newParent)

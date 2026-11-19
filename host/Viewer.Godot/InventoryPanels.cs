@@ -107,6 +107,24 @@ public partial class InventoryTree : Tree
         }
     }
 
+    /// <summary>The rows the tree shows now, top to bottom (a folded folder's rows are not shown).</summary>
+    private List<Guid> ShownRows()
+    {
+        var rows = new List<Guid>();
+        void Walk(TreeItem? item)
+        {
+            for (; item is not null; item = item.GetNext())
+            {
+                if (IdOf(item) is var id && id != Guid.Empty)
+                    rows.Add(id);
+                if (!item.Collapsed)
+                    Walk(item.GetFirstChild());
+            }
+        }
+        Walk(GetRoot()?.GetFirstChild());
+        return rows;
+    }
+
     public override void _GuiInput(InputEvent e)
     {
         if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true, DoubleClick: false } lp)
@@ -118,6 +136,18 @@ public partial class InventoryTree : Tree
                 // Ctrl+click: the row joins the set (or leaves it), the selected row stays
                 if (!Added.Remove(rowId))
                     Added.Add(rowId);
+                MarkAdded();
+                AcceptEvent();
+                return;
+            }
+            if (lp.ShiftPressed && !lp.CtrlPressed && rowId != Guid.Empty && GetSelected() is { } anchor && IdOf(anchor) != rowId)
+            {
+                // Shift+click: every shown row from the selected one to the clicked one joins the set, the selected row stays
+                var range = RowSelection.Range(ShownRows(), IdOf(anchor), rowId);
+                Added.Clear();
+                foreach (var id in range)
+                    if (id != IdOf(anchor))
+                        Added.Add(id);
                 MarkAdded();
                 AcceptEvent();
                 return;
