@@ -184,8 +184,9 @@ public sealed partial class PreferencesPanel : VBoxContainer
             _cards[id] = button;
             cards.AddChild(card);
         }
-        // picking one preset is the segmented control: the presets are its segments on one track (the swatches above each)
-        var presetsTrack = new PanelContainer { Name = "presets_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+        // picking one preset is the segmented control: the presets are its segments on one track (the swatches above each); the track
+        // spans the page, as People's does, since a flow container asks only for its widest card and would wrap after each one
+        var presetsTrack = new PanelContainer { Name = "presets_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         presetsTrack.AddChild(cards);
         box.AddChild(presetsTrack);
 
