@@ -300,7 +300,7 @@ public partial class ScriptEditorPanel : VBoxContainer
         AddChild(foot);
 
         UnsavedPrompt = new HBoxContainer { Name = "unsaved", Visible = false };
-        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(48, 0) });   // wraps, so the three buttons stay inside a narrow window
         PromptSave = Btn("prompt_save", "script.unsaved.save", () => Answer(ScriptCloseAnswer.Save));
         PromptSave.ThemeTypeVariation = UiTheme.PrimaryButton;
         UnsavedPrompt.AddChild(PromptSave);
