@@ -2197,6 +2197,9 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 return;
             _disposed = true;
         }
+        // The tap lives on in the GridClient's HTTP handler; its callbacks must not keep this transport reachable.
+        _loginTap.EventQueueAnswer = null;
+        _loginTap.InventoryAnswer = null;
         try { _crossings.Cancel(); } catch (ObjectDisposedException) { }
         _environment.Dispose();   // cancels any environment fetch; nothing is delivered after this
         _parcelEnvironment.Dispose();

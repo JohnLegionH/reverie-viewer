@@ -106,6 +106,7 @@ public partial class TestRender
         Keep("KeptCollections.SkipClearForTest", () => KeptCollections.SkipClearForTest, v => KeptCollections.SkipClearForTest = v);
         Keep("LoggedErrorReleases.KeepForTest", () => LoggedErrorReleases.KeepForTest, v => LoggedErrorReleases.KeepForTest = v);
         Keep("CompileWatch.Active", () => CompileWatch.Active, v => CompileWatch.Active = v);
+        Keep("Dock.PulseEnabled", () => Dock.PulseEnabled, v => Dock.PulseEnabled = v);
         Keep("GCSettings.LatencyMode", () => System.Runtime.GCSettings.LatencyMode, v => System.Runtime.GCSettings.LatencyMode = v);
         // the harness's own static state: the fetch counters and the asset store start empty in every case, and the alter flags start off
         Keep("TestRender.s_alterVertex", () => s_alterVertex, v => s_alterVertex = v);

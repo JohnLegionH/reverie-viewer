@@ -112,7 +112,7 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
                 response.Content = replacement;
                 // only an LLSD answer that names a runtime is parsed; the library still gets the whole answer
                 if (bytes.Length <= InventoryAnswerBytes && bytes.AsSpan().IndexOf("runtime"u8) >= 0)
-                    InventoryAnswer(OSDParser.Deserialize(bytes));
+                    InventoryAnswer?.Invoke(OSDParser.Deserialize(bytes));
             }
             catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
             {
@@ -124,7 +124,7 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
 
     /// <summary>The capabilities this viewer asks a region for beyond the protocol library's own list. SetScriptEngine is the opt-in for the
     /// Engine and EngineChoice fields of a script's running reply: a region sends them only to a viewer that lists it.</summary>
-    internal static readonly string[] ExtraCapabilities = ["SetScriptEngine"];
+    internal static readonly IReadOnlyList<string> ExtraCapabilities = ["SetScriptEngine"];
 
     /// <summary>Adds <see cref="ExtraCapabilities"/> to a seed capability request (the list of capability names a viewer POSTs to a region's
     /// seed address; recognised by its EventQueueGet entry), each once. False, with the list untouched, when it is not such a request or
