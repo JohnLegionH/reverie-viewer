@@ -85,6 +85,7 @@ public sealed class EditContentTab
         _list.Dropped += Drop;
         _list.DragOut = DragOut;
         _list.SelectMode = ItemList.SelectModeEnum.Multi;   // Ctrl-click and Shift-click choose several rows
+        _list.AllowRmbSelect = true;   // an ItemList reports a right-button click (item_clicked) only with this on: the right-click menu needs it
         _list.ItemActivated += i => { if (i < _rows.Count) OpenRow(_rows[(int)i]); };
         _list.ItemClicked += (index, at, button) =>
         {

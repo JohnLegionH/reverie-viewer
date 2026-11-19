@@ -319,9 +319,16 @@ if ($Mode -eq "Other") {
     [void](Edit @{ action = "select"; text = "$BoxLocal" }); Start-Sleep -Milliseconds 800
     [void](ClickCtl "tab:content"); Start-Sleep -Milliseconds 800
     $listed = Wait-Until { $c = @((Edit @{ action = "state" }).contents); if ($c -contains "New Script") { $c } } 30
+    # the row's text carries what the viewer may not do with the item (" (no copy) (no modify) (no transfer)" for someone else's script);
+    # the Build window is scrolled to the Contents list first, so the row is not under the selection card
+    [void](CtlPoint "contents")
     $row = Row "New Script"
+    if (-not $row) { $row = Row "New Script (no copy) (no modify) (no transfer)" }
+    if (-not $row) { $row = Row "New Script (no modify)" }
+    Note ("B4 the script's row at {0}" -f (@($row) -join ","))
     if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) "right" }
     $menu = Wait-Until { $m = (Api "menus" @{}).content_menu; if ($m -and $m.visible) { $m } } 10
+    if (-not $menu) { Note ("B4 menus answer: " + ((Api "menus" @{}).content_menu | ConvertTo-Json -Compress -Depth 4)) }
     $engine = @($menu.items) | Where-Object { [string]$_.text -match "Engine" } | Select-Object -First 1
     Shot "b4-nomod-menu"
     Check "B4 a script the viewer may not modify: its Contents > Engine entry is greyed with a reason" ([bool]$listed -and [bool]$engine -and $engine.disabled -and [string]$engine.tooltip -ne "") ("listed {0}; menu [{1}]" -f [bool]$listed, ((@($menu.items) | ForEach-Object { "{0}{1}" -f $_.text, $(if ($_.disabled) { " (greyed: " + $_.tooltip + ")" } else { "" }) }) -join " | "))
