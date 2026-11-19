@@ -50,10 +50,14 @@ public sealed class EditContentTab
     public Func<ScriptRegion>? ScriptRegionOf;
 
     /// <summary>Sets the engine of a listed script without saving its text (a null target clears the choice); true when the region accepted it.</summary>
-    public Func<Guid, ScriptTarget?, System.Threading.Tasks.Task<bool>>? SetEngine;
+    public Func<Guid, ScriptTarget?, System.Threading.Tasks.Task<ScriptEngineReply>>? SetEngine;
+
+    /// <summary>Keeps the once-per-install early-access warning; null shows none.</summary>
+    public EarlyAccessNotice? Notice;
 
     private readonly PopupMenu _engineMenu;
     private readonly List<ScriptTarget?> _engineTargets = new();
+    private readonly List<ScriptChoice?> _engineChoices = new();
     private Guid _engineItem;
     private const int MenuEngine = 4;
     private readonly Label _status;
@@ -256,15 +260,18 @@ public sealed class EditContentTab
             return;
         _engineItem = item.ItemId;
         _engineTargets.Clear();
+        _engineChoices.Clear();
         _engineMenu.Clear();
         foreach (var c in ScriptEngineChoices.OpenSim(region))
         {
             _engineMenu.AddItem(_s.Get(c.LabelKey, c.LabelArg), _engineTargets.Count);
             _engineMenu.SetItemDisabled(_engineMenu.ItemCount - 1, !c.Enabled);
             _engineTargets.Add(c.Target);
+            _engineChoices.Add(c);
         }
         _engineMenu.AddItem(_s.Get("script.engine.menu.clear"), _engineTargets.Count);   // no choice: the first line or the region default
         _engineTargets.Add(null);
+        _engineChoices.Add(null);
         _menu.AddSubmenuNodeItem(_s.Get("script.engine.menu"), _engineMenu, MenuEngine);
         int at = _menu.ItemCount - 1;
         _menu.SetItemDisabled(at, !offer.Enabled);
@@ -278,8 +285,10 @@ public sealed class EditContentTab
             return;
         try
         {
-            bool ok = await set(_engineItem, _engineTargets[(int)index]);
-            _status.Text = _s.Get(ok ? "script.engine.set" : "script.engine.set_failed");
+            var reply = await set(_engineItem, _engineTargets[(int)index]);
+            _status.Text = reply.Ok ? _s.Get("script.engine.set") : ScriptEditorPanel.ScriptEngineFailureText(_s, reply);
+            if (_engineChoices[(int)index] is { } picked && Notice?.TakeWarning(picked) == true)
+                _status.Text += " " + _s.Get(EarlyAccessNotice.TextKey);   // once per install
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

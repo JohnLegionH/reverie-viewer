@@ -221,29 +221,32 @@ internal sealed partial class LmvTransport : IScriptTransport
         }
     }
 
-    public async Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct)
+    public async Task<ScriptEngineReply> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct)
     {
         if (!access.InObject || _disposed || !_client.Network.Connected)
-            return false;
+            return ScriptEngineReply.NotSent;
         Uri? cap;
         try { cap = _client.Network.CurrentSim?.Caps?.CapabilityURI(ScriptEngineCapability); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { cap = null; }
         if (cap is null)
-            return false;
+            return ScriptEngineReply.NotSent;
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limit.CancelAfter(ScriptWait);
         try
         {
-            var (response, _) = await _client.HttpCapsClient.PostAsync(cap, OSDFormat.Xml, ScriptEngineBody(access, target), limit.Token).ConfigureAwait(false);
-            bool ok = response?.IsSuccessStatusCode == true;
-            _log.Info("script.engine-set", CoreLog.F("ok", ok));
-            return ok;
+            var (response, data) = await _client.HttpCapsClient.PostAsync(cap, OSDFormat.Xml, ScriptEngineBody(access, target), limit.Token).ConfigureAwait(false);
+            OSD? answer = null;
+            try { answer = data is { Length: > 0 and <= 65536 } ? OSDParser.Deserialize(data) : null; }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { /* an answer that is not LLSD says nothing more than its status */ }
+            var reply = LmvScriptEngineReply.Read(answer, response?.IsSuccessStatusCode == true);
+            _log.Info("script.engine-set", CoreLog.F("ok", reply.Ok), CoreLog.F("result", reply.Result));
+            return reply;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _log.Warn("script.engine-set-failed", CoreLog.F("error", ex.GetType().Name));
-            return false;
+            return ScriptEngineReply.NotSent;
         }
     }
 

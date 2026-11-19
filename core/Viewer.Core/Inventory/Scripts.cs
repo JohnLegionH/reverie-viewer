@@ -150,13 +150,21 @@ public interface IScriptTransport
     /// <summary>What the agent's region offers for choosing a script's engine or compiler.</summary>
     ScriptRegion Region { get; }
 
-    /// <summary>Sets a script's engine without saving its text (the SetScriptEngine capability); a null target clears the choice. False when
-    /// the region refused or has no such capability.</summary>
-    Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct);
+    /// <summary>Sets a script's engine without saving its text (the SetScriptEngine capability); a null target clears the choice. The reply is
+    /// not ok (with the region's error text when it gave one) when the region refused, or has no such capability.</summary>
+    Task<ScriptEngineReply> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct);
 
     /// <summary>Starts or stops a script inside an object. False when it could not be sent.</summary>
     bool SetScriptRunning(ScriptAccess access, bool running);
 
     /// <summary>Resets a script inside an object. False when it could not be sent.</summary>
     bool ResetScript(ScriptAccess access);
+}
+
+/// <summary>What the SetScriptEngine capability answered: whether the change was accepted, the region's result word, the choice it now holds
+/// (full engine name, empty for none) and, on failure, its error text.</summary>
+public sealed record ScriptEngineReply(bool Ok, string Result, string EngineChoice, string Error)
+{
+    /// <summary>A change that could not be sent or got no answer.</summary>
+    public static ScriptEngineReply NotSent { get; } = new(false, "", "", "");
 }

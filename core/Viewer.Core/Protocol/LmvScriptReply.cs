@@ -34,6 +34,20 @@ internal static class LmvScriptReply
     }
 }
 
+internal static class LmvScriptEngineReply
+{
+    /// <summary>Reads the answer of the SetScriptEngine capability: {state, result, EngineChoice} on success ("complete") and {state, result,
+    /// error} on failure. A missing EngineChoice reads as empty. Not ok when the HTTP status failed or the state is not "complete".</summary>
+    internal static ScriptEngineReply Read(OSD? body, bool httpOk)
+    {
+        if (body is not OSDMap map)
+            return ScriptEngineReply.NotSent;
+        string Text(string key) => map.TryGetValue(key, out var v) && v.Type != OSDType.Unknown ? v.AsString() : "";
+        bool ok = httpOk && Text("state") == "complete";
+        return new ScriptEngineReply(ok, Text("result"), Text("EngineChoice"), Text("error"));
+    }
+}
+
 /// <summary>Keeps the richer replies the event-queue tap has seen, by script (object, item), until the library's own event for the same reply
 /// takes them.</summary>
 internal sealed class LmvScriptReplyKeeper

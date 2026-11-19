@@ -326,7 +326,7 @@ public class ObjectContentsTests
         }
         public Task<ScriptRuntime?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct) => Task.FromResult<ScriptRuntime?>(null);
         public ScriptRegion Region => ScriptRegion.None;
-        public Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct) => Task.FromResult(false);
+        public Task<ScriptEngineReply> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct) => Task.FromResult(ScriptEngineReply.NotSent);
         public bool SetScriptRunning(ScriptAccess access, bool running) { Set.Add((access.ItemId, running)); return true; }
         public bool ResetScript(ScriptAccess access) { Reset.Add(access.ItemId); return true; }
     }
@@ -441,7 +441,7 @@ public class ObjectContentsTests
         public Task<ScriptSaveResult> SaveScriptAsync(ScriptAccess access, byte[] text, ScriptTarget target, bool running, CancellationToken ct) => throw new InvalidOperationException();
         public Task<ScriptRuntime?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct) => throw new InvalidOperationException();
         public ScriptRegion Region => ScriptRegion.None;
-        public Task<bool> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<ScriptEngineReply> SetScriptEngineAsync(ScriptAccess access, ScriptTarget? target, CancellationToken ct) => throw new InvalidOperationException();
         public bool SetScriptRunning(ScriptAccess access, bool running) => throw new InvalidOperationException();
         public bool ResetScript(ScriptAccess access) => throw new InvalidOperationException();
     }

@@ -54,6 +54,12 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
                     foreach (var h in body.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) rewritten.Headers.TryAddWithoutValidation(h.Key, h.Value);
                     request.Content = rewritten;
                 }
+                else if (parsed is OSDArray seed && AddSeedCapabilities(seed))
+                {
+                    var rewritten = new ByteArrayContent(OSDParser.SerializeLLSDXmlBytes(seed));
+                    foreach (var h in body.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) rewritten.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                    request.Content = rewritten;
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
             {
@@ -114,6 +120,27 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
             }
         }
         return response;
+    }
+
+    /// <summary>The capabilities this viewer asks a region for beyond the protocol library's own list. SetScriptEngine is the opt-in for the
+    /// Engine and EngineChoice fields of a script's running reply: a region sends them only to a viewer that lists it.</summary>
+    internal static readonly string[] ExtraCapabilities = ["SetScriptEngine"];
+
+    /// <summary>Adds <see cref="ExtraCapabilities"/> to a seed capability request (the list of capability names a viewer POSTs to a region's
+    /// seed address; recognised by its EventQueueGet entry), each once. False, with the list untouched, when it is not such a request or
+    /// already holds them all.</summary>
+    internal static bool AddSeedCapabilities(OSDArray names)
+    {
+        if (!names.Any(n => n.Type == OSDType.String && n.AsString() == "EventQueueGet"))
+            return false;
+        bool added = false;
+        foreach (var extra in ExtraCapabilities)
+            if (!names.Any(n => n.Type == OSDType.String && n.AsString() == extra))
+            {
+                names.Add(OSD.FromString(extra));
+                added = true;
+            }
+        return added;
     }
 
     private const int InventoryAnswerBytes = 8 * 1024 * 1024;

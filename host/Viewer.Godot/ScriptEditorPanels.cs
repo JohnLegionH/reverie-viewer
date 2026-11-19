@@ -36,9 +36,11 @@ public sealed class ScriptEditorFeature
     private bool _openSim = true;
     private CancellationTokenSource _cancel = new();
     private readonly Action<string, string?>? _log;
+    private readonly EarlyAccessNotice? _notice;
 
-    public ScriptEditorFeature(ShellRoot shell, Action<string, string?>? log = null)
+    public ScriptEditorFeature(ShellRoot shell, Action<string, string?>? log = null, EarlyAccessNotice? notice = null)
     {
+        _notice = notice;
         _shell = shell;
         _strings = shell.Shell.Strings;
         _log = log;
@@ -110,7 +112,7 @@ public sealed class ScriptEditorFeature
         }
         if (_panels[slot] is null)
         {
-            var panel = new ScriptEditorPanel(_strings, slot);
+            var panel = new ScriptEditorPanel(_strings, slot) { Notice = _notice };
             _panels[slot] = panel;
             string id = FloaterId(slot);
             _shell.AddFloater(new FloaterSpec(id, "script.title", new UiSize(640, 560), new UiSize(420, 320)), panel);
@@ -219,6 +221,12 @@ public partial class ScriptEditorPanel : VBoxContainer
 
     public ScriptEditing? Editing => _editing;
 
+    /// <summary>Keeps the once-per-install early-access warning; null shows none.</summary>
+    public EarlyAccessNotice? Notice { get; init; }
+
+    /// <summary>The early-access warning, shown under the code after the first early-access engine is picked.</summary>
+    public Label EarlyWarning { get; }
+
     public ScriptEditorPanel(StringTable strings, int slot)
     {
         _s = strings;
@@ -299,6 +307,9 @@ public partial class ScriptEditorPanel : VBoxContainer
         Errors.AccessibilityName = strings.Get("script.errors");
         Errors.ItemSelected += i => ErrorClicked((int)i);
         AddChild(Errors);
+
+        EarlyWarning = new Label { Name = "early_warning", Text = strings.Get(EarlyAccessNotice.TextKey), Visible = false, SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(120, 0) };
+        AddChild(EarlyWarning);
 
         var foot = new HBoxContainer { Name = "foot" };
         StatusLabel = new Label { Name = "status", SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = UiTheme.MutedLabel, CustomMinimumSize = new Vector2(120, 0) };
@@ -413,6 +424,7 @@ public partial class ScriptEditorPanel : VBoxContainer
         _syncing = false;
         Errors.Clear();
         StatusLabel.Text = string.Empty;
+        EarlyWarning.Visible = false;
         PositionLabel.Text = string.Empty;
         UnsavedPrompt.Visible = false;
         FindBar.Visible = GoToBar.Visible = false;
@@ -567,8 +579,11 @@ public partial class ScriptEditorPanel : VBoxContainer
     {
         if (_syncing || _editing is not { } e || index < 0 || index >= _shownChoices.Count)
             return;
-        e.Choose(_shownChoices[(int)index].Target);
+        var picked = _shownChoices[(int)index];
+        e.Choose(picked.Target);
         Sync();
+        if (Notice?.TakeWarning(picked) == true)
+            EarlyWarning.Visible = true;   // shown once per install; it stays until this window's script is closed
     }
 
     private void OnEngineToggled(bool on)
@@ -577,9 +592,25 @@ public partial class ScriptEditorPanel : VBoxContainer
             return;
         bool clear = e.SetChooseEngine(on);
         if (clear && _transport is { } t)
-            _ = t.SetScriptEngineAsync(e.Access, null, _token);   // unticking drops the choice the region saved
+            _ = ClearEngineAsync(t, e);   // unticking drops the choice the region saved
         Sync();
     }
+
+    /// <summary>Clears the saved engine and shows the region's error in the status line when it refuses.</summary>
+    private async System.Threading.Tasks.Task ClearEngineAsync(IScriptTransport t, ScriptEditing e)
+    {
+        try
+        {
+            var reply = await t.SetScriptEngineAsync(e.Access, null, _token);
+            if (!reply.Ok && ReferenceEquals(_editing, e))
+                StatusLabel.Text = ScriptEngineFailureText(_s, reply);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>The status-line text for a SetScriptEngine reply that was not accepted: the region's error text when it gave one.</summary>
+    public static string ScriptEngineFailureText(StringTable s, ScriptEngineReply reply) =>
+        reply.Error.Length > 0 ? s.Get("script.engine.set_failed_why", reply.Error) : s.Get("script.engine.set_failed");
 
     private void ShowPosition() => PositionLabel.Text = _s.Get("script.position", Code.GetCaretLine() + 1, Code.GetCaretColumn() + 1);
 

@@ -10,6 +10,9 @@ namespace Viewer.Core.Inventory;
 /// </summary>
 public sealed record ScriptRegion(IReadOnlyList<string> Engines, bool LuaEnabled, bool ChoiceSaved, bool ChoiceNoMod)
 {
+    /// <summary>The engines the region marks as early access (OpenSimExtras "ScriptEngineEarlyAccess"); empty when it marks none.</summary>
+    public IReadOnlyList<string> EarlyAccess { get; init; } = [];
+
     /// <summary>A region that offers nothing: an older grid, or none yet.</summary>
     public static ScriptRegion None { get; } = new([], false, false, false);
 
@@ -26,13 +29,21 @@ public sealed record ScriptRegion(IReadOnlyList<string> Engines, bool LuaEnabled
                 _ => [],
             };
         bool Flag(string key) => extras is not null && extras.TryGetValue(key, out var v) && v is true;
-        return new ScriptRegion(engines, luaEnabled, Flag("ScriptEngineChoice"), Flag("ScriptEngineChoiceNoMod"));
+        IReadOnlyList<string> early = [];
+        if (extras is not null && extras.TryGetValue("ScriptEngineEarlyAccess", out var marked))
+            early = marked switch
+            {
+                IReadOnlyList<string> l => l.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()).ToArray(),
+                string s => s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                _ => [],
+            };
+        return new ScriptRegion(engines, luaEnabled, Flag("ScriptEngineChoice"), Flag("ScriptEngineChoiceNoMod")) { EarlyAccess = early };
     }
 }
 
 /// <summary>One entry of the engine or compiler list: its string-table key (and the engine name it is said with), the target it saves, and
 /// whether it can be used now or the key of why it cannot.</summary>
-public sealed record ScriptChoice(string LabelKey, string LabelArg, ScriptTarget Target, bool Enabled, string? DisabledKey, string DisabledArg = "");
+public sealed record ScriptChoice(string LabelKey, string LabelArg, ScriptTarget Target, bool Enabled, string? DisabledKey, string DisabledArg = "", bool EarlyAccess = false);
 
 /// <summary>Why a script runs in the engine it does, for the greyed drop-down: the engine and the string-table key of the reason.</summary>
 public sealed record ScriptEngineWhy(string Engine, string ReasonKey);
@@ -62,14 +73,22 @@ public static class ScriptEngineChoices
     {
         var all = new List<ScriptChoice>();
         foreach (var engine in region.Engines)
-            all.Add(new ScriptChoice("script.engine.lsl", engine, ScriptTarget.Engine(engine), region.ChoiceSaved, region.ChoiceSaved ? null : NoChoice, FirstLslEngine(region)));
+        {
+            bool early = IsEarlyAccess(region, engine);
+            all.Add(new ScriptChoice(early ? "script.engine.lsl_early" : "script.engine.lsl", engine, ScriptTarget.Engine(engine), region.ChoiceSaved, region.ChoiceSaved ? null : NoChoice, FirstLslEngine(region), early));
+        }
         if (region.LuaEnabled)
         {
-            all.Add(new ScriptChoice("script.engine.slua_lsl", "", ScriptTarget.LslLuau, true, null));
-            all.Add(new ScriptChoice("script.engine.slua_lua", "", ScriptTarget.Luau, true, null));
+            bool early = IsEarlyAccess(region, "SLua");   // the two Lua entries belong to the engine named SLua
+            all.Add(new ScriptChoice(early ? "script.engine.slua_lsl_early" : "script.engine.slua_lsl", "", ScriptTarget.LslLuau, true, null, "", early));
+            all.Add(new ScriptChoice(early ? "script.engine.slua_lua_early" : "script.engine.slua_lua", "", ScriptTarget.Luau, true, null, "", early));
         }
         return all;
     }
+
+    /// <summary>Whether the region lists this engine, by its full name, as early access.</summary>
+    public static bool IsEarlyAccess(ScriptRegion region, string engine) =>
+        region.EarlyAccess.Any(e => e.Equals(engine, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The first engine the region lists that runs LSL (not SLua), which the tooltip uses as its first-line example; empty when none.</summary>
     public static string FirstLslEngine(ScriptRegion region) =>
