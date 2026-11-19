@@ -123,13 +123,19 @@ public partial class LoginScreen : Control
         card.OffsetLeft = 32; card.GrowVertical = GrowDirection.Both;
         AddChild(card);
         var margin = Margins(new MarginContainer(), 20);
+        _cardMargin = margin;
         card.AddChild(margin);
         var box = new VBoxContainer { Name = "card_box", CustomMinimumSize = new Vector2(CardWidth - 40, 0) };
         box.AddThemeConstantOverride("separation", 6);
         // a form taller than the window scrolls inside the card (see FitCard) instead of running past the window's edges
         _cardScroll = new ScrollContainer { Name = "card_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
         _cardScroll.AddChild(box);
-        margin.AddChild(_cardScroll);
+        // in the compact card the Log in and Cancel buttons stand under the scrolling form, so they are always in view (see FitCard)
+        var column = new VBoxContainer { Name = "card_column" };
+        margin.AddChild(column);
+        column.AddChild(_cardScroll);
+        _cardFooter = new VBoxContainer { Name = "card_footer" };
+        column.AddChild(_cardFooter);
         _cardBox = box;
 
         // the viewer's mark and name
@@ -142,7 +148,8 @@ public partial class LoginScreen : Control
         brandRow.AddChild(appName);
         box.AddChild(brandRow);
         Labels.Add(appName);
-        box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6), MouseFilter = MouseFilterEnum.Ignore });
+        _headerGap = new Control { CustomMinimumSize = new Vector2(0, 6), MouseFilter = MouseFilterEnum.Ignore };
+        box.AddChild(_headerGap);
 
         Control Field(LoginControl c)
         {
@@ -150,6 +157,8 @@ public partial class LoginScreen : Control
             label.AccessibilityName = label.Text;
             box.AddChild(label);
             Labels.Add(label);
+            if (c.HintKey is not null)
+                _hintedCaptions.Add(label);   // a field whose placeholder says the same: its caption is dropped in the compact card
             return label;
         }
         LoginControl Spec(string id) => LoginScreenSpec.Controls.Single(c => c.Id == id);
@@ -239,6 +248,7 @@ public partial class LoginScreen : Control
         box.AddChild(_login);
         _cancel = Register(new RvButton(strings.Get("login.button.cancel")) { SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = false }, Spec("cancel"));
         box.AddChild(_cancel);
+        _loginIndex = _login.GetIndex();
         _status = Register(new Label { Text = strings.Get("login.status.ready"), AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = ReverieStyle.Status }, Spec("status"));
         _status.AccessibilityLive = AccessibilityServer.AccessibilityLiveMode.Polite;
         _status.CustomMinimumSize = new Vector2(CardWidth - 40, 0);
@@ -335,6 +345,12 @@ public partial class LoginScreen : Control
     private ScrollContainer _cardScroll = null!;
     private VBoxContainer _cardBox = null!;
     private float _cardWidth = CardWidth;
+    private MarginContainer _cardMargin = null!;
+    private Control _headerGap = null!;
+    private bool? _compact;
+    private VBoxContainer _cardFooter = null!;
+    private int _loginIndex;
+    private readonly List<Label> _hintedCaptions = new();
 
     /// <summary>Sizes the card for the window (<see cref="LoginCardLayout"/>): its width is a share of the window's, and the form inside scrolls
     /// when the window is too short to show it all, so at any interface size nothing is pushed past an edge.</summary>
@@ -350,8 +366,35 @@ public partial class LoginScreen : Control
             _startRegion.CustomMinimumSize = new Vector2(width - 40, 0);
             _status.CustomMinimumSize = new Vector2(width - 40, 0);
         }
-        // the card's own padding (20 each side) and its border come off the height the form may have
-        float room = Math.Max(0, LoginCardLayout.MaxHeight(Size.Y) - 48);
+        bool compact = LoginCardLayout.Compact(Size.Y);
+        if (_compact != compact)
+        {
+            _compact = compact;
+            int pad = LoginCardLayout.CardPadding(Size.Y);
+            foreach (var side in new[] { "left", "right", "top", "bottom" })
+                _cardMargin.AddThemeConstantOverride("margin_" + side, pad);
+            _cardBox.AddThemeConstantOverride("separation", LoginCardLayout.RowSeparation(Size.Y));
+            _cardFooter.AddThemeConstantOverride("separation", LoginCardLayout.RowSeparation(Size.Y));
+            if (compact)
+            {
+                foreach (var b in new Control[] { _login, _cancel }) { b.GetParent()?.RemoveChild(b); _cardFooter.AddChild(b); }
+            }
+            else if (_login.GetParent() == _cardFooter)
+            {
+                foreach (var b in new Control[] { _login, _cancel }) { _cardFooter.RemoveChild(b); _cardBox.AddChild(b); }
+                _cardBox.MoveChild(_login, _loginIndex);
+                _cardBox.MoveChild(_cancel, _loginIndex + 1);
+            }
+            int mark = LoginCardLayout.HeaderMark(Size.Y);
+            _mark.CustomMinimumSize = new Vector2(mark, mark);
+            _headerGap.CustomMinimumSize = new Vector2(0, LoginCardLayout.HeaderGap(Size.Y));
+            foreach (var caption in _hintedCaptions)
+                caption.Visible = !compact;
+            FitStatus();
+        }
+        // the card's own padding and its border come off the height the form may have
+        float footer = _login.GetParent() == _cardFooter ? _cardFooter.GetCombinedMinimumSize().Y + 4 : 0;
+        float room = Math.Max(0, LoginCardLayout.MaxHeight(Size.Y) - 2 * LoginCardLayout.CardPadding(Size.Y) - 8 - footer);
         float h = Math.Min(_cardBox.GetCombinedMinimumSize().Y, room);
         if (!Mathf.IsEqualApprox(_cardScroll.CustomMinimumSize.Y, h))
             _cardScroll.CustomMinimumSize = new Vector2(0, h);
@@ -363,7 +406,7 @@ public partial class LoginScreen : Control
     /// <summary>The status area is as tall as its text, up to <see cref="StatusMaxHeight"/>; a longer text scrolls inside it.</summary>
     private void FitStatus()
     {
-        float h = _statusUnbounded ? _status.GetCombinedMinimumSize().Y : Math.Min(_status.GetCombinedMinimumSize().Y, StatusMaxHeight);
+        float h = _statusUnbounded ? _status.GetCombinedMinimumSize().Y : Math.Min(_status.GetCombinedMinimumSize().Y, LoginCardLayout.StatusMaxHeight(Size.Y > 0 ? Size.Y : 648));
         if (!Mathf.IsEqualApprox(_statusScroll.CustomMinimumSize.Y, h))
             _statusScroll.CustomMinimumSize = new Vector2(0, h);
     }

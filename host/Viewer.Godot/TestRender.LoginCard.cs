@@ -60,6 +60,11 @@ public partial class TestRender
             _result["logincard"] = new { what, unbounded, card = new[] { card.Position.Y, card.End.Y }, release_top = release.Position.Y, status_height = scroll.Size.Y, inside, above_release = aboveRelease };
             bool margins = card.Position.X >= LoginCardLayout.SideMargin - 0.5f && card.End.X <= window.End.X - LoginCardLayout.SideMargin + 0.5f;
             _result["logincard_scale"] = new { percent = pct, window = new[] { window.Size.X, window.Size.Y }, card_width = card.Size.X, margins };
+            var loginButton = ((Control)login.FindChild("login", true, false)).GetGlobalRect();
+            var cardView = ((Control)login.FindChild("card_scroll", true, false)).GetGlobalRect();
+            bool loginShown = card.Encloses(loginButton) && window.Encloses(loginButton);
+            _result["logincard_login_button"] = new { rect = new[] { loginButton.Position.Y, loginButton.End.Y }, view = new[] { cardView.Position.Y, cardView.End.Y }, shown = loginShown };
+            if (!loginShown) _failures.Add($"the Log in button ({loginButton.Position.Y:F0} to {loginButton.End.Y:F0}) is not inside the card ({card.Position.Y:F0} to {card.End.Y:F0}) and the window");
             if (!margins) _failures.Add($"the card ({card.Position.X:F0} to {card.End.X:F0}) is closer than {LoginCardLayout.SideMargin} to a side of the {window.Size.X:F0} wide window");
             if (!inside) _failures.Add($"the card ({card.Position.Y:F0} to {card.End.Y:F0}) is not wholly inside the {CardHeight} px window");
             if (!aboveRelease) _failures.Add($"the card ends at {card.End.Y:F0}, below the release line's top {release.Position.Y:F0}");

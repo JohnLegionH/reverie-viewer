@@ -27,4 +27,22 @@ public static class LoginCardLayout
     /// <summary>The tallest the card may be in a window of <paramref name="windowHeight"/> layout units: it is centred and keeps the
     /// margin above and below, where the release line and the corner buttons stand. A taller form scrolls inside the card.</summary>
     public static float MaxHeight(float windowHeight) => MathF.Max(0, windowHeight - 2 * VerticalMargin);
+
+    /// <summary>A window shorter than this (in layout units: a 1152 x 648 window at 200 percent is 324) gets the compact card.</summary>
+    public const float CompactBelowHeight = 400;
+
+    /// <summary>Whether the card is laid out tightly for a window of <paramref name="windowHeight"/> layout units: closer rows, a smaller
+    /// header and a shorter status area, so the Log in button shows without scrolling.</summary>
+    public static bool Compact(float windowHeight) => windowHeight < CompactBelowHeight;
+
+    /// <summary>Space between the form's rows and round the card, in layout units.</summary>
+    public static int RowSeparation(float windowHeight) => Compact(windowHeight) ? 2 : 6;
+    public static int CardPadding(float windowHeight) => Compact(windowHeight) ? 10 : 20;
+
+    /// <summary>The header's mark size and the gap under the header.</summary>
+    public static int HeaderMark(float windowHeight) => Compact(windowHeight) ? 14 : 22;
+    public static int HeaderGap(float windowHeight) => Compact(windowHeight) ? 2 : 6;
+
+    /// <summary>How tall the status area grows before it scrolls.</summary>
+    public static float StatusMaxHeight(float windowHeight) => Compact(windowHeight) ? 36 : 100;
 }
