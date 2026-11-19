@@ -94,12 +94,36 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
                 // an answer that is not LLSD is left to the library
             }
         }
+        else if (InventoryAnswer is not null && response.IsSuccessStatusCode && response.Content is { } llsd
+            && llsd.Headers.ContentType?.MediaType?.Contains("llsd", StringComparison.OrdinalIgnoreCase) == true
+            && (llsd.Headers.ContentLength ?? 0) <= InventoryAnswerBytes)
+        {
+            try
+            {
+                var bytes = await llsd.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                var replacement = new ByteArrayContent(bytes);
+                foreach (var h in llsd.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) replacement.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                response.Content = replacement;
+                // only an LLSD answer that names a runtime is parsed; the library still gets the whole answer
+                if (bytes.Length <= InventoryAnswerBytes && bytes.AsSpan().IndexOf("runtime"u8) >= 0)
+                    InventoryAnswer(OSDParser.Deserialize(bytes));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+            {
+                // an answer that is not LLSD is left to the library
+            }
+        }
         return response;
     }
+
+    private const int InventoryAnswerBytes = 8 * 1024 * 1024;
 
     /// <summary>Called with an event-queue answer that holds a ScriptRunningReply, before the library reads it, so the fields the library
     /// does not keep (the engine running a script and the engine saved for it) can be kept.</summary>
     public Action<OSD>? EventQueueAnswer { get; set; }
+
+    /// <summary>Called with a successful LLSD answer that names an item's runtime (inventory answers), before the library reads it.</summary>
+    public Action<OSD>? InventoryAnswer { get; set; }
 
     /// <summary>The fields of the official viewer's request that the library does not send (lllogininstance.cpp, constructAuthParams):
     /// the address size, the operating system's own description, an empty host id, and how the last run ended. This viewer keeps no

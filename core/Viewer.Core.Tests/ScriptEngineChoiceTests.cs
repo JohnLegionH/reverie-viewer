@@ -95,10 +95,10 @@ public class ScriptEngineChoiceTests
     }
 
     [Fact]
-    public void A_script_in_the_inventory_that_the_grid_marks_as_lua_is_saved_as_lua_and_any_other_as_mono()
+    public void A_script_in_the_inventory_that_the_grid_marks_as_lua_is_saved_as_lua_and_on_second_life_any_other_as_mono()
     {
         Assert.Equal("luau", Sent(Opened(Inv(luaSubtype: true), ScriptRegion.None)));
-        Assert.Equal("mono", Sent(Opened(Inv(), ScriptRegion.None)));
+        Assert.Equal("mono", Sent(Opened(Inv(), ScriptRegion.None, secondLife: true)));
     }
 
     [Theory]
@@ -180,6 +180,7 @@ public class ScriptEngineChoiceTests
         var all = ScriptEngineChoices.OpenSim(Region(["YEngine", "Example.Alpha"], lua: true, choice: false));
         Assert.Equal([false, false, true, true], all.Select(c => c.Enabled));
         Assert.Equal(["script.engine.no_choice", "script.engine.no_choice", null, null], all.Select(c => c.DisabledKey));
+        Assert.Equal(["YEngine", "YEngine", "", ""], all.Select(c => c.DisabledArg));   // the tooltip's example is the region's own first LSL engine
     }
 
     [Fact]
@@ -210,9 +211,16 @@ public class ScriptEngineChoiceTests
     {
         Assert.Equal(new ScriptEngineWhy("Example.Alpha", "script.engine.why.first_line"), ScriptEngineChoices.Why(Ngc, null, "//Alpha:\ndefault{}"));
         Assert.Equal(new ScriptEngineWhy("SLua", "script.engine.why.first_line"), ScriptEngineChoices.Why(Ngc, null, "--!slua\nprint(1)"));
-        Assert.Equal(new ScriptEngineWhy("YEngine", "script.engine.why.default"), ScriptEngineChoices.Why(Ngc, null, "default{}"));
-        Assert.Equal(new ScriptEngineWhy("YEngine", "script.engine.why.default"), ScriptEngineChoices.Why(Ngc, new ScriptRuntime(true, true), "//Alpha\ndefault{}"));   // no colon: not a header
+        Assert.Equal(new ScriptEngineWhy("", "script.engine.why.default_unnamed"), ScriptEngineChoices.Why(Ngc, null, "default{}"));
+        Assert.Equal(new ScriptEngineWhy("", "script.engine.why.default_unnamed"), ScriptEngineChoices.Why(Ngc, new ScriptRuntime(true, true), "//Alpha\ndefault{}"));   // no colon: not a header
         Assert.Equal(new ScriptEngineWhy("Example.Alpha", "script.engine.why.saved"), ScriptEngineChoices.Why(Ngc, new ScriptRuntime(true, true, EngineChoice: "Example.Alpha"), "//YEngine:\n"));
+    }
+
+    [Fact]
+    public void A_lua_script_is_named_SLua_only_when_the_region_lists_that_engine()
+    {
+        Assert.Equal(new ScriptEngineWhy("SLua", "script.engine.why.default"), ScriptEngineChoices.Why(Ngc, new ScriptRuntime(true, false, Luau: true), "x = 1"));
+        Assert.Equal(new ScriptEngineWhy("", "script.engine.why.default_unnamed"), ScriptEngineChoices.Why(Region(["YEngine"], lua: true), new ScriptRuntime(true, false, Luau: true), "x = 1"));
     }
 
     [Fact]

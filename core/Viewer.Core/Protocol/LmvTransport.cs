@@ -271,6 +271,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _loginTap = new LmvLoginTap(OutboundHttp.CreateHandler(_outbound, _log, _certificates), _log);
         _client.HttpCapsClient = new HttpCapsClient(_loginTap);
         _loginTap.EventQueueAnswer = NoteScriptReplies;
+        _loginTap.InventoryAnswer = NoteInventoryAnswer;
         // strict mode refuses internal addresses here; in every mode a second circuit to an address that already has one is refused
         _client.Network.SimConnecting += OnSimConnecting;
 

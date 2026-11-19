@@ -534,7 +534,7 @@ public partial class ScriptEditorPanel : VBoxContainer
                 TargetCombo.AddItem(LabelOf(choices[i]), i);
                 TargetCombo.SetItemDisabled(i, !choices[i].Enabled);
                 if (choices[i].DisabledKey is { } reason)
-                    TargetCombo.SetItemTooltip(i, _s.Get(reason));
+                    TargetCombo.SetItemTooltip(i, _s.Get(reason, choices[i].DisabledArg));
             }
             _comboKey = listKey;
         }
@@ -547,7 +547,8 @@ public partial class ScriptEditorPanel : VBoxContainer
         else
             TargetCombo.Selected = -1;
         TargetCombo.Disabled = !e.CanEdit || e.Saving;
-        TargetCombo.TooltipText = choices.Any(c => !c.Enabled) && choices.First(c => !c.Enabled).DisabledKey is { } why2 ? _s.Get(why2) : "";
+        var firstGreyed = choices.FirstOrDefault(c => !c.Enabled);
+        TargetCombo.TooltipText = firstGreyed?.DisabledKey is { } why2 ? _s.Get(why2, firstGreyed.DisabledArg) : "";
     }
 
     private void OnTargetSelected(long index)

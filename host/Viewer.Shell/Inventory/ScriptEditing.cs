@@ -30,7 +30,6 @@ public sealed class ScriptEditing
         Access = access;
         Name = name;
         View = ScriptRules.ViewOf(access);
-        Target = InitialTarget;
         if (View == ScriptView.NotAllowed)
             StatusKey = "script.not_allowed";
     }
@@ -56,9 +55,16 @@ public sealed class ScriptEditing
 
     public bool Saving { get; private set; }
 
-    /// <summary>The compile target sent with a save. The official viewer sends Mono for a script in the inventory and the Mono tick's choice
-    /// for one inside an object (llviewerassetupload.cpp; floater_live_lsleditor.xml "mono", ticked to start with).</summary>
-    public ScriptTarget Target { get; set; }
+    /// <summary>The compile target sent with a save: what the person chose, else what the region said of the script, else what the item itself says
+    /// (its runtime, Lua subtype or LSL-on-Lua bit). Where none is known, Second Life gets Mono (what its editor assumes) and any other grid gets
+    /// none, so the region keeps the script as it is.</summary>
+    public ScriptTarget Target
+    {
+        get => _target ?? Access.KnownTarget ?? (SecondLife ? ScriptTarget.Mono : ScriptTarget.None);
+        set => _target = value;
+    }
+
+    private ScriptTarget? _target;
 
     /// <summary>The running state of a script inside an object, once the region has answered; null until then.</summary>
     public bool? Running { get; private set; }
@@ -192,7 +198,7 @@ public sealed class ScriptEditing
         if (hadSaved && Runtime is { } r)
             Runtime = r with { EngineChoice = "" };
         _targetChosen = false;
-        Target = Runtime?.Current ?? InitialTarget;
+        _target = Runtime?.Current;   // back to what the region said, else what the item itself says
         return hadSaved && Region.ChoiceSaved;
     }
 
@@ -209,8 +215,6 @@ public sealed class ScriptEditing
     }
 
     private bool _targetChosen;
-
-    private ScriptTarget InitialTarget => Access.LuaSubtype ? ScriptTarget.Luau : ScriptTarget.Mono;
 
     /// <summary>The Running tick changed by the person: true when the change is to be sent.</summary>
     public bool SetRunning(bool running)

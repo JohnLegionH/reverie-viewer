@@ -32,7 +32,7 @@ public sealed record ScriptRegion(IReadOnlyList<string> Engines, bool LuaEnabled
 
 /// <summary>One entry of the engine or compiler list: its string-table key (and the engine name it is said with), the target it saves, and
 /// whether it can be used now or the key of why it cannot.</summary>
-public sealed record ScriptChoice(string LabelKey, string LabelArg, ScriptTarget Target, bool Enabled, string? DisabledKey);
+public sealed record ScriptChoice(string LabelKey, string LabelArg, ScriptTarget Target, bool Enabled, string? DisabledKey, string DisabledArg = "");
 
 /// <summary>Why a script runs in the engine it does, for the greyed drop-down: the engine and the string-table key of the reason.</summary>
 public sealed record ScriptEngineWhy(string Engine, string ReasonKey);
@@ -62,7 +62,7 @@ public static class ScriptEngineChoices
     {
         var all = new List<ScriptChoice>();
         foreach (var engine in region.Engines)
-            all.Add(new ScriptChoice("script.engine.lsl", engine, ScriptTarget.Engine(engine), region.ChoiceSaved, region.ChoiceSaved ? null : NoChoice));
+            all.Add(new ScriptChoice("script.engine.lsl", engine, ScriptTarget.Engine(engine), region.ChoiceSaved, region.ChoiceSaved ? null : NoChoice, FirstLslEngine(region)));
         if (region.LuaEnabled)
         {
             all.Add(new ScriptChoice("script.engine.slua_lsl", "", ScriptTarget.LslLuau, true, null));
@@ -70,6 +70,10 @@ public static class ScriptEngineChoices
         }
         return all;
     }
+
+    /// <summary>The first engine the region lists that runs LSL (not SLua), which the tooltip uses as its first-line example; empty when none.</summary>
+    public static string FirstLslEngine(ScriptRegion region) =>
+        region.Engines.FirstOrDefault(e => !e.Equals("SLua", StringComparison.OrdinalIgnoreCase)) ?? "";
 
     /// <summary>The engine a first line asks for: "//&lt;Name&gt;:" naming a listed engine (the colon is required; a short name such as
     /// Alpha matches Example.Alpha), or "--!slua"; null when the line asks for none.</summary>
@@ -92,18 +96,20 @@ public static class ScriptEngineChoices
               ?? region.Engines.FirstOrDefault(e => e.EndsWith("." + name, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>What runs the script and why, for an unticked drop-down: the reply's engine when it has one, otherwise worked out from the saved
-    /// choice, the first line and the region default (the first engine the region lists, which is the order its engines are loaded in). The
-    /// reason is the saved choice, then the first line, then the region default. Null when nothing names an engine.</summary>
+    /// <summary>What runs the script and why, for an unticked drop-down: the reply's engine when it has one, otherwise the saved choice, the
+    /// first line's engine, or an SLua entry for a Lua script. An engine nothing names is not guessed: the region default comes back with an
+    /// empty engine, and the drop-down says only "Region default".</summary>
     public static ScriptEngineWhy? Why(ScriptRegion region, ScriptRuntime? runtime, string text)
     {
         string choice = runtime?.EngineChoice ?? "";
         string? header = HeaderEngine(text, region);
-        string reason = choice.Length > 0 ? "script.engine.why.saved" : header is not null ? "script.engine.why.first_line" : "script.engine.why.default";
+        string? luaEngine = runtime is { Luau: true } ? region.Engines.FirstOrDefault(e => e.Contains("SLua", StringComparison.OrdinalIgnoreCase)) : null;
         string engine = runtime?.Engine is { Length: > 0 } running ? running
             : choice.Length > 0 ? choice
-            : header ?? (runtime is { Luau: true } ? "SLua" : region.Engines.FirstOrDefault() ?? "");
-        return engine.Length == 0 ? null : new ScriptEngineWhy(engine, reason);
+            : header ?? luaEngine ?? "";
+        string reason = choice.Length > 0 ? "script.engine.why.saved" : header is not null ? "script.engine.why.first_line"
+            : engine.Length > 0 ? "script.engine.why.default" : "script.engine.why.default_unnamed";
+        return new ScriptEngineWhy(engine, reason);
     }
 
     /// <summary>The right-click Engine menu of a script in an object's contents: offered where the region saves a choice; for a script that may

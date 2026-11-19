@@ -33,3 +33,24 @@ internal static class LmvScriptReply
         return found;
     }
 }
+
+/// <summary>Keeps the richer replies the event-queue tap has seen, by script (object, item), until the library's own event for the same reply
+/// takes them.</summary>
+internal sealed class LmvScriptReplyKeeper
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid, Guid), ScriptRuntime> _replies = new();
+
+    /// <summary>Keeps the Engine and EngineChoice of every ScriptRunningReply in an event-queue answer (called by the tap before the library
+    /// parses the answer).</summary>
+    internal void Note(OSD answer)
+    {
+        if (_replies.Count > 256)
+            _replies.Clear();   // replies nobody asked for
+        foreach (var (obj, item, runtime) in LmvScriptReply.Read(answer))
+            _replies[(obj, item)] = runtime;
+    }
+
+    /// <summary>The kept reply for a script, taken out; <paramref name="fallback"/> (the library's own flags) when the tap saw none.</summary>
+    internal ScriptRuntime Take(Guid objectId, Guid itemId, Func<ScriptRuntime> fallback) =>
+        _replies.TryRemove((objectId, itemId), out var full) ? full : fallback();
+}

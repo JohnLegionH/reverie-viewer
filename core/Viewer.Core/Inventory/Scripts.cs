@@ -14,6 +14,15 @@ public readonly record struct ScriptTarget(string Value)
 {
     public static readonly ScriptTarget Mono = new("mono"), Lsl2 = new("lsl2"), LslLuau = new("lsl-luau"), Luau = new("luau");
 
+    /// <summary>No target known: a save then sends none, which a region keeps the script's own target for.</summary>
+    public static readonly ScriptTarget None = new("");
+
+    public bool IsNone => string.IsNullOrEmpty(Value);
+
+    /// <summary>The target a runtime name stands for ("lsl2", "mono", "lsl-luau", "luau"); null for any other text.</summary>
+    public static ScriptTarget? FromName(string? name) =>
+        name?.Trim().ToLowerInvariant() switch { "lsl2" => Lsl2, "mono" => Mono, "lsl-luau" => LslLuau, "luau" => Luau, _ => null };
+
     private const string EnginePrefix = "engine:";
 
     /// <summary>The target that names one engine, as a region lists it in its script engines.</summary>
@@ -47,10 +56,18 @@ public sealed record ScriptRuntime(bool Running, bool Mono, bool Luau = false, b
 /// <param name="ObjectId">The object the script is in; empty for a script in the inventory.</param>
 /// <param name="LocalId">The object's region-local id (the region's handle on it); 0 for a script in the inventory.</param>
 /// <param name="LuaSubtype">The item's subtype says it is a Lua script (the low byte of its flags is 1); the grid sends that for a script in the inventory.</param>
+/// <param name="LslOnLuau">The item's flags carry the LSL-on-Lua bit (0x01000000), where a grid sends it.</param>
+/// <param name="Runtime">The runtime the item's own metadata names ("lsl2", "mono", "lsl-luau", "luau"), as the official viewer's inventory reads it;
+/// empty when the grid sent none.</param>
 public sealed record ScriptAccess(Guid ItemId, Guid AssetId, Guid AgentId, NotecardPermissions Permissions, bool InLibrary,
-    Guid ObjectId = default, uint LocalId = 0, bool LuaSubtype = false)
+    Guid ObjectId = default, uint LocalId = 0, bool LuaSubtype = false, bool LslOnLuau = false, string Runtime = "")
 {
+    public const uint LslOnLuauFlag = 0x01000000;
+
     public bool InObject => ObjectId != Guid.Empty;
+
+    /// <summary>The target the item itself says it has: its runtime, else the Lua subtype or the LSL-on-Lua bit; null when it says none.</summary>
+    public ScriptTarget? KnownTarget => ScriptTarget.FromName(Runtime) ?? (LuaSubtype ? ScriptTarget.Luau : LslOnLuau ? ScriptTarget.LslLuau : null);
 }
 
 /// <summary>How a script may be shown.</summary>

@@ -34,7 +34,8 @@ internal sealed partial class LmvTransport : IScriptTransport
         var agent = _client.Self.AgentID;
         return new ScriptAccess(itemId, item.AssetUUID.Guid, agent.Guid,
             new NotecardPermissions(item.CreatorID.Guid, item.OwnerID.Guid, (uint)p.BaseMask, (uint)p.OwnerMask, (uint)p.GroupMask, (uint)p.EveryoneMask, (uint)p.NextOwnerMask),
-            InLibrary: item.OwnerID != agent, LuaSubtype: (item.Flags & 0xFF) == 1);
+            InLibrary: item.OwnerID != agent, LuaSubtype: (item.Flags & 0xFF) == 1,
+            LslOnLuau: ((uint)item.Flags & ScriptAccess.LslOnLuauFlag) != 0, Runtime: _itemRuntimes.TryGetValue(itemId, out var runtime) ? runtime : "");
     }
 
     public async Task<AssetFetchResult> FetchScriptAsync(ScriptAccess access, CancellationToken ct)
@@ -88,8 +89,9 @@ internal sealed partial class LmvTransport : IScriptTransport
         var body = new OSDMap
         {
             ["item_id"] = OSD.FromUUID(new UUID(access.ItemId)),
-            ["target"] = OSD.FromString(target.ToString()),
         };
+        if (!target.IsNone)
+            body["target"] = OSD.FromString(target.ToString());   // no target known: none sent, and a region keeps the script's own
         if (access.InObject)
         {
             body["task_id"] = OSD.FromUUID(new UUID(access.ObjectId));
@@ -152,16 +154,20 @@ internal sealed partial class LmvTransport : IScriptTransport
         }
     }
 
-    /// <summary>The richer replies the event-queue tap has seen, by script (object, item), until the library's own event for the same reply takes them.</summary>
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid, Guid), ScriptRuntime> _scriptReplies = new();
+    private readonly LmvScriptReplyKeeper _scriptReplies = new();
 
-    /// <summary>Keeps the Engine and EngineChoice of a ScriptRunningReply, which the library does not (called by the event-queue tap before the library parses the answer).</summary>
-    internal void NoteScriptReplies(OSD answer)
+    internal void NoteScriptReplies(OSD answer) => _scriptReplies.Note(answer);
+
+    /// <summary>The runtime each inventory item named in an answer the tap has seen, by item.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, string> _itemRuntimes = new();
+
+    /// <summary>Keeps the runtimes an inventory answer names for its items (called by the tap before the library reads the answer).</summary>
+    internal void NoteInventoryAnswer(OSD answer)
     {
-        if (_scriptReplies.Count > 256)
-            _scriptReplies.Clear();   // replies nobody asked for
-        foreach (var (obj, item, runtime) in LmvScriptReply.Read(answer))
-            _scriptReplies[(obj, item)] = runtime;
+        if (_itemRuntimes.Count > 20_000)
+            _itemRuntimes.Clear();
+        foreach (var (item, runtime) in LmvInventoryRuntime.Read(answer))
+            _itemRuntimes[item] = runtime;
     }
 
     public async Task<ScriptRuntime?> GetScriptRunningAsync(ScriptAccess access, CancellationToken ct)
@@ -174,9 +180,7 @@ internal sealed partial class LmvTransport : IScriptTransport
             if (e.ObjectID.Guid != access.ObjectId || e.ScriptID.Guid != access.ItemId)
                 return;
             // the tap saw the whole reply first; without it (no event-queue answer passed through it) the library's flags are all there is
-            done.TrySetResult(_scriptReplies.TryRemove((access.ObjectId, access.ItemId), out var full)
-                ? full
-                : new ScriptRuntime(e.IsRunning, e.IsMono, e.IsLuau, e.IsLuaLanguage));
+            done.TrySetResult(_scriptReplies.Take(access.ObjectId, access.ItemId, () => new ScriptRuntime(e.IsRunning, e.IsMono, e.IsLuau, e.IsLuaLanguage)));
         }
         _client.Inventory.ScriptRunningReply += OnReply;
         try
