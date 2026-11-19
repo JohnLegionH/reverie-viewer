@@ -57,7 +57,7 @@ jobs:
           - { ubuntu: "26.04", mode: start }
           - { ubuntu: "26.04", mode: no-display-libs }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -88,7 +88,7 @@ jobs:
         if: always()
         run: cat "$RUNNER_TEMP/out/result.txt" >> "$GITHUB_STEP_SUMMARY" || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ${{ matrix.mode }}-ubuntu-${{ matrix.ubuntu }}
@@ -116,7 +116,7 @@ jobs:
           - { ubuntu: "26.04", mode: start }
           - { ubuntu: "26.04", mode: no-display-libs }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -147,7 +147,7 @@ jobs:
         if: always()
         run: cat "$RUNNER_TEMP/out/result.txt" >> "$GITHUB_STEP_SUMMARY" || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: arm64-${{ matrix.mode }}-ubuntu-${{ matrix.ubuntu }}
