@@ -8,7 +8,7 @@ using Xunit;
 namespace Viewer.Core.Tests;
 
 /// <summary>
-/// The live scripts and tools name only this project's own test accounts: tester1 (the viewer's own login) and
+/// The scripts and tools under tools/ and host/ name only this project's own test accounts: tester1 (the viewer's own login) and
 /// viewer1 (the second avatar a live check drives beside it) and truly (a test avatar with a worn outfit that a live check observes). The other aliases in the shared accounts file belong to
 /// other test clients, which may be logged in with them at any moment; one account logged in twice throws the other
 /// session out. A tracked script or tool under tools/ or host/ that names one of them fails here. A live check may
