@@ -11,6 +11,8 @@ public enum AlertKind
     Tip, Important, Error,
     HomeSet, HomeNotAllowed, HomeFailed,
     ParcelBanned, ParcelBannedWarning, ParcelNoAccess, ParcelNotOnList, ParcelNotInGroup, ParcelOther,
+    /// <summary>The grid says a notecard or script was saved or updated (the editor's own status line says so; it is no notice).</summary>
+    AssetSaved,
 }
 
 /// <summary>
@@ -26,6 +28,14 @@ public static class ServerAlerts
     /// <summary>The alert's words without the one slash the region server puts in front of every plain alert except the home confirmation
     /// (so that a viewer shows it as an important system message).</summary>
     public static string Words(string text) => text is { Length: > 0 } && text[0] == '/' ? text[1..] : text ?? "";
+
+    private static readonly System.Text.RegularExpressions.Regex AssetSavedWords = new(
+        @"^\s*(?:the\s+)?(?:notecard|script)\b[^.!?]{0,60}\b(?:updated|saved|uploaded)\b[^.!?]{0,20}[.!]?\s*$|^\s*(?:updated|saved|uploaded)\b[^.!?]{0,20}\b(?:notecard|script)\b[^.!?]{0,40}[.!]?\s*$",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>Whether the words are a short line saying a notecard or a script was updated, saved or uploaded ("Notecard updated"): a
+    /// grid's confirmation of a save, which the editor already shows in its own status line.</summary>
+    public static bool IsAssetSaved(string words) => words is { Length: > 0 and < 100 } && AssetSavedWords.IsMatch(words);
 
     public static AlertKind Classify(string text, string key, bool modal)
     {
@@ -54,6 +64,8 @@ public static class ServerAlerts
             return AlertKind.ParcelNoAccess;
         if (words.StartsWith("Cannot enter parcel", StringComparison.Ordinal))
             return AlertKind.ParcelOther;
+        if (IsAssetSaved(words))
+            return AlertKind.AssetSaved;
         if (slash)
             return AlertKind.Important;
         return modal ? AlertKind.Error : AlertKind.Tip;

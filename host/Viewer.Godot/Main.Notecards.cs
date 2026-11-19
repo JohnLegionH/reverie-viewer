@@ -53,7 +53,8 @@ public partial class Main
 
     /// <summary>The script editor windows, made once.</summary>
     private ScriptEditorFeature Scripts() => _scripts ??= new ScriptEditorFeature(_shell!, (where, view) =>
-        Log.Info("script.open", Viewer.Core.Diagnostics.CoreLog.F("where", where), Viewer.Core.Diagnostics.CoreLog.F("view", view ?? "")));
+        Log.Info("script.open", Viewer.Core.Diagnostics.CoreLog.F("where", where), Viewer.Core.Diagnostics.CoreLog.F("view", view ?? "")),
+        new Viewer.Shell.Inventory.EarlyAccessNotice(UserSettings(null)));
 
     private void OpenInventoryScript(Guid itemId)
     {

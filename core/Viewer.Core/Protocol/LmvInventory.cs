@@ -72,8 +72,13 @@ internal sealed partial class LmvTransport
             ? new DateTimeOffset(i.CreationDate.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(i.CreationDate, DateTimeKind.Utc) : i.CreationDate.ToUniversalTime())
             : null;
         return new(i.UUID.Guid, i.ParentUUID.Guid, i.Name ?? "", kind, (int)i.AssetType, (int)i.InventoryType, (uint)i.Flags, at,
-            link ? i.AssetUUID.Guid : null, i.Description ?? "", link || i.AssetUUID == UUID.Zero ? null : i.AssetUUID.Guid);
+            link ? i.AssetUUID.Guid : null, i.Description ?? "", link || i.AssetUUID == UUID.Zero ? null : i.AssetUUID.Guid, PermissionsOf(i));
     }
+
+    /// <summary>The item's rights, owner and sale as the library holds them.</summary>
+    internal static ItemPermissions PermissionsOf(InventoryItem i) => new(
+        (uint)i.Permissions.BaseMask, (uint)i.Permissions.OwnerMask, (uint)i.Permissions.GroupMask, (uint)i.Permissions.EveryoneMask,
+        (uint)i.Permissions.NextOwnerMask, i.CreatorID.Guid, i.OwnerID.Guid, i.GroupID.Guid, i.GroupOwned, (int)i.SaleType, i.SalePrice);
 
     internal static InventorySkeletonReceived BuildSkeleton(LoginResponseData d, LmvStore store)
     {

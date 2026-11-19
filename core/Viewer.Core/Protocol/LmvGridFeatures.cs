@@ -22,6 +22,8 @@ public static class LmvGridFeatures
                 OSDType.Integer => (long)v.AsInteger(),
                 OSDType.Real => v.AsReal(),
                 OSDType.Boolean => v.AsBoolean(),
+                // a list of text (the region's script engines) stays a list; any other list is not read
+                OSDType.Array when v is OSDArray a && a.All(x => x.Type is OSDType.String) => a.Select(x => x.AsString()).ToArray(),
                 _ => null,
             };
         return values;

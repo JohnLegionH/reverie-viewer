@@ -161,6 +161,26 @@ public sealed class NotecardEditBuffer
         return display.Insert(at, Token(item));
     }
 
+    /// <summary>Several items dropped together at a place: each goes in as an embedded item, with a space between neighbours so that they do not run
+    /// together; returns the new text and the place after the last item.</summary>
+    public (string Text, int Caret) InsertAll(string display, int at, IReadOnlyList<NotecardEmbeddedItem> items)
+    {
+        string text = display;
+        int put = Math.Clamp(at, 0, text.Length);
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (i > 0 && !char.IsWhiteSpace(text[put - 1]))
+            {
+                text = text.Insert(put, " ");
+                put++;
+            }
+            string next = Insert(text, put, items[i]);
+            put += next.Length - text.Length;
+            text = next;
+        }
+        return (text, put);
+    }
+
     /// <summary>The editor's text as a notecard file.</summary>
     public byte[] ToFile(string display)
     {

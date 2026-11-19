@@ -191,6 +191,9 @@ public sealed partial class EditController
         return true;
     }
 
+    /// <summary>Deletes several listed items (the Delete key on a chosen set), each as <see cref="DeleteItem"/> does; the count removed.</summary>
+    public int DeleteItems(IReadOnlyList<Guid> itemIds) => itemIds.Distinct().Count(DeleteItem);
+
     /// <summary>Copies a listed item out of the primary prim into the inventory folder for its type.</summary>
     public bool CopyItemToInventory(Guid itemId) =>
         Object() is { } o && Listed(itemId) is { } item && Send(new CopyObjectItemIntent(o.Id.LocalId, itemId, item.AssetType));

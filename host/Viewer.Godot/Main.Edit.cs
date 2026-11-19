@@ -58,6 +58,10 @@ public partial class Main
             () => _interactFor?.AgentId ?? Guid.Empty, id => _interactFor is { IsEnded: false } named ? named.Names.Get(id) : null);
         _editPanel.ContentTab.OpenRequested = OpenContentItem;
         _editPanel.ContentTab.Deleted = ContentItemDeleted;
+        _editPanel.ContentTab.ScriptRegionOf = () => _interactFor is { IsEnded: false } s ? s.Scripts?.Region ?? Viewer.Core.Inventory.ScriptRegion.None : Viewer.Core.Inventory.ScriptRegion.None;
+        _editPanel.ContentTab.Notice = new Viewer.Shell.Inventory.EarlyAccessNotice(UserSettings(null));
+        _editPanel.ContentTab.SetEngine = async (itemId, target) =>
+            _interactFor is { IsEnded: false, Scripts: { } scripts } s && _edit?.ScriptToOpen(itemId, s.AgentId) is { } access && await scripts.SetScriptEngineAsync(access, target, default) is { } r ? r : Viewer.Core.Inventory.ScriptEngineReply.NotSent;
         _editPanel.ToolChosen += ChooseTool;
         _editPanel.KeepToolChanged += on => _settings?.Set(Viewer.Shell.Build.BuildSettings.KeepToolSelected, on);
         _shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), _editPanel);

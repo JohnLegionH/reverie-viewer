@@ -448,6 +448,32 @@ public sealed class Conversations
         return c;
     }
 
+    /// <summary>Starts a conference with several agents: a group-style conversation under a new session id, joined once the grid answers
+    /// (the official viewer's "start conference" on several chosen friends). With one other agent it is the one-to-one conversation; with
+    /// none (or only this agent), null.</summary>
+    public Conversation? OpenConference(IReadOnlyList<Guid> agents)
+    {
+        var others = agents.Where(a => a != Guid.Empty && a != _self).Distinct().ToList();
+        if (others.Count == 0)
+            return null;
+        if (others.Count == 1)
+            return OpenWith(others[0]);
+        var session = Guid.NewGuid();
+        var c = new Conversation(session, session, string.Join(", ", others.Select(a => NameFor(a, null)))) { Group = GroupChatState.Joining };
+        _open.Add(c);
+        Active = session;
+        c.Unread = 0;
+        var r = _submit(new ConferenceStartIntent(session, others));
+        if (!r.Sent)
+        {
+            c.Group = GroupChatState.Failed;
+            c.Status = ChatText.StatusOf(r);
+        }
+        Changed?.Invoke();
+        Started?.Invoke(c);
+        return c;
+    }
+
     /// <summary>The grid's answer to a join request.</summary>
     public void ReceiveJoined(GroupChatJoined joined)
     {

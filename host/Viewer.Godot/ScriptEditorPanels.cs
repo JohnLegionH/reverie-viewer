@@ -36,9 +36,11 @@ public sealed class ScriptEditorFeature
     private bool _openSim = true;
     private CancellationTokenSource _cancel = new();
     private readonly Action<string, string?>? _log;
+    private readonly EarlyAccessNotice? _notice;
 
-    public ScriptEditorFeature(ShellRoot shell, Action<string, string?>? log = null)
+    public ScriptEditorFeature(ShellRoot shell, Action<string, string?>? log = null, EarlyAccessNotice? notice = null)
     {
+        _notice = notice;
         _shell = shell;
         _strings = shell.Shell.Strings;
         _log = log;
@@ -76,6 +78,14 @@ public sealed class ScriptEditorFeature
 
     /// <summary>Closes the window of a script inside an object, unsaved changes and all (the script was deleted; llpanelobjectinventory.cpp
     /// LLTaskLSLBridge::removeItem hides its editor).</summary>
+    /// <summary>Shows the grid's confirmation of a save in the status line of every open script window.</summary>
+    public void SayStatus(string text)
+    {
+        foreach (var p in _panels)
+            if (p is not null && p.IsVisibleInTree())
+                p.StatusLabel.Text = text;
+    }
+
     public void CloseItem(Guid objectId, Guid itemId)
     {
         if (SlotOf((objectId, itemId)) is int open)
@@ -102,7 +112,7 @@ public sealed class ScriptEditorFeature
         }
         if (_panels[slot] is null)
         {
-            var panel = new ScriptEditorPanel(_strings, slot);
+            var panel = new ScriptEditorPanel(_strings, slot) { Notice = _notice };
             _panels[slot] = panel;
             string id = FloaterId(slot);
             _shell.AddFloater(new FloaterSpec(id, "script.title", new UiSize(640, 560), new UiSize(420, 320)), panel);
@@ -111,7 +121,7 @@ public sealed class ScriptEditorFeature
         }
         _keyIn[slot] = key;
         _open.Add(key);
-        var editing = new ScriptEditing(access, name);
+        var editing = new ScriptEditing(access, name) { SecondLife = !_openSim, Region = _transport?.Region ?? Viewer.Core.Inventory.ScriptRegion.None };
         var p = _panels[slot]!;
         p.Show(editing, _transport, LslKeywords.Shipped(_openSim), _cancel.Token);
         _shell.SetFloaterTitle(FloaterId(slot), string.IsNullOrEmpty(name) ? _strings.Get("script.title") : name);
@@ -161,8 +171,10 @@ public partial class ScriptCodeEdit : CodeEdit
 
     public override string _GetTooltip(Vector2 atPosition)
     {
-        string word = GetWordAtPos(atPosition);
-        return word.Length > 0 && Words?.Find(word) is { } w && w.Tooltip.Length > 0 ? w.Tooltip : "";
+        var at = GetLineColumnAtPos(new Vector2I((int)atPosition.X, (int)atPosition.Y), false);
+        if (at.Y < 0 || at.Y >= GetLineCount())
+            return "";
+        return Words?.FindAt(GetLine(at.Y), at.X) is { } w && w.Tooltip.Length > 0 ? w.Tooltip : "";
     }
 }
 
@@ -179,7 +191,8 @@ public partial class ScriptEditorPanel : VBoxContainer
     public Button SaveButton { get; }
     public CheckBox RunningCheck { get; }
     public Button ResetButton { get; }
-    public CheckBox MonoCheck { get; }
+    public CheckBox EngineCheck { get; }
+    public OptionButton TargetCombo { get; }
     public Button FindButton { get; }
     public Button GoToButton { get; }
     public Button SmallerButton { get; }
@@ -198,7 +211,7 @@ public partial class ScriptEditorPanel : VBoxContainer
     public ItemList Errors { get; }
     public Label PositionLabel { get; }
     public Label StatusLabel { get; }
-    public HBoxContainer UnsavedPrompt { get; }
+    public VBoxContainer UnsavedPrompt { get; }
     public Button PromptSave { get; }
     public Button PromptDontSave { get; }
     public Button PromptCancel { get; }
@@ -207,6 +220,12 @@ public partial class ScriptEditorPanel : VBoxContainer
     public Action? Closing;
 
     public ScriptEditing? Editing => _editing;
+
+    /// <summary>Keeps the once-per-install early-access warning; null shows none.</summary>
+    public EarlyAccessNotice? Notice { get; init; }
+
+    /// <summary>The early-access warning, shown under the code after the first early-access engine is picked.</summary>
+    public Label EarlyWarning { get; }
 
     public ScriptEditorPanel(StringTable strings, int slot)
     {
@@ -224,10 +243,14 @@ public partial class ScriptEditorPanel : VBoxContainer
         bar.AddChild(RunningCheck);
         ResetButton = Btn("reset", "script.reset", Reset);
         bar.AddChild(ResetButton);
-        MonoCheck = new CheckBox { Name = "mono", Text = strings.Get("script.mono"), ButtonPressed = true };
-        MonoCheck.AccessibilityName = MonoCheck.Text;
-        MonoCheck.Toggled += on => { if (!_syncing && _editing is { } e) e.Target = on ? ScriptTarget.Mono : ScriptTarget.Lsl2; };
-        bar.AddChild(MonoCheck);
+        EngineCheck = new CheckBox { Name = "engine_choose", Text = strings.Get("script.engine.choose"), Visible = false };
+        EngineCheck.AccessibilityName = EngineCheck.Text;
+        EngineCheck.Toggled += OnEngineToggled;
+        bar.AddChild(EngineCheck);
+        TargetCombo = new OptionButton { Name = "target", Visible = false, FitToLongestItem = false };
+        TargetCombo.AccessibilityName = strings.Get("script.target");
+        TargetCombo.ItemSelected += OnTargetSelected;
+        bar.AddChild(TargetCombo);
         bar.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
         FindButton = Btn("find", "script.find", () => { FindBar!.Visible = !FindBar.Visible; if (FindBar.Visible) FindField!.GrabFocus(); });
         bar.AddChild(FindButton);
@@ -285,6 +308,9 @@ public partial class ScriptEditorPanel : VBoxContainer
         Errors.ItemSelected += i => ErrorClicked((int)i);
         AddChild(Errors);
 
+        EarlyWarning = new Label { Name = "early_warning", Text = strings.Get(EarlyAccessNotice.TextKey), Visible = false, SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(120, 0) };
+        AddChild(EarlyWarning);
+
         var foot = new HBoxContainer { Name = "foot" };
         StatusLabel = new Label { Name = "status", SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = UiTheme.MutedLabel, CustomMinimumSize = new Vector2(120, 0) };
         foot.AddChild(StatusLabel);
@@ -292,16 +318,20 @@ public partial class ScriptEditorPanel : VBoxContainer
         foot.AddChild(PositionLabel);
         AddChild(foot);
 
-        UnsavedPrompt = new HBoxContainer { Name = "unsaved", Visible = false };
-        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        UnsavedPrompt = new VBoxContainer { Name = "unsaved", Visible = false };
+        var promptAnswers = new HFlowContainer { Name = "unsaved_buttons" };   // the three answers wrap to a second row in a narrow window
+        UnsavedPrompt.AddChild(new Label { Name = "question", Text = strings.Get("script.unsaved"), SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(48, 0) });   // wraps, and the buttons are on a row of their own
         PromptSave = Btn("prompt_save", "script.unsaved.save", () => Answer(ScriptCloseAnswer.Save));
         PromptSave.ThemeTypeVariation = UiTheme.PrimaryButton;
-        UnsavedPrompt.AddChild(PromptSave);
+        promptAnswers.AddChild(PromptSave);
         PromptDontSave = Btn("prompt_dont_save", "script.unsaved.dont_save", () => Answer(ScriptCloseAnswer.DontSave));
-        UnsavedPrompt.AddChild(PromptDontSave);
+        promptAnswers.AddChild(PromptDontSave);
         PromptCancel = Btn("prompt_cancel", "script.unsaved.cancel", () => Answer(ScriptCloseAnswer.Cancel));
-        UnsavedPrompt.AddChild(PromptCancel);
+        promptAnswers.AddChild(PromptCancel);
+        UnsavedPrompt.AddChild(promptAnswers);
         AddChild(UnsavedPrompt);
+        // while the question shows, the error list gives up its height, so the question fits in a short window (at a large interface size)
+        UnsavedPrompt.VisibilityChanged += () => Errors.CustomMinimumSize = new Vector2(0, UnsavedPrompt.Visible ? 24 : 72);
 
         UiTheme.Changed += ApplyTheme;
         TreeExiting += () => UiTheme.Changed -= ApplyTheme;
@@ -323,7 +353,8 @@ public partial class ScriptEditorPanel : VBoxContainer
         _editing = editing;
         _transport = transport;
         _token = token;
-        Code.Words = words;
+        Code.Words = _lslWords = words;
+        _luaShown = false;
         ApplyTheme();
         if (editing.View != ScriptView.NotAllowed)
             StatusLabel.Text = _s.Get("script.loading");
@@ -369,7 +400,7 @@ public partial class ScriptEditorPanel : VBoxContainer
         _ = transport.GetScriptRunningAsync(e.Access, token).ContinueWith(t =>
         {
             if (t.IsCompletedSuccessfully && t.Result is { } r && !token.IsCancellationRequested)
-                Callable.From(() => { if (_editing == e) { e.RunningKnown(r.Running, r.Mono); Sync(); } }).CallDeferred();
+                Callable.From(() => { if (_editing == e) { e.RunningKnown(r); Sync(); } }).CallDeferred();
         }, TaskScheduler.Default);
     }
 
@@ -393,6 +424,7 @@ public partial class ScriptEditorPanel : VBoxContainer
         _syncing = false;
         Errors.Clear();
         StatusLabel.Text = string.Empty;
+        EarlyWarning.Visible = false;
         PositionLabel.Text = string.Empty;
         UnsavedPrompt.Visible = false;
         FindBar.Visible = GoToBar.Visible = false;
@@ -408,10 +440,20 @@ public partial class ScriptEditorPanel : VBoxContainer
             MemberVariableColor = ShellTheme.C(t.Text),
         };
         if (Code.Words is { } words)
-            foreach (var w in words.Words.Values)
-                h.AddKeywordColor(w.Word, ShellTheme.Syntax(t, w.Kind));
-        h.AddColorRegion("//", "", ShellTheme.SyntaxComment(t), lineOnly: true);
-        h.AddColorRegion("/*", "*/", ShellTheme.SyntaxComment(t));
+            foreach (var (word, kind) in words.Coloured())
+                h.AddKeywordColor(word, ShellTheme.Syntax(t, kind));
+        if (Code.Words is { IsSlua: true })
+        {
+            // Lua: "--[[ ]]" blocks and "--" lines are comments, strings take either quote
+            h.AddColorRegion("--[[", "]]", ShellTheme.SyntaxComment(t));
+            h.AddColorRegion("--", "", ShellTheme.SyntaxComment(t), lineOnly: true);
+            h.AddColorRegion("'", "'", ShellTheme.SyntaxString(t));
+        }
+        else
+        {
+            h.AddColorRegion("//", "", ShellTheme.SyntaxComment(t), lineOnly: true);
+            h.AddColorRegion("/*", "*/", ShellTheme.SyntaxComment(t));
+        }
         h.AddColorRegion("\"", "\"", ShellTheme.SyntaxString(t));
         Code.SyntaxHighlighter = h;
         ApplyFont();
@@ -441,12 +483,12 @@ public partial class ScriptEditorPanel : VBoxContainer
         _syncing = true;
         Code.Editable = e.CanEdit;
         SaveButton.Disabled = !e.CanSave;
-        RunningCheck.Visible = ResetButton.Visible = MonoCheck.Visible = e.InObject;
+        RunningCheck.Visible = ResetButton.Visible = e.InObject;
         RunningCheck.Disabled = !e.CanSetRunning;
         RunningCheck.ButtonPressed = e.Running ?? false;
         ResetButton.Disabled = e.View != ScriptView.Editable || e.Saving;
-        MonoCheck.ButtonPressed = e.Target == ScriptTarget.Mono;
-        MonoCheck.Disabled = !e.CanEdit || e.Saving;
+        SyncTarget(e);
+        SyncWords(e);
         ReplaceButton.Disabled = ReplaceAllButton.Disabled = !e.CanEdit;
         _syncing = false;
         StatusLabel.Text = e.StatusKey is { } key ? _s.Get(key, e.StatusArg) : "";
@@ -459,6 +501,117 @@ public partial class ScriptEditorPanel : VBoxContainer
         ShowPosition();
     }
 
+    private LslKeywords? _lslWords;
+    private bool _luaShown;
+
+    /// <summary>Lua's words and colours while the script is Lua, LSL's otherwise.</summary>
+    private void SyncWords(ScriptEditing e)
+    {
+        if (e.IsLua == _luaShown)
+            return;
+        _luaShown = e.IsLua;
+        Code.Words = _luaShown ? LslKeywords.ShippedSlua() : _lslWords;
+        ApplyTheme();
+    }
+
+    private IReadOnlyList<ScriptChoice> _shownChoices = [];
+    private string _comboKey = "";
+
+    private string LabelOf(ScriptChoice c) => _s.Get(c.LabelKey, c.LabelArg);
+
+    /// <summary>The compiler or engine drop-down as the model says. Second Life: the four compiler choices, the Lua two greyed where the region
+    /// sends no LuaScriptsEnabled. Elsewhere: the tick box, and the drop-down greyed with what runs the script and why until it is ticked, then the
+    /// engines with those the region cannot save greyed and explained in their tooltip.</summary>
+    private void SyncTarget(ScriptEditing e)
+    {
+        bool show = e.SecondLife || e.EngineRowVisible;
+        EngineCheck.Visible = !e.SecondLife && e.EngineRowVisible;
+        TargetCombo.Visible = show;
+        if (!show)
+            return;
+        EngineCheck.Disabled = !e.CanEdit || e.Saving;
+        EngineCheck.ButtonPressed = e.ChooseEngine;
+        var choices = e.Choices;
+        if (choices.Count == 0)
+        {
+            // unticked: what runs the script and why, greyed
+            string text = e.Why is { } why ? _s.Get(why.ReasonKey, why.Engine) : "";
+            string key = "why|" + text;
+            if (key != _comboKey)
+            {
+                TargetCombo.Clear();
+                TargetCombo.AddItem(text, 0);
+                _comboKey = key;
+            }
+            _shownChoices = choices;
+            TargetCombo.Select(0);
+            TargetCombo.Disabled = true;
+            TargetCombo.TooltipText = string.Empty;
+            return;
+        }
+        string listKey = string.Join("|", choices.Select(c => c.Target.Value + (c.Enabled ? "+" : "-")));
+        if (listKey != _comboKey)
+        {
+            TargetCombo.Clear();
+            for (int i = 0; i < choices.Count; i++)
+            {
+                TargetCombo.AddItem(LabelOf(choices[i]), i);
+                TargetCombo.SetItemDisabled(i, !choices[i].Enabled);
+                if (choices[i].DisabledKey is { } reason)
+                    TargetCombo.SetItemTooltip(i, _s.Get(reason, choices[i].DisabledArg));
+            }
+            _comboKey = listKey;
+        }
+        _shownChoices = choices;
+        int at = -1;
+        for (int i = 0; i < choices.Count; i++)
+            if (choices[i].Target == e.Target) at = i;
+        if (at >= 0)
+            TargetCombo.Select(at);
+        else
+            TargetCombo.Selected = -1;
+        TargetCombo.Disabled = !e.CanEdit || e.Saving;
+        var firstGreyed = choices.FirstOrDefault(c => !c.Enabled);
+        TargetCombo.TooltipText = firstGreyed?.DisabledKey is { } why2 ? _s.Get(why2, firstGreyed.DisabledArg) : "";
+    }
+
+    private void OnTargetSelected(long index)
+    {
+        if (_syncing || _editing is not { } e || index < 0 || index >= _shownChoices.Count)
+            return;
+        var picked = _shownChoices[(int)index];
+        e.Choose(picked.Target);
+        Sync();
+        if (Notice?.TakeWarning(picked) == true)
+            EarlyWarning.Visible = true;   // shown once per install; it stays until this window's script is closed
+    }
+
+    private void OnEngineToggled(bool on)
+    {
+        if (_syncing || _editing is not { } e)
+            return;
+        bool clear = e.SetChooseEngine(on);
+        if (clear && _transport is { } t)
+            _ = ClearEngineAsync(t, e);   // unticking drops the choice the region saved
+        Sync();
+    }
+
+    /// <summary>Clears the saved engine and shows the region's error in the status line when it refuses.</summary>
+    private async System.Threading.Tasks.Task ClearEngineAsync(IScriptTransport t, ScriptEditing e)
+    {
+        try
+        {
+            var reply = await t.SetScriptEngineAsync(e.Access, null, _token);
+            if (!reply.Ok && ReferenceEquals(_editing, e))
+                StatusLabel.Text = ScriptEngineFailureText(_s, reply);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>The status-line text for a SetScriptEngine reply that was not accepted: the region's error text when it gave one.</summary>
+    public static string ScriptEngineFailureText(StringTable s, ScriptEngineReply reply) =>
+        reply.Error.Length > 0 ? s.Get("script.engine.set_failed_why", reply.Error) : s.Get("script.engine.set_failed");
+
     private void ShowPosition() => PositionLabel.Text = _s.Get("script.position", Code.GetCaretLine() + 1, Code.GetCaretColumn() + 1);
 
     private void OnTextChanged()
@@ -467,6 +620,9 @@ public partial class ScriptEditorPanel : VBoxContainer
             return;
         e.Text = Code.Text;
         SaveButton.Disabled = !e.CanSave;
+        SyncWords(e);
+        if (!e.SecondLife && !e.ChooseEngine)
+            SyncTarget(e);   // the greyed drop-down names the engine the first line asks for
     }
 
     /// <summary>Save (the button, and Ctrl+S as the official editor has it).</summary>
@@ -660,7 +816,7 @@ public partial class ScriptEditorPanel : VBoxContainer
     /// <summary>Shows a running state without a grid (the pictures).</summary>
     public void ShowRunning(bool running, bool mono)
     {
-        _editing?.RunningKnown(running, mono);
+        _editing?.RunningKnown(new ScriptRuntime(running, mono));
         Sync();
     }
 

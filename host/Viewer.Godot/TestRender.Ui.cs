@@ -80,7 +80,7 @@ public partial class TestRender
     /// Reset and Mono, after a save that compiled; "script-error", the same script after a save whose compiler named a line (the error listed
     /// under the code and the caret put on its place by a click on it); "script-readonly", a library script opened read only. No session or grid.
     /// </summary>
-    private static void ExampleScript(ShellRoot shell, string scene)
+    private static ScriptEditorPanel ExampleScript(ShellRoot shell, string scene)
     {
         static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         var feature = new ScriptEditorFeature(shell);
@@ -95,7 +95,7 @@ public partial class TestRender
         string text = scene == "script-error" ? ExampleScriptText : ExampleScriptText.Replace("count += total\n", "count += total;\n", StringComparison.Ordinal);
         panel.ShowText(text);
         if (readOnly)
-            return;
+            return panel;
         panel.ShowRunning(true, true);
         if (scene == "script-error")
         {
@@ -105,6 +105,7 @@ public partial class TestRender
         }
         else
             panel.ShowAnswer(new Viewer.Core.Inventory.ScriptSaveResult(Viewer.Core.Inventory.ScriptSaveStatus.Saved, true, G(22), []));
+        return panel;
     }
 
     /// <summary>
@@ -425,6 +426,8 @@ public partial class TestRender
         shell.QueueFree();
         if (scene == "preferences" && !wrongToken)
             await PreferencesFit(strings, tokens);
+        if (scene is "script" or "notecard" && !wrongToken)
+            await UnsavedPromptFit(scene, strings, tokens);
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         return _failures.Count == 0 ? 0 : 1;
     }
@@ -532,6 +535,79 @@ public partial class TestRender
             _failures.Add($"preferences margin: {problems.Count - 6} more (preferences_fit in the result)");
         if (measured == 0)
             _failures.Add("preferences margin: nothing measured");
+    }
+
+    /// <summary>
+    /// The "Save changes?" question of the script and notecard editors, checked after the picture is taken: at the interface sizes 100, 150 and
+    /// 200 %, with the editor's window at its minimum size and at its default size, the question is shown and its three buttons (Save, Don't
+    /// Save, Cancel) are each wholly seen: inside the window, and not cut by any scroll area or clipping control between them and it.
+    /// </summary>
+    private async Task UnsavedPromptFit(string scene, StringTable strings, ThemeTokens tokens)
+    {
+        const float slack = 0.5f;
+        var problems = new List<string>();
+        var table = new List<string>();
+        int measured = 0;
+        foreach (int pct in new[] { 100, 150, 200 })
+        {
+            float s = pct / 100f;
+            UiTheme.Apply(tokens, pct);
+            var rig = MakeRig(new Vector2I(UiWidth, UiHeight));
+            rig.Viewport.Size2DOverride = new Vector2I((int)MathF.Round(UiWidth / s), (int)MathF.Round(UiHeight / s));
+            rig.Viewport.Size2DOverrideStretch = true;
+            var shell = new ShellRoot(new ShellController(strings, () => { })) { ScaleSink = _ => { }, FixedClockText = TestClockText };
+            rig.Viewport.AddChild(shell);
+            Control panel = scene == "script" ? ExampleScript(shell, "script") : ExampleNotecard(shell, false)!;
+            var floaters = shell.Shell.Floaters;
+            string id = floaters.OpenFloaters[0].Id;
+            await Frames(8);
+            Node? up = panel;
+            while (up is not null and not FloaterFrame)
+                up = up.GetParent();
+            if (up is not FloaterFrame frame || panel.FindChild("unsaved", true, false) is not Control question)
+            {
+                problems.Add($"{scene} at {pct} %: the editor window or its question is not found");
+                rig.Viewport.QueueFree();
+                continue;
+            }
+            question.Visible = true;   // what the editors' close guard does when there are unsaved changes
+            var spec = floaters.SpecOf(id)!;
+            foreach (var (label, w, h) in new[] { ("minimum", spec.MinSize.W, spec.MinSize.H), ("default", spec.DefaultSize.W, spec.DefaultSize.H) })
+            {
+                floaters.Move(id, floaters.Bounds.X, floaters.Bounds.Y);
+                floaters.Resize(id, w, h);
+                await Frames(4);
+                var box = frame.GetGlobalRect();
+                foreach (var name in new[] { "prompt_save", "prompt_dont_save", "prompt_cancel" })
+                {
+                    if (panel.FindChild(name, true, false) is not Control button || !button.IsVisibleInTree())
+                    {
+                        problems.Add($"{scene} at {pct} %, window {label}: the button {name} is not shown");
+                        continue;
+                    }
+                    var whole = button.GetGlobalRect();
+                    var seen = whole;
+                    for (var a = button.GetParent() as Control; a is not null && a != frame; a = a.GetParent() as Control)
+                        if (a.ClipContents)
+                            seen = seen.Intersection(a.GetGlobalRect());
+                    seen = seen.Intersection(box);
+                    measured++;
+                    string line = $"{scene} at {pct} %, window {label} ({box.Size.X:F0} x {box.Size.Y:F0} px): {name} {whole} is seen as {seen}, window {box}";
+                    table.Add(line);
+                    if (seen.Size.X < whole.Size.X - slack || seen.Size.Y < whole.Size.Y - slack)
+                        problems.Add(line);
+                }
+            }
+            rig.Viewport.QueueFree();
+            await Frames(2);
+        }
+        _result["unsaved_prompt_fit_" + scene] = new { measured, problems = problems.Count, buttons = table };
+        foreach (var line in problems.Take(6))
+            _failures.Add("save-changes question: " + line);
+        if (problems.Count > 6)
+            _failures.Add($"save-changes question: {problems.Count - 6} more (unsaved_prompt_fit_{scene} in the result)");
+        if (measured == 0)
+            _failures.Add("save-changes question: nothing measured");
     }
 
     /// <summary>

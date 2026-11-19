@@ -221,10 +221,14 @@ public partial class Dock : PanelContainer
         }
     }
 
+    /// <summary>Whether the attention ring pulses when it appears. A render test turns it off: the pulse runs on the wall clock (three
+    /// 0.6 s cycles of the button's opacity), so a picture taken during it depends on how fast the frames came, not on the scene.</summary>
+    public static bool PulseEnabled { get; set; } = true;
+
     /// <summary>The attention ring pulses three times, then stays.</summary>
     private void Pulse(Button button)
     {
-        if (!button.IsInsideTree())
+        if (!PulseEnabled || !button.IsInsideTree())
             return;
         var tween = button.CreateTween();
         for (int i = 0; i < 3; i++)

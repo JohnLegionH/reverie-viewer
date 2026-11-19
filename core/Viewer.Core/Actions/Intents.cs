@@ -27,6 +27,7 @@ public enum ActionKind
     LookRebuild,
     CreateObject, RezItem, DeleteObject, EditObject,
     NotecardCopyItem,
+    InventoryItemUpdate, ConferenceStart,
 }
 
 /// <summary>What the user wants done, in the interface's terms. Checks itself (<see cref="Validate"/>) before anything is sent.</summary>
@@ -226,6 +227,32 @@ public sealed record InventoryMoveIntent(Guid ItemId, Guid FolderId, string? New
         new MoveInventoryItemCommand(ItemId, FolderId, NewName is null ? null : IntentRules.Normalised(NewName));
 }
 
+/// <summary>
+/// Changes an agent-inventory item's name (and description) the way the official viewer does: an update of the whole item
+/// (UpdateInventoryItem, llviewerinventory.cpp updateServer), carrying its rights, owner and sale as the grid described them.
+/// <paramref name="Item"/> is the item with its new name already in it; an item without <see cref="InventoryItemData.Permissions"/>
+/// cannot be updated this way (a rename then goes by <see cref="InventoryMoveIntent"/>).
+/// </summary>
+public sealed record InventoryItemUpdateIntent(Viewer.Core.Inventory.InventoryItemData Item) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.InventoryItemUpdate;
+
+    public override IReadOnlyList<ActionIssue> Validate()
+    {
+        var issues = new List<ActionIssue>();
+        if (Item.Id == Guid.Empty)
+            issues.Add(new("inventory.no_item"));
+        if (Item.Permissions is null)
+            issues.Add(new("inventory.no_permissions"));
+        if (!IntentRules.NameOk(Item.Name))
+            issues.Add(new("inventory.bad_name"));
+        return issues;
+    }
+
+    internal override TransportCommand? ToCommand() =>
+        new UpdateInventoryItemCommand(Item with { Name = IntentRules.Normalised(Item.Name) });
+}
+
 /// <summary>Moves an item to the Trash folder. A protected action: it is refused unless <paramref name="Confirmed"/> says the user confirmed it.</summary>
 public sealed record InventoryTrashIntent(Guid ItemId, Guid TrashFolderId, bool Confirmed) : ActionIntent
 {
@@ -359,6 +386,26 @@ public sealed record GroupChatJoinIntent(Guid Group) : ActionIntent
     public override ActionKind Kind => ActionKind.GroupChatJoin;
     public override IReadOnlyList<ActionIssue> Validate() => Group == Guid.Empty ? [new("group.no_group")] : [];
     internal override TransportCommand? ToCommand() => new GroupChatJoinCommand(Group);
+}
+
+/// <summary>Starts a conference: one group instant message with several agents (the official viewer's "start conference" on several chosen
+/// friends). <paramref name="Session"/> is the id the caller made for it; it needs at least two others.</summary>
+public sealed record ConferenceStartIntent(Guid Session, IReadOnlyList<Guid> Participants) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.ConferenceStart;
+
+    public override IReadOnlyList<ActionIssue> Validate()
+    {
+        var issues = new List<ActionIssue>();
+        if (Session == Guid.Empty)
+            issues.Add(new("conference.no_session"));
+        var others = Participants.Where(p => p != Guid.Empty).Distinct().ToList();
+        if (others.Count < 2)
+            issues.Add(new("conference.too_few"));
+        return issues;
+    }
+
+    internal override TransportCommand? ToCommand() => new StartConferenceCommand(Session, Participants.Where(p => p != Guid.Empty).Distinct().ToList());
 }
 
 public sealed record GroupChatLeaveIntent(Guid Group) : ActionIntent

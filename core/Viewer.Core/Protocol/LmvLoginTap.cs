@@ -34,13 +34,15 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        bool isLogin = false;
+        bool isLogin = false, isEventQueue = false;
         if (request.Method == HttpMethod.Post && request.Content is { } body)
         {
             try
             {
                 var bytes = await body.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-                if (OSDParser.Deserialize(bytes) is OSDMap map && map.ContainsKey("passwd") && map.ContainsKey("first") && map.ContainsKey("options"))
+                var parsed = OSDParser.Deserialize(bytes);
+                isEventQueue = EventQueueAnswer is not null && parsed is OSDMap poll && poll.ContainsKey("ack") && poll.ContainsKey("done");   // an event-queue poll
+                if (parsed is OSDMap map && map.ContainsKey("passwd") && map.ContainsKey("first") && map.ContainsKey("options"))
                 {
                     isLogin = true;
                     map["extended_errors"] = OSD.FromBoolean(true);   // asks for message ids and arguments (lllogininstance.cpp, constructAuthParams)
@@ -49,6 +51,12 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
                     DeviceIds = (map.TryGetValue("mac", out var mac) ? mac.AsString() : "", map.TryGetValue("id0", out var id0) ? id0.AsString() : "");
                     LogFields(map);
                     var rewritten = new ByteArrayContent(OSDParser.SerializeLLSDXmlBytes(map));
+                    foreach (var h in body.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) rewritten.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                    request.Content = rewritten;
+                }
+                else if (parsed is OSDArray seed && AddSeedCapabilities(seed))
+                {
+                    var rewritten = new ByteArrayContent(OSDParser.SerializeLLSDXmlBytes(seed));
                     foreach (var h in body.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) rewritten.Headers.TryAddWithoutValidation(h.Key, h.Value);
                     request.Content = rewritten;
                 }
@@ -75,8 +83,74 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
                 // a reply that is not LLSD is left to the library to report
             }
         }
+        else if (isEventQueue && response.IsSuccessStatusCode && response.Content is { } content)
+        {
+            try
+            {
+                var bytes = await content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                var replacement = new ByteArrayContent(bytes);
+                foreach (var h in content.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) replacement.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                response.Content = replacement;
+                // only an answer holding a script's running state is read; the library still gets the whole answer
+                if (bytes.AsSpan().IndexOf("ScriptRunningReply"u8) >= 0)
+                    EventQueueAnswer?.Invoke(OSDParser.Deserialize(bytes));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+            {
+                // an answer that is not LLSD is left to the library
+            }
+        }
+        else if (InventoryAnswer is not null && response.IsSuccessStatusCode && response.Content is { } llsd
+            && llsd.Headers.ContentType?.MediaType?.Contains("llsd", StringComparison.OrdinalIgnoreCase) == true
+            && (llsd.Headers.ContentLength ?? 0) <= InventoryAnswerBytes)
+        {
+            try
+            {
+                var bytes = await llsd.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                var replacement = new ByteArrayContent(bytes);
+                foreach (var h in llsd.Headers.Where(h => !h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))) replacement.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                response.Content = replacement;
+                // only an LLSD answer that names a runtime is parsed; the library still gets the whole answer
+                if (bytes.Length <= InventoryAnswerBytes && bytes.AsSpan().IndexOf("runtime"u8) >= 0)
+                    InventoryAnswer(OSDParser.Deserialize(bytes));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+            {
+                // an answer that is not LLSD is left to the library
+            }
+        }
         return response;
     }
+
+    /// <summary>The capabilities this viewer asks a region for beyond the protocol library's own list. SetScriptEngine is the opt-in for the
+    /// Engine and EngineChoice fields of a script's running reply: a region sends them only to a viewer that lists it.</summary>
+    internal static readonly string[] ExtraCapabilities = ["SetScriptEngine"];
+
+    /// <summary>Adds <see cref="ExtraCapabilities"/> to a seed capability request (the list of capability names a viewer POSTs to a region's
+    /// seed address; recognised by its EventQueueGet entry), each once. False, with the list untouched, when it is not such a request or
+    /// already holds them all.</summary>
+    internal static bool AddSeedCapabilities(OSDArray names)
+    {
+        if (!names.Any(n => n.Type == OSDType.String && n.AsString() == "EventQueueGet"))
+            return false;
+        bool added = false;
+        foreach (var extra in ExtraCapabilities)
+            if (!names.Any(n => n.Type == OSDType.String && n.AsString() == extra))
+            {
+                names.Add(OSD.FromString(extra));
+                added = true;
+            }
+        return added;
+    }
+
+    private const int InventoryAnswerBytes = 8 * 1024 * 1024;
+
+    /// <summary>Called with an event-queue answer that holds a ScriptRunningReply, before the library reads it, so the fields the library
+    /// does not keep (the engine running a script and the engine saved for it) can be kept.</summary>
+    public Action<OSD>? EventQueueAnswer { get; set; }
+
+    /// <summary>Called with a successful LLSD answer that names an item's runtime (inventory answers), before the library reads it.</summary>
+    public Action<OSD>? InventoryAnswer { get; set; }
 
     /// <summary>The fields of the official viewer's request that the library does not send (lllogininstance.cpp, constructAuthParams):
     /// the address size, the operating system's own description, an empty host id, and how the last run ended. This viewer keeps no

@@ -322,6 +322,9 @@ public partial class ConversationsPanel : VBoxContainer
     /// <summary>Opens a group's chat (joining it) and shows it. False when there is no session.</summary>
     public bool OpenGroup(Guid group, string name) => _hub?.Ims.OpenGroup(group, name) is not null;
 
+    /// <summary>Starts (or opens, for one friend) a conversation with several agents at once.</summary>
+    public bool OpenConference(IReadOnlyList<Guid> agents) => _hub?.Ims.OpenConference(agents) is not null;
+
     /// <summary>Offers friendship to the other person of the shown conversation, with the default message.</summary>
     private void OfferFriendship()
     {

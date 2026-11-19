@@ -402,17 +402,17 @@ public class AoEditorTests
         Assert.Equal(["Main", "", "Edit sets..."], dock.Menu.Select(m => m.Label));
         Assert.True(dock.Menu[1].Separator);
         Assert.True(dock.Menu[0].Checked);
-        Assert.False(dock.On);
+        Assert.True(dock.On);                                                     // on from the first run
 
+        r.Run(dock.Click);                                                        // the button turns it off
+        r.Host.Frame();
+        Assert.False(dock.On);
+        var main = (AddonToggle)Assert.Single(r.Host.Windows, w => w.Window.Id == "overrider").Window.Controls.Single(c => c.Id == "use");
+        Assert.False(main.On);                                                    // the window's switch follows
         r.Run(dock.Click);
         r.Host.Frame();
         Assert.Contains((r.SetStand, true), r.Services.Sent);
         Assert.True(dock.On);
-        var main = (AddonToggle)Assert.Single(r.Host.Windows, w => w.Window.Id == "overrider").Window.Controls.Single(c => c.Id == "use");
-        Assert.True(main.On);                                                     // the window's switch follows
-        r.Run(dock.Click);
-        Assert.Contains((r.SetStand, false), r.Services.Sent);
-        Assert.False(dock.On);
     }
 
     [Fact]

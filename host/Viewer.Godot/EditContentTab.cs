@@ -45,6 +45,21 @@ public sealed class EditContentTab
 
     /// <summary>An item was deleted (the host closes its script or notecard window, as removeItem hides the preview).</summary>
     public Action<Guid>? Deleted;
+
+    /// <summary>What the agent's region offers for choosing a script's engine (the host supplies it from the session; none when logged out).</summary>
+    public Func<ScriptRegion>? ScriptRegionOf;
+
+    /// <summary>Sets the engine of a listed script without saving its text (a null target clears the choice); true when the region accepted it.</summary>
+    public Func<Guid, ScriptTarget?, System.Threading.Tasks.Task<ScriptEngineReply>>? SetEngine;
+
+    /// <summary>Keeps the once-per-install early-access warning; null shows none.</summary>
+    public EarlyAccessNotice? Notice;
+
+    private readonly PopupMenu _engineMenu;
+    private readonly List<ScriptTarget?> _engineTargets = new();
+    private readonly List<ScriptChoice?> _engineChoices = new();
+    private Guid _engineItem;
+    private const int MenuEngine = 4;
     private readonly Label _status;
     private Guid _askedFor;
     private readonly List<Guid> _rows = new();
@@ -69,11 +84,38 @@ public sealed class EditContentTab
         _list.Accepts = ids => ids.Count > 0 && _edit()?.Object() is not null;
         _list.Dropped += Drop;
         _list.DragOut = DragOut;
-        _list.ItemActivated += i => { if (i < _rows.Count) OpenRequested?.Invoke(_rows[(int)i]); };
-        _list.ItemClicked += (index, at, button) => { if (button == (long)MouseButton.Right && index < _rows.Count) ShowMenu((int)index, at); };
+        _list.SelectMode = ItemList.SelectModeEnum.Multi;   // Ctrl-click and Shift-click choose several rows
+        _list.ItemActivated += i => { if (i < _rows.Count) OpenRow(_rows[(int)i]); };
+        _list.ItemClicked += (index, at, button) =>
+        {
+            if (index >= _rows.Count)
+                return;
+            if (button == (long)MouseButton.Right)
+                ShowMenu((int)index, at);
+            else if (button == (long)MouseButton.Left && _pair.Click(_rows[(int)index]))
+                OpenRow(_rows[(int)index]);   // a double-click the engine did not see (the list was drawn again between the two clicks)
+        };
+        _list.GuiInput += e =>
+        {
+            if (e is not InputEventKey { Pressed: true, Echo: false } key)
+                return;
+            if (key.Keycode == Key.Delete)
+            {
+                DeleteChosen();   // the Delete key removes the chosen items, as the official folder view's does
+                _list.AcceptEvent();
+            }
+            else if (key.Keycode == Key.F2 && Chosen() is { } renaming && ItemOf(renaming) is { } item && TaskItemRules.CanRename(item, _agent()))
+            {
+                ShowProperties(renaming, true);   // F2 renames the chosen item
+                _list.AcceptEvent();
+            }
+        };
         page.AddChild(_list);
         _menu = new PopupMenu { Name = "content_menu" };
         _menu.IdPressed += MenuChosen;
+        _engineMenu = new PopupMenu { Name = "content_engine_menu" };
+        _engineMenu.IdPressed += EngineChosen;
+        _menu.AddChild(_engineMenu);
         page.AddChild(_menu);
         var row = new HFlowContainer { Name = "content_buttons" };
         _open = Btn("content_open", "edit.content.open", () => { if (Chosen() is { } id) OpenRequested?.Invoke(id); });
@@ -138,6 +180,28 @@ public sealed class EditContentTab
 
     private Guid? Chosen() => _list.GetSelectedItems() is [var i, ..] && i < _rows.Count ? _rows[i] : null;
 
+    /// <summary>Every chosen row (Ctrl-click and Shift-click choose several).</summary>
+    private List<Guid> ChosenAll() => _list.GetSelectedItems().Where(i => i < _rows.Count).Select(i => _rows[i]).ToList();
+
+    private readonly Viewer.Shell.Inventory.DoubleClickTracker _pair = new(() => (long)Time.GetTicksMsec());
+    private ulong _openedAt;
+
+    /// <summary>Open on a row, once for one double-click (the engine's own and the tracker's can both see it).</summary>
+    private void OpenRow(Guid id)
+    {
+        if (Time.GetTicksMsec() - _openedAt < 400)
+            return;
+        _openedAt = Time.GetTicksMsec();
+        OpenRequested?.Invoke(id);
+    }
+
+    /// <summary>The Delete key: each chosen item goes as the Delete button sends it (an object the agent may not change keeps its contents).</summary>
+    private void DeleteChosen()
+    {
+        foreach (var id in ChosenAll())
+            Delete(id);
+    }
+
     private TaskItem? ItemOf(Guid id) => _edit()?.ContentItem(id);
 
     /// <summary>What the object allows: its contents changed (modify), or items removed (modify or the agent owns it; isItemRemovable).</summary>
@@ -180,8 +244,56 @@ public sealed class EditContentTab
             _menu.AddItem(_s.Get("edit.content.rename"), MenuRename);
         if (modify || youOwn)
             _menu.AddItem(_s.Get("edit.content.delete"), MenuDelete);
+        if (item is { AssetType: 10 } && ScriptRegionOf?.Invoke() is { } region)
+            AddEngineMenu(item, region);
         _menu.Position = (Vector2I)(_list.GetScreenPosition() + at);
         _menu.Popup();
+    }
+
+    /// <summary>Engine > the engine choices for a listed script, where the region saves a choice. For a script the agent may not modify the entry
+    /// is offered only where the region allows an owner to set it; otherwise it is greyed with the reason as its tooltip.</summary>
+    private void AddEngineMenu(TaskItem item, ScriptRegion region)
+    {
+        uint mask = item.OwnerId == _agent() ? item.OwnerMask : item.EveryoneMask;
+        var offer = ScriptEngineChoices.ContentsMenu(region, (mask & NotecardPermissions.Modify) != 0);
+        if (!offer.Offered)
+            return;
+        _engineItem = item.ItemId;
+        _engineTargets.Clear();
+        _engineChoices.Clear();
+        _engineMenu.Clear();
+        foreach (var c in ScriptEngineChoices.OpenSim(region))
+        {
+            _engineMenu.AddItem(_s.Get(c.LabelKey, c.LabelArg), _engineTargets.Count);
+            _engineMenu.SetItemDisabled(_engineMenu.ItemCount - 1, !c.Enabled);
+            _engineTargets.Add(c.Target);
+            _engineChoices.Add(c);
+        }
+        _engineMenu.AddItem(_s.Get("script.engine.menu.clear"), _engineTargets.Count);   // no choice: the first line or the region default
+        _engineTargets.Add(null);
+        _engineChoices.Add(null);
+        _menu.AddSubmenuNodeItem(_s.Get("script.engine.menu"), _engineMenu, MenuEngine);
+        int at = _menu.ItemCount - 1;
+        _menu.SetItemDisabled(at, !offer.Enabled);
+        if (offer.DisabledKey is { } reason)
+            _menu.SetItemTooltip(at, _s.Get(reason));
+    }
+
+    private async void EngineChosen(long index)
+    {
+        if (index < 0 || index >= _engineTargets.Count || SetEngine is not { } set)
+            return;
+        try
+        {
+            var reply = await set(_engineItem, _engineTargets[(int)index]);
+            _status.Text = reply.Ok ? _s.Get("script.engine.set") : ScriptEditorPanel.ScriptEngineFailureText(_s, reply);
+            if (_engineChoices[(int)index] is { } picked && Notice?.TakeWarning(picked) == true)
+                _status.Text += " " + _s.Get(EarlyAccessNotice.TextKey);   // once per install
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _status.Text = _s.Get("script.engine.set_failed");
+        }
     }
 
     private void MenuChosen(long id)

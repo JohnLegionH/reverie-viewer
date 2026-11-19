@@ -338,6 +338,8 @@ public partial class EditPanel : VBoxContainer
         p.Summary.Visible = !open;
     }
 
+    private Guid _contentsSeenFor;   // the object whose contents last decided whether the Contents section opens
+
     /// <summary>Whether a section is open.</summary>
     public bool IsOpen(BuildSection section) => _sections[section].Body.Visible;
 
@@ -693,7 +695,14 @@ public partial class EditPanel : VBoxContainer
         finally { _filling = false; }
         _textureTab.Refresh();
         _featuresTab.Refresh(IsOpen(BuildSection.Behaviour) && IsVisibleInTree());
-        _contentTab.Refresh(IsOpen(BuildSection.Contents) && IsVisibleInTree());
+        _contentTab.Refresh(IsVisibleInTree());   // read once for each selected object, whether the section is open or not, so it can open for an object that holds something
+        // the Contents section opens by itself, once for each selected object that holds something; the person can close it again
+        var seen = e?.Object()?.FullId ?? Guid.Empty;
+        if (seen != _contentsSeenFor && (seen == Guid.Empty || e!.ContentsKnown))
+        {
+            _contentsSeenFor = seen;
+            ShowSection(BuildSection.Contents, seen != Guid.Empty && BuildLayout.ContentsOpenFor(e!.Contents.Count) || _memory.IsOpen(BuildSection.Contents));
+        }
         var facts = Facts();
         foreach (var (id, p) in _sections)
             p.Summary.Text = BuildLayout.Summary(id, facts, _s);

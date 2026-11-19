@@ -270,6 +270,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         // the reply's fields. Simulator circuits are governed through the cancellable SimConnecting in strict mode.
         _loginTap = new LmvLoginTap(OutboundHttp.CreateHandler(_outbound, _log, _certificates), _log);
         _client.HttpCapsClient = new HttpCapsClient(_loginTap);
+        _loginTap.EventQueueAnswer = NoteScriptReplies;
+        _loginTap.InventoryAnswer = NoteInventoryAnswer;
         // strict mode refuses internal addresses here; in every mode a second circuit to an address that already has one is refused
         _client.Network.SimConnecting += OnSimConnecting;
 
@@ -721,6 +723,15 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 _client.Network.SendPacket(InventoryMovePackets.Item(self.AgentID, self.SessionID, mv.ItemId, mv.FolderId, mv.NewName));
                 KeepLibraryStoreParent(mv.ItemId, mv.FolderId, mv.NewName);
                 break;
+            case UpdateInventoryItemCommand update:
+                // the whole item, as the official viewer's updateServer sends it
+                _client.Network.SendPacket(InventoryMovePackets.Update(self.AgentID, self.SessionID, update.Item));
+                KeepLibraryStoreParent(update.Item.Id, update.Item.ParentId, update.Item.Name);
+                break;
+            case StartConferenceCommand conference:
+                // the reply (the session started, or refused) arrives as the group chat join answer for this session id
+                _ = self.StartIMConferenceAsync([.. conference.Participants.Select(p => new UUID(p))], new UUID(conference.SessionId));
+                break;
             case RequestTaskInventoryCommand or CopyTaskContentsCommand or BuyObjectCommand or RequestPayPriceCommand or PayObjectCommand:
                 return ExecuteTrade(command);
             case InventoryOfferAnswerCommand or AttachWorldObjectCommand or DropAttachmentCommand:
@@ -1020,7 +1031,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// itself, such as opening a web address) never reaches the grid adapter.</summary>
     internal static bool IsKnownCommand(TransportCommand command) => command is SayCommand or InstantMessageCommand or TouchCommand or SitCommand or StandCommand or TeleportRegionCommand
         or TeleportLandmarkCommand or TeleportHomeCommand or TeleportHandleCommand or TeleportCancelCommand or TeleportLureAnswerCommand or TeleportOfferCommand or SetHomeCommand or TeleportRequestCommand
-        or MoveInventoryItemCommand or ChatTypingCommand or ImTypingCommand
+        or MoveInventoryItemCommand or UpdateInventoryItemCommand or StartConferenceCommand or ChatTypingCommand or ImTypingCommand
         or FriendshipOfferCommand or FriendshipAnswerCommand or FriendshipEndCommand or FriendRightsCommand
         or GroupChatJoinCommand or GroupChatLeaveCommand or GroupMessageCommand or ActiveGroupCommand or ActiveTitleCommand or GroupNoticeAnswerCommand
         or GrabCommand or ReleaseCommand or SitGroundCommand or RequestObjectPropertiesCommand or TakeObjectCommand or RequestParcelCommand

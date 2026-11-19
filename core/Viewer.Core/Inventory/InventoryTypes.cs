@@ -63,8 +63,22 @@ public sealed record InventoryFolderData(Guid Id, Guid ParentId, string Name, Fo
 /// <param name="LinkedId">For a link, the id of the item or folder it points to.</param>
 /// <param name="Description">The item's description; on a clothing link in the current outfit folder it holds the layer order.</param>
 /// <param name="AssetId">The asset the item holds, when the grid names it (not for a link: see <paramref name="LinkedId"/>).</param>
+/// <param name="Permissions">What the grid says about the item's rights, owner and sale; null when it did not say (an update of the item
+/// is then not possible, only a move).</param>
 public sealed record InventoryItemData(Guid Id, Guid ParentId, string Name, ItemKind Kind, int AssetType, int InventoryType, uint Flags,
-    DateTimeOffset? CreatedAt, Guid? LinkedId = null, string Description = "", Guid? AssetId = null);
+    DateTimeOffset? CreatedAt, Guid? LinkedId = null, string Description = "", Guid? AssetId = null, ItemPermissions? Permissions = null);
+
+/// <summary>An inventory item's rights, owner and sale, as the grid describes them (the protocol's permission bits: modify 0x4000, copy 0x8000,
+/// transfer 0x2000). They are carried so that an update of the item sends them back as they were (an update message names the whole item).</summary>
+public sealed record ItemPermissions(uint BaseMask, uint OwnerMask, uint GroupMask, uint EveryoneMask, uint NextOwnerMask,
+    Guid CreatorId, Guid OwnerId, Guid GroupId, bool GroupOwned, int SaleType, int SalePrice)
+{
+    public const uint Transfer = 0x2000, Modify = 0x4000, Copy = 0x8000;
+
+    /// <summary>Whether <paramref name="agent"/> may change the item: the owner by the owner's mask, anyone else by the everyone mask
+    /// (the official viewer's LLPermissions::allowModifyBy, read as behaviour).</summary>
+    public bool AllowsModifyBy(Guid agent) => ((agent != Guid.Empty && agent == OwnerId ? OwnerMask : EveryoneMask) & Modify) != 0;
+}
 
 /// <summary>The inventory skeleton the login reply carries: the agent's own folders and the shared library's, with versions
 /// but no items. Everything else is fetched folder by folder.</summary>

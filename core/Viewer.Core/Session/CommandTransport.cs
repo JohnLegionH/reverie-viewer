@@ -65,6 +65,12 @@ public sealed record TeleportOfferCommand(Guid Target, string Message) : Transpo
 /// contents are the authority afterwards: the caller reconciles with a read, it does not assume.</summary>
 public sealed record MoveInventoryItemCommand(Guid ItemId, Guid FolderId, string? NewName) : TransportCommand;
 
+/// <summary>Sends an agent-inventory item whole (UpdateInventoryItem): its new name, description and the rights it already had.</summary>
+public sealed record UpdateInventoryItemCommand(Viewer.Core.Inventory.InventoryItemData Item) : TransportCommand;
+
+/// <summary>Starts an ad-hoc conference (a group instant message) with these agents under a session id the caller made.</summary>
+public sealed record StartConferenceCommand(Guid SessionId, IReadOnlyList<Guid> Participants) : TransportCommand;
+
 /// <summary>Tells the region this agent started or stopped typing in local chat (a chat line of the typing kind, no text).</summary>
 public sealed record ChatTypingCommand(bool Started) : TransportCommand;
 

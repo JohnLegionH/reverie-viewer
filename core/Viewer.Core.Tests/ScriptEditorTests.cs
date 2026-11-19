@@ -303,7 +303,7 @@ public class ScriptEditorTests
     {
         var e = Opened(InObj(Copy | Modify), "x");
         Assert.False(e.CanSetRunning);
-        e.RunningKnown(running: true, mono: false);
+        e.RunningKnown(new ScriptRuntime(true, false));
         Assert.True(e.Running);
         Assert.Equal(ScriptTarget.Lsl2, e.Target);
         Assert.True(e.CanSetRunning);
@@ -313,7 +313,7 @@ public class ScriptEditorTests
         e.BeginSave();
         Assert.False(e.CanSetRunning);
         var inv = Opened(Inv(Copy | Modify), "x");
-        inv.RunningKnown(true, true);
+        inv.RunningKnown(new ScriptRuntime(true, true));
         Assert.False(inv.CanSetRunning);   // a script in the inventory does not run
         Assert.False(inv.SetRunning(true));
     }

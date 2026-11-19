@@ -38,6 +38,8 @@
     <EmbeddedResource Include="Assets\Splash\*.jpg" LogicalName="Viewer.Shell.Splash.%(Filename).jpg" />
     <!-- The script editor's words: the official viewer's LSL keyword file and Firestorm's OSSL library, unchanged (vendor/lsl-keywords/UPSTREAM.md). -->
     <EmbeddedResource Include="..\..\vendor\lsl-keywords\*.xml" LogicalName="Viewer.Shell.Keywords.%(Filename).xml" />
+    <!-- The words of an SLua (Lua) script, generated from the SLua engine's function tables by tools/generate-slua-words.ps1. -->
+    <EmbeddedResource Include="..\..\vendor\slua-words\*.tsv" LogicalName="Viewer.Shell.Keywords.%(Filename).tsv" />
     <!-- The viewer's licence and the third-party notices, shown by the About window's Licences entry. -->
     <EmbeddedResource Include="..\..\LICENSE" LogicalName="Viewer.Shell.Licences.LICENSE.txt" />
     <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.md" LogicalName="Viewer.Shell.Licences.THIRD-PARTY-NOTICES.md" />

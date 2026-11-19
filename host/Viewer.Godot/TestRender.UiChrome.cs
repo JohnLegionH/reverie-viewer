@@ -20,8 +20,12 @@ public partial class TestRender
     /// chat bar, the dock and the status area are wholly inside the window, the dock sits above the chat bar with every button shown
     /// inside it (it wraps, it hides none), and each open floating window lies inside the main view.
     /// </summary>
-    private async Task<int> UiChromeRun(string spec, string? golden)
+    private async Task<int> UiChromeRun(string spec, string? golden, string? alter = null, string? pointer = null)
     {
+        // A picture must not depend on the desktop it is taken on: the real pointer is ignored (the viewport takes no input events) and the
+        // dock's attention pulse, which runs on the wall clock, is off. --tr-alter=livepointer and --tr-alter=pulse switch one of them back on, as
+        // negative controls: with --tr-pointer=notices a pointer hover is put on the Notices button, and the picture MUST then differ (livepointer).
+        Dock.PulseEnabled = alter == "pulse";
         var parts = spec.Split(':', 'x');
         if (parts.Length != 3 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int pct)
             || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int w) || !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out int h))
@@ -33,6 +37,7 @@ public partial class TestRender
         rig.Viewport.Size2DOverrideStretch = true;
         var shell = new ShellRoot(new ShellController(strings, () => { })) { ScaleSink = _ => { }, FixedClockText = TestClockText };   // the override above stands in for the window's content scale
         rig.Viewport.AddChild(shell);
+        rig.Viewport.GuiDisableInput = alter != "livepointer";   // no pointer or key event of the desktop reaches the windows drawn here
         var settings = new SettingsService(null);
         var backdrop = new TextureRect { Name = "backdrop", Texture = Backdrop(), StretchMode = TextureRect.StretchModeEnum.Scale, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, MouseFilter = Control.MouseFilterEnum.Ignore };
         backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -54,6 +59,12 @@ public partial class TestRender
         shell.Shell.Floaters.Open(PeopleFeature.PeopleId);
         shell.Shell.Floaters.Open(PreferencesFeature.FloaterId);
         await Frames(12);
+        if (pointer == "notices" && shell.Dock.Buttons.FirstOrDefault(b => b.Key.Id == "notices").Value is { } hoverTarget)
+        {
+            var at = hoverTarget.GetGlobalRect().GetCenter();   // a desktop pointer over the Notices button, as the engine would deliver it to the window
+            rig.Viewport.PushInput(new InputEventMouseMotion { Position = at, GlobalPosition = at }, false);
+            await Frames(3);
+        }
 
         var view = shell.GetViewportRect();
         var viewport = new Rect2(view.Position, view.Size);
@@ -158,6 +169,7 @@ public partial class TestRender
         }
         shell.QueueFree();
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
+        Dock.PulseEnabled = true;
         return _failures.Count == 0 ? 0 : 1;
     }
 }

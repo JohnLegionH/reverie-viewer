@@ -58,8 +58,8 @@ public class CommandListTests
     public void The_bundled_map_has_every_feature_with_its_official_and_firestorm_places()
     {
         var map = FeatureMap.Bundled;
-        Assert.Equal(273, map.Count);
-        Assert.Equal(Enumerable.Range(1, 273), map.Select(r => r.Row));
+        Assert.Equal(274, map.Count);
+        Assert.Equal(Enumerable.Range(1, 274), map.Select(r => r.Row));
         var stats = map.Single(r => r.Row == 252);
         Assert.Equal("Advanced > Performance Tools > Statistics Bar [hidden by default]", stats.SlPlaces[0]);
         Assert.Contains("Statistics Bar", stats.SlNames);

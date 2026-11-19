@@ -52,6 +52,8 @@ public partial class Main
             s.Actions.LocalExecutor = LocalCommands.Executor(url => global::Godot.OS.ShellOpen(url) == global::Godot.Error.Ok);
             hub.Attach(_comms!.Friends, _travel!.Teleport, _travel.Notices, id => s.Names.Get(id) ?? NameCache.Placeholder(id));
             hub.Prompts.MapDestination += OnMapDestination;
+            // the grid's "notecard updated" confirmation goes to the editors' status lines, not to a pop-up
+            _travel.Notices.AssetSaved += text => { _notecards?.SayStatus(text); _scripts?.SayStatus(text); };
             // blocked objects' and owners' dialogs and requests are dropped; a Block button on a prompt or an offer adds to the block list
             hub.Prompts.UseMuteList(s.Mutes);
             hub.Prompts.BlockObject = (id, name) => s.Block(MuteKind.Object, id, name);

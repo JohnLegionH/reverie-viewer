@@ -404,6 +404,56 @@ public class FriendsGroupsShellTests
     }
 
     [Fact]
+    public void Several_friends_start_one_conference_under_a_new_session_that_is_joined_when_the_grid_answers()
+    {
+        var r = new Rig();
+        var c = r.Ims.OpenConference([Ann, Bob, Cy, Self, Ann]);   // this agent and a repeat are left out
+        Assert.NotNull(c);
+        Assert.True(c!.IsGroup);
+        Assert.Equal(GroupChatState.Joining, c.Group);
+        Assert.NotEqual(Guid.Empty, c.SessionId);
+        var start = Assert.Single(r.Sent<StartConferenceCommand>());
+        Assert.Equal(c.SessionId, start.SessionId);
+        Assert.Equal([Ann, Bob, Cy], start.Participants);
+        Assert.Equal(c.SessionId, r.Ims.Active);
+        r.Ims.ReceiveJoined(new GroupChatJoined(c.SessionId, true));
+        Assert.Equal(GroupChatState.Joined, c.Group);
+        Assert.True(r.Ims.Send(c.SessionId, "hello all"));
+        Assert.Equal(new GroupMessageCommand(c.SessionId, "hello all"), Assert.Single(r.Sent<GroupMessageCommand>()));
+    }
+
+    [Fact]
+    public void One_friend_is_the_ordinary_conversation_and_none_starts_nothing()
+    {
+        var r = new Rig();
+        var one = r.Ims.OpenConference([Ann, Ann]);
+        Assert.NotNull(one);
+        Assert.False(one!.IsGroup);
+        Assert.Equal(Ann, one.Other);
+        Assert.Null(r.Ims.OpenConference([Self, Guid.Empty]));
+        Assert.Empty(r.Sent<StartConferenceCommand>());
+        Assert.Single(r.Ims.Open);
+    }
+
+    [Fact]
+    public void A_conference_the_pipeline_refuses_stays_failed_with_the_reason()
+    {
+        var r = new Rig { InWorld = false };
+        var c = G(r.Ims.OpenConference([Ann, Bob]));
+        Assert.Equal(GroupChatState.Failed, c.Group);
+        Assert.Equal("status.unavailable", c.Status?.Key);
+        Assert.Empty(r.Transport.Commands);
+    }
+
+    [Fact]
+    public void A_conference_needs_two_others_and_a_session_id()
+    {
+        Assert.Contains(new ConferenceStartIntent(Guid.Empty, [Ann, Bob]).Validate(), i => i.Code == "conference.no_session");
+        Assert.Contains(new ConferenceStartIntent(Guid.NewGuid(), [Ann, Ann, Guid.Empty]).Validate(), i => i.Code == "conference.too_few");
+        Assert.Empty(new ConferenceStartIntent(Guid.NewGuid(), [Ann, Bob]).Validate());
+    }
+
+    [Fact]
     public void Nothing_is_sent_to_a_group_until_it_is_joined_and_then_the_text_goes_through_the_pipeline_with_an_own_line()
     {
         var r = new Rig();
