@@ -18,12 +18,12 @@ This is a draft. It is not published, and it changes as work lands on main.
 - **Lists.** In People, the friends list takes Ctrl-click and Shift-click, and a double-click opens a message. A double-click on a group opens its chat. In the inventory, Shift-click selects a range. The Contents list takes several items at once.
 - **Conference IMs.** Selecting several friends and starting a message opens one conference with all of them.
 - **Rename.** Inventory items you may modify can be renamed. In an object's Contents list, F2 renames the chosen item.
-- **Contents.** The Build window shows the Contents section first, and open. The Delete key removes the chosen items from an object, as its rights allow.
+- **Contents.** The Build window shows the Contents section first, and opens it when the object holds something. The Delete key removes the chosen items from an object, as its rights allow.
 - **Dropped notecard items.** Items dropped into a notecard are kept one space apart instead of running together.
 - **"Save changes?"** The buttons of the save-changes question stay in view at every interface size.
 - **Build handles.** After a drag, the move handles stay where you left them until the region answers, instead of jumping back first.
 - **Full screen.** On first start, with no saved window mode, the viewer opens full screen.
-- **Grid alerts in the script editor.** An alert the region sends about a script save shows in the editor's status line.
+- **No pop-up for a save.** The grid's line saying a notecard or script was saved or updated shows in the status line of the open editors instead of a pop-up.
 
 ## Known limits
 
