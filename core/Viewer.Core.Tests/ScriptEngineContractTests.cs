@@ -84,29 +84,29 @@ public class ScriptEngineContractTests
     [Fact]
     public void A_running_reply_without_EngineChoice_reads_as_empty_and_keeps_the_full_engine_name()
     {
-        var read = LmvScriptReply.Read(RunningReply(s => s["Engine"] = OSD.FromString("InWorldz.Phlox"))).Single().Runtime;
+        var read = LmvScriptReply.Read(RunningReply(s => s["Engine"] = OSD.FromString("Example.Alpha"))).Single().Runtime;
         Assert.Equal("", read.EngineChoice);
-        Assert.Equal("InWorldz.Phlox", read.Engine);
+        Assert.Equal("Example.Alpha", read.Engine);
     }
 
     [Fact]
     public void The_full_engine_names_of_a_reply_name_entries_of_the_regions_engine_list()
     {
-        var region = new ScriptRegion(["YEngine", "InWorldz.Phlox", "SLua"], true, true, false);
-        var runtime = LmvScriptReply.Read(RunningReply(s => { s["Engine"] = OSD.FromString("InWorldz.Phlox"); s["EngineChoice"] = OSD.FromString("InWorldz.Phlox"); })).Single().Runtime;
+        var region = new ScriptRegion(["YEngine", "Example.Alpha", "SLua"], true, true, false);
+        var runtime = LmvScriptReply.Read(RunningReply(s => { s["Engine"] = OSD.FromString("Example.Alpha"); s["EngineChoice"] = OSD.FromString("Example.Alpha"); })).Single().Runtime;
         Assert.Contains(runtime.Engine, region.Engines);
         Assert.Contains(runtime.EngineChoice, region.Engines);
-        Assert.Equal(new ScriptEngineWhy("InWorldz.Phlox", "script.engine.why.saved"), ScriptEngineChoices.Why(region, runtime, "default{}"));
+        Assert.Equal(new ScriptEngineWhy("Example.Alpha", "script.engine.why.saved"), ScriptEngineChoices.Why(region, runtime, "default{}"));
     }
 
     [Fact]
     public void A_set_engine_success_reply_carries_the_state_the_result_and_the_choice()
     {
-        var body = new OSDMap { ["state"] = OSD.FromString("complete"), ["result"] = OSD.FromString("Changed"), ["EngineChoice"] = OSD.FromString("InWorldz.Phlox") };
+        var body = new OSDMap { ["state"] = OSD.FromString("complete"), ["result"] = OSD.FromString("Changed"), ["EngineChoice"] = OSD.FromString("Example.Alpha") };
         var reply = LmvScriptEngineReply.Read(body, true);
         Assert.True(reply.Ok);
         Assert.Equal("Changed", reply.Result);
-        Assert.Equal("InWorldz.Phlox", reply.EngineChoice);
+        Assert.Equal("Example.Alpha", reply.EngineChoice);
         Assert.Equal("", reply.Error);
     }
 
@@ -139,7 +139,7 @@ public class ScriptEngineContractTests
 
     // ---------------- item 3: early access ----------------
 
-    private static readonly string[] Engines = ["YEngine", "InWorldz.Phlox", "SLua"];
+    private static readonly string[] Engines = ["YEngine", "Example.Alpha", "SLua"];
 
     private static ScriptRegion Region(object? early) =>
         ScriptRegion.From(new Dictionary<string, object?> { ["ScriptEngines"] = Engines.ToList(), ["ScriptEngineChoice"] = true, ["ScriptEngineEarlyAccess"] = early }, true);
@@ -147,8 +147,8 @@ public class ScriptEngineContractTests
     [Fact]
     public void The_early_access_list_is_read_as_a_list_or_as_comma_separated_text_and_is_empty_when_absent()
     {
-        Assert.Equal(["InWorldz.Phlox"], Region(new List<string> { "InWorldz.Phlox" }).EarlyAccess);
-        Assert.Equal(["InWorldz.Phlox", "SLua"], Region("InWorldz.Phlox, SLua").EarlyAccess);
+        Assert.Equal(["Example.Alpha"], Region(new List<string> { "Example.Alpha" }).EarlyAccess);
+        Assert.Equal(["Example.Alpha", "SLua"], Region("Example.Alpha, SLua").EarlyAccess);
         Assert.Empty(ScriptRegion.From(new Dictionary<string, object?> { ["ScriptEngines"] = Engines.ToList() }, true).EarlyAccess);
         Assert.Empty(ScriptRegion.None.EarlyAccess);
     }
@@ -156,10 +156,10 @@ public class ScriptEngineContractTests
     [Fact]
     public void A_listed_engines_entry_says_early_access_and_the_others_do_not()
     {
-        var all = ScriptEngineChoices.OpenSim(Region(new List<string> { "InWorldz.Phlox" }));
+        var all = ScriptEngineChoices.OpenSim(Region(new List<string> { "Example.Alpha" }));
         Assert.Equal(["script.engine.lsl", "script.engine.lsl_early", "script.engine.lsl", "script.engine.slua_lsl", "script.engine.slua_lua"], all.Select(c => c.LabelKey));
         Assert.Equal([false, true, false, false, false], all.Select(c => c.EarlyAccess));
-        Assert.Equal("InWorldz.Phlox", all[1].LabelArg);
+        Assert.Equal("Example.Alpha", all[1].LabelArg);
     }
 
     [Fact]
