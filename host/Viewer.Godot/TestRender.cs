@@ -416,7 +416,7 @@ public partial class TestRender : Node
         if (Arg(args, "--tr-handles=") is { } handles)
             return await HandlesRun(handles, Arg(args, "--tr-golden="), Arg(args, "--tr-alter="));   // the edit tools' handles and grid against their goldens (TestRender.Handles.cs)
         if (Arg(args, "--tr-uichrome=") is { } uiChrome)
-            return await UiChromeRun(uiChrome, Arg(args, "--tr-golden="));   // the in-world frame at an interface size in a window size (TestRender.UiChrome.cs)
+            return await UiChromeRun(uiChrome, Arg(args, "--tr-golden="), Arg(args, "--tr-alter="), Arg(args, "--tr-pointer="));   // the in-world frame at an interface size in a window size (TestRender.UiChrome.cs)
         if (Arg(args, "--tr-floaterdrag=") is { } floaterDrag)
             return await FloaterDragRun(floaterDrag);   // the Inventory window resized, moved and closed by pointer events (TestRender.FloaterDrag.cs)
         if (Arg(args, "--tr-colourwindow=") is { } colourWindow)
