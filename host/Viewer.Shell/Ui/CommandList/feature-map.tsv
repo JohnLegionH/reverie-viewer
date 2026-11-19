@@ -273,3 +273,4 @@ row	area	feature	reverie_status	when	sl_menu_path	sl_shortcut	fs_location	aliase
 271	Interface and platform	macOS build	missing	after	automatic (no menu)	none	automatic (no menu)	none
 272	Interface and platform	Mobile or web companion	missing	after	none	none	none	none
 273	Interface and platform	VR	missing	after	none	none	none	none
+274	Scripts and notecards	Script engine and compile target choice: the four compiler targets on Second Life, an engine drop-down with a "Choose engine myself" tick on OpenSim grids, and Engine in the contents right-click menu	have	done	Script editor > Compile as (LSL Legacy / LSL on Mono / LSL on Lua / Lua) ; Build > Scripts > Recompile Scripts in Selection	none	Script editor > Compile as (Firestorm source of 2026-11; earlier releases have a Mono tick box) ; Build > Scripts > Recompile Scripts in Selection (Mono / LSL)	Compile target ; Mono ; SLua ; Luau ; script engine 
