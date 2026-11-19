@@ -153,7 +153,8 @@ public sealed partial class PreferencesPanel : VBoxContainer
         _title = new Label { Name = "category", ThemeTypeVariation = UiTheme.TitleLabel };
         content.AddChild(_title);
 
-        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        // as every other page: wider than its place, it scrolls sideways inside the window's margin
+        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         content.AddChild(scroll);
         _interfaceScroll = scroll;
         foreach (var pageId in Enum.GetValues<PrefPage>())

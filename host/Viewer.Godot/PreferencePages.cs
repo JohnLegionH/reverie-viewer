@@ -28,7 +28,7 @@ public sealed partial class PrefPageView : ScrollContainer
     private readonly Dictionary<string, Action> _sync = new();
     private readonly List<Label> _accountNotes = new();
     private readonly Dictionary<string, Control> _controls = new();
-    private readonly Func<UiSounds?> _sounds;
+    private readonly Func<UiSounds?> _sounds;
     private readonly Action? _tune;
     private readonly Dictionary<UiSoundSlot, Label> _soundStatus = new();
     private double _statusAge;
@@ -43,7 +43,7 @@ public sealed partial class PrefPageView : ScrollContainer
         Func<int>? clearCache, Func<bool>? clearNames, Func<UiSounds?>? sounds = null, Action? tune = null)
     {
         _strings = strings;
-        _sounds = sounds ?? (() => null);
+        _sounds = sounds ?? (() => null);
         _tune = tune;
         _model = model;
         _say = say;
@@ -51,7 +51,9 @@ public sealed partial class PrefPageView : ScrollContainer
         Name = "page_" + page.ToString().ToLowerInvariant();
         SizeFlagsVertical = SizeFlags.ExpandFill;
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        HorizontalScrollMode = ScrollMode.Disabled;
+        // a page wider than its place (a narrow window at a large interface size) scrolls sideways inside the window's margin, rather
+        // than widening the window's content so that its right side runs under the border
+        HorizontalScrollMode = ScrollMode.Auto;
         var box = new VBoxContainer { Name = "page", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         AddChild(box);
         foreach (var def in PreferenceCatalog.OfPage(page))
@@ -108,7 +110,7 @@ public sealed partial class PrefPageView : ScrollContainer
         else
         {
             var row = new HBoxContainer { Name = "row_" + def.Key };
-            var caption = new Label { Text = label, SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(180, 0) };
+            var caption = new Label { Text = label, SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(120, 0) };
             caption.AccessibilityName = label;
             row.AddChild(caption);
             control = MakeValueControl(def, label);
@@ -176,7 +178,7 @@ public sealed partial class PrefPageView : ScrollContainer
             }
             default:
             {
-                var line = new LineEdit { Name = "pref_" + def.Key, CustomMinimumSize = new Vector2(220, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                var line = new LineEdit { Name = "pref_" + def.Key, CustomMinimumSize = new Vector2(160, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
                 line.AccessibilityName = label;
                 line.TextSubmitted += text => Edit(def, text.Trim());
                 line.FocusExited += () => Edit(def, line.Text.Trim());
@@ -205,7 +207,7 @@ public sealed partial class PrefPageView : ScrollContainer
 
     private Label Caption(string text, string name)
     {
-        var l = new Label { Name = name, Text = text, ThemeTypeVariation = UiTheme.CaptionLabel, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) };
+        var l = new Label { Name = name, Text = text, ThemeTypeVariation = UiTheme.CaptionLabel, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(120, 0) };
         l.AccessibilityName = text;
         return l;
     }
@@ -217,7 +219,7 @@ public sealed partial class PrefPageView : ScrollContainer
         var button = new Button { Name = name + "_button", Text = _strings.Get(buttonKey) };
         button.AccessibilityName = button.Text;
         var ask = new HBoxContainer { Name = name + "_ask", Visible = false };
-        var question = new Label { Text = _strings.Get(askKey), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(240, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var question = new Label { Text = _strings.Get(askKey), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(120, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         question.AccessibilityName = question.Text;
         var yes = new Button { Name = name + "_yes", Text = _strings.Get(yesKey), ThemeTypeVariation = UiTheme.DangerButton };
         yes.AccessibilityName = yes.Text;
@@ -289,14 +291,15 @@ public sealed partial class PrefPageView : ScrollContainer
         }
         box.AddChild(all);
 
-        var grid = new GridContainer { Name = "sound_list", Columns = 6, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        // two rows a sound (name, Play, volume; then source, on, status), so the list fits the window at its usual sizes
+        var grid = new GridContainer { Name = "sound_list", Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         string[] sourceTexts = Sources.Select(s => _strings.Get("prefs.sound.source." + UiSoundSettings.IdOf(s))).ToArray();
         foreach (var info in UiSoundCatalog.All)
         {
             var slot = info.Slot;
             string key = info.KeyName;
             string title = _strings.Get("prefs.sound.slot." + key);
-            var name = new Label { Name = "sound_" + key + "_name", Text = title, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(150, 0) };
+            var name = new Label { Name = "sound_" + key + "_name", Text = title, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(120, 0) };
             name.AccessibilityName = title;
             grid.AddChild(name);
 

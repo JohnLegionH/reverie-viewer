@@ -423,8 +423,115 @@ public partial class TestRender
             }
         }
         shell.QueueFree();
+        if (scene == "preferences" && !wrongToken)
+            await PreferencesFit(strings, tokens);
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         return _failures.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// The Preferences window's right margin, checked after the picture is taken (the picture does not change): on every page, at the
+    /// interface sizes 100, 150 and 200 % (drawn as the window applies its content scale) and at every window width from the window's
+    /// minimum to the widest the main view allows, nothing seen in the window comes nearer its right border than the content is to its
+    /// left border (the room between the border and the list of pages). What is seen is the control as its scroll areas cut it: a page
+    /// wider than its place scrolls sideways inside that margin, while content that runs under the border fails.
+    /// </summary>
+    private async Task PreferencesFit(StringTable strings, ThemeTokens tokens)
+    {
+        const float slack = 0.5f;
+        var problems = new List<string>();
+        var table = new List<string>();
+        int measured = 0;
+        float worst = float.MaxValue;
+        foreach (int pct in new[] { 100, 150, 200 })
+        {
+            float s = pct / 100f;
+            UiTheme.Apply(tokens, pct);
+            var rig = MakeRig(new Vector2I(UiWidth, UiHeight));
+            rig.Viewport.Size2DOverride = new Vector2I((int)MathF.Round(UiWidth / s), (int)MathF.Round(UiHeight / s));
+            rig.Viewport.Size2DOverrideStretch = true;
+            var shell = new ShellRoot(new ShellController(strings, () => { })) { ScaleSink = _ => { }, FixedClockText = TestClockText };   // the override above stands in for the window's content scale
+            rig.Viewport.AddChild(shell);
+            var settings = new SettingsService(null);
+            ThemeStore.Save(settings, "render", ThemeChoice.Default with { Preset = ThemePresets.Classic });
+            var prefs = PreferencesFeature.Install(shell, settings, () => 0, () => false);
+            var floaters = shell.Shell.Floaters;
+            floaters.Open(PreferencesFeature.FloaterId);
+            await Frames(8);
+            Node? up = prefs;
+            while (up is not null and not FloaterFrame)
+                up = up.GetParent();
+            if (up is not FloaterFrame frame || prefs.FindChild("categories_scroll", true, false) is not Control nav)
+            {
+                problems.Add($"at {pct} %: the Preferences window or its list of pages is not shown");
+                rig.Viewport.QueueFree();
+                continue;
+            }
+            var spec = floaters.SpecOf(PreferencesFeature.FloaterId)!;
+            float minW = Math.Min(spec.MinSize.W, floaters.Bounds.W), maxW = floaters.Bounds.W;
+            var widths = new SortedSet<float> { minW, maxW, Math.Clamp(spec.DefaultSize.W, minW, maxW) };
+            for (float w = minW; w < maxW; w += 40)
+                widths.Add(w);
+            float height = floaters.RectOf(PreferencesFeature.FloaterId)?.H ?? spec.DefaultSize.H;
+            foreach (float w in widths)
+            {
+                floaters.Move(PreferencesFeature.FloaterId, floaters.Bounds.X, floaters.Bounds.Y);
+                floaters.Resize(PreferencesFeature.FloaterId, w, height);
+                foreach (var page in PreferencesPanel.Categories)
+                {
+                    prefs.ShowCategory(page);
+                    await Frames(3);
+                    var box = frame.GetGlobalRect();
+                    float left = nav.GetGlobalRect().Position.X - box.Position.X;
+                    var under = new List<Control>();
+                    var stack = new Stack<Node>();
+                    stack.Push(prefs);
+                    if (frame.FindChild("footer_pad", true, false) is { } footer)
+                        stack.Push(footer);
+                    while (stack.Count > 0)
+                    {
+                        var node = stack.Pop();
+                        foreach (var child in node.GetChildren())
+                            stack.Push(child);
+                        if (node is Control { } c && c is not Container && c.IsVisibleInTree() && c.Size.X > 0)
+                            under.Add(c);
+                    }
+                    // the control nearest the right border on this page, at this size
+                    Control? nearest = null;
+                    float nearestRight = float.MaxValue;
+                    foreach (var c in under)
+                    {
+                        // what is seen of the control: a scroll area (or any control that clips) cuts it at its own edge
+                        var seen = c.GetGlobalRect();
+                        for (var a = c.GetParent() as Control; a is not null && a != frame; a = a.GetParent() as Control)
+                            if (a.ClipContents)
+                                seen = seen.Intersection(a.GetGlobalRect());
+                        if (seen.Size.X <= 0 || seen.Size.Y <= 0)
+                            continue;   // scrolled out of view
+                        float right = box.End.X - seen.End.X;
+                        measured++;
+                        if (right < nearestRight)
+                            (nearest, nearestRight) = (c, right);
+                    }
+                    if (nearest is null)
+                        continue;
+                    worst = Math.Min(worst, nearestRight - left);
+                    string line = $"at {pct} %, window {box.Size.X:F0} px wide, page {page}: {nearest.Name} ({nearest.GetClass()}) ends {nearestRight:F1} px from the right border, the content starts {left:F1} px from the left one";
+                    table.Add(line);
+                    if (nearestRight < left - slack)
+                        problems.Add(line);
+                }
+            }
+            rig.Viewport.QueueFree();
+            await Frames(2);
+        }
+        _result["preferences_fit"] = new { measured, worst_right_minus_left = worst, problems = problems.Count, nearest_per_page = table };
+        foreach (var line in problems.Take(6))
+            _failures.Add("preferences margin: " + line);
+        if (problems.Count > 6)
+            _failures.Add($"preferences margin: {problems.Count - 6} more (preferences_fit in the result)");
+        if (measured == 0)
+            _failures.Add("preferences margin: nothing measured");
     }
 
     /// <summary>
