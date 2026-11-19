@@ -13,6 +13,7 @@
 # (ViewerIdentity.PackageName, core\Viewer.Core\Identity\ViewerIdentity.cs) and the version the core's <Version>
 # (core\Viewer.Core\Viewer.Core.csproj); changing either renames every package.
 # What it does, in order (any failure stops it before anything is packed; exit 1):
+#   0. makes -Exports when it is missing and, before exporting, restores Viewer.sln in NuGet locked mode (a fresh clone needs no steps first);
 #   1. exports each platform's shipping preset (export-release) and checks the export's outputs are fresh;
 #   1b. refuses (exit 1, before anything is packed) an export that holds the viewer's saved-login file (remembered-logins.dat) or
 #      any file with a login hash in it ("$1$" and 32 hex digits): a remembered password must never ship. It names the file, never the
@@ -51,6 +52,9 @@ $diagArgs = if ($DiagDir) { @("-DiagDir", $DiagDir) } else { @() }
 $Exports = [IO.Path]::GetFullPath($Exports).TrimEnd('\')
 $OutDir = [IO.Path]::GetFullPath($OutDir).TrimEnd('\')
 if ($OutDir.StartsWith($repo + "\", [StringComparison]::OrdinalIgnoreCase)) { Write-Output "package: the packages never go inside the repository"; exit 1 }
+# the exports folder is made here when it is not there yet, so a fresh clone needs nothing made beforehand (the output folder is made
+# just before packing)
+New-Item -ItemType Directory -Force -Path $Exports | Out-Null
 
 # ---- the one place package names come from ----
 function Get-ReleaseIdentity {
@@ -91,6 +95,14 @@ if (-not $NoExport) {
     Assert-ClaimGranted
     if (-not (Test-Path -LiteralPath $GodotExe)) { Write-Output "package: no Godot editor at $GodotExe"; exit 1 }
     $env:RestoreLockedMode = "true"
+    # a fresh clone has never been restored: the export builds the add-on projects too, and fails (NETSDK1004) without their assets
+    # files, so the whole solution is restored first, in NuGet locked mode like the export's own restore
+    $ErrorActionPreference = "Continue"
+    $restoreOut = & dotnet restore (Join-Path $repo "Viewer.sln") --locked-mode -nodeReuse:false 2>&1
+    $restoreExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($restoreExit -ne 0) { $restoreOut | Select-Object -Last 20 | ForEach-Object { Write-Output "    $_" }; Write-Output "package: restore failed (exit $restoreExit)"; exit 1 }
+    Write-Output "  restore Viewer.sln (locked mode) ok"
     & powershell -NoProfile -ExecutionPolicy Bypass -File $godot @diagArgs -Exe $GodotExe -TimeoutSeconds 300 -LogFile (Join-Path $Exports "import.log") `
         -ArgLine "--headless --path `"$project`" --import" | Out-Null
     if ($LASTEXITCODE -ne 0) { Write-Output "package: import failed (exit $LASTEXITCODE)"; exit 1 }
