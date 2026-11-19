@@ -326,7 +326,8 @@ if ($Mode -eq "Other") {
     if (-not $row) { $row = Row "New Script (no copy) (no modify) (no transfer)" }
     if (-not $row) { $row = Row "New Script (no modify)" }
     Note ("B4 the script's row at {0}" -f (@($row) -join ","))
-    if ($row) { ClickAt ([double]$row[0]) ([double]$row[1]) "right" }
+    # the list's first row can sit at the clipped top edge of the Build window's scroll area: the press goes to its lower part
+    if ($row) { ClickAt ([double]$row[0]) ([double]$row[1] + 6) "right" }
     $menu = Wait-Until { $m = (Api "menus" @{}).content_menu; if ($m -and $m.visible) { $m } } 10
     if (-not $menu) { Note ("B4 menus answer: " + ((Api "menus" @{}).content_menu | ConvertTo-Json -Compress -Depth 4)) }
     $engine = @($menu.items) | Where-Object { [string]$_.text -match "Engine" } | Select-Object -First 1
