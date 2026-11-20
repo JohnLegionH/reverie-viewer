@@ -36,7 +36,7 @@ Reverie needs a graphics driver with Vulkan 1.3, or with Direct3D 12 (Windows on
 The viewer tries Vulkan first, then Direct3D 12. If your choice is not good enough, it starts the other one by itself. If one backend still gives you trouble, pick the other:
 
 1. Open **Command Prompt**.
-2. Type the full path to `Reverie.console.exe` in quotes, then a space, then `-- --backend=d3d12`. For example: `"C:\Reverie\Reverie.console.exe" -- --backend=d3d12`.
+2. Type the full path to `Reverie.console.exe` in quotes, then a space, then `-- --backend=d3d12`. For example: `"<folder>\Reverie.console.exe" -- --backend=d3d12`, where `<folder>` is where you unpacked the viewer.
 3. Press Enter.
 
 Use `--backend=vulkan` for Vulkan. Use `--backend=auto` to go back to the viewer's own choice. The two dashes before `--backend` matter. This choice lasts for one run.

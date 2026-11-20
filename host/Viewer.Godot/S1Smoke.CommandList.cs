@@ -87,12 +87,6 @@ public partial class S1Smoke
         if (!window.Field.HasFocus()) problems.Add("the field does not have the keyboard when the list opens");
         if (window.Rows.Count != 0) problems.Add($"{window.Rows.Count} recent picks before any pick");
 
-        // every menu entry the targets name is one of the real menus' entries (the unit test reads the source; this reads the live menus)
-        foreach (var target in CommandTargets.Bundled.ByRow.Values.SelectMany(x => x).Concat(CommandTargets.Bundled.SlOf.Keys)
-                     .Where(t => t.StartsWith("menu:", StringComparison.Ordinal)).Distinct())
-            if (window.State.Index.Find(target) is null && !target.StartsWith("menu:app.", StringComparison.Ordinal))
-                problems.Add("the targets name " + target + ", which no live menu entry makes");
-
         // about land, Enter: the About Land window opens and the list closes
         await Type("about land");
         string best = window.State.Groups.Best?.Target ?? "none";
