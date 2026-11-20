@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 namespace Viewer.Core.Tests;
 
 /// <summary>
-/// Checks on the live-check scripts under tools\ that need no grid: the engine check places each box it makes at an exact
+/// Checks that need no grid, for the scripts under tools\ that drive a check in a running viewer: the engine check places each box it makes at an exact
 /// position (it runs the script's own NewBox function against stand-in commands and reads what it asked for), and a script that
 /// takes a -Token search token never also keeps a variable of that name (PowerShell variable names ignore case, so an
 /// automation token kept as $script:token would silently replace the parameter). Each test starts its own child process.
