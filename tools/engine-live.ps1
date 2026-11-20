@@ -24,7 +24,7 @@
 # =====================================================================================
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet("A", "B", "Other")][string]$Mode,
+    [Parameter(Mandatory)][ValidateSet("A", "B", "Other", "Features")][string]$Mode,
     [uint32]$BoxLocal = 0,
     [Parameter(Mandatory)][string]$Sandbox,
     [Parameter(Mandatory)][string]$ShotsDir,
@@ -343,6 +343,21 @@ if ($Mode -eq "Other") {
     $report.keep_objects = $true
 }
 
+if ($Mode -eq "Features") {
+    # ---- F. what the region sends for the engine choice (OpenSimExtras ScriptEngines, ScriptEngineChoice, ScriptEngineChoiceNoMod,
+    #         ScriptEngineEarlyAccess, and LuaScriptsEnabled), read from the editor of a new script in a new box; nothing is saved ----
+    $boxF = NewBox 3.0
+    $sF = NewScriptOpened
+    $stF = SState
+    $report.region = $stF.region
+    $report.engine_row = $stF.engine_row
+    $report.combo = @($stF.combo_items)
+    Shot "f-features"
+    Note ("F region: engines [{0}] choice_saved {1} choice_no_mod {2} early_access [{3}] lua {4}; engine row {5}; entries [{6}]" -f (@($stF.region.engines) -join ", "), $stF.region.choice_saved, $stF.region.choice_no_mod, (@($stF.region.early_access) -join ", "), $stF.region.lua, $stF.engine_row, (Items $stF))
+    Check "F the editor reports what the region sent for the engine choice" ([bool]$boxF -and $null -ne $stF.region) ("box {0}; region {1}" -f [bool]$boxF, ($stF.region | ConvertTo-Json -Compress))
+    CloseEditors
+}
+
 # ---- friends: whether the other test account is a friend (answers ids only) ----
 $fr = Api "friends" @{ action = "list" }
 $report.friends = $fr
@@ -350,7 +365,7 @@ $report.friends = $fr
 # ---- log out (a throwaway region: what was rezzed goes with it; Mode A takes back as usual) ----
 NoFocus
 Press "ESC"
-if ($Mode -eq "A") { [void](Interact @{ action = "aim"; distance = 0 }); $report.take_back = Invoke-TakeBack -Seconds 30 }
+if ($Mode -eq "A" -or $Mode -eq "Features") { [void](Interact @{ action = "aim"; distance = 0 }); $report.take_back = Invoke-TakeBack -Seconds 30 }
 $logout = Invoke-Raw $script:port "session" $script:apiToken '{"action":"logout"}'
 Note "logout: $($logout.Status)"
 [void](Invoke-Raw $script:port "quit" $script:apiToken)

@@ -52,7 +52,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Undo (Ctrl+Z) and Redo (Ctrl+Y): **Build** menu.
 - Grid snapping: **Build > Options** (Snap to Grid G, Snap Object XY to Grid Shift+X, Use Selection for Grid Shift+G, Grid Options… Ctrl+Shift+B).
 - Recompile, reset, run and stop all scripts in a selection: **Build > Scripts**.
-- Script editor (compile errors, Running, Reset, engine choice where the grid offers it) and notecard editor: double-click the item in the Inventory, or open it from the Build window's Contents section. Gesture editor: **Edit** in the Gestures window, or a new gesture from the Inventory's Create new menu (a double-click on a gesture in the Inventory does not open it).
+- Script editor (compile errors, Running, Reset, engine choice: Second Life's four-way Compile as list, or on OpenSimulator a Choose engine myself tick where the region lists engines or runs Lua, greyed where the region keeps no choice and runs no Lua) and notecard editor: double-click the item in the Inventory, or open it from the Build window's Contents section. Gesture editor: **Edit** in the Gestures window, or a new gesture from the Inventory's Create new menu (a double-click on a gesture in the Inventory does not open it).
 - Take, Take Copy, Delete: right-click an object; Take Into Folder...: **Build > Take Into Folder...**. In the Contents section, F2 renames the chosen item and Delete removes the chosen items.
 - Upload an image (Ctrl+U), a static mesh model (Ctrl+Alt+U), or many at once: **Build > Upload**.
 - Touch, sit on, open, buy and pay objects; answer script dialogs: right-click an object.

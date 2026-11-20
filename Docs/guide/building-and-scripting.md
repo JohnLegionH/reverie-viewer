@@ -222,14 +222,35 @@ Press **Save** (or Ctrl+S) to save and compile. Errors and warnings show in the 
 
 If you close the window with unsaved changes, a question asks **Save**, **Don't Save** or **Cancel**. If you may view the script but not change it, the editor is read-only and says so.
 
-### Choose the engine
+### Choosing the script engine
 
-Which engine runs a script depends on the grid.
+Which engine runs a script depends on the grid. The engine row sits in the bar at the top of the script editor, after **Reset**.
 
-- **Second Life**: a **Compile as** list. Its choices are **LSL Legacy**, **LSL on Mono (recommended)**, **LSL on Lua** and **Lua**. The two Lua choices are greyed in a region that does not run Lua.
-- **OpenSimulator**: where the region offers a choice, a **Choose engine myself** tick appears. Until you tick it, the list is greyed and says what runs the script and why. After that you can pick one of the engines the region lists. A choice the region cannot save is greyed, and its tooltip says why. You can also right-click a script in the Contents list and use **Engine**. **Use the first line or region default** clears your choice.
-- An engine marked "early access" shows a warning once: it may not keep a script's state across future updates.
-- If the grid cannot save an engine choice, the editor says that a first line such as `//name:` picks the engine instead.
+On OpenSimulator and its relatives the row shows where the region lists one or more engines, or runs Lua. Until you ask for a choice, it only tells you what runs the script. The drop-down is greyed and names the engine and why: a choice you saved, the engine the script's first line asks for (for example `//YEngine:`), or the region's default.
+
+![The engine row on a region that lists YEngine and Phlox, the tick clear](../../fixtures/ui/golden-ui-script-engine-classic-vulkan.png)
+
+To choose the engine yourself:
+
+1. Open the script and look at the bar. If **Choose engine myself** is not there, the region offers no choice and nothing more is needed.
+2. Tick **Choose engine myself**. The drop-down turns on.
+3. Open the drop-down and pick an engine, for example **Phlox (LSL)**.
+4. Press **Save** (or Ctrl+S). The script is saved and compiled for that engine.
+5. To go back, clear the tick. The region then uses the script's first line, or its own default again. You can also right-click a script in the Contents list and use **Engine**, where **Use the first line or region default** clears your choice.
+
+![The tick set and Phlox chosen](../../fixtures/ui/golden-ui-script-engine-on-classic-vulkan.png)
+
+An engine the region marks as early access says so in its name. The first time you pick one, a line under the code warns that it may not keep a script's state across future updates.
+
+![An early-access engine picked, with the warning](../../fixtures/ui/golden-ui-script-engine-early-classic-vulkan.png)
+
+A region can list engines and still not keep a choice you make. Then the tick is greyed, and its tooltip says that the region does not keep engine choices. A first line such as `//YEngine:` picks the engine instead. Where the region also runs Lua, the tick stays on, the engines that cannot be kept are greyed in the list with a tooltip, and the SLua choices work.
+
+![A region that lists engines but cannot keep a choice: the tick is greyed](../../fixtures/ui/golden-ui-script-engine-nosave-classic-vulkan.png)
+
+On Second Life the row is a **Compile as** list with four choices: **LSL Legacy**, **LSL on Mono (recommended)**, **LSL on Lua** and **Lua**. The two Lua choices are greyed in a region that does not run Lua. There is no tick.
+
+![Second Life's Compile as list](../../fixtures/ui/golden-ui-script-sl-classic-vulkan.png)
 
 On a grid that offers no choice, the engine list does not show.
 
