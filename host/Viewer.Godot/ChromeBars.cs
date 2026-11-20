@@ -126,6 +126,18 @@ public sealed partial class ChatBar : PanelContainer
         SendButton.Disabled = hub is null;
     }
 
+    /// <summary>Puts the keyboard in the chat line (llfloaterimnearbychat.cpp startChat): <paramref name="line"/> replaces the text when given,
+    /// and the caret goes to the end.</summary>
+    public void Start(string? line)
+    {
+        if (_hub is null)
+            return;
+        Input.GrabFocus();
+        if (line is not null)
+            Input.Text = line;
+        Input.CaretColumn = Input.Text.Length;
+    }
+
     public void Submit(ChatKind? keyKind)
     {
         if (_hub is null)

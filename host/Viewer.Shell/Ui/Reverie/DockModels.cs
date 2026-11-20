@@ -54,7 +54,7 @@ public static class TopBarMenuMap
         ["world.minimap"] = LucideIcons.MiniMap, ["world.landmark"] = LucideIcons.Landmark, ["world.environment"] = LucideIcons.Grid, ["world.about_land"] = LucideIcons.Teleport,
         ["communicate.chat"] = LucideIcons.Chat, ["communicate.conversations"] = LucideIcons.Conversations, ["communicate.people"] = LucideIcons.People,
         ["communicate.notifications"] = LucideIcons.Notices, ["content.inventory"] = LucideIcons.Inventory, ["content.outfits"] = LucideIcons.Outfits,
-        ["me.appearance"] = LucideIcons.Appearance, ["me.overrider"] = LucideIcons.Overrider, ["me.addons"] = LucideIcons.AddOn, ["me.gestures"] = LucideIcons.Gestures, ["me.quit"] = LucideIcons.Close,
+        ["me.appearance"] = LucideIcons.Appearance, ["me.addons"] = LucideIcons.AddOn, ["me.gestures"] = LucideIcons.Gestures, ["me.quit"] = LucideIcons.Close,
         ["build.create"] = LucideIcons.Build,
     };
 

@@ -118,7 +118,7 @@ public class AoEditorTests
         public readonly Guid Bought;
         public readonly Guid StandTwo, WalkF, Dance;
 
-        public Rig()
+        public Rig(bool login = true)
         {
             var anims = Inv.Folder(Inv.RootId, "Animations");
             var standOne = Inv.Animation(anims, "stand one", SetStand);
@@ -133,6 +133,8 @@ public class AoEditorTests
             string manifest = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "addons-ao", AddonManifest.FileName));
             Host.Register(AddonManifest.Parse(manifest, out _)!, () => new AoAddon(), builtIn: true);
             Host.StartEnabled();
+            if (!login)
+                return;
             Host.LoggedIn();
             Host.Motion(MotionState.Standing);
             Host.Playing([new PlayingAnimation(Stand, 1)]);
@@ -338,6 +340,17 @@ public class AoEditorTests
         Assert.DoesNotContain(r.Host.QuickControls, q => q.AddonId == "ao");   // the button is the AO's only place on the main screen
         Assert.Contains("animation", r.Editor.Title, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("set", r.Editor.Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void On_a_fresh_install_the_dock_button_starts_on_because_the_overrider_is_on()
+    {
+        // no saved "use" setting: the overrider treats that as on (see UseOn), so the dock button must show on before the first login too
+        var r = new Rig(login: false);
+        var dock = r.Host.DockItems.Single(d => d.AddonId == "ao").Item;
+        Assert.True(dock.On);
+        r.Host.LoggedIn();
+        Assert.True(dock.On);
     }
 
     [Fact]

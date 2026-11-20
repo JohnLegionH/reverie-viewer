@@ -169,7 +169,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         // theme cards
         box.AddChild(Heading(strings.Get("prefs.preset.heading")));
         var cards = new HFlowContainer { Name = "presets" };
-        foreach (var id in ThemePresets.Ids)
+        foreach (var id in ThemePresets.CardIds)
         {
             var card = new VBoxContainer { Name = "card_" + id };
             var swatches = new HBoxContainer { Name = "swatches" };

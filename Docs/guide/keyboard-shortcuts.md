@@ -72,7 +72,7 @@ These work only in a chat line (the nearby chat line, or an instant message line
 | Ctrl+Enter | Shout. Nearby chat only |
 | Esc | Let go of the chat line, so the keys move your avatar again |
 
-A line that starts with `/5` speaks on channel 5. Pressing Enter in the world does not open the chat bar. Click it.
+A line that starts with `/5` speaks on channel 5. In the world, with no window or line holding the keyboard, **Enter** puts the keyboard in the chat bar, and the number pad's **/** does the same with a `/` already typed (it keeps what you had typed if the line is not empty), ready for a gesture trigger.
 
 Gestures use the function keys:
 
@@ -80,7 +80,7 @@ Gestures use the function keys:
 |---|---|
 | F2 to F12 | Play the active gesture that has this key. Shift, Ctrl or Alt with the key also work if the gesture says so |
 
-F9 is also the sky key (see below), so keep F9 for the sky and do not give it to a gesture. Set a gesture's key in the gesture editor: **Me > Gestures…** (Ctrl+G).
+An active gesture that uses F9 wins over the sky key (see below); with none, F9 steps through the sky. Set a gesture's key in the gesture editor: **Me > Gestures…** (Ctrl+G).
 
 ## The sky
 
@@ -91,7 +91,7 @@ F9 is also the sky key (see below), so keep F9 for the sky and do not give it to
 | Ctrl+Shift+T | Midday (Legacy) |
 | Ctrl+Shift+N | Sunset |
 | Ctrl+Shift+Z | Midnight |
-| F9 | Step to the next choice: Use Shared Environment, Sunrise, Midday, Sunset, Midnight. It skips Midday (Legacy) |
+| F9 | Step to the next choice: Use Shared Environment, Sunrise, Midday, Sunset, Midnight. It skips Midday (Legacy). An active gesture that uses F9 takes the key instead |
 
 ## Building
 

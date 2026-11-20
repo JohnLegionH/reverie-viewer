@@ -186,6 +186,9 @@ public static class ThemePresets
 
     public static IReadOnlyList<string> Ids => AllIds;
 
+    /// <summary>The ids the Interface page offers as cards: the two Reverie looks first (the default is one of them), then the packs.</summary>
+    public static IReadOnlyList<string> CardIds { get; } = [ReverieTheme.DarkId, ReverieTheme.LightId, .. AllIds];
+
     /// <summary>The preset's tokens; the Classic ones for an id that is not a preset.</summary>
     public static ThemeTokens Get(string id) =>
         ReverieTheme.VariantOf(id) is { } variant ? ReverieTheme.ToThemeTokens(ReverieTheme.Tokens(variant))
@@ -194,7 +197,8 @@ public static class ThemePresets
     /// <summary>Whether the id names a theme this viewer has built in: a preset pack or a Reverie variant.</summary>
     public static bool Known(string id) => Array.IndexOf(AllIds, id) >= 0 || ReverieTheme.VariantOf(id) is not null;
 
-    public static string NameOf(string id) => Packs.Value.TryGetValue(id, out var pack) ? pack.Name! : id;
+    public static string NameOf(string id) =>
+        id == ReverieTheme.DarkId ? "Reverie dark" : id == ReverieTheme.LightId ? "Reverie light" : Packs.Value.TryGetValue(id, out var pack) ? pack.Name! : id;
 
     private static Dictionary<string, ThemePack.Result> Load()
     {

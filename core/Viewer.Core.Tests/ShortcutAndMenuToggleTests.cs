@@ -71,6 +71,30 @@ public class ShortcutAndMenuToggleTests
         Assert.All(ViewerShortcuts.NotBuilt, n => Assert.False(string.IsNullOrWhiteSpace(n.Feature)));
     }
 
+    private static string Canonical(string shortcut) =>
+        shortcut.ToLowerInvariant().Replace("period", ".", StringComparison.Ordinal).Replace("comma", ",", StringComparison.Ordinal);
+
+    [Fact]
+    public void No_key_is_both_wired_and_listed_as_not_built()
+    {
+        string root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "Viewer.sln")))
+            root = Path.GetDirectoryName(root) ?? throw new InvalidOperationException("repo root not found");
+        // wired: a menu entry written with its own shortcut anywhere in the host, the official or borrowed shortcuts of entries, the command list's key,
+        // and Ctrl+R (the Control-held binding of R that toggles always run)
+        var wired = new HashSet<string>(ViewerShortcuts.ByEntry.Values.Select(Canonical));
+        wired.UnionWith(ViewerShortcuts.FromOtherViewers.Values.Select(v => Canonical(v.Shortcut)));
+        wired.Add(Canonical(ViewerShortcuts.CommandList));
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "host"), "*.cs", SearchOption.AllDirectories)
+                     .Where(f => !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)))
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(file), "Shortcut: \"([^\"]+)\""))
+                wired.Add(Canonical(m.Groups[1].Value));
+        Assert.True(KeyBindings.Default.TryCommand("R", shift: false, out var run, control: true) && run == Viewer.Motion.MoveCommand.ToggleRun);
+        wired.Add("control|r");
+        var both = ViewerShortcuts.NotBuilt.Where(n => wired.Contains(Canonical(n.Shortcut))).Select(n => n.Shortcut + " (" + n.Feature + ")").ToArray();
+        Assert.True(both.Length == 0, "wired and listed as not built: " + string.Join(", ", both));
+    }
+
     [Fact]
     public void A_click_opens_a_menu_and_hovering_opens_nothing_while_none_is_open()
     {

@@ -28,7 +28,7 @@ When you are in the world, a chat bar sits above the dock. It has a line to type
 
 ### Say something
 
-1. Click the chat bar.
+1. Click the chat bar, or press **Enter** in the world.
 2. Type your message.
 3. Press **Enter**. Or press **Send**.
 

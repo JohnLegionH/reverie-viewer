@@ -76,6 +76,9 @@ public static class GestureKeys
 
     public static string Label(byte key) => key is >= 0xA1 and <= F12 ? "F" + (key - 0xA0).ToString(CultureInfo.InvariantCulture) : "";
 
+    /// <summary>The key number of function key F<paramref name="number"/> (2 to 12), or <see cref="None"/> for any other number.</summary>
+    public static byte FromFunctionKey(int number) => number is >= 2 and <= 12 ? (byte)(0xA0 + number) : None;
+
     public static bool Allowed(byte key, uint mask) => !(key == F10 && mask == MaskControl) && mask is MaskNone or MaskControl or MaskShift;
 }
 

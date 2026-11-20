@@ -364,7 +364,9 @@ public sealed class CommandIndex
         if (q.Length == 0)
             return null;
         double best = Rank(query).Select(x => x.Score).DefaultIfEmpty(0).First();
-        var hit = _map.Where(r => !_built.Contains(r.Row) && (r.SlPlaces.Count > 0 || r.FsPlaces.Count > 0))
+        // a feature the viewer has (status "have") without a menu entry or setting of its own is not "not built": the line would send the person
+        // to an official menu or button the viewer does not have for a feature that works here
+        var hit = _map.Where(r => r.Status != "have" && !_built.Contains(r.Row) && (r.SlPlaces.Count > 0 || r.FsPlaces.Count > 0))
             .Select(r => (Row: r, Score: Score(r.SlNames.Select(n => (CommandText.Normalize(n), 0.95))
                 .Concat(r.Aliases.Select(n => (CommandText.Normalize(n), 0.95)))
                 .Concat(r.FsNames.Select(n => (CommandText.Normalize(n), 0.9))), q)))

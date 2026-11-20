@@ -250,6 +250,14 @@ public static class KeyBindingTable
         return false;
     }
 
+    /// <summary>What a key does for chat in a mode: <see cref="KeyRouteKind.StartChat"/> (Enter: focus the chat line, llviewerinput.cpp
+    /// start_chat), <see cref="KeyRouteKind.StartGesture"/> (the number pad's divide key: focus it with a "/" typed, start_gesture) or
+    /// <see cref="KeyRouteKind.None"/>. It follows the table, so a key bindings file that moves or drops the binding moves or drops it here.</summary>
+    public static KeyRouteKind ChatRoute(KeyMode mode, string key, CameraMask mask) =>
+        TryFind(mode, key, mask, out var command) && Route(command).Kind is KeyRouteKind.StartChat or KeyRouteKind.StartGesture
+            ? Route(command).Kind
+            : KeyRouteKind.None;
+
     /// <summary>Whether a mouse button (LMB, MMB) with exactly these modifiers has a binding in a mode (llviewerinput.cpp isMouseBindUsed). Left-drag
     /// steering is on only while the left click is bound in third person.</summary>
     public static bool IsMouseBindUsed(KeyMode mode, string mouse, CameraMask mask) =>

@@ -27,7 +27,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 ## Chat and people
 
-- Nearby chat: **Communicate > Nearby chat** (Ctrl+H), or the dock's Chat button. Click the chat bar to type; in a chat line, Enter says, Shift+Enter whispers, Ctrl+Enter shouts, `/5 text` speaks on channel 5.
+- Nearby chat: **Communicate > Nearby chat** (Ctrl+H), or the dock's Chat button. Press Enter in the world (or click the chat bar) to type; the number pad's / starts a line with a / typed. In a chat line, Enter says, Shift+Enter whispers, Ctrl+Enter shouts, `/5 text` speaks on channel 5.
 - Instant messages and group chat, in tabs with unread counts: **Communicate > Conversations** (Ctrl+T). Select several friends to start one conference.
 - People window: **Communicate > People** (Ctrl+Shift+A), with Friends, Groups, Notices and Blocked tabs. Friend offers, your active group and title, group notices.
 - Friend offers, teleport offers and teleport requests: right-click an avatar (**Add Friend**, **Offer Teleport**, **Request Teleport**), or **World > Teleport…** for a friend. Answer incoming ones in the notice that appears, or in People > Friends and the Teleport window.
@@ -60,14 +60,14 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 - Teleport, go home, set home: **World > Teleport…**, **Go home** (Ctrl+Shift+H), **Set home to here**.
 - World map (Ctrl+M) with region search and Mini-map (Ctrl+Shift+M): **World** menu, or the dock.
-- Sun, sky and water: **World > Environment**. Sunrise (Ctrl+Shift+O), Midday (Ctrl+Shift+Y), Midday (Legacy) (Ctrl+Shift+T), Sunset (Ctrl+Shift+N), Midnight (Ctrl+Shift+Z), Use Shared Environment, Personal Lighting…, Pause Clouds. F9 steps through Use Shared Environment, Sunrise, Midday, Sunset and Midnight (it skips Midday (Legacy)).
+- Sun, sky and water: **World > Environment**. Sunrise (Ctrl+Shift+O), Midday (Ctrl+Shift+Y), Midday (Legacy) (Ctrl+Shift+T), Sunset (Ctrl+Shift+N), Midnight (Ctrl+Shift+Z), Use Shared Environment, Personal Lighting…, Pause Clouds. F9 steps through Use Shared Environment, Sunrise, Midday, Sunset and Midnight (it skips Midday (Legacy)); an active gesture on F9 takes the key instead. Preferences > Graphics can keep the choice for the next login and put the region's sky back after a teleport (both off).
 - About Land: **World > About Land**, or right-click the ground.
 - Region and parcel sky settings, terrain, water, prims, sculpties, mesh, glow, projected lights and the neighbouring regions are drawn as the grid sends them.
 - Parcel ban lines (a wall at the edge of a parcel that refuses you; no setting for it yet) and region restart notices (with the Region restart sound).
 
 ## Settings and add-ons
 
-- **Preferences** (Ctrl+P): General, Graphics, Sound, Chat, Move & View, Privacy, Cache, Building, and Interface (theme: Classic, Classic light, Power user or High contrast; accent colour, window opacity, interface size, theme import and export).
+- **Preferences** (Ctrl+P): General, Graphics, Sound, Chat, Move & View, Privacy, Cache, Building, and Interface (theme: Reverie dark, Reverie light, Classic, Classic light, Power user or High contrast; accent colour, window opacity, interface size, theme import and export).
 - Graphics presets, draw distance, texture size, frame-rate limit, vertical sync, clouds, neighbour regions, graphics backend (Vulkan or Direct3D 12), window mode: Preferences > Graphics.
 - Sounds and interface sounds, with levels, mute and a mono option: Preferences > Sound.
 - Add-ons window: **Me > Add-ons**. The animation overrider and RLV are built in; add-ons from outside are off until you turn them on. RLV is off until you turn it on, and its switch takes effect at your next login. An add-on from outside goes in the `Addons` folder of the viewer's settings folder, and asks you to accept what it may do when you turn it on.
@@ -91,7 +91,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 | Ctrl+Shift+M | Mini-map |
 | Ctrl+Shift+H | Go home |
 | Ctrl+Shift+O, Y, T, N, Z | Sunrise, Midday, Midday (Legacy), Sunset, Midnight |
-| F9 | Next environment choice |
+| F9 | Next environment choice (an active gesture on F9 wins) |
 | Ctrl+B | Build mode |
 | Ctrl+1, 2, 3, 4 | Focus, Grab, Edit, Create |
 | Ctrl+L, Ctrl+Shift+L | Link, Unlink |
@@ -107,6 +107,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 | Esc | Reset the view (leave mouselook) |
 | Enter, Shift+Enter, Ctrl+Enter | In the nearby chat line: say, whisper, shout (in an instant message line, Enter sends) |
 | F2 to F12 | Gesture keys |
+| Enter, number pad / | In the world: start a chat line (/ types a slash first) |
 
 Every key is listed in the [keyboard shortcuts](guide/keyboard-shortcuts.md) section of the guide.
 

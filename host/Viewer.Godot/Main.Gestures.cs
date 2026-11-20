@@ -181,12 +181,41 @@ public partial class Main
     /// <summary>F2 to F12, alone or with Shift or Ctrl, play the active gesture bound to them (llgesturemgr.cpp triggerGesture).</summary>
     public override void _UnhandledKeyInput(InputEvent e)
     {
-        if (e is not InputEventKey { Pressed: true, Echo: false } k || _gestureSet is null || k.Keycode < Key.F2 || k.Keycode > Key.F12)
-            return;
-        byte key = (byte)(0xA2 + (k.Keycode - Key.F2));
-        uint mask = (k.CtrlPressed ? GestureKeys.MaskControl : 0) | (k.ShiftPressed ? GestureKeys.MaskShift : 0) | (k.AltPressed ? 0x0002u : 0);
-        if (_gestureSet.Key(key, mask))
+        if (e is InputEventKey { Pressed: true, Echo: false } k && TryGestureKey(k))
             GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>Plays the active gesture bound to this key press, if there is one.</summary>
+    private bool TryGestureKey(InputEventKey k)
+    {
+        if (_gestureSet is null || k.Keycode < Key.F2 || k.Keycode > Key.F12)
+            return false;
+        byte key = GestureKeys.FromFunctionKey((int)(k.Keycode - Key.F1) + 1);
+        uint mask = (k.CtrlPressed ? GestureKeys.MaskControl : 0) | (k.ShiftPressed ? GestureKeys.MaskShift : 0) | (k.AltPressed ? 0x0002u : 0);
+        return _gestureSet.Key(key, mask);
+    }
+
+    /// <summary>Enter starts a chat line on key down, the number pad's divide key starts one holding "/" on key up (llviewerinput.cpp
+    /// start_chat, start_gesture), as the key table binds them in the current mode. Returns whether the key was taken.</summary>
+    private bool ChatKey(InputEventKey k)
+    {
+        if (_shell?.Chat is not { Visible: true } chat || GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit)
+            return false;
+        var mode = _mouseLook.Active ? Viewer.Motion.KeyMode.FirstPerson : _interact is { Sitting: true } ? Viewer.Motion.KeyMode.Sitting : Viewer.Motion.KeyMode.ThirdPerson;
+        string name = k.Keycode == Key.KpDivide ? "DIVIDE" : "ENTER";
+        switch (Viewer.Motion.KeyBindingTable.ChatRoute(mode, name, MaskOf(k)))
+        {
+            case Viewer.Motion.KeyRouteKind.StartChat when k.Pressed:
+                chat.Start(null);
+                return true;
+            case Viewer.Motion.KeyRouteKind.StartGesture when !k.Pressed:
+                chat.Start(ChatStart.GestureLine(chat.Input.Text));
+                return true;
+            case Viewer.Motion.KeyRouteKind.StartGesture:
+                return true;   // the press is taken too, so nothing else uses it
+            default:
+                return false;
+        }
     }
 
     /// <summary>The gesture window, made once.</summary>

@@ -44,6 +44,7 @@ You do not need to know the page. Press **Ctrl+Shift+K**, type the setting's nam
 - **Largest texture (pixels across).** From 256 to 2048.
 - **Frame-rate limit.** 0 means no limit. Up to 360.
 - **Vertical sync**, **Clouds** and **Show neighbouring regions**. The last one applies at your next login.
+- **Keep my sky choice for the next login** and **Use the region's sky again after a teleport**. Both start off (see the sky section of the world guide).
 - **Rendering backend.** **Automatic**, **Vulkan** or **Direct3D 12**. Needs a restart. If a backend will not start, start the viewer with `-- --backend=auto` (see [Fixing problems](fixing-problems.md#switch-the-graphics-backend)).
 - **Window.** **Windowed**, **Borderless** or **Fullscreen**.
 
@@ -103,9 +104,9 @@ Open **Me > Preferences…** and click **Interface**. Everything on this page re
 
 ### Pick a theme
 
-Under **Theme**, click one of: **Classic**, **Classic light**, **Power user** or **High contrast**. A strip of colours over each name shows what it looks like.
+Under **Theme**, click one of: **Reverie dark**, **Reverie light**, **Classic**, **Classic light**, **Power user** or **High contrast**. A strip of colours over each name shows what it looks like.
 
-The look you see before you pick anything is Reverie's own look, which is not one of these four cards.
+The look you see before you pick anything is **Reverie dark**. Click **Reverie dark** or **Reverie light** to come back to it.
 
 Picking a theme drops any colour changes you made on top of the old one. Your interface size stays.
 

@@ -40,6 +40,8 @@ public static class PreferenceCatalog
         P(Settings.FpsLimit, PrefPage.Graphics, PrefApply.Live, 0, 360),
         P(Settings.Vsync, PrefPage.Graphics, PrefApply.Live),
         P(Settings.CloudsEnabled, PrefPage.Graphics, PrefApply.Live),
+        P(Settings.EnvironmentPersistAcrossLogin, PrefPage.Graphics, PrefApply.Live),
+        P(Settings.SwitchToSharedEnvAfterTeleport, PrefPage.Graphics, PrefApply.Live),
         P(Settings.NeighbourRegions, PrefPage.Graphics, PrefApply.NextUse),
         new TextPref(Settings.GraphicsBackendKey, PrefPage.Graphics, PrefApply.Restart, "auto", Backends),
         new TextPref(Settings.WindowModeKey, PrefPage.Graphics, PrefApply.Live, "fullscreen", WindowModes),

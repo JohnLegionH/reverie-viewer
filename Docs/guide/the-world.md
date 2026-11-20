@@ -144,11 +144,11 @@ You can pick a different sky for yourself. Nobody else sees your choice.
 
 To go back to what the region sends, choose **Use Shared Environment**.
 
-Your choice stays when you teleport. It is not kept for the next login. If a sky cannot be loaded, the sky you had stays.
+Your choice stays when you teleport, and is not kept for the next login unless you turn on **Keep my sky choice for the next login** under **Preferences > Graphics**. **Use the region's sky again after a teleport** (also under Graphics) puts the region's own sky back each time a teleport ends. Both start off. If a sky cannot be loaded, the sky you had stays.
 
 ### The F9 cycle
 
-F9 steps through the choices: **Use Shared Environment**, **Sunrise**, **Midday**, **Sunset**, **Midnight**, and back to **Use Shared Environment**. It skips **Midday (Legacy)**.
+F9 steps through the choices: **Use Shared Environment**, **Sunrise**, **Midday**, **Sunset**, **Midnight**, and back to **Use Shared Environment**. It skips **Midday (Legacy)**. If one of your active gestures uses F9, the gesture runs instead and the sky stays.
 
 ### Pause the clouds
 

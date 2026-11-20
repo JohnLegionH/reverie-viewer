@@ -249,3 +249,30 @@ public class InterfacePreferencesTests
         }
     }
 }
+
+public class ThemeCardTests
+{
+    [Fact]
+    public void The_default_look_and_Reverie_light_each_have_a_card_with_a_name()
+    {
+        Assert.Contains(ThemeChoice.Default.Preset, ThemePresets.CardIds);
+        Assert.Contains(ReverieTheme.LightId, ThemePresets.CardIds);
+        Assert.Equal(ThemePresets.Ids.Count + 2, ThemePresets.CardIds.Count);
+        Assert.Equal(ThemePresets.CardIds.Count, ThemePresets.CardIds.Distinct().Count());
+        Assert.Equal("Reverie dark", ThemePresets.NameOf(ReverieTheme.DarkId));
+        Assert.Equal("Reverie light", ThemePresets.NameOf(ReverieTheme.LightId));
+        Assert.All(ThemePresets.CardIds, id => Assert.True(ThemePresets.Known(id)));
+    }
+
+    [Fact]
+    public void Choosing_a_Reverie_card_takes_that_look()
+    {
+        var page = new InterfacePreferences(ThemeChoice.Default, null);
+        page.SelectPreset(ReverieTheme.LightId);
+        Assert.Equal(ReverieTheme.LightId, page.Working.Preset);
+        Assert.Equal(ThemePresets.Get(ReverieTheme.LightId), page.Tokens);
+        page.SelectPreset(ReverieTheme.DarkId);
+        Assert.Equal(ThemePresets.Get(ReverieTheme.DarkId), page.Tokens);
+        Assert.False(page.IsChanged);
+    }
+}

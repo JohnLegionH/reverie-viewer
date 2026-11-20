@@ -106,7 +106,7 @@ public sealed partial class AoAddon
         _dockItem = context.AddDockItem("ao", "AO", AddonDockKind.ToggleWithMenu, "person-standing", "Animation Overrider", DockMenu());
         if (_dockItem is not null)
         {
-            _dockItem.SetOn(context.GetSetting(UseKey) == "true");
+            _dockItem.SetOn(UseOn(context.GetSetting(UseKey)));   // the same reading as the engine and the window: nothing saved is on
             _dockItem.Clicked += () => Use(!_dockItem.On);
             _dockItem.MenuChosen += index =>
             {

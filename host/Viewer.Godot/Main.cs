@@ -660,7 +660,11 @@ public partial class Main : Node
                 _shell?.Shell.Commands.Execute(envCommand);
                 break;
             case InputEventKey { Pressed: true, Echo: false } sk when sk.Keycode == SkyKey && _presenter is not null:
-                CycleSky();
+                // an active gesture bound to F9 wins; otherwise F9 cycles the environment (llgesturemgr.cpp triggerGesture runs first)
+                if (!TryGestureKey(sk))
+                    CycleSky();
+                break;
+            case InputEventKey { Echo: false, Keycode: Key.Enter or Key.KpEnter or Key.KpDivide } ck when ChatKey(ck):
                 break;
             case InputEventKey k when !k.Echo && KeyName(k.Keycode != Key.None ? k.Keycode : k.PhysicalKeycode) is { } name:
                 if (!MoveKey(name, k.Pressed, k.ShiftPressed, synthetic: false, control: k.CtrlPressed))

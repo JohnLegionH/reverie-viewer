@@ -117,6 +117,29 @@ public class CommandListTests
         }
     }
 
+    [Fact]
+    public void A_feature_the_viewer_has_is_never_reported_as_not_built_with_a_menu_or_button_it_lacks()
+    {
+        var index = Index();
+        var failures = new List<string>();
+        foreach (var row in FeatureMap.Bundled.Where(r => r.Status == "have"))
+            foreach (var name in row.SlNames.Concat(row.FsNames).Concat(row.Aliases).Distinct())
+                if (index.NotBuilt(name) is { Status: "have" } wrong)
+                    failures.Add($"row {wrong.Row} '{name}'");
+        Assert.True(failures.Count == 0, "rows the viewer has, offered as not built: " + string.Join("; ", failures));
+        Assert.Null(index.NotBuilt("always run"));
+        Assert.Null(index.NotBuilt("walk run fly"));
+    }
+
+    [Fact]
+    public void Every_menu_path_a_target_row_gives_for_this_viewer_is_one_of_its_menus()
+    {
+        // the places the list shows as this viewer's own come from the menus it builds (Me, Communicate, World, Build, Content, Help)
+        var index = Index();
+        string[] menus = ["Me", "Communicate", "World", "Build", "Content", "Help", "Reverie", "Preferences"];
+        Assert.All(index.Items, i => Assert.Contains(menus, m => i.Place.StartsWith(m, StringComparison.Ordinal)));
+    }
+
     // ---- no dead entries ----
 
     [Fact]
