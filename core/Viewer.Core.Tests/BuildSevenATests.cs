@@ -161,6 +161,11 @@ public class BuildSevenATests
             World.ApplyObject(Sim, new PrimData(local, G(local), attachment != 0 ? 500 : parent, attachment, at ?? new Vec3(10, 10, 30), Quat.Identity, new Vec3(2, 2, 2),
                 Shape: Viewer.Core.Meshing.PrimShape.Box, Interaction: new PrimInteraction(click, flags)));
 
+        /// <summary>A stand-in worn prim: the update carries the attachment flag, so the world holds it as worn (the wearer is not modelled).</summary>
+        public void Worn(uint local, uint flags) =>
+            World.ApplyObject(Sim, new PrimData(local, G(local), 500, 5, new Vec3(1, 0, 0), Quat.Identity, new Vec3(0.2f, 0.2f, 0.2f),
+                Shape: Viewer.Core.Meshing.PrimShape.Box, Interaction: new PrimInteraction(0, flags)), eventIsAttachment: true);
+
         public void Props(uint local, byte saleType, int price, uint ownerMask = Own << 0 | (1u << 13) | (1u << 14) | (1u << 15)) =>
             C.Receive(new ObjectPropertiesReceived(G(local), "Thing", "", Guid.Empty, Guid.Empty, Guid.Empty, null, ownerMask, 0, 0, price, saleType != 0, saleType));
 
@@ -272,6 +277,27 @@ public class BuildSevenATests
         Assert.False(r.C.CanDuplicate);
         Assert.Equal("duplicate.no_copy", r.C.Duplicate());
         Assert.DoesNotContain(r.Sent, i => i is DuplicateObjectsIntent);
+    }
+
+    [Fact]
+    public void Duplicate_refuses_a_worn_object_and_sends_nothing()
+    {
+        var r = new Rig();
+        r.Worn(7, Own);
+        Assert.NotNull(r.World.Object(new ObjectId(r.World.Epoch, 7))!.AttachmentPoint);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([7], shift: false);
+        Assert.Equal([7u], r.C.Selection);   // a worn object can be selected, as in the official viewer
+        r.Sent.Clear();
+        Assert.False(r.C.CanDuplicate);
+        Assert.Equal("duplicate.worn", r.C.Duplicate());
+        Assert.Empty(r.Sent);
+        // a worn object chosen together with a copyable one still stops the whole copy (selectDuplicate: isAttachment)
+        r.Prim(1, Own);
+        r.C.SelectMany([1], shift: true);
+        r.Sent.Clear();
+        Assert.Equal("duplicate.worn", r.C.Duplicate());
+        Assert.Empty(r.Sent);
     }
 
     [Fact]

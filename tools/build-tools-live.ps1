@@ -15,7 +15,7 @@
 # Takes back everything it rezzed by id, proven by re-reading the region, and logs out. Return needs a second owner's object and is not run.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\build-tools-live.ps1 -Sandbox <new folder> -ShotsDir <existing folder>
-#     -Credentials <accounts file> -Account <alias> -GridInfoUrl <get_grid_info URL> -Start <start location> [-Exe <development export>]
+#     -Start <start location> [-Exe <development export>]   (accounts file, grid address and account come from live.env and the avatar claim)
 #
 # Run it under an avatar claim, a live-test claim naming its region and a live-login claim. Output: build-tools-report.json in the
 # sandbox. Exit: 0 all checks passed, 1 a check failed, 3 blocked, 5 the viewer or the login did not come up.
@@ -24,13 +24,16 @@
 param(
     [Parameter(Mandatory)][string]$Sandbox,
     [Parameter(Mandatory)][string]$ShotsDir,
-    [Parameter(Mandatory)][string]$Credentials,
-    [Parameter(Mandatory)][string]$Account,
-    [Parameter(Mandatory)][string]$GridInfoUrl,
+    [string]$Credentials = $env:NV_TEST_ACCOUNTS,
+    [string]$Account = $(if ($env:CLAIM_AVATAR) { $env:CLAIM_AVATAR } elseif ($env:NV_LIVE_ACCOUNT) { $env:NV_LIVE_ACCOUNT } else { "viewer1" }),
+    [string]$GridInfoUrl = $env:NV_GRID_INFO_URL,
     [Parameter(Mandatory)][string]$Start,
     [string]$Exe = "",
     [int]$StartSeconds = 60
 )
+# the accounts file, the grid address and the account come from the run's settings (live.env) and the avatar claim, never from an argument
+if (-not $Credentials) { $Credentials = & "$PSScriptRoot\live-env.ps1" NV_TEST_ACCOUNTS }
+if (-not $GridInfoUrl) { $GridInfoUrl = & "$PSScriptRoot\live-env.ps1" NV_GRID_INFO_URL }
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "claim-guard.ps1")
 Assert-ClaimGranted
