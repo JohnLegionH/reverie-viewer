@@ -107,31 +107,39 @@ public static class TokenFile
 /// <summary>
 /// The session command's login reads its account from the test client's accounts file itself (the test strategy 2.2:
 /// account-from-secrets-file): only a path and an alias cross the API, never a password.
-/// The aliases it may use are the test-account pool file's, the same file the machine's claim script hands avatar accounts
-/// out from (one alias per line, # comments, aliases only, no secrets), so a live check can log in with whichever account
-/// its avatar claim was given. There is no list in the code. The grid owner's own account is refused whatever the file says.
+/// An account is allowed when its alias is in the test-account pool file AND neither its alias nor its name is in the
+/// protected-accounts file. The pool file is the one the machine's claim script hands avatar accounts out from (one alias
+/// per line, # comments, aliases only, no secrets), so a live check can log in with whichever account its avatar claim was
+/// given. The protected-accounts file lists, one per line, the accounts a machine never lets the automation use (a person's
+/// real account, for example). Both files live outside the repository; the code holds no account names.
 /// </summary>
 public static class AccountsFile
 {
     /// <summary>Names the pool file directly.</summary>
     public const string PoolVariable = "NV_AVATAR_POOL";
-    /// <summary>The claim check script (see the launchers' claim guard); without <see cref="PoolVariable"/> the pool file is the one beside it.</summary>
+    /// <summary>Names the protected-accounts file directly.</summary>
+    public const string ProtectedVariable = "NV_PROTECTED_ACCOUNTS";
+    /// <summary>The claim check script (see the launchers' claim guard); without the variables above, each file is the one beside it.</summary>
     public const string ClaimScriptVariable = "NV_CLAIM_CHECK_SCRIPT";
     public const string PoolFileName = "avatar-pool.txt";
-
-    /// <summary>The grid owner's own account: a person's real account, never a test account. Kept as the SHA-256 (lower-case hex) of
-    /// the name in lower case, so the published source does not name it; matched as a whole alias, first or last name.</summary>
-    public static readonly IReadOnlyList<string> OwnerDigests = ["1614ceeec50a9336ebf690886caa747d6811c45d37086a3fa7b11c9e83926c6c"];
+    public const string ProtectedFileName = "protected-accounts.txt";
 
     private const string NotApproved = "account alias not approved for automation logins";
+    private const string OnProtectedList = NotApproved + ": the account is on the protected list";
 
     /// <summary>The pool file: <see cref="PoolVariable"/>, else <see cref="PoolFileName"/> beside the claim check script, else none.</summary>
-    public static string? PoolPath(Func<string, string?> env)
+    public static string? PoolPath(Func<string, string?> env) => NamedOrBesideClaimScript(env, PoolVariable, PoolFileName);
+
+    /// <summary>The protected-accounts file: <see cref="ProtectedVariable"/>, else <see cref="ProtectedFileName"/> beside the claim
+    /// check script, else none (then the pool alone decides).</summary>
+    public static string? ProtectedPath(Func<string, string?> env) => NamedOrBesideClaimScript(env, ProtectedVariable, ProtectedFileName);
+
+    private static string? NamedOrBesideClaimScript(Func<string, string?> env, string variable, string fileName)
     {
-        if (env(PoolVariable) is { Length: > 0 } named)
+        if (env(variable) is { Length: > 0 } named)
             return named;
         if (env(ClaimScriptVariable) is { Length: > 0 } script && Path.GetDirectoryName(script) is { Length: > 0 } dir)
-            return Path.Combine(dir, PoolFileName);
+            return Path.Combine(dir, fileName);
         return null;
     }
 
@@ -142,37 +150,56 @@ public static class AccountsFile
         var aliases = new List<string>();
         foreach (string raw in File.ReadAllLines(poolPath))
         {
-            int hash = raw.IndexOf('#');
-            string line = (hash >= 0 ? raw[..hash] : raw).Trim().ToLowerInvariant();
+            string line = Uncommented(raw);
             if (line.Length > 0 && line.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '.' or '_' or '-') && !aliases.Contains(line))
                 aliases.Add(line);
         }
         return aliases;
     }
 
-    /// <summary>The hard check: true for the grid owner's account, by alias or by its first or last name.</summary>
-    public static bool NeverAllowed(string alias, string? first = null, string? last = null) => NeverAllowed(OwnerDigests, alias, first, last);
-
-    /// <summary>The hard check against <paramref name="digests"/> (tests pass their own).</summary>
-    public static bool NeverAllowed(IReadOnlyList<string> digests, string alias, string? first = null, string? last = null) =>
-        new[] { alias, first, last }.Any(n => n is not null && digests.Contains(Digest(n)));
-
-    /// <summary>SHA-256, lower-case hex, of a name trimmed and in lower case.</summary>
-    public static string Digest(string name) =>
-        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(name.Trim().ToLowerInvariant())));
-
-    /// <summary>The account for <paramref name="alias"/>, allowed by the pool file the environment names.</summary>
-    public static (string First, string Last, Secret Password) Load(string path, string alias) =>
-        Load(path, alias, PoolPath(Environment.GetEnvironmentVariable));
-
-    public static (string First, string Last, Secret Password) Load(string path, string alias, string? poolPath) =>
-        Load(path, alias, poolPath, OwnerDigests);
-
-    /// <summary>As <see cref="Load(string, string, string?)"/>, with the owner's digests given (tests pass their own).</summary>
-    public static (string First, string Last, Secret Password) Load(string path, string alias, string? poolPath, IReadOnlyList<string> ownerDigests)
+    /// <summary>The protected-accounts file's names: an alias, a first or last name, or "first last"; text after # dropped,
+    /// trimmed, lower case, each once, in file order.</summary>
+    public static IReadOnlyList<string> ReadProtected(string protectedPath)
     {
-        if (NeverAllowed(ownerDigests, alias))
-            throw new InvalidOperationException($"the account {alias} is never allowed for automation logins (it is the grid owner's own account, not a test account)");
+        var names = new List<string>();
+        foreach (string raw in File.ReadAllLines(protectedPath))
+        {
+            string line = Uncommented(raw);
+            if (line.Length > 0 && !names.Contains(line))
+                names.Add(line);
+        }
+        return names;
+    }
+
+    private static string Uncommented(string raw)
+    {
+        int comment = raw.IndexOf('#');
+        return (comment >= 0 ? raw[..comment] : raw).Trim().ToLowerInvariant();
+    }
+
+    /// <summary>The account for <paramref name="alias"/>, allowed by the pool and protected-accounts files the environment names.</summary>
+    public static (string First, string Last, Secret Password) Load(string path, string alias) =>
+        Load(path, alias, PoolPath(Environment.GetEnvironmentVariable), ProtectedPath(Environment.GetEnvironmentVariable));
+
+    /// <summary>The account for <paramref name="alias"/>: refused unless the alias is in <paramref name="poolPath"/> and neither the
+    /// alias nor the account's name is in <paramref name="protectedPath"/> (none: the pool alone decides). A protected-accounts file
+    /// that is named but missing or unreadable refuses every account. A refusal for a protected account names no account.</summary>
+    public static (string First, string Last, Secret Password) Load(string path, string alias, string? poolPath, string? protectedPath = null)
+    {
+        IReadOnlyList<string> protectedNames = [];
+        if (protectedPath is not null)
+        {
+            if (!File.Exists(protectedPath))
+                throw new InvalidOperationException($"{NotApproved}: the protected-accounts file {protectedPath} does not exist, so no account is allowed");
+            try { protectedNames = ReadProtected(protectedPath); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"{NotApproved}: the protected-accounts file {protectedPath} could not be read ({e.GetType().Name}), so no account is allowed");
+            }
+        }
+        // the protected list is checked before the pool, so no refusal message ever spells a protected alias
+        if (IsProtected(protectedNames, alias))
+            throw new InvalidOperationException(OnProtectedList);
         if (poolPath is null)
             throw new InvalidOperationException($"{NotApproved}: no test-account pool file is set ({PoolVariable}, or {PoolFileName} beside {ClaimScriptVariable})");
         if (!File.Exists(poolPath))
@@ -185,10 +212,14 @@ public static class AccountsFile
             if (a.GetProperty("alias").GetString() == alias)
             {
                 string first = a.GetProperty("first").GetString()!, last = a.GetProperty("last").GetString()!;
-                if (NeverAllowed(ownerDigests, alias, first, last))
-                    throw new InvalidOperationException($"the account {alias} is never allowed for automation logins (it is the grid owner's own account, not a test account)");
+                if (IsProtected(protectedNames, alias, first, last, first + " " + last))
+                    throw new InvalidOperationException(OnProtectedList);
                 return (first, last, new Secret(a.GetProperty("password").GetString()!, SensitiveKind.PasswordDigest));
             }
         throw new InvalidOperationException("account alias not in the accounts file");
     }
+
+    /// <summary>True when any of <paramref name="names"/>, trimmed and in lower case, is a whole entry of the protected list.</summary>
+    private static bool IsProtected(IReadOnlyList<string> protectedNames, params string[] names) =>
+        names.Any(n => protectedNames.Contains(n.Trim().ToLowerInvariant()));
 }

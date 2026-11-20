@@ -130,74 +130,115 @@ public class AccountPoolTests
         Assert.Contains("is not in the test-account pool file", ex.Message);
     }
 
-    // ---------------- the owner's account: never, whatever the file says ----------------
-    // The tests use a stand-in owner, "owner", by its digest; the last test checks the shipped digest against the
-    // specific-words list kept outside the repository.
+    // ---------------- the protected list: never, whatever the pool says ----------------
+    // A machine keeps the accounts that must never be used for automation (a person's real account, never a test
+    // account) in a protected-accounts file outside the repository, named the way the pool file is named. The code
+    // holds no account names. These tests use the stand-in "owner".
 
-    private static readonly string[] StandIn = [AccountsFile.Digest("owner")];
+    private string Protected(params string[] lines)
+    {
+        string f = Path.Combine(_dir, AccountsFile.ProtectedFileName);
+        File.WriteAllText(f, string.Join("\r\n", lines) + "\r\n");
+        return f;
+    }
 
     [Fact]
-    public void The_digest_is_sha256_hex_of_the_trimmed_lower_case_name()
+    public void The_protected_file_is_the_one_NV_PROTECTED_ACCOUNTS_names_first()
     {
-        Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", AccountsFile.Digest("abc"));   // FIPS 180-2 test vector
-        Assert.Equal(AccountsFile.Digest("abc"), AccountsFile.Digest(" ABC "));
+        string named = Path.Combine(_dir, "named-protected.txt");
+        Assert.Equal(named, AccountsFile.ProtectedPath(Env(("NV_PROTECTED_ACCOUNTS", named), ("NV_CLAIM_CHECK_SCRIPT", Path.Combine(_dir, "claims.sh")))));
+    }
+
+    [Fact]
+    public void Without_NV_PROTECTED_ACCOUNTS_the_protected_file_is_the_one_beside_the_claim_check_script()
+    {
+        Assert.Equal(Path.Combine(_dir, "protected-accounts.txt"), AccountsFile.ProtectedPath(Env(("NV_CLAIM_CHECK_SCRIPT", Path.Combine(_dir, "claims.sh")))));
+        Assert.Null(AccountsFile.ProtectedPath(Env()));
+    }
+
+    [Fact]
+    public void The_protected_file_is_read_as_names_one_per_line_with_comments()
+    {
+        string f = Protected("# accounts never used by the automation", "", "  Owner  ", "Some Body # a full name", "owner");
+        Assert.Equal(["owner", "some body"], AccountsFile.ReadProtected(f));
     }
 
     [Theory]
     [InlineData("owner")]
     [InlineData("Owner")]
-    [InlineData("OWNER")]
-    public void The_owners_account_is_refused_even_when_the_pool_file_lists_it(string alias)
+    public void A_pool_alias_that_is_also_protected_is_refused_with_a_message_that_names_no_account(string alias)
     {
         string accounts = Accounts((alias, "Some", "Body"));
-        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, alias, Pool(alias, "tester1"), StandIn));
-        Assert.Contains("never allowed for automation logins", ex.Message);
-        Assert.DoesNotContain("pool file", ex.Message);
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, alias, Pool(alias, "tester2"), Protected("owner")));
+        Assert.Contains("account is on the protected list", ex.Message);
+        Assert.DoesNotContain("owner", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Some", ex.Message);
     }
 
     [Theory]
     [InlineData("Owner", "Resident")]
     [InlineData("Some", "owner")]
-    public void The_owners_account_is_refused_under_any_alias_by_its_name(string first, string last)
+    [InlineData("Some", "Body")]   // listed by full name
+    public void A_pool_alias_whose_account_name_is_protected_is_refused(string first, string last)
     {
         string accounts = Accounts(("helper", first, last));
-        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "helper", Pool("helper"), StandIn));
-        Assert.Contains("never allowed for automation logins", ex.Message);
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "helper", Pool("helper"), Protected("owner", "some body")));
+        Assert.Contains("account is on the protected list", ex.Message);
+        Assert.DoesNotContain("helper", ex.Message);
     }
 
     [Fact]
-    public void The_hard_check_on_its_own()
+    public void A_pool_alias_that_is_not_protected_is_allowed()
     {
-        Assert.True(AccountsFile.NeverAllowed(StandIn, "owner"));
-        Assert.True(AccountsFile.NeverAllowed(StandIn, " Owner "));
-        Assert.True(AccountsFile.NeverAllowed(StandIn, "x", "Owner", "Resident"));
-        Assert.True(AccountsFile.NeverAllowed(StandIn, "x", "Some", "OWNER"));
-        Assert.False(AccountsFile.NeverAllowed(StandIn, "tester1", "Test", "One"));
-        Assert.False(AccountsFile.NeverAllowed(StandIn, "owner2"));   // only the whole name
-        Assert.False(AccountsFile.NeverAllowed(StandIn, "x", "Owners", "Resident"));
+        string accounts = Accounts(("tester2", "Test", "Two"), ("owner", "Some", "Body"));
+        var (first, last, _) = AccountsFile.Load(accounts, "tester2", Pool("tester2", "owner"), Protected("owner"));
+        Assert.Equal(("Test", "Two"), (first, last));
+        // only whole names: a name that merely starts with a protected one is not protected
+        string more = Accounts(("owner2", "Owners", "Resident"));
+        Assert.Equal("Owners", AccountsFile.Load(more, "owner2", Pool("owner2"), Protected("owner")).First);
     }
 
     [Fact]
-    public void The_shipped_check_has_a_digest_and_uses_it_by_default()
+    public void A_protected_file_that_is_set_but_missing_refuses_every_account_and_says_why()
     {
-        Assert.NotEmpty(AccountsFile.OwnerDigests);
-        Assert.All(AccountsFile.OwnerDigests, d => Assert.Matches("^[0-9a-f]{64}$", d));
-        Assert.False(AccountsFile.NeverAllowed("tester1", "Test", "One"));
-        Assert.False(AccountsFile.NeverAllowed("owner"));   // the stand-in is not the shipped name
+        string accounts = Accounts(("tester2", "Test", "Two"));
+        string missing = Path.Combine(_dir, "no-such-protected.txt");
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "tester2", Pool("tester2"), missing));
+        Assert.Contains("protected-accounts file", ex.Message);
+        Assert.Contains("does not exist", ex.Message);
+        Assert.Contains(missing, ex.Message);
     }
 
-    [HygieneWordsFact]
-    public void The_shipped_digest_is_the_owners_name_from_the_specific_words_list()
+    [Fact]
+    public void A_protected_file_that_cannot_be_read_refuses_every_account_and_says_why()
     {
-        // the list's entries are names, a trailing * marking a prefix; the owner's name is one of them
-        var names = File.ReadAllLines(Environment.GetEnvironmentVariable(HygieneScanTests.WordsVariable)!)
-            .Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#') && !l.StartsWith("allow:", StringComparison.OrdinalIgnoreCase))
-            .Select(l => l.TrimEnd('*').Trim()).ToList();
-        foreach (string digest in AccountsFile.OwnerDigests)
-            Assert.Contains(names, n => AccountsFile.Digest(n) == digest);
-        var owner = names.First(n => AccountsFile.Digest(n) == AccountsFile.OwnerDigests[0]);
-        string accounts = Accounts((owner.ToLowerInvariant(), "Some", "Body"));
-        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, owner.ToLowerInvariant(), Pool(owner.ToLowerInvariant())));
-        Assert.Contains("never allowed for automation logins", ex.Message);
+        string accounts = Accounts(("tester2", "Test", "Two"));
+        string f = Protected("owner");
+        using (new FileStream(f, FileMode.Open, FileAccess.ReadWrite, FileShare.None))   // held open with no sharing: unreadable
+        {
+            var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "tester2", Pool("tester2"), f));
+            Assert.Contains("protected-accounts file", ex.Message);
+            Assert.Contains("could not be read", ex.Message);
+            Assert.Contains(f, ex.Message);
+        }
+    }
+
+    [Fact]
+    public void With_no_protected_file_set_the_pool_alone_decides()
+    {
+        string accounts = Accounts(("tester2", "Test", "Two"));
+        Assert.Equal("Test", AccountsFile.Load(accounts, "tester2", Pool("tester2"), null).First);
+    }
+
+    [Fact]
+    public void The_account_check_holds_no_digest_hash_or_account_specific_code()
+    {
+        string source = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Automation", "TokenFile.cs"));
+        int start = source.IndexOf("public static class AccountsFile", StringComparison.Ordinal);
+        Assert.True(start >= 0, "AccountsFile not found in TokenFile.cs");
+        string check = source[start..];
+        Assert.DoesNotMatch("[0-9a-fA-F]{32,}", check);   // no hash constant
+        // whole words: the password's secret kind, SensitiveKind.PasswordDigest, is not a name check
+        Assert.DoesNotMatch(@"\bDigests?\b|\bSHA\d*|\bHash|Cryptography|[Oo]wner", check);
     }
 }

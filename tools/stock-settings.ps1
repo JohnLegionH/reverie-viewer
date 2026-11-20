@@ -9,7 +9,8 @@
 #
 # The settings file is named by -Settings or by the environment variable NV_STOCK_SETTINGS. Its lines are NAME=VALUE with the
 # names the scripts already use (NV_TEST_ACCOUNTS, NV_STOCK_ACCOUNT_A, NV_STOCK_ACCOUNT_B, NV_STOCK_REGION, NV_STOCK_GRID_INFO_URL,
-# NV_STOCK_SERVER_CONTROL, and optionally NV_CLAIM_WRAPPER, NV_CLAIM_LANE, NV_CLAIM_ORDER, NV_STOCK_LANE, and NV_AVATAR_POOL: the
+# NV_STOCK_SERVER_CONTROL, and optionally NV_CLAIM_WRAPPER, NV_CLAIM_LANE, NV_CLAIM_ORDER, NV_STOCK_LANE, NV_PROTECTED_ACCOUNTS (the
+# accounts the viewer never logs in with), and NV_AVATAR_POOL: the
 # test-account pool file whose aliases the viewer may log in with, when the stock accounts are not in the usual one). Blank lines and lines
 # starting with # are ignored. The values are names and paths. A password is never a setting: the accounts file is passed by path
 # and only the viewer reads it.
@@ -56,9 +57,9 @@ function Resolve-StockSetting([string]$Current, [string]$Name, $Loaded) {
 }
 
 # Optional settings that other scripts read straight from the environment (the claim wrapper and its lane and order, the claim
-# kinds the viewer guard accepts, the claim wait, the viewer's test-account pool file): set from the settings file when the environment does not already have them.
+# kinds the viewer guard accepts, the claim wait, the viewer's test-account pool and protected-accounts files): set from the settings file when the environment does not already have them.
 function Set-StockOptionalEnvironment($Loaded) {
-    foreach ($n in @("NV_CLAIM_WRAPPER", "NV_CLAIM_LANE", "NV_CLAIM_ORDER", "NV_CLAIM_KINDS", "NV_STOCK_LANE", "CLAIM_WAIT", "NV_CHARACTER_DIR", "NV_FIXTURES_LOCAL", "NV_AVATAR_POOL")) {
+    foreach ($n in @("NV_CLAIM_WRAPPER", "NV_CLAIM_LANE", "NV_CLAIM_ORDER", "NV_CLAIM_KINDS", "NV_STOCK_LANE", "CLAIM_WAIT", "NV_CHARACTER_DIR", "NV_FIXTURES_LOCAL", "NV_AVATAR_POOL", "NV_PROTECTED_ACCOUNTS")) {
         if (-not [Environment]::GetEnvironmentVariable($n) -and $Loaded.Values.ContainsKey($n)) { [Environment]::SetEnvironmentVariable($n, [string]$Loaded.Values[$n]) }
     }
 }
