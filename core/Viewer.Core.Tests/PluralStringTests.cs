@@ -139,7 +139,7 @@ public class PluralStringTests
     }
 
     [Fact]
-    public void Every_noun_has_a_one_and_an_other_form_with_the_number_in_it_and_the_pseudo_table_keeps_both()
+    public void Every_noun_has_a_one_and_an_other_form_with_the_number_in_it_and_the_pseudo_table_does_not_bracket_twice()
     {
         var nouns = S.Keys.Where(k => k.StartsWith("count.", StringComparison.Ordinal) && k.EndsWith(".one", StringComparison.Ordinal))
             .Select(k => k[..^4]).ToList();
@@ -151,8 +151,14 @@ public class PluralStringTests
             Assert.Contains("{0}", S.Get(noun + ".other"));
             Assert.NotEqual(S.Get(noun + ".one"), S.Get(noun + ".other"));
         }
-        foreach (var key in S.Keys.Where(k => k.StartsWith("count.", StringComparison.Ordinal) && (k.EndsWith(".one") || k.EndsWith(".other"))))
-            Assert.StartsWith("[", StringTable.Pseudo().Get(key));
+        // in the pseudo table a counted noun keeps its number, is accented, and is not bracketed again inside its sentence
+        var pseudo = StringTable.Pseudo();
+        string line = pseudo.Get("inventory.status.complete", C("count.items", 2), C("count.folders", 1));
+        Assert.StartsWith("[", line);
+        Assert.EndsWith("]", line);
+        Assert.DoesNotContain("[[", line);
+        Assert.DoesNotContain("]]", line);
+        Assert.Contains("2 ", line);
     }
 
     // The strings that put a number before a noun (en.json, read as text). A string that is in this list may name a count that is

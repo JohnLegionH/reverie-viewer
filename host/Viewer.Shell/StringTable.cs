@@ -79,7 +79,9 @@ public sealed class StringTable
     public string Count(Counted counted)
     {
         string shown = counted.Shown ?? counted.N.ToString("0.##", CultureInfo.InvariantCulture);
-        return Get(counted.Noun + (counted.N == 1 ? ".one" : ".other"), shown);
+        string text = Get(counted.Noun + (counted.N == 1 ? ".one" : ".other"), shown);
+        // in the pseudo table the sentence that holds the count is bracketed: the count is not bracketed again inside it
+        return Locale == "en-XA" && text.Length >= 2 && text[0] == '[' && text[^1] == ']' ? text[1..^1] : text;
     }
 
     /// <summary>The text for <paramref name="key"/>, formatted with <paramref name="args"/>. A missing key is shown as
