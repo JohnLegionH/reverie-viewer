@@ -9,8 +9,8 @@ namespace Viewer.Core.Tests;
 /// Which test accounts the automation may log in with. The allowed aliases come from the test-account pool file, the
 /// same file the machine's claim script hands avatar accounts out from (one alias per line, # comments, aliases only, no
 /// secrets): the file named by NV_AVATAR_POOL, else avatar-pool.txt beside the claim check script NV_CLAIM_CHECK_SCRIPT.
-/// There is no list in the code. One account is refused whatever the file says: the grid owner's own, a person's real
-/// account and never a test account. Every refusal says why.
+/// There is no list in the code. Accounts in the protected-accounts file (NV_PROTECTED_ACCOUNTS, else protected-accounts.txt
+/// beside the claim check script) are refused whatever the pool says. Every refusal says why.
 /// </summary>
 public class AccountPoolTests
 {
@@ -188,6 +188,23 @@ public class AccountPoolTests
     }
 
     [Fact]
+    public void An_account_protected_by_its_name_is_refused_without_its_alias_even_when_the_pool_leaves_it_out()
+    {
+        string accounts = Accounts(("helper", "Some", "Body"));
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "helper", Pool("tester2"), Protected("some body")));
+        Assert.Contains("account is on the protected list", ex.Message);
+        Assert.DoesNotContain("helper", ex.Message);
+    }
+
+    [Fact]
+    public void Spacing_inside_a_protected_full_name_does_not_matter()
+    {
+        string accounts = Accounts(("helper", "Some ", "Body"));
+        var ex = Assert.Throws<InvalidOperationException>(() => AccountsFile.Load(accounts, "helper", Pool("helper"), Protected("Some   Body")));
+        Assert.Contains("account is on the protected list", ex.Message);
+    }
+
+    [Fact]
     public void A_pool_alias_that_is_not_protected_is_allowed()
     {
         string accounts = Accounts(("tester2", "Test", "Two"), ("owner", "Some", "Body"));
@@ -239,6 +256,7 @@ public class AccountPoolTests
         string check = source[start..];
         Assert.DoesNotMatch("[0-9a-fA-F]{32,}", check);   // no hash constant
         // whole words: the password's secret kind, SensitiveKind.PasswordDigest, is not a name check
-        Assert.DoesNotMatch(@"\bDigests?\b|\bSHA\d*|\bHash|Cryptography|[Oo]wner", check);
+        Assert.DoesNotMatch(new System.Text.RegularExpressions.Regex(@"\bDigests?\b|\bSHA\d*|\bHash|Cryptography|owner",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase), check);
     }
 }

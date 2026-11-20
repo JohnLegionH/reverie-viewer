@@ -158,13 +158,13 @@ public static class AccountsFile
     }
 
     /// <summary>The protected-accounts file's names: an alias, a first or last name, or "first last"; text after # dropped,
-    /// trimmed, lower case, each once, in file order.</summary>
+    /// spacing collapsed, lower case, each once, in file order.</summary>
     public static IReadOnlyList<string> ReadProtected(string protectedPath)
     {
         var names = new List<string>();
         foreach (string raw in File.ReadAllLines(protectedPath))
         {
-            string line = Uncommented(raw);
+            string line = Normalised(Uncommented(raw));
             if (line.Length > 0 && !names.Contains(line))
                 names.Add(line);
         }
@@ -176,6 +176,10 @@ public static class AccountsFile
         int comment = raw.IndexOf('#');
         return (comment >= 0 ? raw[..comment] : raw).Trim().ToLowerInvariant();
     }
+
+    /// <summary>A name as the protected list compares it: lower case, runs of white space made one space, trimmed.</summary>
+    private static string Normalised(string name) =>
+        string.Join(' ', name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
 
     /// <summary>The account for <paramref name="alias"/>, allowed by the pool and protected-accounts files the environment names.</summary>
     public static (string First, string Last, Secret Password) Load(string path, string alias) =>
@@ -192,13 +196,16 @@ public static class AccountsFile
             if (!File.Exists(protectedPath))
                 throw new InvalidOperationException($"{NotApproved}: the protected-accounts file {protectedPath} does not exist, so no account is allowed");
             try { protectedNames = ReadProtected(protectedPath); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            catch (Exception e)
             {
                 throw new InvalidOperationException($"{NotApproved}: the protected-accounts file {protectedPath} could not be read ({e.GetType().Name}), so no account is allowed");
             }
         }
-        // the protected list is checked before the pool, so no refusal message ever spells a protected alias
+        // the protected list is checked before the pool, by alias and by the account's names, so no refusal message ever spells
+        // the alias of a protected account
         if (IsProtected(protectedNames, alias))
+            throw new InvalidOperationException(OnProtectedList);
+        if (protectedNames.Count > 0 && Find(path, alias) is { } named && IsProtected(protectedNames, named.First, named.Last, named.First + " " + named.Last))
             throw new InvalidOperationException(OnProtectedList);
         if (poolPath is null)
             throw new InvalidOperationException($"{NotApproved}: no test-account pool file is set ({PoolVariable}, or {PoolFileName} beside {ClaimScriptVariable})");
@@ -207,19 +214,21 @@ public static class AccountsFile
         // exact: the accounts file below is searched with this same spelling, so no other spelling reaches an account the pool leaves out
         if (!ReadPool(poolPath).Contains(alias))
             throw new InvalidOperationException($"{NotApproved}: {alias} is not in the test-account pool file {poolPath}");
+        return Find(path, alias) ?? throw new InvalidOperationException("account alias not in the accounts file");
+    }
+
+    /// <summary>The accounts file's entry for exactly <paramref name="alias"/>, or null.</summary>
+    private static (string First, string Last, Secret Password)? Find(string path, string alias)
+    {
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         foreach (var a in doc.RootElement.GetProperty("accounts").EnumerateArray())
             if (a.GetProperty("alias").GetString() == alias)
-            {
-                string first = a.GetProperty("first").GetString()!, last = a.GetProperty("last").GetString()!;
-                if (IsProtected(protectedNames, alias, first, last, first + " " + last))
-                    throw new InvalidOperationException(OnProtectedList);
-                return (first, last, new Secret(a.GetProperty("password").GetString()!, SensitiveKind.PasswordDigest));
-            }
-        throw new InvalidOperationException("account alias not in the accounts file");
+                return (a.GetProperty("first").GetString()!, a.GetProperty("last").GetString()!,
+                    new Secret(a.GetProperty("password").GetString()!, SensitiveKind.PasswordDigest));
+        return null;
     }
 
-    /// <summary>True when any of <paramref name="names"/>, trimmed and in lower case, is a whole entry of the protected list.</summary>
+    /// <summary>True when any of <paramref name="names"/>, compared as <see cref="Normalised"/>, is a whole entry of the protected list.</summary>
     private static bool IsProtected(IReadOnlyList<string> protectedNames, params string[] names) =>
-        names.Any(n => protectedNames.Contains(n.Trim().ToLowerInvariant()));
+        names.Any(n => protectedNames.Contains(Normalised(n)));
 }
