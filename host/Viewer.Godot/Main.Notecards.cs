@@ -382,7 +382,7 @@ public partial class Main
     /// <summary>
     /// The script editor for the development automation: "state" describes the front window (whether it is open, editable, changed, saving,
     /// running, its status key, the errors' places, the caret, the text's length and, for <paramref name="text"/> = "text", the text itself;
-    /// live scripts are this check's own); "where" gives the screen centre of a control of the front window by its name (save, running,
+    /// the scripts it reads are this check's own); "where" gives the screen centre of a control of the front window by its name (save, running,
     /// reset, mono, code, find, goto, prompt_save, prompt_dont_save, prompt_cancel, error:N, line:N for the start of a line of the code),
     /// or of the Content tab's Open button and a Content row (content_open, content_row:NAME); "list" gives the inventory's own script ids.
     /// Every press and key is sent through the input command by the check itself.
