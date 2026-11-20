@@ -27,6 +27,8 @@ if (opts.Command == "replay")
     return Replay();
 if (opts.Command == "lmv-log-probe")
     return LmvLogProbe();
+if (opts.Command == "account-check")
+    return AccountCheck();
 string loginUri = await ResolveLoginUriAsync();
 var accounts = opts.Has("accounts") ? Accounts.Load(opts.Get("accounts")) : Accounts.None;
 var sink = new ConsoleSink();
@@ -85,7 +87,7 @@ async Task<string> ResolveLoginUriAsync()
     if (!string.IsNullOrEmpty(env))
         return env;
     if (!opts.Has("grid"))
-        return opts.Command is "replay" or "lmv-log-probe" ? "" : throw new InvalidOperationException("NV_LOGIN_URI is not set (or pass --grid <base address>)");
+        return opts.Command is "replay" or "lmv-log-probe" or "account-check" ? "" : throw new InvalidOperationException("NV_LOGIN_URI is not set (or pass --grid <base address>)");
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
     var text = await http.GetStringAsync(opts.Get("grid").TrimEnd('/') + "/get_grid_info");
     var login = System.Xml.Linq.XDocument.Parse(text).Descendants("login").FirstOrDefault()?.Value.Trim();
@@ -110,6 +112,23 @@ Account PromptAccount()
     if (first.Length == 0 || pw.Length == 0)
         throw new InvalidOperationException("a first name and a password are needed");
     return new Account("typed", first, last.Length == 0 ? "Resident" : last, new Secret(pw.ToString(), SensitiveKind.PasswordDigest));
+}
+
+// Offline: says whether the account may be used for a capture login (the test-account pool and protected-accounts files decide);
+// logs in to nothing and prints no password.
+int AccountCheck()
+{
+    try
+    {
+        var a = Accounts.Load(opts.Get("accounts")).Get(opts.Get("account"));
+        Console.WriteLine("account allowed: " + a.Alias);
+        return 0;
+    }
+    catch (InvalidOperationException e)
+    {
+        Console.WriteLine("account refused: " + e.Message);
+        return 1;
+    }
 }
 
 int Usage()
@@ -471,29 +490,24 @@ record LogoutResult(string EndReason, bool LogoutReplyReceived, bool Unclean, in
 
 sealed record Account(string Alias, string First, string Last, Secret Password);
 
-sealed class Accounts(Dictionary<string, Account> byAlias)
+sealed class Accounts(string? path)
 {
     /// <summary>No accounts file: only a typed account (--account typed) can be used.</summary>
-    public static Accounts None { get; } = new(new Dictionary<string, Account>());
+    public static Accounts None { get; } = new(null);
 
-    /// <summary>Reads the test client's accounts file into memory (passwords as Secrets); nothing is copied anywhere.</summary>
-    public static Accounts Load(string path)
+    /// <summary>The test client's accounts file. It is read, one account at a time (the password as a Secret), only when an account
+    /// is asked for; nothing is copied anywhere.</summary>
+    public static Accounts Load(string path) => new(path);
+
+    /// <summary>An account for a capture login: the viewer automation's rule (AccountsFile): the alias must be in the test-account pool
+    /// file and neither it nor the account's name on the protected-accounts file. No account name is built into this tool.</summary>
+    public Account Get(string alias)
     {
-        using var doc = JsonDocument.Parse(File.ReadAllText(path));
-        var map = new Dictionary<string, Account>(StringComparer.OrdinalIgnoreCase);
-        foreach (var a in doc.RootElement.GetProperty("accounts").EnumerateArray())
-        {
-            var alias = a.GetProperty("alias").GetString()!;
-            map[alias] = new Account(alias, a.GetProperty("first").GetString()!, a.GetProperty("last").GetString()!,
-                new Secret(a.GetProperty("password").GetString()!, SensitiveKind.PasswordDigest));
-        }
-        return new Accounts(map);
+        if (path is null)
+            throw new InvalidOperationException("no accounts file was given (--accounts)");
+        var (first, last, password) = Viewer.Automation.AccountsFile.Load(path, alias);
+        return new Account(alias, first, last, password);
     }
-
-    /// <summary>Only the test accounts approved for capture logins.</summary>
-    public Account Get(string alias) => alias is "tester1" or "viewer1" or "truly"
-        ? byAlias[alias]
-        : throw new InvalidOperationException("only tester1, viewer1 and truly are approved for capture logins");
 }
 
 sealed class PrintAllSink : ILogSink

@@ -15,6 +15,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\core\Viewer.Core\Viewer.Core.csproj" />
+    <!-- The test-account pool and protected-accounts rules are the viewer automation's own (AccountsFile), so a capture login follows them too. -->
+    <Compile Include="..\..\host\Viewer.Automation\TokenFile.cs" Link="Shared\TokenFile.cs" />
     <!-- Same suppression as every other project: the transitive stock joltc must not reach this output. -->
     <PackageReference Include="JoltPhysics.Native" ExcludeAssets="all" />
   </ItemGroup>
