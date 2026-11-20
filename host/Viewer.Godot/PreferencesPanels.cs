@@ -168,14 +168,20 @@ public sealed partial class PreferencesPanel : VBoxContainer
 
         // theme cards
         box.AddChild(Heading(strings.Get("prefs.preset.heading")));
-        var cards = new HFlowContainer { Name = "presets" };
+        // a fixed grid of three cards by two rows: the cards never reflow, so none wraps at any theme or interface size (a flow
+        // container wrapped the sixth card onto a row of its own), and the window keeps the width it had
+        var cards = new GridContainer { Name = "presets", Columns = 3 };
+        cards.AddThemeConstantOverride("h_separation", 4);
+        cards.AddThemeConstantOverride("v_separation", 8);
         foreach (var id in ThemePresets.CardIds)
         {
-            var card = new VBoxContainer { Name = "card_" + id };
-            var swatches = new HBoxContainer { Name = "swatches" };
+            var card = new VBoxContainer { Name = "card_" + id, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            card.AddThemeConstantOverride("separation", 6);   // clear space between the swatch strip and the name button
+            var swatches = new HBoxContainer { Name = "swatches", Alignment = BoxContainer.AlignmentMode.Center };
+            swatches.AddThemeConstantOverride("separation", 2);
             var look = ThemePresets.Get(id);
             foreach (var colour in new[] { look.Panel.Opaque(), look.Bar, look.Accent })
-                swatches.AddChild(new ColorRect { CustomMinimumSize = new Vector2(24, 14), Color = ShellTheme.C(colour), MouseFilter = MouseFilterEnum.Ignore });
+                swatches.AddChild(new ColorRect { CustomMinimumSize = new Vector2(16, 10), Color = ShellTheme.C(colour), MouseFilter = MouseFilterEnum.Ignore });
             card.AddChild(swatches);
             var button = new Button { Name = "preset_" + id, Text = ThemePresets.NameOf(id), ToggleMode = true, ThemeTypeVariation = ReverieStyle.Segment };
             button.AccessibilityName = ThemePresets.NameOf(id);
@@ -186,9 +192,14 @@ public sealed partial class PreferencesPanel : VBoxContainer
             cards.AddChild(card);
         }
         // picking one preset is the segmented control: the presets are its segments on one track (the swatches above each); the track
-        // spans the page, as People's does, since a flow container asks only for its widest card and would wrap after each one
+        // spans the page, as People's does
         var presetsTrack = new PanelContainer { Name = "presets_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        presetsTrack.AddChild(cards);
+        // room between the track's frame and the swatch strips
+        var presetsPad = new MarginContainer { Name = "presets_pad" };
+        presetsPad.AddThemeConstantOverride("margin_top", 6);
+        presetsPad.AddThemeConstantOverride("margin_bottom", 2);
+        presetsPad.AddChild(cards);
+        presetsTrack.AddChild(presetsPad);
         box.AddChild(presetsTrack);
 
         // accent

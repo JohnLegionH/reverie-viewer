@@ -977,7 +977,7 @@ public partial class InventoryPanel : VBoxContainer
     public bool CanOpen(Guid id) =>
         _model?.Item(id) is { } item && (Opens(item.Kind) || (item.LinkedId is { } target && _model.Item(target) is { } linked && Opens(linked.Kind)));
 
-    private static bool Opens(ItemKind kind) => kind is ItemKind.Notecard or ItemKind.Texture or ItemKind.Script;
+    private static bool Opens(ItemKind kind) => InventoryOpening.Opens(kind);
 
     /// <summary>The folder a drop on this row means: the row itself if a folder, otherwise the item's folder.</summary>
     private Guid DropFolder(Guid target) => _model?.Folder(target) is not null ? target : _model?.Item(target)?.ParentId ?? Guid.Empty;

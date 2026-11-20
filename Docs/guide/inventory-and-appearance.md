@@ -31,7 +31,7 @@ A folder is read from the grid when you open it. The line at the bottom says how
 
 1. Click the arrow next to a folder to open or close it. You can also select it and press Right or Left.
 2. Double-click a name, or press Enter, to open or close a folder.
-3. Double-click an item, or press Enter on it, to open it. A notecard, a script and a texture open in a window of their own. Other kinds do not open from here. A gesture opens from the Gestures window; see [Chat and people](chat-and-people.md).
+3. Double-click an item, or press Enter on it, to open it. A notecard, a script, a gesture and a texture open in a window of their own (a gesture in the gesture editor). Other kinds do not open from here.
 
 An item you are wearing shows **(worn)** after its name.
 
@@ -273,6 +273,5 @@ In the sets editor:
 
 - Emptying the Trash, copy and paste in the inventory, item properties and a Worn tab (the cheat sheet lists more).
 - An editor for Alpha, Tattoo and Universal items.
-- A way to open a gesture by double-clicking it in the inventory. Use the Gestures window.
 
 See also [Keyboard shortcuts](keyboard-shortcuts.md) and [Fixing problems](fixing-problems.md).

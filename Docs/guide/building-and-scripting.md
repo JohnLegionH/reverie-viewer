@@ -185,7 +185,7 @@ Every object can hold things: scripts, notecards, textures and other items. The 
 - Select a row to use the buttons: **Open**, **Properties**, **Rename**, **Delete** and **Copy to inventory**. Right-click a row for the same choices.
 - Ctrl+click and Shift+click choose several rows.
 - A row says "(no copy)", "(no modify)" or "(no transfer)" when you may not do that.
-- **Open** works for scripts, notecards and textures. Double-click does the same.
+- **Open** works for scripts, notecards, gestures and textures. Double-click does the same.
 - **Properties** shows the name, description, creator, owner and permissions. Change the name and description if you may modify the item, then press **Save**.
 - **Rename** opens the same box with the name selected.
 - **Delete** removes the item from the object. The item goes to your Trash.
@@ -277,9 +277,10 @@ Double-click a notecard in the Inventory or in the Contents list.
 
 A gesture plays animations, sounds and chat lines in order. See [Chat and people](chat-and-people.md) for the Gestures window, which lists your gestures and has the **Edit** button.
 
-You open the gesture editor in two ways:
+You open the gesture editor in three ways:
 
-- In the Gestures window, select a gesture and press **Edit**. (A double-click on a gesture in the Inventory window does not open it.)
+- In the Inventory, double-click the gesture (or select it and press Enter, or choose **Open**).
+- In the Gestures window, select a gesture and press **Edit**.
 - Make a new gesture from **Create new** in the Inventory. It opens at once.
 
 ![The gesture editor](../../fixtures/ui/golden-ui-gesture-classic-vulkan.png)
@@ -342,7 +343,6 @@ Reverie does not upload rigged (skinned) models yet. A model with more than 8 ma
 
 - The Land tool (shaping and selecting land).
 - Rigged mesh upload.
-- A way to open a gesture by double-clicking it in the Inventory.
 - Undo for changes other than moves, turns and resizes.
 
 See also [Keyboard shortcuts](keyboard-shortcuts.md) and [Fixing problems](fixing-problems.md).
