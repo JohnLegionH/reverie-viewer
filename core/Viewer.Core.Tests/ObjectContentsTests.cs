@@ -362,7 +362,7 @@ public class ObjectContentsTests
         s.Answers[G(12)] = new ScriptSaveResult(ScriptSaveStatus.Saved, false, G(98), [ScriptMessage.Parse("(0,4) Error: syntax"), ScriptMessage.Parse("(1,0) Error: more")]);
         var (q, _) = Run(ScriptQueueAction.CompileLsl, s, new() { [G(1)] = [Item(11, "good", type: 10), Item(12, "bad", type: 10), Item(13, "card")] }, Box);
         Assert.Equal([(G(11), ScriptTarget.Lsl2, true, "default{}"), (G(12), ScriptTarget.Lsl2, true, "default{}")], s.Saved);
-        Assert.Equal(["Starting recompile of 1 items.", "Loading inventory for: Box", "Compilation of \"good\" succeeded", "Compilation of \"bad\" failed:",
+        Assert.Equal(["Starting recompile of 1 item.", "Loading inventory for: Box", "Compilation of \"good\" succeeded", "Compilation of \"bad\" failed:",
             "(0,4) Error: syntax", "(1,0) Error: more", "Done."], Text(q).Take(7));
         Assert.True(q.Done);
         Assert.Equal((1, 1), (q.Handled, q.Failed));
@@ -411,7 +411,7 @@ public class ObjectContentsTests
         Assert.Contains("Timeout: Box", Text(q));
         Assert.Equal([G(21)], s.Reset);
         Assert.Equal("Done.", Text(q)[^2]);
-        Assert.Equal("1 scripts done, 0 with errors.", Text(q)[^1]);
+        Assert.Equal("1 script done, 0 with errors.", Text(q)[^1]);
     }
 
     // ---------------- review fixes ----------------
