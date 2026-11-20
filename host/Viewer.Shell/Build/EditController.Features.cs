@@ -138,29 +138,35 @@ public sealed partial class EditController
             _relisting.Remove(itemId);
         }
         else
-            _relisting.Add(itemId);   // the listed asset is the text before the save until the list comes again
+        {
+            if (_relistedFor != objectId)
+                _relisting.Clear();
+            _relisting[itemId] = c.Items.First(i => i.ItemId == itemId).AssetId;   // the text before the save, until a list names another
+            _relistedFor = objectId;
+        }
         Changed?.Invoke();
         RequestContents();
         return true;
     }
 
     /// <summary>Whether a saved item's new asset is still unknown: its list has been asked for again and has not come.</summary>
-    public bool Relisting(Guid itemId) => _relisting.Contains(itemId);
+    public bool Relisting(Guid itemId) => _relisting.ContainsKey(itemId);
 
     /// <summary>Open waits for the list: true when the item's asset is still unknown after a save; <see cref="ReadyToOpen"/> then names it.
     /// The list is asked for again, in case the earlier answer was lost.</summary>
     public bool OpenWhenListed(Guid itemId)
     {
-        if (!_relisting.Contains(itemId))
+        if (!_relisting.ContainsKey(itemId) || _contents is not { } c)
             return false;
-        _openWhenListed = itemId;
+        _openWhenListed = (c.ObjectId, itemId);
         RequestContents();
         return true;
     }
 
-    /// <summary>The shown prim's items saved with no asset named, until its list is read again.</summary>
-    private readonly HashSet<Guid> _relisting = new();
-    private Guid _openWhenListed;
+    /// <summary>The shown prim's items saved with no asset named, each with the asset listed before the save, until a list names another.</summary>
+    private readonly Dictionary<Guid, Guid> _relisting = new();
+    private (Guid ObjectId, Guid ItemId) _openWhenListed;
+    private Guid _relistedFor;
 
     /// <summary>An item whose open waited for the list may be opened now.</summary>
     public event Action<Guid>? ReadyToOpen;
@@ -401,12 +407,17 @@ public sealed partial class EditController
             // an answer with nothing in it is an empty list: a prim whose last item was deleted has no contents file, and its read ends empty
             case TaskInventoryReceived t when (t.Ok || t.Items.Count == 0) && Object() is { } shown && shown.FullId == t.ObjectId:
                 _contents = (t.ObjectId, t.Items.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ThenBy(i => i.Name, StringComparer.Ordinal).ToArray());
-                _relisting.Clear();
+                // an item stays waiting while the list still names the asset from before its save (a list asked for before the save);
+                // another prim's list ends every wait
+                foreach (var (item, before) in _relisting.ToArray())
+                    if (_relistedFor != t.ObjectId || Listed(item) is not { } now || now.AssetId != before)
+                        _relisting.Remove(item);
+                _relistedFor = t.ObjectId;
                 Changed?.Invoke();
-                if (_openWhenListed is var waiting && waiting != Guid.Empty)
+                if (_openWhenListed is var (forObject, waiting) && waiting != Guid.Empty && !_relisting.ContainsKey(waiting))
                 {
-                    _openWhenListed = Guid.Empty;
-                    if (Listed(waiting) is not null)
+                    _openWhenListed = default;
+                    if (forObject == t.ObjectId && Listed(waiting) is not null)
                         ReadyToOpen?.Invoke(waiting);
                 }
                 break;

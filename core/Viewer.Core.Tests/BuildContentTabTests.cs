@@ -94,6 +94,30 @@ public class BuildContentTabTests
     }
 
     [Fact]
+    public void A_list_still_naming_the_text_before_the_save_or_another_prims_list_does_not_open_the_saved_script()
+    {
+        var r = Selected();
+        var script = new TaskItem(G(11), "New Script", 10, 10, G(50), 0x7FFFFFFF, 0, G(60), G(50), 0x7FFFFFFF, 0, 0);
+        r.C.Receive(new TaskInventoryReceived(G(1), [script]));
+        var ready = new List<Guid>();
+        r.C.ReadyToOpen += ready.Add;
+        Assert.True(r.C.ItemSaved(G(1), G(11), Guid.Empty));
+        Assert.True(r.C.OpenWhenListed(G(11)));
+        // a list asked for before the save, answered after it, still names the old asset: keep waiting
+        r.C.Receive(new TaskInventoryReceived(G(1), [script]));
+        Assert.Empty(ready);
+        Assert.True(r.C.Relisting(G(11)));
+        // another prim is shown and its list comes: the wait is dropped, and coming back later opens nothing by itself
+        r.Prim(2, new Vector3(20, 20, 30), Own);
+        r.Select(20, 20);
+        r.C.Receive(new TaskInventoryReceived(G(2), [Item(21, "card")]));
+        r.Select(10, 10);
+        r.C.Receive(new TaskInventoryReceived(G(1), [script with { AssetId = G(61) }]));
+        Assert.Empty(ready);
+        Assert.Equal(G(61), r.C.ScriptToOpen(G(11), G(50))!.AssetId);
+    }
+
+    [Fact]
     public void An_answer_with_nothing_in_it_shows_an_empty_list_even_one_the_region_could_not_read()
     {
         var r = Selected();

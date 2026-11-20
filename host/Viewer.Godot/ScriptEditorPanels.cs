@@ -650,11 +650,12 @@ public partial class ScriptEditorPanel : VBoxContainer
 
     private void Saved(ScriptEditing e, ScriptSaveResult result)
     {
+        // the region stored the text even when the window was closed or reused while the save went on: the listing hears of it all the same
+        SaveDone?.Invoke(e.Access, result);
         if (_editing != e)
             return;
         e.SaveFinished(result);
         Sync();
-        SaveDone?.Invoke(e.Access, result);
         if (e.CloseAfterSave)
             Closing?.Invoke();
         else if (e.InObject && result.Status == ScriptSaveStatus.Saved && _transport is { } t)
