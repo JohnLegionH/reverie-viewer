@@ -19,7 +19,8 @@ public interface IGestureEffects
 /// after another without pause until a wait step; a timed wait waits its seconds; "until animations are done" waits until the animations the
 /// gesture started have stopped, for at most 30 seconds (MAX_WAIT_ANIM_SECS); after the last step the gesture waits, with no limit, until its
 /// animations have stopped of themselves, and stops none. An animation asked for counts as playing once the region lists it, or for a
-/// short grace while it has not yet appeared.
+/// short grace while it has not yet appeared. A gesture stopped (its token cancelled) stops the animations it started and runs no
+/// further step (llgesturemgr.cpp stopGesture).
 /// </summary>
 public static class GesturePlayer
 {
@@ -29,6 +30,20 @@ public static class GesturePlayer
     {
         var started = new List<Guid>();
         var seen = new HashSet<Guid>();
+        try
+        {
+            await RunAsync(gesture, fx, delay, started, seen, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            foreach (var animation in started)
+                fx.Animate(animation, false);
+            throw;
+        }
+    }
+
+    private static async Task RunAsync(GestureDocument gesture, IGestureEffects fx, Func<TimeSpan, CancellationToken, Task> delay, List<Guid> started, HashSet<Guid> seen, CancellationToken ct)
+    {
         foreach (var step in gesture.Steps.ToArray())
         {
             ct.ThrowIfCancellationRequested();

@@ -9,11 +9,14 @@ namespace Viewer.Shell.Inventory;
 /// an active gesture's file is read), and whether it is active.</summary>
 public sealed record GestureListRow(Guid ItemId, string Name, string Trigger, string Shortcut, bool Active);
 
+/// <summary>The Gestures window's columns, which a click on a header sorts by.</summary>
+public enum GestureColumn { Name, Trigger, Key }
+
 /// <summary>What the activate button does for the selection.</summary>
 public enum GestureToggle { None, Activate, Deactivate }
 
 /// <summary>Which of the Gestures window's buttons work for the selection.</summary>
-public sealed record GestureListButtons(GestureToggle Toggle, bool Edit, bool Play);
+public sealed record GestureListButtons(GestureToggle Toggle, bool Edit, bool Play, bool Stop = false, bool Delete = false);
 
 /// <summary>
 /// The Gestures window's rows, built as the official window builds them (llfloatergesture.cpp buildGestureList and addGesture): every
@@ -73,7 +76,8 @@ public static class GestureListRows
 /// The Gestures window's rows and choice, as the official window keeps them (llfloatergesture.cpp): the list allows several rows chosen
 /// (floater_gesture.xml multi_select); the first row is chosen when the list fills and a chosen row stays chosen when it is rebuilt
 /// (postBuild selectFirstItem, refreshAll). The current row (the last one clicked) is the one Edit and Play act on (onClickEdit and
-/// onClickPlay read getCurrentID). The activate button activates the choice unless all of it is active, when it deactivates all of it
+/// onClickPlay read getCurrentID). Stop works while a chosen gesture plays, Delete on any chosen row (it asks first). A click on a
+/// column header sorts by it. The activate button activates the choice unless all of it is active, when it deactivates all of it
 /// (onActivateBtnClick, is_mixed); Edit needs exactly one row chosen (isActionEnabled "edit_gesture").
 /// </summary>
 public sealed class GestureList
@@ -88,13 +92,59 @@ public sealed class GestureList
     /// <summary>The row last chosen, or empty.</summary>
     public Guid Current => _selected.Count > 0 ? _selected[^1] : Guid.Empty;
 
+    /// <summary>The column the rows are sorted by (the window sorts by name when it opens: postBuild sortByColumn "name").</summary>
+    public GestureColumn SortColumn { get; private set; } = GestureColumn.Name;
+
+    public bool SortAscending { get; private set; } = true;
+
+    private readonly HashSet<Guid> _playing = new();
+
+    /// <summary>The gestures playing now.</summary>
+    public IReadOnlyCollection<Guid> Playing => _playing.ToArray();
+
+    /// <summary>A click on a column header: the same column again reverses the order, another column sorts by it, ascending (the
+    /// official list's sort-on-header). The name breaks ties, so equal triggers keep a steady order.</summary>
+    public void SortBy(GestureColumn column)
+    {
+        if (column == SortColumn)
+            SortAscending = !SortAscending;
+        else
+        {
+            SortColumn = column;
+            SortAscending = true;
+        }
+        Rows = Sorted(Rows);
+    }
+
+    private IReadOnlyList<GestureListRow> Sorted(IEnumerable<GestureListRow> rows)
+    {
+        string Key(GestureListRow r) => SortColumn switch { GestureColumn.Trigger => r.Trigger, GestureColumn.Key => r.Shortcut, _ => r.Name };
+        var primary = SortAscending ? rows.OrderBy(Key, StringComparer.OrdinalIgnoreCase) : rows.OrderByDescending(Key, StringComparer.OrdinalIgnoreCase);
+        // ties: the name, ascending, then the item (a steady order); with the name column itself the item breaks the tie in the same direction
+        return (SortColumn == GestureColumn.Name ? primary.ThenBy(r => r.ItemId) : primary.ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.ItemId)).ToArray();
+    }
+
+    /// <summary>Tells the list which gestures are playing now (the Stop button works on those).</summary>
+    public void SetPlaying(IEnumerable<Guid> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        _playing.Clear();
+        _playing.UnionWith(items);
+    }
+
+    /// <summary>The chosen gestures, in the order they were chosen: what Delete takes to the Trash.</summary>
+    public IReadOnlyList<Guid> ToDelete() => _selected.ToArray();
+
+    /// <summary>The chosen gestures that are playing: what Stop ends.</summary>
+    public IReadOnlyList<Guid> ToStop() => _selected.Where(_playing.Contains).ToArray();
+
     public void SetRows(IReadOnlyList<GestureListRow> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        Rows = rows;
+        Rows = Sorted(rows);
         _selected.RemoveAll(id => !rows.Any(r => r.ItemId == id));
-        if (_selected.Count == 0 && rows.Count > 0)
-            _selected.Add(rows[0].ItemId);
+        if (_selected.Count == 0 && Rows.Count > 0)
+            _selected.Add(Rows[0].ItemId);
     }
 
     /// <summary>A click on a row: alone it chooses that row only; with <paramref name="add"/> (Ctrl held) it adds the row to the choice,
@@ -119,9 +169,9 @@ public sealed class GestureList
         get
         {
             if (_selected.Count == 0)
-                return new GestureListButtons(GestureToggle.None, false, false);
+                return new GestureListButtons(GestureToggle.None, false, false, false, false);
             var toggle = Chosen.All(r => r.Active) ? GestureToggle.Deactivate : GestureToggle.Activate;
-            return new GestureListButtons(toggle, _selected.Count == 1, true);
+            return new GestureListButtons(toggle, _selected.Count == 1, true, _selected.Any(_playing.Contains), true);
         }
     }
 

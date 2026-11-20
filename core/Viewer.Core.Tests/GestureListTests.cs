@@ -127,7 +127,7 @@ public class GestureListTests
         var list = new GestureList();
         list.SetRows(Rows([]));
         list.Click(Clap, add: false);
-        Assert.Equal(new GestureListButtons(GestureToggle.Activate, true, true), list.Buttons);
+        Assert.Equal(new GestureListButtons(GestureToggle.Activate, true, true, false, true), list.Buttons);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class GestureListTests
         var list = new GestureList();
         list.SetRows(Rows([Clap]));
         list.Click(Clap, add: false);
-        Assert.Equal(new GestureListButtons(GestureToggle.Deactivate, true, true), list.Buttons);
+        Assert.Equal(new GestureListButtons(GestureToggle.Deactivate, true, true, false, true), list.Buttons);
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class GestureListTests
         Assert.Equal(2, list.Selected.Count);
         Assert.Equal(Bow, list.Current);
         // edit_gesture needs exactly one (isActionEnabled); a mixed selection is activated (onActivateBtnClick is_mixed)
-        Assert.Equal(new GestureListButtons(GestureToggle.Activate, false, true), list.Buttons);
+        Assert.Equal(new GestureListButtons(GestureToggle.Activate, false, true, false, true), list.Buttons);
         Assert.Equal([(Bow, true)], list.Toggle().ToArray());
         // all active: every one is deactivated
         list.SetRows(Rows([Clap, Bow]));
