@@ -945,7 +945,7 @@ public sealed class ViewerSession : IDisposable
                     _log.Info("agent.updates", CoreLog.F("sending", wasTeleporting));   // held for a teleport (false), or sent again (true)
                 Communicate(e);
                 break;
-            case TeleportOffered or TeleportRequested or ServerAlert or ParcelCollision or FriendLocated or SitResponded or ObjectPropertiesReceived or TaskInventoryReceived or ContentsCopied or PayPriceReceived or ParcelDetailsReceived
+            case TeleportOffered or TeleportRequested or ServerAlert or ParcelCollision or FriendLocated or SitResponded or ObjectPropertiesReceived or ObjectCostReceived or TaskInventoryReceived or ContentsCopied or PayPriceReceived or ParcelDetailsReceived
                 or ScriptDialogReceived or ScriptPermissionRequested or LoadUrlRequested or MapDestinationRequested or ObjectInstantMessage or InventoryOffered:
                 Communicate(e);
                 break;

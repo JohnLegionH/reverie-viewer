@@ -123,8 +123,8 @@ internal sealed class LmvLoginTap(HttpMessageHandler inner, CoreLog log) : Deleg
     }
 
     /// <summary>The capabilities this viewer asks a region for beyond the protocol library's own list. SetScriptEngine is the opt-in for the
-    /// Engine and EngineChoice fields of a script's running reply: a region sends them only to a viewer that lists it.</summary>
-    internal static readonly IReadOnlyList<string> ExtraCapabilities = ["SetScriptEngine"];
+    /// Engine and EngineChoice fields of a script's running reply: a region sends them only to a viewer that lists it. GetObjectCost gives the Build window's land impact (the official viewer asks for it too, llviewerregion.cpp).</summary>
+    internal static readonly IReadOnlyList<string> ExtraCapabilities = ["SetScriptEngine", "GetObjectCost"];
 
     /// <summary>Adds <see cref="ExtraCapabilities"/> to a seed capability request (the list of capability names a viewer POSTs to a region's
     /// seed address; recognised by its EventQueueGet entry), each once. False, with the list untouched, when it is not such a request or

@@ -71,7 +71,7 @@ public sealed partial class EditController
     /// <summary>How long a copy asked for is waited for before the window stops expecting it, in milliseconds.</summary>
     private const long CopyWaitMs = 10_000;
 
-    private int _copiesExpected;
+    private readonly List<Vector3> _copiesAt = new();
     private long _copiesUntil;
 
     /// <summary>Duplicate needs a selected object that may be copied (llselectmgr.cpp canDuplicate: getFirstCopyableObject).</summary>
@@ -92,7 +92,8 @@ public sealed partial class EditController
         if (!Send(new DuplicateObjectsIntent(roots, DuplicateOffset, LmvDuplicateCreateSelected)))
             return "duplicate.not_sent";
         // the copies arrive selected, so the originals are let go (selectDuplicate with select_copy: deselectAll)
-        _copiesExpected = roots.Length;
+        _copiesAt.Clear();
+        _copiesAt.AddRange(roots.Select(r => (Find(r)?.Position ?? Vector3.Zero) + DuplicateOffset));
         _copiesUntil = _clock() + CopyWaitMs;
         SendDeselect(_selection);
         _selection.Clear();
@@ -108,16 +109,20 @@ public sealed partial class EditController
     /// it becomes part of the selection. True when it was one.</summary>
     public bool CopyArrived(ObjectState o)
     {
-        if (_copiesExpected <= 0 || _clock() > _copiesUntil)
+        if (_copiesAt.Count == 0 || _clock() > _copiesUntil)
         {
-            _copiesExpected = 0;
+            _copiesAt.Clear();
             return false;
         }
         uint flags = o.Interaction?.Flags ?? 0;
-        if (!BuildMode || o.ParentLocalId != 0 || o.AttachmentPoint is not null || (flags & ObjectFlagBits.CreateSelected) == 0 || (flags & ObjectFlagBits.YouOwner) == 0
-            || _selection.Contains(o.Id.LocalId))
+        if (!BuildMode || o.ParentLocalId != 0 || o.AttachmentPoint is not null || (flags & ObjectFlagBits.YouOwner) == 0 || _selection.Contains(o.Id.LocalId))
             return false;
-        _copiesExpected--;
+        // the region may or may not flag the copy as made selected (a stock OpenSim region does not): a new object of the agent's own where a
+        // copy was asked for is taken as that copy
+        int at = (flags & ObjectFlagBits.CreateSelected) != 0 ? 0 : _copiesAt.FindIndex(p => Vector3.Distance(p, o.Position) < 0.25f);
+        if (at < 0)
+            return false;
+        _copiesAt.RemoveAt(at);
         Add(o.Id.LocalId);
         Changed?.Invoke();
         return true;
@@ -126,7 +131,11 @@ public sealed partial class EditController
     // ---------------- when left-clicked ----------------
 
     /// <summary>The click choice of the selection's first object, or null with nothing selected.</summary>
-    public ClickChoice? ClickChoiceShown => Object() is { } o ? ClickChoices.ChoiceOf(o.Interaction?.ClickAction ?? 0) : null;
+    public ClickChoice? ClickChoiceShown => Object() is { } o ? ClickChoices.ChoiceOf(_clickAsked.TryGetValue(o.Id.LocalId, out var asked) ? asked : o.Interaction?.ClickAction ?? 0) : null;
+
+    // what a choice asked for, shown until the selection is let go: a region need not send an update after a click action changes (a stock
+    // OpenSim region sends none), and the official viewer shows its own change at once too (llselectmgr.cpp setClickAction)
+    private readonly Dictionary<uint, byte> _clickAsked = new();
 
     /// <summary>The list is on when every selected root may be modified and every selected object is a prim.</summary>
     public bool ClickChoiceEnabled =>
@@ -148,7 +157,16 @@ public sealed partial class EditController
         var (set, notice) = ClickChoices.Check(choice, SelectionForSale(), SelectionPayable());
         if (!set)
             return (false, notice);
-        return (Send(new SetClickActionIntent(PartsOfSelection(), ClickChoices.ActionOf(choice))), notice);
+        var parts = PartsOfSelection();
+        byte action = ClickChoices.ActionOf(choice);
+        bool sent = Send(new SetClickActionIntent(parts, action));
+        if (sent)
+        {
+            foreach (var l in parts)
+                _clickAsked[l] = action;
+            Changed?.Invoke();
+        }
+        return (sent, notice);
     }
 
     /// <summary>Every selected prim and, for a selected root, its whole linkset.</summary>

@@ -201,6 +201,7 @@ public sealed partial class EditController
             return;
         SendDeselect(_selection);
         _selection.Clear();
+        _clickAsked.Clear();
         Changed?.Invoke();
     }
 

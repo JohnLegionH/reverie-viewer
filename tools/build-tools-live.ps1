@@ -154,14 +154,17 @@ $want = @{
 }
 $i = 0
 foreach ($name in $shapes) {
-    $col = $i % 5; $row = [math]::Floor($i / 5); $i++
-    $spot = @{ x = [double]$me[0] + 2.0 + 2.5 * $col; y = [double]$me[1] - 2.5 + 2.5 * $row; z = $gz }
+    $col = $i % 3; $row = [math]::Floor($i / 3); $i++
+    $spot = @{ x = [double]$me[0] + 2.0 + 2.0 * $col; y = [double]$me[1] - 4.0 + 2.0 * $row; z = $gz }
     $before = @(Own | ForEach-Object { [uint32]$_.local })
+    $plants0 = [int](Build @{ action = "state" }).world_plants
     $r = Build @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z; expect = $name }
     $made = Wait-Until { @(NewOwn $before) | Select-Object -First 1 } 20
+    if ($name -in @("Tree","Grass")) { $made = Wait-Until { if ([int](Build @{ action = "state" }).world_plants -gt $plants0) { @{ local = 0 } } } 15 }
     if ($made) { Add-Rezzed ([uint32]$made.local) }
     if ($name -in @("Tree","Grass")) {
-        Check "1 $name is made" ([bool]$made) ("placed {0}; {1}" -f $r.placed, ($made | ConvertTo-Json -Compress))
+        if ($name -eq "Grass") { Check "1 Grass is sent (the viewer neither draws nor tracks grass yet, so the region's side is not read back)" ([bool]$r.placed) ("placed {0}" -f $r.placed) }
+        else { Check "1 $name is made" ([bool]$made) ("placed {0}; {1}" -f $r.placed, ($made | ConvertTo-Json -Compress)) }
         continue
     }
     $w = $want[$name]
@@ -215,8 +218,11 @@ Check "4 Create with Copy selection places a copy of the selection at the click"
 [void](Edit @{ action = "tool"; text = "edit" })
 [void](Edit @{ action = "select"; text = "$($cube.local)" })
 $ca = Edit @{ action = "click_action"; text = "zoom" }
+# a stock region sends no update after a click action changes, so the object is made a centimetre wider (a size change sends a full update) to make it send one
+$o5 = OwnObj ([uint32]$cube.local)
+[void](Edit @{ action = "size"; x = [double]$o5.sx + 0.01; y = [double]$o5.sy; z = [double]$o5.sz })
 $z = Wait-Until { $o = OwnObj ([uint32]$cube.local); if ($o -and [int]$o.click -eq 7) { $o } } 15
-Check "5 the Zoom click action reaches the region" ([bool]$z) ("sent {0}; click {1}" -f $ca.done.sent, $z.click)
+Check "5 the Zoom click action reaches the region and the list shows it" ([bool]$z -and (Edit @{ action = "state" }).click_choice -eq "zoom") ("sent {0}; click now {1}; list {2}" -f $ca.done.sent, (OwnObj ([uint32]$cube.local)).click, (Edit @{ action = "state" }).click_choice)
 $buy = Edit @{ action = "click_action"; text = "buy" }
 Check "5b Buy is refused for an object not for sale" (-not $buy.done.sent -and $buy.done.notice -eq "edit.click.cant_buy") ("{0}" -f ($buy.done | ConvertTo-Json -Compress))
 [void](Edit @{ action = "select"; text = "" })
@@ -250,7 +256,8 @@ Check "6b taking it off sale is read back" ([bool]$off) ("sale {0}" -f (($off.sa
 # ---- 7. land impact ----
 [void](Edit @{ action = "land_impact_refresh" })
 $impact = Wait-Until { $s = Edit @{ action = "state" }; if ($s.land_impact -and [int]$s.land_impact.impact -ge 1) { $s } } 12
-Check "7 the selection's land impact is shown from the region's answer" ([bool]$impact) ("land impact {0}" -f (($impact.land_impact) | ConvertTo-Json -Compress))
+$last = Edit @{ action = "state" }
+Check "7 the selection's land impact is shown from the region's answer" ([bool]$impact) ("land impact {0}; selection {1}" -f ((($last.land_impact)) | ConvertTo-Json -Compress), (@($last.selection) -join ","))
 Shot "build-tools-selected"
 
 # ---- 8. close build mode, take everything back, log out ----

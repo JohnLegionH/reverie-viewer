@@ -325,6 +325,46 @@ public class BuildSevenATests
     }
 
     [Fact]
+    public void A_copy_the_region_does_not_flag_is_still_taken_when_it_arrives_where_the_copy_was_asked_for()
+    {
+        var r = new Rig();
+        r.Prim(1, Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([1], shift: false);
+        Assert.Null(r.C.Duplicate());
+        r.Prim(8, Own, at: new Vec3(40, 40, 30));   // somewhere else: not the copy
+        Assert.False(r.C.CopyArrived(r.World.Object(new ObjectId(r.World.Epoch, 8))!));
+        r.Prim(9, Own, at: new Vec3(10.5f, 10.5f, 30));
+        Assert.True(r.C.CopyArrived(r.World.Object(new ObjectId(r.World.Epoch, 9))!));
+        Assert.Equal([9u], r.C.Selection);
+    }
+
+    [Fact]
+    public void The_click_list_shows_what_was_asked_at_once_and_forgets_it_when_the_selection_is_let_go()
+    {
+        var r = new Rig();
+        r.Prim(1, Own);
+        r.C.SelectTool(BuildTool.Edit);
+        r.C.SelectMany([1], shift: false);
+        r.Props(1, 0, 10);
+        Assert.Equal(ClickChoice.Touch, r.C.ClickChoiceShown);
+        Assert.True(r.C.SetClickChoice(ClickChoice.Zoom).Sent);
+        Assert.Equal(ClickChoice.Zoom, r.C.ClickChoiceShown);   // the region sends no update for it
+        r.C.Deselect();
+        r.C.SelectMany([1], shift: false);
+        Assert.Equal(ClickChoice.Touch, r.C.ClickChoiceShown);
+    }
+
+    [Fact]
+    public void The_seed_request_asks_for_the_object_cost_capability_once()
+    {
+        var names = new OSDArray { "EventQueueGet" };
+        Assert.True(LmvLoginTap.AddSeedCapabilities(names));
+        Assert.Contains(names, n => n.AsString() == "GetObjectCost");
+        Assert.False(LmvLoginTap.AddSeedCapabilities(names));
+    }
+
+    [Fact]
     public void The_Build_menu_has_Object_then_Duplicate_on_Ctrl_D_enabled_by_a_copyable_selection_and_Ctrl_D_is_no_longer_listed_as_missing()
     {
         var menus = new MenuModel();

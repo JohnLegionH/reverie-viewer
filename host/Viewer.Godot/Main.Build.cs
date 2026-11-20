@@ -208,6 +208,7 @@ public partial class Main
         {
             placing = ic.Placing,
             own_objects = own,
+            world_plants = snapshot.Count(o => o.AttachmentPoint is null),
             own_prims = ownPrims,
             model = _models?.Model.Texts(), model_states = _models?.Model.States.Select(st => st.Error is null ? st.State.ToString() : $"{st.State}:{st.Error}").ToArray(),
             bulk_models = _models?.Bulk.Texts(), bulk_model_states = _models?.Bulk.States.Select(st => st.Error is null ? st.State.ToString() : $"{st.State}:{st.Error}").ToArray(),
