@@ -123,7 +123,7 @@ public class HygieneScanTests
         return (words.Count == 0 ? null : new Regex(string.Join("|", words), RegexOptions.Compiled | RegexOptions.IgnoreCase), allowed.ToArray());
     }
 
-    internal static List<string> ScanWords(string path, string text, Regex words, string[] allowed)
+    internal static List<string> ScanWords(string path, string text, Regex words, string[] allowed, Regex? creditPattern = null)
     {
         var found = new List<string>();
         if (words.IsMatch(path))
@@ -131,7 +131,7 @@ public class HygieneScanTests
         var lines = text.Split('\n');
         for (int i = 0; i < lines.Length; i++)
         {
-            string line = CreditPattern.Replace(lines[i], "");
+            string line = (creditPattern ?? CreditPattern).Replace(lines[i], "");
             foreach (var a in allowed)
                 line = line.Replace(a, "");
             foreach (Match m in words.Matches(line))
@@ -216,9 +216,11 @@ public class HygieneScanTests
         Assert.Empty(ScanWords("x.cs", "// " + Credit + ", (c) Somebody Corp", words!, allowed));
         Assert.Empty(ScanWords("x.cs", "// nobody here", words!, allowed));
         // the sounds' credit is allowed as a whole; the name alone elsewhere is still found
-        var (credit, none) = ParseWords(["Legion*"]);
-        Assert.Empty(ScanWords("x.md", "- `ui-x.wav`: made with ChatGPT for Reverie by Legion Builds.", credit!, none));
-        Assert.NotEmpty(ScanWords("x.md", "- made by Legion Builds on its own grid", credit!, none));
+        // an invented word and an invented credit line stand in for the real ones, so the test names no real holder
+        var (credit, none) = ParseWords(["Examplecorp*"]);
+        var inventedCredit = new Regex("made with ChatGPT for Reverie by Examplecorp Builds");
+        Assert.Empty(ScanWords("x.md", "- `ui-x.wav`: made with ChatGPT for Reverie by Examplecorp Builds.", credit!, none, inventedCredit));
+        Assert.NotEmpty(ScanWords("x.md", "- made by Examplecorp Builds on its own site", credit!, none, inventedCredit));
     }
 }
 
