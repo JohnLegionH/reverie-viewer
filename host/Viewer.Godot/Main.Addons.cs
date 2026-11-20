@@ -177,7 +177,7 @@ public partial class Main
     }
 
     /// <summary>The viewer's own add-ons folder: beside the viewer's libraries (the development build and the export alike).</summary>
-    private static string? BuiltInAddonsFolder()
+    internal static string? BuiltInAddonsFolder()
     {
         string?[] candidates =
         [

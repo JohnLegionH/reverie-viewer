@@ -55,6 +55,7 @@ public partial class TestRender
         "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
+        "gestures-used", "addons", "addon-ao", "addon-rlv",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -182,7 +183,7 @@ public partial class TestRender
 
     /// <summary>The Gestures window with an example inventory: five gestures in the Gestures folder, two of them active (one with its
     /// trigger and Shift+F2, one whose file has a trigger only), the second row chosen. No session or grid.</summary>
-    private static void ExampleGestureList(ShellRoot shell)
+    private static GesturesWindow ExampleGestureList(ShellRoot shell)
     {
         static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         Guid owner = G(1), root = G(2), libraryOwner = G(3), libraryRoot = G(4), folder = G(10);
@@ -203,6 +204,7 @@ public partial class TestRender
         shell.Shell.Floaters.Open(GesturesFeature.FloaterId);
         window.Show(Viewer.Shell.Inventory.GestureListRows.Build(model, docs.Keys.ToArray(), id => docs.GetValueOrDefault(id), "Loading..."));
         window.ClickRow(G(22), add: false);
+        return window;
     }
 
     /// <summary>The Build window with an example box selected (the Edit tool; a hollowed, twisted box), on an in-memory world with no
@@ -307,6 +309,9 @@ public partial class TestRender
             case "gestures":
                 ExampleGestureList(shell);
                 break;
+            case "gestures-used":
+                ExampleGestureListUsed(shell);
+                break;
             case "scriptqueue":
                 ExampleScriptQueue(shell, strings);
                 break;
@@ -345,6 +350,8 @@ public partial class TestRender
                     else if (scene == "build-contents")
                         rig.Viewport.GuiEmbedSubwindows = true;   // the right-click menu is drawn inside the picture
                 }
+                if (scene is "addons" or "addon-ao" or "addon-rlv")
+                    ExampleAddons(shell, strings, scene);
                 if (scene == "takefolder")
                     takeFolder = ExampleTakeFolder(shell, strings);
                 if (scene is "objectcontents" or "buy")
@@ -372,7 +379,7 @@ public partial class TestRender
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
                     "build" or "build-look" or "build-search" or "build-contents" => EditPanel.FloaterId,
-                    "colourpicker" or "texturepicker" or "gridoptions" or "takefolder" or "objectcontents" or "buy" or "objectinfo" => "",
+                    "colourpicker" or "texturepicker" or "gridoptions" or "takefolder" or "objectcontents" or "buy" or "objectinfo" or "addons" or "addon-ao" or "addon-rlv" => "",
                     "commandlist" or "commandlist-search" or "commandlist-setting" => "",
                     _ => PreferencesFeature.FloaterId,
                 };
