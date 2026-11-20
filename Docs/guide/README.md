@@ -11,8 +11,8 @@ for those topics, see the [feature cheat sheet](../FEATURES.md), which says what
 | [Chat and people](chat-and-people.md): nearby chat, conversations, the People window, offers, notifications and gestures | written |
 | Inventory, outfits and appearance | coming |
 | Building and scripting | coming |
-| The world: maps, teleporting, sky and land | coming |
-| Preferences, themes and add-ons | coming |
+| [The world](the-world.md): maps, teleporting, sky and land | written |
+| [Preferences and add-ons](preferences-and-add-ons.md): the Preferences pages, themes and interface size, and the Add-ons window | written |
 | Keyboard shortcuts | coming (the table is in the cheat sheet) |
 | Fixing problems | coming |
 
