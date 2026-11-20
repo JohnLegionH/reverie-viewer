@@ -25,6 +25,8 @@ public static class ReverieRestyle
         TravelFeature.MiniMapId, TravelFeature.MapId, TravelFeature.TeleportId, AppearanceFeature.FloaterId, OutfitFeature.FloaterId,
         NotificationFeature.ListId, PreferencesFeature.FloaterId, InteractFeature.InspectId, InteractFeature.PayId, InteractFeature.LandId,
         Main.TexturePreviewId, ScriptQueueWindow.FloaterId,
+        ColourPickerWindow.FloaterId, FacePickerWindows.ItemPickerId, FolderPickPanel.FloaterId, GridPanel.FloaterId,
+        InteractFeature.ContentsId, InteractFeature.BuyId, NotificationFeature.ObjectId,
     };
 
     private static readonly StringName Restyled = "reverie_restyled";
@@ -80,6 +82,9 @@ public static class ReverieRestyle
     {
         switch (node)
         {
+            // a colour swatch draws its colour (and the check behind a see-through one) itself: no variation, so no pill around it
+            case ColourChip:
+                break;
             // a number box's own field and a tree's rename field are sized by their owner: they keep the owner's look
             case LineEdit when node.GetParent() is SpinBox or Window:
                 break;

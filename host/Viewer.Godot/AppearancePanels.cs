@@ -56,6 +56,8 @@ public partial class AppearancePanel : VBoxContainer
     private InventoryModel? _model;
     private Func<Guid, Guid> _textureAssetOf = _ => Guid.Empty;
     private Func<Guid, bool>? _textureUsable;
+    private Func<Guid, Task<Viewer.Core.Imaging.DecodedTexture?>>? _textureImage;
+    private readonly Dictionary<Guid, ImageTexture> _swatchImages = new();
     private Action? _afterDecision, _afterSave;
     private bool _syncing, _dirty = true, _rebuild = true;
     private Guid _builtFor;
@@ -183,7 +185,8 @@ public partial class AppearancePanel : VBoxContainer
     /// <summary>Shows a session's appearance (null model: no session; the window is empty and its buttons are off).</summary>
     public void Bind(InventoryModel? model, Func<ActionIntent, ActionResult>? submit, Func<Guid, WearableItemInfo?>? itemInfo = null,
         Func<Guid, int, CancellationToken, Task<AssetFetchResult>>? fetch = null, EditParamCatalog? catalog = null, Func<bool>? isMale = null,
-        Func<Guid, Guid>? textureAssetOf = null, Action<IReadOnlyDictionary<int, float>?>? onPreview = null, Func<Guid, bool>? textureUsable = null)
+        Func<Guid, Guid>? textureAssetOf = null, Action<IReadOnlyDictionary<int, float>?>? onPreview = null, Func<Guid, bool>? textureUsable = null,
+        Func<Guid, Task<Viewer.Core.Imaging.DecodedTexture?>>? textureImage = null)
     {
         if (Editing is { } old)
         {
@@ -196,6 +199,8 @@ public partial class AppearancePanel : VBoxContainer
         _model = model;
         _textureAssetOf = textureAssetOf ?? (_ => Guid.Empty);
         _textureUsable = textureUsable;
+        _textureImage = textureImage;
+        _swatchImages.Clear();
         _afterDecision = _afterSave = null;
         UnsavedPrompt.Visible = false;
         if (model is null || submit is null)
@@ -505,19 +510,49 @@ public partial class AppearancePanel : VBoxContainer
         var row = new HBoxContainer { Name = "slot_row_" + slot.Index };
         var label = new Label { Text = SlotTitle(slot.Name), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         label.AccessibilityName = SlotTitle(slot.Name);
-        var button = new Button { Name = "slot_" + slot.Index, Text = SlotText(editor, slot), CustomMinimumSize = new Vector2(150, 0), Disabled = !editor.CanModify, ClipText = true };
+        var asset = editor.Texture(slot.Index);
+        var look = TextureSlotLook.Of(asset);
+        var button = new Button { Name = "slot_" + slot.Index, Text = _strings.Get(look.ButtonKey), CustomMinimumSize = new Vector2(110, 0), Disabled = !editor.CanModify, ClipText = true };
         button.AccessibilityName = _strings.Get("appearance.texture.pick") + ": " + SlotTitle(slot.Name);
         button.Pressed += () => ChooseTexture(editor, slot);
         row.AddChild(label);
+        if (look.ShowsSwatch)
+            row.AddChild(Swatch(slot.Index, asset));
         row.AddChild(button);
         Body.AddChild(row);
         _slotButtons[slot.Index] = button;
     }
 
-    private string SlotText(WearableEditor editor, TextureSlot slot)
+    /// <summary>The picture of a slot's texture: a small framed square that shows the image once it is fetched and decoded (the same image
+    /// is kept for the next time the body is built), and stays an empty frame while it is read or when it cannot be.</summary>
+    private Control Swatch(int index, Guid asset)
     {
-        var id = editor.Texture(slot.Index);
-        return id == Guid.Empty ? _strings.Get("appearance.texture.empty") : id.ToString("N")[..8];
+        const float size = 28;
+        var frame = new Panel { Name = "swatch_" + index, CustomMinimumSize = new Vector2(size, size), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+        var image = new TextureRect
+        {
+            Name = "swatch_image", ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+            MouseFilter = Control.MouseFilterEnum.Ignore, ClipContents = true,
+        };
+        image.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect, Control.LayoutPresetMode.Minsize, 2);
+        frame.AddChild(image);
+        if (_swatchImages.TryGetValue(asset, out var known))
+            image.Texture = known;
+        else if (_textureImage is { } load)
+            _ = FillSwatch(image, asset, load);
+        return frame;
+    }
+
+    private async Task FillSwatch(TextureRect image, Guid asset, Func<Guid, Task<Viewer.Core.Imaging.DecodedTexture?>> load)
+    {
+        Viewer.Core.Imaging.DecodedTexture? decoded;
+        try { decoded = await load(asset); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { decoded = null; }
+        if (decoded is null || !IsInstanceValid(image))
+            return;
+        var texture = ImageTexture.CreateFromImage(Image.CreateFromData(decoded.Width, decoded.Height, false, Image.Format.Rgba8, decoded.Rgba));
+        _swatchImages[asset] = texture;
+        image.Texture = texture;
     }
 
     private void ChooseTexture(WearableEditor editor, TextureSlot slot)
@@ -696,6 +731,7 @@ public partial class TexturePickerPopup : PopupPanel
         row.AddChild(cancel);
         box.AddChild(row);
         AddChild(box);
+        ReverieRestyle.Apply(this);   // a popup is not a floater: it takes the Reverie look itself
         Fill();
     }
 

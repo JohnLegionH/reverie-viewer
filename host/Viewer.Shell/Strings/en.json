@@ -1717,6 +1717,7 @@
   "appearance.texture": "Texture",
   "appearance.texture.none": "None",
   "appearance.texture.empty": "Not set",
+  "appearance.texture.change": "Change",
   "appearance.texture.pick": "Choose a texture",
   "appearance.texture.search": "Search textures",
   "appearance.texture.list": "Textures in your inventory",

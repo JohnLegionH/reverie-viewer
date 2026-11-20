@@ -74,8 +74,26 @@ internal static class AppearanceExample
 
         panel.Bind(model, submit ?? (_ => new ActionResult(ActionStatus.Sent, 1)), id => info.GetValueOrDefault(id),
             (asset, _, _) => Task.FromResult(files.TryGetValue(asset, out var b) ? AssetFetchResult.Ok(b) : AssetFetchResult.Of(AssetFetchStatus.NotFound)),
-            EditParamCatalog.Parse(Encoding.UTF8.GetBytes(Definition)), () => false, id => id == weave ? ExId(903) : Guid.Empty, null);
+            EditParamCatalog.Parse(Encoding.UTF8.GetBytes(Definition)), () => false, id => id == weave ? ExId(903) : Guid.Empty, null, null, _ => Task.FromResult<Viewer.Core.Imaging.DecodedTexture?>(WeaveImage()));
         return new AppearanceExampleIds(shape, shirt, eyes, weave, body, cloth, cof, shirtTexture, ExId(903));
+    }
+
+    /// <summary>A small woven-cloth picture for the example shirt's texture swatch (made here, so no file or grid is read).</summary>
+    private static Viewer.Core.Imaging.DecodedTexture WeaveImage()
+    {
+        const int n = 32;
+        var rgba = new byte[n * n * 4];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                bool over = ((x / 4) + (y / 4)) % 2 == 0;
+                int i = (y * n + x) * 4;
+                rgba[i] = (byte)(over ? 190 : 120);
+                rgba[i + 1] = (byte)(over ? 150 : 90);
+                rgba[i + 2] = (byte)(over ? 110 : 70);
+                rgba[i + 3] = 255;
+            }
+        return new Viewer.Core.Imaging.DecodedTexture(n, n, rgba, Viewer.Core.Imaging.AlphaClass.Opaque, 3);
     }
 
     /// <summary>What an interface scene shows: the Outfit tab, the Edit tab on the shape (the Height slider moved, so there are unsaved changes) or on the shirt.</summary>

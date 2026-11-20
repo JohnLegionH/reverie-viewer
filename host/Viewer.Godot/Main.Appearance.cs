@@ -60,8 +60,28 @@ public partial class Main
         Interlocked.Exchange(ref _previewHold, 0);
         _appearancePanel.Bind(session.Inventory, session.Actions.Submit, session.EditItemInfo, session.FetchEditAssetAsync, catalog,
             () => session.World.Appearance(self)?.Sex == "male", session.TextureAssetOf, weights => ApplyPreview(session, catalog, weights),
-            id => session.EditItemInfo(id)?.FullRights == true);
+            id => session.EditItemInfo(id)?.FullRights == true, FetchSwatchImageAsync);
         session.EditedItemSaveDone += OnEditedItemSaved;
+    }
+
+    /// <summary>A texture fetched and decoded off the main thread, for the small picture beside a wearable's texture slot; null when the
+    /// texture cannot be read.</summary>
+    private Task<Viewer.Core.Imaging.DecodedTexture?> FetchSwatchImageAsync(Guid asset)
+    {
+        if (_textureTransport is not { } transport)
+            return Task.FromResult<Viewer.Core.Imaging.DecodedTexture?>(null);
+        return Task.Run<Viewer.Core.Imaging.DecodedTexture?>(async () =>
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var fetched = await transport.FetchTextureAsync(asset, cts.Token).ConfigureAwait(false);
+                return fetched.Status == Viewer.Core.Assets.AssetFetchStatus.Ok && fetched.Bytes.Length > 0
+                    ? Viewer.Core.Protocol.LmvTexture.Decode(fetched.Bytes.ToArray()).Texture
+                    : null;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { return null; }
+        });
     }
 
     private void DetachAppearance(ViewerSession? session)

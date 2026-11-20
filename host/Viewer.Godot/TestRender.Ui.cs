@@ -54,6 +54,7 @@ public partial class TestRender
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
+        "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -207,7 +208,7 @@ public partial class TestRender
     /// <summary>The Build window with an example box selected (the Edit tool; a hollowed, twisted box), on an in-memory world with no
     /// session or grid. <paramref name="scene"/>: "build" every section closed (each shows its summary); "build-look" only Look open;
     /// "build-search" a search for "hollow" (the Shape section open on its two rows); the colour picker scenes as "build".</summary>
-    private static Viewer.Shell.Build.EditController ExampleBuild(ShellRoot shell, StringTable strings, string scene = "build")
+    private static Viewer.Shell.Build.EditController ExampleBuild(ShellRoot shell, StringTable strings, string scene = "build", Action<EditPanel>? panelOut = null)
     {
         static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
         var world = new Viewer.Core.World.WorldState(new Viewer.Core.Diagnostics.CoreLog(new DiscardSink(), "render"));
@@ -223,14 +224,18 @@ public partial class TestRender
         edit.SelectMany([1], shift: false);
         edit.Receive(new Viewer.Core.Session.ObjectPropertiesReceived(G(31), "Floor", "Plank floor", G(32), G(32), Guid.Empty, null,
             0x7fffffff, 0, 1u << 19 | 1u << 15 | 1u << 13, 0, false));
+        if (scene == "build-contents")
+            edit.Receive(new TaskInventoryReceived(G(31), ExampleTaskItems()));
         // the owner and creator are named as the session's name cache would name them (a neutral example name)
         var panel = new EditPanel(strings, () => edit, null, new SettingsService(null), () => G(32), id => id == G(32) ? "Test User" : null);
         shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
         foreach (var section in Viewer.Shell.Build.BuildLayout.Sections)
-            panel.SetOpen(section, scene == "build-look" && section == Viewer.Shell.Build.BuildSection.Look);
+            panel.SetOpen(section, scene == "build-look" && section == Viewer.Shell.Build.BuildSection.Look
+                || scene == "build-contents" && section == Viewer.Shell.Build.BuildSection.Contents);
         if (scene == "build-search")
             panel.SearchText = "hollow";
         panel.Refresh();
+        panelOut?.Invoke(panel);
         return edit;
     }
 
@@ -268,6 +273,9 @@ public partial class TestRender
         LoginScreen? loginShown = null;
         NotecardPanel? notecardShown = null;
         InventoryPanel? newMenuOf = null;
+        EditPanel? contentsPanel = null;
+        FacePickerWindows? texturePickers = null;
+        FolderPickPanel? takeFolder = null;
         switch (scene)
         {
             case "login":
@@ -322,15 +330,27 @@ public partial class TestRender
                 if (scene.StartsWith("appearance", StringComparison.Ordinal))
                     await ExampleAppearance(appearancePanel, scene);
                 TravelFeature.Install(shell, settings);
-                NotificationFeature.Install(shell);
-                InteractFeature.Install(shell);
+                var noticePanels = NotificationFeature.Install(shell);
+                var interactPanels = InteractFeature.Install(shell);
                 PersonalLightingFeature.Install(shell, new Viewer.Core.World.PersonalLighting(), () => null);
-                if (scene.StartsWith("build", StringComparison.Ordinal) || scene == "colourpicker")
+                if (scene.StartsWith("build", StringComparison.Ordinal) || scene is "colourpicker" or "texturepicker" or "gridoptions")
                 {
-                    ExampleBuild(shell, strings, scene);
+                    var buildEdit = ExampleBuild(shell, strings, scene, p => contentsPanel = p);
                     if (scene == "colourpicker")
                         ColourPickerWindow.Install(shell).Open(new ColourRequest("edit.picker.colour.title", new UiColour(0.8f, 0.3f, 0.2f), false, _ => { }));
+                    else if (scene == "texturepicker")
+                        texturePickers = ExampleTexturePicker(shell, strings, buildEdit);
+                    else if (scene == "gridoptions")
+                        ExampleGridOptions(shell, strings, buildEdit);
+                    else if (scene == "build-contents")
+                        rig.Viewport.GuiEmbedSubwindows = true;   // the right-click menu is drawn inside the picture
                 }
+                if (scene == "takefolder")
+                    takeFolder = ExampleTakeFolder(shell, strings);
+                if (scene is "objectcontents" or "buy")
+                    ExampleTrade(interactPanels, shell, scene);
+                if (scene == "objectinfo")
+                    ExampleObjectInfo(noticePanels, shell);
                 var prefs = PreferencesFeature.Install(shell, settings, () => 0, () => false);
                 if (scene.StartsWith("preferences", StringComparison.Ordinal))
                     prefs.ShowCategory(scene == "preferences" ? "interface" : scene["preferences-".Length..]);   // "preferences" is the Interface page
@@ -351,8 +371,8 @@ public partial class TestRender
                     "inspect" => InteractFeature.InspectId,
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
-                    "build" or "build-look" or "build-search" => EditPanel.FloaterId,
-                    "colourpicker" => "",
+                    "build" or "build-look" or "build-search" or "build-contents" => EditPanel.FloaterId,
+                    "colourpicker" or "texturepicker" or "gridoptions" or "takefolder" or "objectcontents" or "buy" or "objectinfo" => "",
                     "commandlist" or "commandlist-search" or "commandlist-setting" => "",
                     _ => PreferencesFeature.FloaterId,
                 };
@@ -384,6 +404,21 @@ public partial class TestRender
         if (newMenuOf is not null)
         {
             newMenuOf.ShowNewMenu(clothing: true);   // the + menu with New Clothes open
+            await Frames(10);
+        }
+        if (texturePickers is not null)
+        {
+            texturePickers.Items.List.Select(2);   // a row chosen once the list has filled
+            await Frames(4);
+        }
+        if (takeFolder is not null)
+        {
+            takeFolder.List.Select(1);
+            await Frames(4);
+        }
+        if (scene == "build-contents" && contentsPanel is not null)
+        {
+            contentsPanel.ContentTab.OpenMenuOnRow(1);   // the right-click menu on the second row (the notecard)
             await Frames(10);
         }
         if (scene == "build-look" && shell.FindChild("section_box_look", true, false) is Control lookBox)

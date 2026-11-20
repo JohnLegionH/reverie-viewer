@@ -129,7 +129,9 @@ public partial class S1Smoke
             if (panel.Editing!.Editor!.Texture(1) != ids.WeaveAsset) problems.Add("a picked texture did not land in the slot");
             panel.Rebuild();
             var slotButton = Descendants(panel.Body).OfType<Button>().FirstOrDefault(x => x.Name == "slot_1");
-            if (slotButton is null || slotButton.Text != ids.WeaveAsset.ToString("N")[..8]) problems.Add("the texture slot does not show the picked texture");
+            // a chosen texture is a picture beside a Change button, never its id as text
+            if (slotButton is null || slotButton.Text != table.Get("appearance.texture.change")) problems.Add("the texture slot does not offer Change for the picked texture");
+            if (Descendants(panel.Body).OfType<Control>().All(x => x.Name != "swatch_1")) problems.Add("the texture slot does not show the picked texture as a picture");
             panel.WornList.Select(0);
             panel.WornList.EmitSignal(ItemList.SignalName.ItemSelected, 0);
             if (!panel.UnsavedPrompt.Visible) problems.Add("opening another item with unsaved changes did not ask");

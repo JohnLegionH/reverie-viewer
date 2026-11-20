@@ -359,6 +359,7 @@ public partial class InventoryPickPopup : PopupPanel
         use_.Pressed += () => { if (_panel.SelectedAsset is { } a) Use(a); };
         box.AddChild(use_);
         AddChild(box);
+        ReverieRestyle.Apply(this);   // a popup is not a floater: it takes the Reverie look itself
     }
 
     private void Use(Guid asset)

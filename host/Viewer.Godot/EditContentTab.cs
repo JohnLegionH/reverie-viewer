@@ -77,6 +77,8 @@ public sealed class EditContentTab
         _inventory = inventory;
         _agent = agent ?? (() => Guid.Empty);
         _names = names;
+        // the Build window is already in the Reverie look; this tab's own classic controls (the list, the buttons, the fields, the menu) take it too
+        ReverieRestyle.Apply(page);
         _newScript = Btn("new_script", "edit.content.new_script", () => _edit()?.NewScript(_s.Get("edit.content.new_script.name")));
         page.AddChild(_newScript);
         _list = new ContentDropList { Name = "contents", CustomMinimumSize = new Vector2(0, 220), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -248,6 +250,13 @@ public sealed class EditContentTab
             AddEngineMenu(item, region);
         _menu.Position = (Vector2I)(_list.GetScreenPosition() + at);
         _menu.Popup();
+    }
+
+    /// <summary>Shows the right-click menu on a row, as a right click on it does (the render case's picture).</summary>
+    internal void OpenMenuOnRow(int index)
+    {
+        if (index >= 0 && index < _rows.Count)
+            ShowMenu(index, _list.GetItemRect(index).GetCenter());
     }
 
     /// <summary>The right-click menu as it stands, for the live checks: whether it is shown, and each entry's text, whether it is greyed and
