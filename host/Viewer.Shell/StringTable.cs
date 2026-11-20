@@ -10,11 +10,28 @@ namespace Viewer.Shell;
 
 /// <summary>
 /// A number with the noun it counts, passed as an argument to <see cref="StringTable.Get"/>: it is written as the count and the noun
-/// in the form English needs ("1 item", "2 items", "0 items"). <paramref name="Noun"/> is a table key that has a ".one" entry (used
-/// when the count is exactly 1) and a ".other" entry (every other count, 0 included); both hold "{0}" for the number.
+/// in the form the current language needs ("1 item", "2 items", "0 items" in English). <paramref name="Noun"/> is a table key with
+/// one entry per plural category the language uses (".zero", ".one", ".two", ".few", ".many", ".other"), each holding "{0}" for the
+/// number; ".other" is required and is the form used when the category's own entry is missing. English has ".one" and ".other".
 /// <paramref name="Shown"/> replaces the number's own text (for a fraction such as 0.5).
 /// </summary>
 public readonly record struct Counted(string Noun, double N, string? Shown = null);
+
+/// <summary>The plural categories of the Unicode CLDR plural rules (https://cldr.unicode.org/index/cldr-spec/plural-rules).</summary>
+public enum PluralCategory { Zero, One, Two, Few, Many, Other }
+
+/// <summary>A language's plural rule: the category a number falls in.</summary>
+public delegate PluralCategory PluralRule(double n);
+
+/// <summary>The plural rules of the languages the viewer ships a string table for. A language with no entry here uses English's.</summary>
+public static class PluralRules
+{
+    /// <summary>English (CLDR): "one" for exactly 1, "other" for every other number, 0 and fractions included.</summary>
+    public static readonly PluralRule English = n => n == 1 ? PluralCategory.One : PluralCategory.Other;
+
+    /// <summary>The rule for a locale id (a table id such as "en", or the pseudo table's "en-XA").</summary>
+    public static PluralRule For(string locale) => English;
+}
 
 /// <summary>
 /// The string table (ADR-020): every user-facing text comes from here by key, never from a literal in the host. The
@@ -25,11 +42,18 @@ public sealed class StringTable
 {
     private readonly IReadOnlyDictionary<string, string> _strings;
 
-    private StringTable(IReadOnlyDictionary<string, string> strings, string locale)
+    private readonly PluralRule _plural;
+
+    private StringTable(IReadOnlyDictionary<string, string> strings, string locale, PluralRule? plural = null)
     {
         _strings = strings;
         Locale = locale;
+        _plural = plural ?? PluralRules.For(locale);
     }
+
+    /// <summary>A table over the given strings, counting by <paramref name="plural"/> (the locale's own rule when null).</summary>
+    public static StringTable Create(IReadOnlyDictionary<string, string> strings, string locale, PluralRule? plural = null) =>
+        new(strings, locale, plural);
 
     public string Locale { get; }
 
@@ -79,7 +103,20 @@ public sealed class StringTable
     public string Count(Counted counted)
     {
         string shown = counted.Shown ?? counted.N.ToString("0.##", CultureInfo.InvariantCulture);
-        string text = Get(counted.Noun + (counted.N == 1 ? ".one" : ".other"), shown);
+        // the form the language's rule names for this number; a string without that form takes its ".other" form
+        string form = _plural(counted.N) switch
+        {
+            PluralCategory.Zero => "zero",
+            PluralCategory.One => "one",
+            PluralCategory.Two => "two",
+            PluralCategory.Few => "few",
+            PluralCategory.Many => "many",
+            _ => "other",
+        };
+        string key = counted.Noun + "." + form;
+        if (!Has(key))
+            key = counted.Noun + ".other";
+        string text = Get(key, shown);
         // in the pseudo table the sentence that holds the count is bracketed: the count is not bracketed again inside it
         return Locale == "en-XA" && text.Length >= 2 && text[0] == '[' && text[^1] == ']' ? text[1..^1] : text;
     }

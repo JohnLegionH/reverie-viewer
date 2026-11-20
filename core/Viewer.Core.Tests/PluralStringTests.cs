@@ -161,6 +161,62 @@ public class PluralStringTests
         Assert.Contains("2 ", line);
     }
 
+    // An invented rule with the shape of the Russian one: one for 1, few for 2 to 4, many for 5 and up, other for fractions.
+    private static PluralCategory InventedRule(double n) =>
+        n != Math.Floor(n) ? PluralCategory.Other : n == 1 ? PluralCategory.One : n is >= 2 and <= 4 ? PluralCategory.Few : PluralCategory.Many;
+
+    private static StringTable Invented(params (string Key, string Text)[] entries) =>
+        StringTable.Create(entries.ToDictionary(e => e.Key, e => e.Text), "xx", InventedRule);
+
+    [Fact]
+    public void A_language_with_a_few_form_picks_it_for_the_numbers_its_rule_names()
+    {
+        var table = Invented(("n.one", "{0} kot"), ("n.few", "{0} kota"), ("n.many", "{0} kotov"), ("n.other", "{0} kota?"));
+        Assert.Equal("1 kot", table.Count(C("n", 1)));
+        Assert.Equal("2 kota", table.Count(C("n", 2)));
+        Assert.Equal("4 kota", table.Count(C("n", 4)));
+        Assert.Equal("5 kotov", table.Count(C("n", 5)));
+        Assert.Equal("0 kotov", table.Count(C("n", 0)));
+        Assert.Equal("1.5 kota?", table.Count(new Counted("n", 1.5, "1.5")));
+    }
+
+    [Fact]
+    public void A_missing_form_falls_back_to_the_other_form()
+    {
+        var table = Invented(("n.one", "{0} kot"), ("n.other", "{0} kotov"));
+        Assert.Equal("1 kot", table.Count(C("n", 1)));
+        Assert.Equal("3 kotov", table.Count(C("n", 3)));
+        Assert.Equal("7 kotov", table.Count(C("n", 7)));
+        // a string with only the other form serves every count, 1 included, and is never shown as a missing key
+        var only = Invented(("m.other", "{0} kotov"));
+        Assert.Equal("1 kotov", only.Count(C("m", 1)));
+        Assert.Equal("3 kotov", only.Count(C("m", 3)));
+    }
+
+    [Fact]
+    public void The_counted_noun_reaches_the_rule_through_a_sentence()
+    {
+        var table = Invented(("s", "Found {0}."), ("n.few", "{0} kota"), ("n.other", "{0} kotov"));
+        Assert.Equal("Found 2 kota.", table.Get("s", C("n", 2)));
+        Assert.Equal("Found 9 kotov.", table.Get("s", C("n", 9)));
+    }
+
+    [Fact]
+    public void English_picks_one_for_exactly_one_and_other_for_the_rest_and_is_the_default_rule()
+    {
+        Assert.Equal(PluralCategory.One, PluralRules.English(1));
+        Assert.Equal(PluralCategory.Other, PluralRules.English(0));
+        Assert.Equal(PluralCategory.Other, PluralRules.English(2));
+        Assert.Equal(PluralCategory.Other, PluralRules.English(1.5));
+        Assert.Same(PluralRules.English, PluralRules.For("en"));
+        Assert.Same(PluralRules.English, PluralRules.For("en-XA"));
+        Assert.Same(PluralRules.English, PluralRules.For("xx"));
+        // a table made without a rule counts as English does
+        var plain = StringTable.Create(new Dictionary<string, string> { ["n.one"] = "{0} cat", ["n.other"] = "{0} cats" }, "en");
+        Assert.Equal("1 cat", plain.Count(C("n", 1)));
+        Assert.Equal("2 cats", plain.Count(C("n", 2)));
+    }
+
     // The strings that put a number before a noun (en.json, read as text). A string that is in this list may name a count that is
     // never 1 (the caller only builds it for 2 or more, or the caller already picks a separate "one" string); any other string with a
     // count before a plural noun must be built from a counted noun, so it cannot say "1 items".
