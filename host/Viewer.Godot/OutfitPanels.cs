@@ -244,7 +244,7 @@ public partial class OutfitPanel : VBoxContainer
         else if (_resultKey.Length > 0)
             StatusLabel.Text = _strings.Get(_resultKey);
         else
-            StatusLabel.Text = _strings.Get("outfit.status.items", _view.Current().Count);
+            StatusLabel.Text = _strings.Get("outfit.status.items", new Counted("count.items", _view.Current().Count));
     }
 
     // ---------------- buttons (also the entries the start-up check uses) ----------------

@@ -82,8 +82,7 @@ internal static class NotificationView
         header.AddChild(titleLabel);
         if (hide is not null)
         {
-            var close = new Button { Name = "hide", Text = strings.Get("floater.close.glyph"), TooltipText = strings.Get("notifications.toast.close") };
-            close.AccessibilityName = strings.Get("notifications.toast.close");
+            var close = new RvIconButton(LucideIcons.Close, strings.Get(NoticeClose.TooltipKey(n))) { Name = "hide" };
             long id = n.Id;
             close.Pressed += () => hide(id);
             header.AddChild(close);

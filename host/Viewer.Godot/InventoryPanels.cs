@@ -535,7 +535,6 @@ public partial class InventoryPanel : VBoxContainer
         Context.AddItem(strings.Get("inventory.button.new_folder"), 0);
         Context.AddItem(strings.Get("inventory.button.rename"), 1);
         Context.AddItem(strings.Get("inventory.button.trash"), 2);
-        Context.AddItem(strings.Get("inventory.button.retry"), 3);
         Context.AddItem(strings.Get("inventory.button.wear"), 4);
         Context.AddItem(strings.Get("inventory.button.add"), 5);
         Context.AddItem(strings.Get("inventory.button.take_off"), 6);
@@ -778,7 +777,7 @@ public partial class InventoryPanel : VBoxContainer
         NewButton.Disabled = !bound || (_selected != Guid.Empty && _model?.IsInLibrary(_selected) == true);
         RenameButton.Disabled = !bound || _actions is null || _selected == Guid.Empty || _actions.WhyNotRename(_selected) is not null;
         TrashButton.Disabled = !bound || _actions is null || _selected == Guid.Empty || _actions.WhyNotTrash(_selected) is not null;
-        RetryButton.Disabled = !bound || _selected == Guid.Empty || _model?.LoadState(_selected) != FolderLoad.Failed;
+        RetryButton.Visible = InventoryButtons.ShowsRetry(bound, _selected != Guid.Empty, _selected == Guid.Empty ? null : _model?.LoadState(_selected));
         bool picked = bound && _outfit is not null && _selected != Guid.Empty;
         bool folder = picked && _model!.Folder(_selected) is not null;
         WearButton.Disabled = !picked || !(folder ? _outfit!.CanWearOutfit(_selected) : _outfit!.CanWear(_selected));
@@ -927,21 +926,31 @@ public partial class InventoryPanel : VBoxContainer
     /// <summary>Toggles a folder in the view as a double-click does (the automation's check).</summary>
     internal void Activate(Guid id) => OnRowActivated(id);
 
+    /// <summary>Try again is in the right-click menu (as the last row) only while it is shown as a button: for a folder whose load failed.</summary>
+    private void RetryInMenu(bool show)
+    {
+        int at = Context.GetItemIndex(3);
+        if (show && at < 0)
+            Context.AddItem(_strings.Get("inventory.button.retry"), 3);
+        else if (!show && at >= 0)
+            Context.RemoveItem(at);
+    }
+
     private void OnRowMenu(Guid id)
     {
         if (!_contextToggle.PressOpens("context", (long)Time.GetTicksMsec()))
             return;   // the right-click that just closed it
         _selected = id;
         RefreshControls();
-        Context.SetItemDisabled(0, NewFolderButton.Disabled);
-        Context.SetItemDisabled(1, RenameButton.Disabled);
-        Context.SetItemDisabled(2, TrashButton.Disabled);
-        Context.SetItemDisabled(3, RetryButton.Disabled);
-        Context.SetItemDisabled(4, WearButton.Disabled);
-        Context.SetItemDisabled(5, AddButton.Disabled);
-        Context.SetItemDisabled(6, TakeOffButton.Disabled);
-        Context.SetItemDisabled(7, AttachButton.Disabled);
-        Context.SetItemDisabled(8, DetachButton.Disabled);
+        RetryInMenu(RetryButton.Visible);
+        Context.SetItemDisabled(Context.GetItemIndex(0), NewFolderButton.Disabled);
+        Context.SetItemDisabled(Context.GetItemIndex(1), RenameButton.Disabled);
+        Context.SetItemDisabled(Context.GetItemIndex(2), TrashButton.Disabled);
+        Context.SetItemDisabled(Context.GetItemIndex(4), WearButton.Disabled);
+        Context.SetItemDisabled(Context.GetItemIndex(5), AddButton.Disabled);
+        Context.SetItemDisabled(Context.GetItemIndex(6), TakeOffButton.Disabled);
+        Context.SetItemDisabled(Context.GetItemIndex(7), AttachButton.Disabled);
+        Context.SetItemDisabled(Context.GetItemIndex(8), DetachButton.Disabled);
         Context.SetItemDisabled(Context.GetItemIndex(9), !CanOpen(_selected));
         Context.SetItemDisabled(Context.GetItemIndex(10), _view is null || (_selected != Guid.Empty && _model?.IsInLibrary(_selected) == true));
         // at the pointer: in the window's own coordinates when popups are drawn inside it, in screen coordinates when they are windows of their own

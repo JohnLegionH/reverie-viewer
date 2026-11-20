@@ -17,13 +17,14 @@ namespace Viewer.Godot;
 /// </summary>
 public static class ReverieRestyle
 {
-    /// <summary>The windows a resident uses most, which take the Reverie look now; the rest follow in a later step.</summary>
-    public static readonly IReadOnlySet<string> FirstHalf = new HashSet<string>(StringComparer.Ordinal)
+    /// <summary>The windows, by exact id, that take the Reverie look now; the rest follow in later steps. Windows made once per item
+    /// (a notecard, a script) are listed by prefix instead: <see cref="IsListed"/>.</summary>
+    private static readonly IReadOnlySet<string> Listed = new HashSet<string>(StringComparer.Ordinal)
     {
         InventoryFeature.FloaterId, ChatFeature.NearbyId, ChatFeature.ConversationsId, PeopleFeature.PeopleId,
         TravelFeature.MiniMapId, TravelFeature.MapId, TravelFeature.TeleportId, AppearanceFeature.FloaterId, OutfitFeature.FloaterId,
         NotificationFeature.ListId, PreferencesFeature.FloaterId, InteractFeature.InspectId, InteractFeature.PayId, InteractFeature.LandId,
-        Main.TexturePreviewId,
+        Main.TexturePreviewId, ScriptQueueWindow.FloaterId,
     };
 
     private static readonly StringName Restyled = "reverie_restyled";
@@ -31,19 +32,37 @@ public static class ReverieRestyle
     /// <summary>Off only in the render harness, to list a window's controls as the classic look built them (the before list).</summary>
     public static bool Enabled { get; set; } = true;
 
-    /// <summary>Restyles a window's content (and footer) when the window is one of <see cref="FirstHalf"/>.</summary>
+    /// <summary>Whether the window <paramref name="floaterId"/> takes the Reverie look: its exact id is listed, or it is one of the windows
+    /// made once per item.</summary>
+    public static bool IsListed(string floaterId) => Listed.Contains(floaterId) || ReverieRestyleRules.IsPerItemWindow(floaterId);
+
+    /// <summary>Restyles a window's content (and footer) when the window is listed (<see cref="IsListed"/>).</summary>
     public static void ApplyIfListed(string floaterId, Control content)
     {
-        if (FirstHalf.Contains(floaterId))
+        if (IsListed(floaterId))
             Apply(content);
     }
 
-    /// <summary>Restyles <paramref name="root"/> and everything under it, now and as children are added.</summary>
+    /// <summary>
+    /// The hook for a part that is not a floater (the reconnect notice, a login dialog, a toast stack, a right-click menu): it calls this
+    /// itself on its own root once built, with no window list to be on. Restyles <paramref name="root"/> and everything under it, now and
+    /// as children are added.
+    /// </summary>
     public static void Apply(Node root, RestylePlace place = RestylePlace.Window)
     {
         if (Enabled)
             Visit(root, place);
     }
+
+    /// <summary>
+    /// Sets a classic variation on a control after the restyle ran, and keeps the Reverie component: a restyled control that code sets
+    /// back to a classic variation (a count that turns to the error look and back) would otherwise lose the restyle. A control the restyle
+    /// has not reached, or one with no Reverie counterpart for that variation, takes <paramref name="classic"/> as given.
+    /// </summary>
+    public static void SetVariation(Control control, string classic) =>
+        control.ThemeTypeVariation = Enabled && control.HasMeta(Restyled)
+            ? ReverieRestyleRules.AfterSet(control.GetClass(), classic, control is Button { Flat: true }, RestylePlace.Window, control is BaseButton { ToggleMode: true }, restyled: true)
+            : classic;
 
     private static void Visit(Node node, RestylePlace place)
     {

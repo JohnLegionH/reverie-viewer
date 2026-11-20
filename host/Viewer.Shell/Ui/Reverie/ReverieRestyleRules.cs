@@ -9,7 +9,7 @@ public static class ReverieVariations
     public const string Primary = "RvPrimary", Secondary = "RvSecondary", IconButton = "RvIconButton", ListRow = "RvListRow",
         Muted = "RvMuted", Caption = "RvCaption", CardHeading = "RvCardHeading", Popup = "RvPopup",
         Select = "RvSelect", Field = "RvField", List = "RvList", Tree = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel",
-        Check = "RvCheck", TabBar = "RvTabBar", SectionHeader = "RvSectionHeader";
+        Check = "RvCheck", TabBar = "RvTabBar", SectionHeader = "RvSectionHeader", TextArea = "RvTextArea";
 }
 
 /// <summary>Where a control stands: in a window, or in a menu drawn as a panel of buttons (the right-click menu).</summary>
@@ -52,6 +52,8 @@ public static class ReverieRestyleRules
             ("Label", "TitleLabel") => ReverieVariations.CardHeading,
             ("LineEdit", "") => ReverieVariations.Field,
             ("ItemList", "") => ReverieVariations.List,
+            // a text area (the notecard, the script editor, a certificate text) has the field's face; a code editor keeps its own colours
+            ("TextEdit" or "CodeEdit", "") => ReverieVariations.TextArea,
             ("Tree", "") => ReverieVariations.Tree,
             ("TabContainer", "") => ReverieVariations.Tabs,
             ("PopupMenu", "") => ReverieVariations.Popup,
@@ -62,6 +64,23 @@ public static class ReverieRestyleRules
             _ => null,
         };
     }
+
+    /// <summary>Whether a window id names a window made once per item (a notecard, a script), which takes the restyle by its prefix.</summary>
+    public static bool IsPerItemWindow(string id)
+    {
+        foreach (var prefix in PerItemPrefixes)
+            if (id.Length > prefix.Length && id.StartsWith(prefix, StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+
+    /// <summary>The prefixes of the windows made once per item: "notecard.N" and "script.N". A later step adds the add-on windows' prefix
+    /// when those windows take the restyle.</summary>
+    private static readonly string[] PerItemPrefixes = ["notecard.", "script."];
+
+    /// <summary>The variation a control takes when window code sets <paramref name="classic"/> on it after the restyle ran.</summary>
+    public static string AfterSet(string kind, string classic, bool flat, RestylePlace place, bool toggle, bool restyled) =>
+        restyled ? VariationFor(kind, classic, flat, place, toggle) ?? classic : classic;
 
     /// <summary>Whether a button standing in a column (where it would be stretched to the column's width) is sized to its label
     /// instead: every push button, not a row that stays pressed, and not one its window asks to grow.</summary>

@@ -41,7 +41,6 @@ public class ReverieRestyleTests
     [InlineData("Label", "")]
     [InlineData("Label", "ErrorLabel")]
     [InlineData("CheckButton", "")]
-    [InlineData("TextEdit", "")]
     [InlineData("RichTextLabel", "")]
     [InlineData("PanelContainer", "")]
     [InlineData("HSlider", "")]
@@ -107,7 +106,7 @@ public class ReverieRestyleTests
     [Fact]
     public void Restyled_labels_set_again_later_keep_the_Reverie_look_and_number_fields_inside_other_controls_are_left_alone()
     {
-        Assert.Contains("ReverieRestyleRules.VariationFor(\"Label\"", Host("PreferencesPanels.cs"));
+        Assert.Contains("ReverieRestyle.SetVariation(label,", Host("PreferencesPanels.cs"));
         string restyle = Host(Path.Combine("Reverie", "ReverieRestyle.cs"));
         Assert.Contains("SpinBox", restyle);
         string style = Host(Path.Combine("Reverie", "ReverieStyle.cs"));

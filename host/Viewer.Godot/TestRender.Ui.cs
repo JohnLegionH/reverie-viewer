@@ -53,7 +53,7 @@ public partial class TestRender
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "commandlist", "commandlist-search", "commandlist-setting",
-        "notecard", "notecard-readonly", "gesture", "gestures", "newmenu",
+        "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -161,6 +161,22 @@ public partial class TestRender
         panel.StepList.EmitSignal(ItemList.SignalName.ItemSelected, 1);
         shell.SetFloaterTitle(GesturePanel.FloaterId, "Wave hello");
         shell.Shell.Floaters.Open(GesturePanel.FloaterId);
+    }
+
+    /// <summary>The compile queue's window after a run over two objects whose contents never came (the wait ends at once): the queue's
+    /// lines in the list, the count line under it and Close. No session or grid.</summary>
+    private static void ExampleScriptQueue(ShellRoot shell, StringTable strings)
+    {
+        static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        var window = new ScriptQueueWindow(strings, () => { });
+        shell.AddFloater(new FloaterSpec(ScriptQueueWindow.FloaterId, "queue.title.compile", new UiSize(300, 400), new UiSize(240, 240)), window.Root);
+        var queue = new Viewer.Shell.Build.ScriptQueue(Viewer.Shell.Build.ScriptQueueAction.CompileMono,
+            [new Viewer.Shell.Build.ScriptQueueObject(1, G(30), "Example door"), new Viewer.Shell.Build.ScriptQueueObject(2, G(31), "Example lamp")],
+            G(1), _ => new ActionResult(ActionStatus.Sent), null, (_, _) => Task.CompletedTask);
+        queue.RunAsync().GetAwaiter().GetResult();
+        window.Show(queue);
+        shell.SetFloaterTitle(ScriptQueueWindow.FloaterId, strings.Get(Viewer.Shell.Build.ScriptQueue.TitleKey(queue.Action)));
+        shell.Shell.Floaters.Open(ScriptQueueWindow.FloaterId);
     }
 
     /// <summary>The Gestures window with an example inventory: five gestures in the Gestures folder, two of them active (one with its
@@ -282,6 +298,9 @@ public partial class TestRender
                 break;
             case "gestures":
                 ExampleGestureList(shell);
+                break;
+            case "scriptqueue":
+                ExampleScriptQueue(shell, strings);
                 break;
             case "scriptdialog":
             case "permission":

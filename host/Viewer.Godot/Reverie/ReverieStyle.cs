@@ -26,7 +26,7 @@ public static class ReverieStyle
         Dock = "RvDock", DockButton = "RvDockButton", DockButtonOn = "RvDockButtonOn", DockButtonAttention = "RvDockButtonAttention",
         DockLabel = "RvDockLabel", DockDivider = "RvDockDivider", DockDot = "RvDockDot", Pill = "RvPill",
         Select = "RvSelect", Field = "RvField", List = "RvList", TreeList = "RvTree", Tabs = "RvTabs", MenuPanel = "RvMenuPanel",
-        Check = "RvCheck", TabBar = "RvTabBar", SectionHeader = "RvSectionHeader", SectionDivider = "RvSectionDivider";
+        Check = "RvCheck", TabBar = "RvTabBar", SectionHeader = "RvSectionHeader", SectionDivider = "RvSectionDivider", TextArea = "RvTextArea";
 
     /// <summary>The variant the tokens are: light when the bar is light.</summary>
     public static ReverieVariant VariantOf(ThemeTokens t) => ReverieTheme.VariantFor(t);
@@ -244,6 +244,13 @@ public static class ReverieStyle
         theme.SetColor("font_uneditable_color", Field, C(r["text.secondary"]));
         theme.SetColor("caret_color", Field, C(r.Accent));
         theme.SetColor("selection_color", Field, A(r.Accent, 0.35f));
+
+        // the text area (a notecard, the script editor, a certificate text): the field's frame, for a TextEdit and a CodeEdit alike. Only the
+        // frame changes: a code editor keeps its own text, syntax, gutter and line-number colours.
+        theme.SetTypeVariation(TextArea, "TextEdit");
+        theme.SetStylebox("normal", TextArea, Face(C(r["surface.raised"]), C(r["border.control"]), bw, control, 10, 6));
+        theme.SetStylebox("read_only", TextArea, Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 10, 6));
+        theme.SetStylebox("focus", TextArea, FocusRing(r, control));
 
         // lists and trees: the sunken surface, rows in the list row's states (hover 60 %, selected on the selected surface)
         var sunken = Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 4, 4);

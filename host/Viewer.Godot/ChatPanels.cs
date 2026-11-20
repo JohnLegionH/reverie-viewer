@@ -273,8 +273,7 @@ public partial class ConversationsPanel : VBoxContainer
         SendButton.AccessibilityName = strings.Get("im.send");
         SendButton.Pressed += Submit;
         row.AddChild(SendButton);
-        CloseButton = new Button { Name = "close_conversation", Text = strings.Get("floater.close.glyph"), TooltipText = strings.Get("im.close") };
-        CloseButton.AccessibilityName = strings.Get("im.close");
+        CloseButton = new RvIconButton(LucideIcons.Close, strings.Get("im.close")) { Name = "close_conversation" };
         CloseButton.Pressed += () => { if (_hub is not null && _shown is { } id) { _drafts.Remove(id); _hub.Ims.Close(id); } };
         row.AddChild(CloseButton);
         OfferButton = new Button { Name = "offer_friendship", Text = strings.Get("friends.offer") };

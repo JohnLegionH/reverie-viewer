@@ -403,7 +403,7 @@ public sealed class EditContentTab
     private void QueueFolder(EditController e, InventoryModel inv, Guid folder)
     {
         int n = e.DropFolder(inv.ChildItems(folder).Where(i => i.Kind is not (ItemKind.Link or ItemKind.LinkFolder)).Select(i => (i.Id, i.Kind == ItemKind.Script)));
-        _status.Text = string.Format(CultureInfo.InvariantCulture, _s.Get("edit.content.folder_queued"), n);
+        _status.Text = _s.Get("edit.content.folder_queued", new Counted("count.items", n));
     }
 
     /// <summary>Shows the primary prim's items, asking the region for them when the tab shows a prim it has not asked about.</summary>

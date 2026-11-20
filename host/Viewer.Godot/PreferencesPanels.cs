@@ -612,8 +612,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         label.Text = text;
         label.AccessibilityName = text;
         // the window is restyled: a muted line set again keeps the Reverie component the restyle gave it
-        label.ThemeTypeVariation = error ? UiTheme.ErrorLabel
-            : ReverieRestyle.Enabled ? ReverieRestyleRules.VariationFor("Label", UiTheme.MutedLabel, false) ?? UiTheme.MutedLabel : UiTheme.MutedLabel;
+        ReverieRestyle.SetVariation(label, error ? UiTheme.ErrorLabel : UiTheme.MutedLabel);
     }
 
     private static UiColour Pick(Color c) => new(c.R, c.G, c.B);

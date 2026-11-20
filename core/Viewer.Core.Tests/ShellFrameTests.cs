@@ -425,7 +425,7 @@ public class ShellFrameTests
     {
         var strings = table == "en" ? StringTable.English() : StringTable.Pseudo();
         var shell = new ShellController(StringTable.English(), () => { });
-        var keys = new List<string> { "shell.menubar", "shell.toolbar", "shell.main", "floater.close", "floater.close.glyph", "floater.close.named", "floater.resize.named" };
+        var keys = new List<string> { "shell.menubar", "shell.toolbar", "shell.main", "floater.close", "floater.close.named", "floater.resize.named" };
         foreach (var m in shell.Menus.Menus)
         {
             keys.Add(m.LabelKey);

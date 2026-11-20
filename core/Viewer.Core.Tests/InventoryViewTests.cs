@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using Viewer.Core.Inventory;
+using Viewer.Shell;
 using Viewer.Shell.Inventory;
 using Xunit;
 using static Viewer.Core.Tests.InventoryModelTests;
@@ -300,6 +301,19 @@ public class InventoryViewTests
         for (int i = 0; i < 10 && m.UnloadedFolderCount > 0; i++)
             foreach (var f in m.AllFolders().ToList()) { m.Apply(Fetched(f.Id)); }
         Assert.Equal("inventory.status.complete", v.Status().Key);
+    }
+
+    [Fact]
+    public void The_status_line_hands_its_item_and_folder_counts_over_as_counted_nouns_so_one_reads_as_one()
+    {
+        var (v, m, _) = New();
+        v.Rows();
+        var args = v.Status().Args;
+        Assert.Equal(2, args.Length);
+        Assert.Equal("count.items", ((Counted)args[0]).Noun);
+        Assert.Equal("count.folders", ((Counted)args[1]).Noun);
+        Assert.Equal(m.AllItems().Count, (int)((Counted)args[0]).N);
+        Assert.Equal(m.AllFolders().Count, (int)((Counted)args[1]).N);
     }
 }
 

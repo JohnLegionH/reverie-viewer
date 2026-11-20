@@ -18,6 +18,9 @@ public partial class FloaterFrame : PanelContainer
     /// <summary>The title bar's height, in interface units.</summary>
     public const float TitleBarHeight = 24;
 
+    /// <summary>The gap between the left edge of the title bar and the title.</summary>
+    public const float TitleInset = 8;
+
     private readonly FloaterManager _floaters;
     private readonly string _id;
     private readonly Control? _grip;
@@ -56,6 +59,7 @@ public partial class FloaterFrame : PanelContainer
         Body.AddChild(TitleBar);
         Title = new Label { Text = title, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis, ThemeTypeVariation = UiTheme.TitleLabel };
         Title.AccessibilityName = title;
+        bar.AddChild(new Control { Name = "title_inset", CustomMinimumSize = new Vector2(TitleInset, 0), MouseFilter = MouseFilterEnum.Ignore });
         bar.AddChild(Title);
         MinimizeButton = TitleButton("minimize", UiIcons.Minimize, strings.Get("floater.minimize"));
         MinimizeButton.AccessibilityName = strings.Get("floater.minimize.named", title);

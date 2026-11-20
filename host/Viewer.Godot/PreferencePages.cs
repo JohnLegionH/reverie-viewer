@@ -63,7 +63,7 @@ public sealed partial class PrefPageView : ScrollContainer
                 () => _strings.Get(clearNames() ? "prefs.privacy.cleared" : "prefs.privacy.none")));
         if (page == PrefPage.Cache && clearCache is not null)
             box.AddChild(ConfirmedAction("clear_cache", "prefs.cache.clear", "prefs.cache.clear.ask", "prefs.cache.clear.yes", "prefs.cache.clear.no",
-                () => _strings.Get("prefs.cache.cleared", clearCache())));
+                () => _strings.Get("prefs.cache.cleared", new Counted("count.entries", clearCache()))));
         if (page == PrefPage.Sound)
             AddSoundList(box);
         Sync();

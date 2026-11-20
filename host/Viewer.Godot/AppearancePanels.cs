@@ -719,7 +719,7 @@ public partial class TexturePickerPopup : PopupPanel
         _list.Clear();
         foreach (var r in _rows)
             _list.AddItem(r.InLibrary ? _strings.Get("appearance.texture.library", r.Name) : r.Name);
-        _count.Text = ready ? _strings.Get("appearance.texture.count", _rows.Count) : _strings.Get("appearance.texture.loading");
+        _count.Text = ready ? _strings.Get("appearance.texture.count", new Counted("count.textures", _rows.Count)) : _strings.Get("appearance.texture.loading");
         _selected = -1;
     }
 

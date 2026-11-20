@@ -113,7 +113,7 @@ public sealed class DockItem
         if (Kind is DockItemKind.Toggle or DockItemKind.ToggleWithMenu)
             return strings.Get(On ? "dock.on" : "dock.off", name);
         if (Attention && AttentionCount is int n && n > 0)
-            return Id == "notices" && Owner is null ? strings.Get("dock.notices.count", n) : strings.Get("dock.count", name, n);
+            return Id == "notices" && Owner is null ? strings.Get("dock.notices.count", new Counted("count.notices", n)) : strings.Get("dock.count", name, n);
         return name;
     }
 }

@@ -84,9 +84,12 @@ public sealed class ScriptQueue
     public static string Format(ScriptQueueLine line, StringTable strings) => line.Key switch
     {
         "" => line.Arg,
-        "queue.starting" => strings.Get(line.Key, strings.Get(line.Arg), line.Arg2),
+        "queue.starting" => strings.Get(line.Key, strings.Get(line.Arg), CountOf(line.Arg2, "count.items")),
+        "queue.summary" => strings.Get(line.Key, CountOf(line.Arg, "count.scripts"), line.Arg2),
         _ => strings.Get(line.Key, line.Arg, line.Arg2),
     };
+
+    private static Counted CountOf(string number, string noun) => new(noun, int.TryParse(number, out int n) ? n : 0);
 
     private static string Word(ScriptQueueAction action) => action switch
     {

@@ -539,6 +539,8 @@ public partial class NotecardPanel : VBoxContainer
         foot.AddChild(StatusLabel);
         PositionLabel = new Label { Name = "position", ThemeTypeVariation = UiTheme.MutedLabel };
         foot.AddChild(PositionLabel);
+        var statusSeparator = new Label { Name = "status_separator", Text = strings.Get("notecard.status.separator"), ThemeTypeVariation = UiTheme.MutedLabel, MouseFilter = Control.MouseFilterEnum.Ignore };
+        foot.AddChild(statusSeparator);   // the place and the byte count are read apart
         CountLabel = new Label { Name = "count", ThemeTypeVariation = UiTheme.MutedLabel };
         foot.AddChild(CountLabel);
         AddChild(foot);
@@ -661,7 +663,7 @@ public partial class NotecardPanel : VBoxContainer
         RedoButton.Disabled = !s.CanEdit || !Editor.HasRedo();
         LockLabel.Visible = !s.CanEdit;
         CountLabel.Text = _strings.Get("notecard.count", s.TextBytes.ToString("N0"), NotecardEditRules.MaxTextBytes.ToString("N0"));
-        CountLabel.ThemeTypeVariation = s.OverLimit ? UiTheme.ErrorLabel : UiTheme.MutedLabel;
+        ReverieRestyle.SetVariation(CountLabel, s.OverLimit ? UiTheme.ErrorLabel : UiTheme.MutedLabel);
         ShowPosition();
     }
 

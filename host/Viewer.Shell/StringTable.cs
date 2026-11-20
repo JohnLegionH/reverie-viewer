@@ -9,6 +9,14 @@ using System.Text.Json;
 namespace Viewer.Shell;
 
 /// <summary>
+/// A number with the noun it counts, passed as an argument to <see cref="StringTable.Get"/>: it is written as the count and the noun
+/// in the form English needs ("1 item", "2 items", "0 items"). <paramref name="Noun"/> is a table key that has a ".one" entry (used
+/// when the count is exactly 1) and a ".other" entry (every other count, 0 included); both hold "{0}" for the number.
+/// <paramref name="Shown"/> replaces the number's own text (for a fraction such as 0.5).
+/// </summary>
+public readonly record struct Counted(string Noun, double N, string? Shown = null);
+
+/// <summary>
 /// The string table (ADR-020): every user-facing text comes from here by key, never from a literal in the host. The
 /// English table is embedded in this assembly. <see cref="Pseudo"/> is the pseudo-localised table used to catch
 /// truncation: every string about 40% longer, accented, and bracketed so a clipped end is visible.
@@ -67,6 +75,13 @@ public sealed class StringTable
         return true;
     }
 
+    /// <summary>A count with its noun in the form English needs ("1 item", "2 items").</summary>
+    public string Count(Counted counted)
+    {
+        string shown = counted.Shown ?? counted.N.ToString("0.##", CultureInfo.InvariantCulture);
+        return Get(counted.Noun + (counted.N == 1 ? ".one" : ".other"), shown);
+    }
+
     /// <summary>The text for <paramref name="key"/>, formatted with <paramref name="args"/>. A missing key is shown as
     /// "[[key]]" so it is visible on screen and caught by tests rather than silently blank.</summary>
     public string Get(string key, params object?[] args)
@@ -75,7 +90,11 @@ public sealed class StringTable
             return own;
         if (!_strings.TryGetValue(key, out var text))
             return "[[" + key + "]]";
-        return args.Length == 0 ? text : string.Format(CultureInfo.InvariantCulture, text, args);
+        if (args.Length == 0)
+            return text;
+        // a count is written with its noun in the form English needs
+        var shown = args.Select(a => a is Counted c ? Count(c) : a).ToArray();
+        return string.Format(CultureInfo.InvariantCulture, text, shown);
     }
 
     private const string Plain = "aceinorsuyACEINORSUY";

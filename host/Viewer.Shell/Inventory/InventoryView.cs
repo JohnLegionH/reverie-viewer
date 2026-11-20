@@ -229,13 +229,13 @@ public sealed class InventoryViewModel
         if (searching)
         {
             if (_model.UnloadedFolderCount > 0)
-                return new("inventory.status.searching", new object[] { _model.UnloadedFolderCount });
-            return new("inventory.status.matches", new object[] { Rows().Count(r => !r.IsFolder) });
+                return new("inventory.status.searching", new object[] { new Counted("count.folders", _model.UnloadedFolderCount) });
+            return new("inventory.status.matches", new object[] { new Counted("count.matches", Rows().Count(r => !r.IsFolder)) });
         }
         if (_model.InFlight > 0)
-            return new("inventory.status.fetching", new object[] { items, folders });
+            return new("inventory.status.fetching", new object[] { new Counted("count.items", items), new Counted("count.folders", folders) });
         return _model.UnloadedFolderCount == 0
-            ? new("inventory.status.complete", new object[] { items, folders })
-            : new("inventory.status.partial", new object[] { items, folders });
+            ? new("inventory.status.complete", new object[] { new Counted("count.items", items), new Counted("count.folders", folders) })
+            : new("inventory.status.partial", new object[] { new Counted("count.items", items), new Counted("count.folders", folders) });
     }
 }

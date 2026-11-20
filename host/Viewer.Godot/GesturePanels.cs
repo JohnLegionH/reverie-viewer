@@ -392,6 +392,6 @@ public partial class GesturePanel : VBoxContainer
         GestureStepKind.Animation => _s.Get(s.Stops ? "gesture.step.stop" : "gesture.step.start", s.Name),
         GestureStepKind.Sound => _s.Get("gesture.step.sound", s.Name),
         GestureStepKind.Chat => _s.Get("gesture.step.chat", s.Text),
-        _ => s.WaitsForAnimations ? _s.Get("gesture.step.wait_anims") : _s.Get("gesture.step.wait_time", s.Seconds.ToString("0.##", CultureInfo.CurrentCulture)),
+        _ => s.WaitsForAnimations ? _s.Get("gesture.step.wait_anims") : _s.Get("gesture.step.wait_time", new Counted("count.seconds", (double)s.Seconds, s.Seconds.ToString("0.##", CultureInfo.CurrentCulture))),
     };
 }
