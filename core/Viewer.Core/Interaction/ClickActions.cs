@@ -28,7 +28,7 @@ public static class ObjectFlagBits
 public enum HoverCursor { Arrow, Touch, Sit, Open, Pay, Buy, Zoom, Grab }
 
 /// <summary>What a left click on an object does in this viewer.</summary>
-public enum LeftClick { Touch, Sit, Open, OpenDenied, Swallowed, Unhandled, Buy, Pay }
+public enum LeftClick { Touch, Sit, Open, OpenDenied, Swallowed, Unhandled, Buy, Pay, Zoom }
 
 /// <summary>Click actions: which action an object's click runs, whether it can be touched, and the cursor it earns.</summary>
 public static class ClickAction
@@ -103,7 +103,8 @@ public static class ClickAction
             case Touch: return LeftClick.Touch;
             case Buy: return LeftClick.Buy;
             case Pay: return HasFlag(self, root, ObjectFlagBits.TakesMoney) ? LeftClick.Pay : LeftClick.Unhandled;
-            default: return LeftClick.Unhandled;   // play, open media, zoom: not handled in this viewer
+            case Zoom: return LeftClick.Zoom;
+            default: return LeftClick.Unhandled;   // play and open media wait for media on a prim
         }
     }
 }

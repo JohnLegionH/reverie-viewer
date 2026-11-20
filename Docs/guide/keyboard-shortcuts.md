@@ -105,6 +105,7 @@ These are the shortcuts of the **Build** menu. Some need something selected, and
 | Ctrl+3 | Edit tool |
 | Ctrl+4 | Create tool |
 | Esc | Leave build mode, clear the selection and close the Build window. Build mode only |
+| Ctrl+D | Duplicate the selected objects (Build > Object > Duplicate). Greyed unless a selected object may be copied |
 | Ctrl+L | Link the selected objects |
 | Ctrl+Shift+L | Unlink |
 | Ctrl+. | Select the next part of a linked object |

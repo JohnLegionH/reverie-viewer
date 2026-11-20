@@ -47,7 +47,7 @@ public partial class EditPanel : VBoxContainer
 
     // Object (the official General tab)
     private readonly LineEdit _name, _desc;
-    private readonly Label _creator, _owner, _sale;
+    private readonly Label _creator, _owner;
     private readonly CheckBox _shareGroup, _anyMove, _anyCopy, _nextModify, _nextCopy, _nextTransfer;
     // Placement and Shape (the official Object tab)
     private readonly SpinBox[] _pos = new SpinBox[3], _size = new SpinBox[3], _rot = new SpinBox[3];
@@ -59,8 +59,14 @@ public partial class EditPanel : VBoxContainer
     public string? LastRefusal { get; private set; }
 
     private readonly EditTextureTab _textureTab;
-    private readonly HBoxContainer _createRow;
-    private readonly CheckBox _keepTool;
+    private readonly Container _createRow;
+    private readonly CheckBox _keepTool, _copySelection, _copyCenters, _copyRotates;
+    private readonly Dictionary<Viewer.Core.Building.CreateShape, Button> _shapeButtons = new();
+    // For sale, when left-clicked and the land impact (the official General tab and status line)
+    private readonly CheckBox _forSale;
+    private readonly SpinBox _price;
+    private readonly OptionButton _saleType, _clickAction;
+    private readonly Label _impact;
     /// <summary>Raised when Keep Tool selected is ticked or cleared (the viewer remembers it).</summary>
     public event Action<bool>? KeepToolChanged;
     private readonly Dictionary<ObjectClip, Button> _pasteButtons = new();
@@ -151,8 +157,26 @@ public partial class EditPanel : VBoxContainer
 
         // the Create tool's option: after a placement the tool stays Create instead of handing back to Edit (floater_tools.xml "checkbox sticky",
         // CreateToolKeepSelected); shown only while Create is the tool, as the official window shows it
-        _createRow = new HBoxContainer { Name = "create_options" };
-        _keepTool = Tick(_createRow, "keep_tool", "edit.keep_tool", on => { if (_edit() is { } e) e.KeepToolSelected = on; KeepToolChanged?.Invoke(on); });
+        _createRow = new VBoxContainer { Name = "create_options" };
+        // the fifteen shape buttons in the official order (floater_tools.xml ToolCube to ToolGrass); pressing one also turns Copy selection off
+        var shapeRow = new HFlowContainer { Name = "create_shapes" };
+        foreach (var kind in Viewer.Core.Building.CreateShapes.All)
+        {
+            string key = "edit.shape." + kind.ToString().ToLowerInvariant();
+            var b = new Button { Name = "shape_" + kind.ToString().ToLowerInvariant(), Text = strings.Get(key), TooltipText = strings.Get(key), ToggleMode = true, ThemeTypeVariation = ReverieStyle.Segment };
+            b.AccessibilityName = strings.Get(key);
+            var chosen = kind;
+            b.Pressed += () => { _edit()?.ChooseShape(chosen); Refresh(); };
+            shapeRow.AddChild(b);
+            _shapeButtons[kind] = b;
+        }
+        _createRow.AddChild(shapeRow);
+        var createChecks = new HFlowContainer { Name = "create_checks" };
+        _keepTool = Tick(createChecks, "keep_tool", "edit.keep_tool", on => { if (_edit() is { } e) e.KeepToolSelected = on; KeepToolChanged?.Invoke(on); });
+        _copySelection = Tick(createChecks, "copy_selection", "edit.copy_selection", on => { if (_edit() is { } e) e.CopySelection = on; Refresh(); });
+        _copyCenters = Tick(createChecks, "copy_centers", "edit.copy_centers", on => { if (_edit() is { } e) e.CopyCenters = on; });
+        _copyRotates = Tick(createChecks, "copy_rotates", "edit.copy_rotates", on => { if (_edit() is { } e) e.CopyRotates = on; });
+        _createRow.AddChild(createChecks);
         AddChild(_createRow);
 
         // ---------------- the hint line: what the tool does, and its keys ----------------
@@ -167,6 +191,10 @@ public partial class EditPanel : VBoxContainer
         card.Body.AddChild(_cardName);
         card.Body.AddChild(_cardPicked);
         card.Body.AddChild(_cardOwner);
+        // "N objects selected, land impact X" (the official status line), from the region's GetObjectCost answer
+        _impact = new Label { Name = "land_impact", ThemeTypeVariation = ReverieStyle.Caption };
+        _impact.AccessibilityName = strings.Get("edit.card.land_impact");
+        card.Body.AddChild(_impact);
         _status = new Label { Name = "status", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _status.AccessibilityName = strings.Get("edit.title");
         card.Body.AddChild(_status);
@@ -257,9 +285,29 @@ public partial class EditPanel : VBoxContainer
         _nextCopy = Tick(nextRow, "next_copy", "edit.perm.copy", on => _edit()?.SetPermission(0x10, copy, on));
         _nextTransfer = Tick(nextRow, "next_transfer", "edit.perm.transfer", on => _edit()?.SetPermission(0x10, transfer, on));
         general.AddChild(nextRow);
-        _sale = new Label { Name = "for_sale" };
-        _sale.AccessibilityName = strings.Get("edit.for_sale");
-        general.AddChild(_sale);
+        var saleRow = new HFlowContainer { Name = "sale_row" };
+        _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true));
+        saleRow.AddChild(new Label { Text = strings.Get("edit.sale_price") });
+        _price = new SpinBox { Name = "sale_price", MinValue = 0, MaxValue = 999999999, Step = 1, Rounded = true, AllowGreater = false };
+        _price.AccessibilityName = strings.Get("edit.sale_price");
+        _price.ValueChanged += _ => { if (!_filling && _forSale.ButtonPressed) SendSale(false); };
+        saleRow.AddChild(_price);
+        _saleType = new OptionButton { Name = "sale_type" };
+        _saleType.AccessibilityName = strings.Get("edit.sale_type");
+        foreach (var (type, key) in new[] { (Viewer.Core.Building.SaleKind.Copy, "copy"), (Viewer.Core.Building.SaleKind.Contents, "contents"), (Viewer.Core.Building.SaleKind.Original, "original") })
+            _saleType.AddItem(strings.Get("edit.sale_type." + key), (int)type);
+        _saleType.ItemSelected += _ => { if (!_filling) SendSale(false); };
+        saleRow.AddChild(_saleType);
+        general.AddChild(saleRow);
+        var clickRow = new HBoxContainer { Name = "click_row" };
+        clickRow.AddChild(new Label { Name = "click_action_label", Text = strings.Get("edit.click_action") });
+        _clickAction = new OptionButton { Name = "click_action", TooltipText = strings.Get("edit.click_action.tip") };
+        _clickAction.AccessibilityName = strings.Get("edit.click_action");
+        foreach (var choice in Viewer.Core.Interaction.ClickChoices.All)
+            _clickAction.AddItem(strings.Get("edit.click." + choice.ToString().ToLowerInvariant()), (int)choice);
+        _clickAction.ItemSelected += i => ClickChosen((Viewer.Core.Interaction.ClickChoice)_clickAction.GetItemId((int)i));
+        clickRow.AddChild(_clickAction);
+        general.AddChild(clickRow);
         var flags = new HFlowContainer { Name = "flags" };
         _locked = Tick(flags, "locked", "edit.locked", on => _edit()?.SetLocked(on));
         _physical = Tick(flags, "physical", "edit.physical", _ => SendFlags());
@@ -431,6 +479,33 @@ public partial class EditPanel : VBoxContainer
 
     /// <summary>The section rows a search shows now, by control name (for the automation and the render cases).</summary>
     public IReadOnlyList<string> SearchShown() => BuildLayout.Search(_search.Text, _s).Select(r => r.Id).ToArray();
+
+    /// <summary>A notice in the window's status line (a refusal from a menu entry, or a warning about a choice).</summary>
+    public void Say(string key)
+    {
+        LastRefusal = key;
+        _status.Text = _s.Get(key);
+        _status.Visible = true;
+    }
+
+    private void SendSale(bool fromBox)
+    {
+        if (_edit() is not { } e || _filling)
+            return;
+        var type = (Viewer.Core.Building.SaleKind)_saleType.GetItemId(Math.Max(0, _saleType.Selected));
+        e.SetSale(_forSale.ButtonPressed, type, (int)_price.Value);
+        Refresh();
+    }
+
+    private void ClickChosen(Viewer.Core.Interaction.ClickChoice choice)
+    {
+        if (_edit() is not { } e || _filling)
+            return;
+        var (_, notice) = e.SetClickChoice(choice);
+        if (notice is not null)
+            Say(notice);
+        Refresh();
+    }
 
     private void DoLink()
     {
@@ -639,6 +714,16 @@ public partial class EditPanel : VBoxContainer
             _manipTrack.Visible = e is null || e is { Tool: BuildTool.Edit or BuildTool.Move };
             _createRow.Visible = e is { BuildMode: true, Tool: BuildTool.Create };
             _keepTool.SetPressedNoSignal(e?.KeepToolSelected ?? false);
+            // with Copy selection on no shape button shows chosen, as in the official window
+            foreach (var (shape, b) in _shapeButtons)
+            {
+                b.SetPressedNoSignal(e is { CopySelection: false } && e.ShapeChoice == shape);
+                b.ThemeTypeVariation = b.ButtonPressed ? ReverieStyle.SegmentSelected : ReverieStyle.Segment;
+            }
+            _copySelection.SetPressedNoSignal(e?.CopySelection ?? false);
+            _copyCenters.SetPressedNoSignal(e?.CopyCenters ?? true);
+            _copyRotates.SetPressedNoSignal(e?.CopyRotates ?? false);
+            _copyCenters.Disabled = _copyRotates.Disabled = !(e?.CopySelection ?? false);
             _linked.SetPressedNoSignal(e?.EditLinked ?? false);
             _snap.SetPressedNoSignal(e?.SnapEnabled ?? true);
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
@@ -659,7 +744,23 @@ public partial class EditPanel : VBoxContainer
             // people by name through the session's name cache, never by id (llpanelpermissions.cpp shows names)
             _creator.Text = props is null ? "" : BuildNames.Person(_names, props.CreatorId, _s);
             _owner.Text = props is null ? "" : BuildNames.Owner(_names, props.OwnerId, props.GroupId, false, _s);
-            _sale.Text = props is { ForSale: true } ? string.Format(CultureInfo.InvariantCulture, _s.Get("edit.for_sale.price"), props.SalePrice) : _s.Get("edit.not_for_sale");
+            var sale = e?.SaleState();
+            _forSale.SetPressedNoSignal(sale?.ForSale ?? false);
+            _forSale.Disabled = !(sale?.BoxEnabled ?? false);
+            _price.Editable = sale?.PriceEnabled ?? false;
+            if (!_price.GetLineEdit().HasFocus() && sale is not null)
+                _price.SetValueNoSignal(sale.Price);
+            _saleType.Disabled = !(sale?.TypeEnabled ?? false);
+            if (sale is not null)
+                _saleType.Select(_saleType.GetItemIndex((int)sale.Type));
+            var shownClick = e?.ClickChoiceShown;
+            _clickAction.Disabled = !(e?.ClickChoiceEnabled ?? false);
+            if (shownClick is { } sc)
+                _clickAction.Select(_clickAction.GetItemIndex((int)sc));
+            _impact.Text = e?.LandImpactShown() is var (roots, impact)
+                ? _s.Get("edit.card.land_impact", new Counted("count.objects", roots), impact.ToString(CultureInfo.InvariantCulture))
+                : "";
+            _impact.Visible = _impact.Text.Length > 0;
             const uint copy = 1u << 15, modify = 1u << 14, transfer = 1u << 13, move = 1u << 19;
             bool owned = access.Owned;
             foreach (var c in new[] { _shareGroup, _anyMove, _anyCopy, _nextModify, _nextCopy, _nextTransfer, _locked })

@@ -22,6 +22,15 @@ internal sealed partial class LmvTransport
             return SendMaterial(sim, material);
         if (edit is RequestPhysicsIntent physics)
             return RequestPhysics(sim, physics);
+        if (edit is RequestObjectCostIntent cost)
+            return RequestCost(sim, cost);
+        if (edit is ReturnObjectsIntent ret)
+        {
+            var transaction = UUID.Random();
+            foreach (var part in LmvBuild.ReturnToOwner(self.AgentID, self.SessionID, self.ActiveGroup, ret.Roots, transaction))
+                _client.Network.SendPacket(part, sim);
+            return CommandDispatch.Handed;
+        }
         if (edit is GiveItemToObjectIntent or CopyObjectItemIntent)
             return MoveItem(sim, edit);
         if (LmvFeatures.Packet(self.AgentID, self.SessionID, self.ActiveGroup, edit) is { } feature)
@@ -46,6 +55,9 @@ internal sealed partial class LmvTransport
             UndoObjectsIntent u => LmvEdit.Undo(self.AgentID, self.SessionID, self.ActiveGroup, u.ObjectIds),
             RedoObjectsIntent r => LmvEdit.Redo(self.AgentID, self.SessionID, self.ActiveGroup, r.ObjectIds),
             DuplicateObjectsIntent c => LmvEdit.Duplicate(self.AgentID, self.SessionID, self.ActiveGroup, c.Roots, c.Offset, c.Flags),
+            DuplicateOnRayIntent c => LmvEdit.DuplicateOnRay(self.AgentID, self.SessionID, self.ActiveGroup, c.Roots, c.Placement, c.CopyCenters, c.CopyRotates, c.Flags),
+            SetClickActionIntent c => LmvEdit.ClickAction(self.AgentID, self.SessionID, c.LocalIds, c.Action),
+            SetObjectSaleIntent c => LmvEdit.SaleInfo(self.AgentID, self.SessionID, c.Roots, c.SaleType, c.Price),
             _ => null,
         };
         if (packet is null)
@@ -139,6 +151,34 @@ internal sealed partial class LmvTransport
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 _log.Warn("edit.physics-failed", CoreLog.F("error", ex.GetType().Name));
+            }
+        });
+        return CommandDispatch.Handed;
+    }
+
+    /// <summary>The objects' land impact through the region's GetObjectCost capability (llviewerobjectlist.cpp fetchObjectCostsCoro): each
+    /// answer becomes an event. A region without the capability gives none, and the window shows nothing for it.</summary>
+    private CommandDispatch RequestCost(Simulator sim, RequestObjectCostIntent r)
+    {
+        Uri? cap = null;
+        try { cap = sim.Caps?.CapabilityURI("GetObjectCost"); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { }
+        if (cap is null)
+            return CommandDispatch.NotSent("no_cost_service");
+        var body = LmvFeatures.PhysicsRequest(r.ObjectIds);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var (_, data) = await _client.HttpCapsClient.PostAsync(cap, OSDFormat.Xml, body, CancellationToken.None).ConfigureAwait(false);
+                if (data is null || data.Length > UploadAnswerBytes)
+                    return;
+                foreach (var (id, objectCost, linksetCost) in LmvFeatures.ParseCosts(OSDParser.Deserialize(data)))
+                    Raise(new ObjectCostReceived(id, objectCost, linksetCost));
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _log.Warn("edit.cost-failed", CoreLog.F("error", ex.GetType().Name));
             }
         });
         return CommandDispatch.Handed;

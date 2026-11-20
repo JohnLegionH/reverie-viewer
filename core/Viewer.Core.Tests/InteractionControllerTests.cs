@@ -155,7 +155,7 @@ public class InteractionControllerTests
     public void Actions_this_viewer_does_not_run_are_counted_and_send_nothing()
     {
         var r = new Rig();
-        r.Prim(1, new Vector3(10, 10, 30), new PrimInteraction(ClickAction.Zoom, 0));
+        r.Prim(1, new Vector3(10, 10, 30), new PrimInteraction(ClickAction.Play, 0));
         r.C.LeftDown(r.Down(10, 10));
         Assert.Empty(r.Sent);
         Assert.Equal(1, r.C.UnhandledClicks);

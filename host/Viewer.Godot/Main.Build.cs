@@ -217,8 +217,34 @@ public partial class Main
         if (_camera is null)
             return;
         var at = -_camera.GlobalBasis.Z;
-        if (ic.Place(PickAt(screen), Region(_camera.GlobalPosition), Region(at), Region(_camera.ProjectRayNormal(screen)), _camera.Near))
+        if (_edit is { CopySelection: true } copy)
+        {
+            // Copy selection: the selection is copied to the click instead of a new shape being made
+            if (copy.PlaceCopy(PickAt(screen), Region(_camera.GlobalPosition), Region(at), Region(_camera.ProjectRayNormal(screen)), _camera.Near))
+            {
+                ic.CancelCreate();
+                HandBackAfterCreate(ic);
+            }
+            else
+                _uiSounds?.Play(Viewer.Shell.Sound.UiSoundSlot.InvalidOp);
+            return;
+        }
+        if (ic.Place(PickAt(screen), Region(_camera.GlobalPosition), Region(at), Region(_camera.ProjectRayNormal(screen)), _camera.Near, _edit?.ShapeChoice ?? Viewer.Core.Building.CreateShape.Cube))
             HandBackAfterCreate(ic);
+    }
+
+    /// <summary>A click on an object set to Zoom: the camera moves to frame its box and the focus goes to its centre (lltoolpie.cpp).</summary>
+    private void ZoomOnObject(Viewer.Core.World.ObjectState o)
+    {
+        if (_camera is null || _presented is not { } s || !Viewer.Core.Interaction.ObjectPicker.WorldPose(s.World, o, out var centre, out _))
+            return;
+        var cameraAt = Region(_camera.GlobalPosition);
+        var toCamera = cameraAt - centre;
+        toCamera = toCamera.LengthSquared() > 1e-6f ? System.Numerics.Vector3.Normalize(toCamera) : System.Numerics.Vector3.UnitX;
+        float aspect = GetViewport().GetVisibleRect().Size.X / System.Math.Max(1f, GetViewport().GetVisibleRect().Size.Y);
+        float distance = Viewer.Core.Interaction.ClickChoices.ZoomDistance(o.Scale, Mathf.DegToRad(_camera.Fov), aspect);
+        var world = s.World;
+        _follow.SetCameraPosAndFocus(centre + toCamera * distance, centre, () => Viewer.Core.Interaction.ObjectPicker.WorldPose(world, o, out var p, out _) ? p : centre, o.Scale);
     }
 
     /// <summary>After a placement: the tool hands back to Edit's Move, or with Keep Tool selected the create tool waits for the next click

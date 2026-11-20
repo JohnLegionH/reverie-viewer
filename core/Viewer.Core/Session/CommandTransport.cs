@@ -173,7 +173,8 @@ public sealed record ScriptPermissionAnswerCommand(SimRef? Sim, Guid TaskId, Gui
 public sealed record OpenUrlCommand(string Url) : TransportCommand, ILocalCommand;
 
 /// <summary>Make the default box (the create tool's ObjectAdd) where the placement's ray says.</summary>
-public sealed record CreateObjectCommand(Viewer.Core.Building.Placement Placement, System.Numerics.Vector3 Scale, byte Material) : TransportCommand;
+public sealed record CreateObjectCommand(Viewer.Core.Building.Placement Placement, System.Numerics.Vector3 Scale, byte Material,
+    Viewer.Core.Building.CreateShape Shape = Viewer.Core.Building.CreateShape.Cube, byte Species = 0) : TransportCommand;
 
 /// <summary>Rez an object from the agent's inventory (RezObject) where the placement's ray says.</summary>
 public sealed record RezItemCommand(Guid ItemId, Viewer.Core.Building.Placement Placement) : TransportCommand;

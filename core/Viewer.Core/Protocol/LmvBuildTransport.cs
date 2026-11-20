@@ -32,7 +32,7 @@ internal sealed partial class LmvTransport
         switch (command)
         {
             case CreateObjectCommand create:
-                _client.Network.SendPacket(LmvBuild.ObjectAdd(self.AgentID, self.SessionID, self.ActiveGroup, create.Placement, create.Scale, create.Material), sim);
+                _client.Network.SendPacket(LmvBuild.ObjectAdd(self.AgentID, self.SessionID, self.ActiveGroup, create.Placement, create.Scale, create.Material, create.Shape, create.Species), sim);
                 break;
             case RezItemCommand rez:
             {

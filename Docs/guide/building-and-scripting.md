@@ -10,6 +10,7 @@ You build in a region that lets you. On land you do not own, you can often still
 |---|---|
 | Ctrl+B | Build mode on or off |
 | Ctrl+1, Ctrl+2, Ctrl+3, Ctrl+4 | Focus, Grab, Edit, Create |
+| Ctrl+D | Duplicate the selection |
 | Ctrl+L, Ctrl+Shift+L | Link, Unlink |
 | Ctrl+. and Ctrl+, | Select the next part, the previous part |
 | Ctrl+Z, Ctrl+Y | Undo, Redo |
@@ -38,13 +39,25 @@ The top row of the window has the tools. You can also choose them from the **Bui
 | **Focus** | Ctrl+1 | Click to look at a point. Hold Ctrl and drag to orbit. Hold Ctrl+Shift and drag to pan. |
 | **Grab** | Ctrl+2 | Drag an object to move it. Hold Ctrl to lift it, Ctrl+Shift to spin it. Called the Move tool in the official viewer. |
 | **Edit** | Ctrl+3 | Click an object to select it, then change it with the handles or the window. |
-| **Create** | Ctrl+4 | Click the ground or an object to place a new box. Esc cancels. |
+| **Create** | Ctrl+4 | Choose a shape, then click the ground or an object to place it. Esc cancels. |
 
 A fifth button, **Land**, is greyed. The land tools are not in Reverie yet.
 
 A line under the tools tells you what the mouse does with the tool you have. It changes while you hold Ctrl or Ctrl+Shift.
 
-With **Create**, tick **Keep Tool selected** to stay in Create after each box. Otherwise the tool goes back to Edit. The size of a new box is set in Preferences > Building.
+### The shapes and the Create options
+
+With **Create** the window shows fifteen shape buttons: **Cube**, **Prism**, **Pyramid**, **Tetrahedron**, **Cylinder**, **Hemicylinder**, **Cone**, **Hemicone**, **Sphere**, **Hemisphere**, **Torus**, **Tube**, **Ring**, **Tree** and **Grass**. Press one, then click the ground or an object. A shape you make arrives selected. A tree or a patch of grass does not: the region picks a kind of tree or grass at random, and a patch of grass comes in a random size.
+
+- **Keep Tool selected**: stay in Create after each placement. Otherwise the tool goes back to Edit. The size of a new shape is set in Preferences > Building.
+- **Copy selection**: the next click places a copy of what you have selected instead of a new shape. Pressing a shape button turns it off again. Nothing is copied if you have nothing selected.
+- **Center Copy** and **Rotate Copy**: only while Copy selection is ticked. Center Copy is on by default. They decide how the copy sits at the click.
+
+### Duplicate
+
+Choose **Build > Object > Duplicate** (Ctrl+D). Each selected object is copied half a metre east and north of itself, and the copies become the selection. It is greyed unless something you may copy is selected. A worn object is never duplicated.
+
+With the Grab or Edit tool and the move handles, hold **Shift** and drag an arrow. When the pointer has moved two pixels, a copy stays where the object was and the original goes on with the drag. A click without a drag leaves no copy.
 
 ### Select objects
 
@@ -71,6 +84,10 @@ With the Edit tool, a selected object shows handles.
 4. **Select Face**: click one face to pick it so you can texture it alone. Shift+click adds or removes faces.
 
 The object follows the pointer while you hold the button, and stays where you let go.
+
+### The selection card
+
+The card at the top shows how many objects are selected and their **land impact**, for example "1 object selected, land impact 3". It is the region's figure for the whole linked object, added up for each selected object that is not worn. It reads 0 until the region answers, and shows nothing for a region that does not report it.
 
 ### Placement
 
@@ -112,7 +129,8 @@ Every colour box in Reverie opens the same **Color Picker**.
 - **Name** and **Description**.
 - **Creator** and **Owner**.
 - Permissions: **Share with group**, **Anyone can move**, **Anyone can copy**, and what the **Next owner can** do (Modify, Copy, Transfer).
-- Whether it is **For sale**, and the price.
+- **For sale**: tick it, choose the sale type (**Copy**, **Contents** or **Original**) and set the price in L$. A price of 0 is allowed. The controls are greyed for an object that is not yours or that you cannot transfer, and show nothing definite when the selected objects differ. When every selected object was still on Touch or Buy, putting it up for sale also sets **Buy**, and taking it off sale sets **Touch**.
+- **When left-clicked**: what a left click on the object does: **Touch (default)**, **Sit on object**, **Buy object**, **Pay object**, **Open**, **Zoom** or **Ignore object**, or **None** (the click does nothing). It goes to every part of the selected object. **Buy object** is refused for an object that is not for sale. **Pay object** is set with a warning when no script takes money. **Zoom** moves the camera to frame the object. **Ignore object** lets clicks pass through the object while the Build window is closed. The play and open-media actions that media controls set are not run, because Reverie shows no media on a prim yet.
 - **Locked**, **Physical**, **Temporary** and **Phantom**.
 - **Edit linked**, **Select Only My Objects**, and the **Link** and **Unlink** buttons.
 
@@ -164,6 +182,7 @@ Right-click an object in the world. The menu has:
 
 - **Take**: puts the object into your inventory (in the Objects folder) and removes it from the world.
 - **Take Copy**: puts a copy into your inventory and leaves the object where it is. It shows only for an object you may copy.
+- **Return**: sends the object back to its owner. A question asks first; choose its **OK** entry to go on. It is greyed for something you wear. Whether you may return the object is decided by the region: your own objects, and objects on land you own or have the rights to manage.
 - **Delete**: moves the object to your Trash. For an object that is locked, cannot be copied, or is not yours, a question asks first. Choose its **OK** entry to go on. Closing the menu cancels.
 
 When an object is for sale and is not yours, **Buy** takes the place of **Take**. For your own worn objects, see [Inventory, outfits and appearance](inventory-and-appearance.md).

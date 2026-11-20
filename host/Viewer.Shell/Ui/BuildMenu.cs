@@ -71,6 +71,21 @@ public static class BuildMenu
         menus.AddSubEntry(OptionsId, new MenuEntry(OwnedOnlyId, "menu.build.owned_only", OwnedOnlyCommand, inWorld, 5, () => edit()?.SelectOwnedOnly ?? false));
     }
 
+    public const string ObjectId = "build.object", DuplicateId = "build.object.duplicate";
+    public const string DuplicateCommand = "build.object.duplicate";
+
+    /// <summary>The Object list stands after Take Into Folder and before Scripts (menu_viewer.xml); this viewer's holds Duplicate (Ctrl+D), on
+    /// while something copyable is selected (llselectmgr.cpp canDuplicate).</summary>
+    public const int ObjectOrder = 650;
+
+    public static void InstallObject(MenuModel menus, Func<bool> inWorld, Func<Viewer.Shell.Build.EditController?> edit)
+    {
+        if (!menus.Menus.Any(m => m.Id == MenuId))
+            menus.AddMenu(MenuId, "menu.build");
+        menus.AddSubmenu(MenuId, ObjectId, "menu.build.object", ObjectOrder);
+        menus.AddSubEntry(ObjectId, new MenuEntry(DuplicateId, "menu.build.duplicate", DuplicateCommand, () => inWorld() && edit() is { CanDuplicate: true }, 10, Shortcut: "control|D"));
+    }
+
     public const string ScriptsId = "build.scripts", RecompileMonoId = "build.scripts.mono", RecompileLslId = "build.scripts.lsl",
         ResetScriptsId = "build.scripts.reset", SetRunningId = "build.scripts.running", SetNotRunningId = "build.scripts.not_running";
     public const string RecompileMonoCommand = "build.scripts.mono", RecompileLslCommand = "build.scripts.lsl", ResetScriptsCommand = "build.scripts.reset",

@@ -111,7 +111,7 @@ public static class ObjectPicker
 
     /// <summary>The nearest of the world's prims (not attachments), avatars (not <paramref name="ignoreAgent"/>) and the ground.</summary>
     public static PickResult Pick(WorldState world, PickRay ray, Func<float, float, float>? ground, float maxDistance = 300f, Guid? ignoreAgent = null, PickGeometryCache? cache = null,
-        Func<ObjectState, Matrix4x4?>? attachmentFrame = null)
+        Func<ObjectState, Matrix4x4?>? attachmentFrame = null, Func<ObjectState, bool>? skip = null)
     {
         cache ??= new PickGeometryCache();
         float dirLength = ray.Direction.Length();
@@ -122,6 +122,9 @@ public static class ObjectPicker
         PickHit? bestHit = null;
         foreach (var o in byLocal.Values)
         {
+            // an object set to "Ignore object" is passed over while the Build window is closed (llvovolume.cpp lineIntersectionTest)
+            if (skip is not null && skip(o))
+                continue;
             if (!TryPose(o, byLocal, 0, attachmentFrame, out var pos, out var rot, out uint root))
                 continue;
             var hit = PickPrim(o, pos, rot, ray, root, cache);

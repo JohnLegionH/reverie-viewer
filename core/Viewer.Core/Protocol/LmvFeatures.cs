@@ -132,6 +132,19 @@ internal static class LmvFeatures
     /// <summary>GetObjectPhysicsData's request body: the objects' ids.</summary>
     public static OSDMap PhysicsRequest(IReadOnlyList<Guid> ids) => new() { ["object_ids"] = new OSDArray([.. ids.Select(i => OSD.FromUUID(new UUID(i)))]) };
 
+    /// <summary>GetObjectCost's answer: a map of each object's id to its "resource_cost" and "linked_set_resource_cost" (the official viewer reads
+    /// the same keys, llviewerobjectlist.cpp fetchObjectCostsCoro). An error answer, or an object it left out, gives nothing.</summary>
+    public static IReadOnlyList<(Guid Id, float ObjectCost, float LinksetCost)> ParseCosts(OSD? reply)
+    {
+        if (reply is not OSDMap map || map.ContainsKey("error"))
+            return [];
+        var read = new List<(Guid, float, float)>();
+        foreach (var key in map.Keys)
+            if (Guid.TryParse(key, out var id) && map[key] is OSDMap v)
+                read.Add((id, (float)v["resource_cost"].AsReal(), (float)v["linked_set_resource_cost"].AsReal()));
+        return read;
+    }
+
     /// <summary>GetObjectPhysicsData's answer: a map of each object's id to its shape type, density, friction, restitution and gravity multiplier.</summary>
     public static IReadOnlyList<(Guid Id, PhysicsParams Physics)> ParsePhysics(OSD? reply)
     {

@@ -92,6 +92,12 @@ public partial class Main
         shell.Commands.Register(BuildMenu.UndoCommand, () => _edit?.Undo());
         shell.Commands.Register(BuildMenu.RedoCommand, () => _edit?.Redo());
         BuildMenu.InstallSelectionHelpers(shell.Menus, InWorld, () => _edit);
+        BuildMenu.InstallObject(shell.Menus, InWorld, () => _edit);
+        shell.Commands.Register(BuildMenu.DuplicateCommand, () =>
+        {
+            if (_edit?.Duplicate() is { } why)
+                _editPanel?.Say("edit." + why);
+        });
         shell.Commands.Register(BuildMenu.NextPartCommand, () => _edit?.SelectNextPart(true));
         shell.Commands.Register(BuildMenu.PreviousPartCommand, () => _edit?.SelectNextPart(false));
         shell.Commands.Register(BuildMenu.OwnedOnlyCommand, () => { if (_edit is { } e) { e.SelectOwnedOnly = !e.SelectOwnedOnly; _editPanel?.Refresh(); } });
@@ -240,7 +246,7 @@ public partial class Main
                     EditRelease(e, b.Position);
                 return true;
             case InputEventMouseMotion m when _handleDrag is not null:
-                HandleMotion(e, m.Position);
+                HandleMotion(e, m.Position, m.ShiftPressed);
                 return true;
             case InputEventMouseMotion m when _editDrag is { } d:
                 EditMotion(e, d, m.Position);

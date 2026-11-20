@@ -77,7 +77,6 @@ public class ClickActionTests
     [Theory]
     [InlineData(ClickAction.Play)]
     [InlineData(ClickAction.OpenMedia)]
-    [InlineData(ClickAction.Zoom)]
     public void The_actions_this_viewer_does_not_run_are_reported_as_unhandled(byte action)
     {
         Assert.Equal(LeftClick.Unhandled, ClickAction.Left(With(action), With(), false, false));

@@ -76,6 +76,10 @@ public static class BuildLayout
         R("undo", null, "edit.undo", "undo"),
         R("redo", null, "edit.redo", "redo"),
         R("keep_tool", null, "edit.keep_tool", "Keep Tool selected", "sticky"),
+        R("copy_selection", null, "edit.copy_selection", "Copy selection", "duplicate", "copy"),
+        R("copy_centers", null, "edit.copy_centers", "Center Copy"),
+        R("copy_rotates", null, "edit.copy_rotates", "Rotate Copy"),
+        R("create_shapes", null, "edit.shape.cube", "cube", "prism", "pyramid", "tetrahedron", "cylinder", "cone", "sphere", "hemisphere", "torus", "tube", "ring", "tree", "grass", "shapes", "prim shapes"),
 
         // Placement (the official Object tab's place, size and rotation)
         R("position", BuildSection.Placement, "edit.position", "Position (meters)", "location", "coordinates"),
@@ -134,6 +138,9 @@ public static class BuildLayout
         R("anyone_copy", BuildSection.Object, "edit.anyone_copy", "Anyone can copy", "permissions"),
         R("next_row", BuildSection.Object, "edit.next_owner", "Next owner can", "permissions", "modify", "transfer"),
         R("for_sale", BuildSection.Object, "edit.for_sale", "For Sale", "price", "sell"),
+        R("sale_price", BuildSection.Object, "edit.sale_price", "Cost", "price", "L$"),
+        R("sale_type", BuildSection.Object, "edit.sale_type", "Original", "Copy", "Contents", "sell"),
+        R("click_action", BuildSection.Object, "edit.click_action", "Click action", "Touch", "Sit", "Buy", "Pay", "Zoom", "Ignore", "left click"),
         R("locked", BuildSection.Object, "edit.locked", "Locked"),
         R("physical", BuildSection.Object, "edit.physical", "Physical"),
         R("temporary", BuildSection.Object, "edit.temporary", "Temporary", "temp"),

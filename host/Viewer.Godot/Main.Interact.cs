@@ -129,6 +129,7 @@ public partial class Main
                 // Copy and Wear: the new folder's items are worn once the whole set has reached the inventory
                 _interact.ItemsInFolder = f => s.Inventory.LoadState(f) == Viewer.Core.Inventory.FolderLoad.Loaded ? s.Inventory.ChildItems(f).Count : (s.Inventory.EnsureLoaded(f) ? 0 : 0);
                 _interact.WearFolder = f => outfitActions.WearOutfit(f);
+                _interact.ZoomRequested += ZoomOnObject;
                 _interact.InspectRequested += _ => { _inspectingAvatar = false; _shell.Shell.Floaters.Open(InteractFeature.InspectId); RefreshInteractWindows(); };
                 _interact.AvatarInspectRequested += a => { _inspectingAvatar = true; _inspectedAvatar = a; _shell.Shell.Floaters.Open(InteractFeature.InspectId); RefreshInteractWindows(); };
                 _interact.AppearanceRequested += () => _shell.Shell.Floaters.Open(AppearanceFeature.FloaterId);
@@ -154,8 +155,13 @@ public partial class Main
         while (_textChanges.TryDequeue(out var c))
         {
             TrackText(sess.World, c);
-            if (c.Kind == WorldChangeKind.ObjectAdded && _newPrims is { Waiting: > 0 } made && sess.World.Object(c.Id) is { } added && made.Arrived(added))
-                _edit?.Created(added.Id.LocalId);   // the new box becomes the selection (it arrived made selected)
+            if (c.Kind == WorldChangeKind.ObjectAdded && sess.World.Object(c.Id) is { } added)
+            {
+                if (_newPrims is { Waiting: > 0 } made && made.Arrived(added))
+                    _edit?.Created(added.Id.LocalId);   // the new box becomes the selection (it arrived made selected)
+                else
+                    _edit?.CopyArrived(added);          // a copy Duplicate asked for joins the selection
+            }
         }
         ic.Tick();
         _seatMouseLook?.Update(ic.Sitting, ic.Seat is { ForceMouselook: true });   // a seat that asks for mouse-look puts the view into it
@@ -324,7 +330,8 @@ public partial class Main
         var world = s.World;
         // a right click may land on the own avatar (its own menu); the objects the own avatar wears are found where the avatar's skeleton puts them
         return ObjectPicker.Pick(world, ray, (x, y) => Presentation.BanWallLayer.GroundFrom(world, x, y), MathF.Max(256f, s.DrawDistance), includeSelf ? null : s.AgentId, _pickCache,
-            o => OwnAttachmentFrame(s.AgentId, o));
+            o => OwnAttachmentFrame(s.AgentId, o),
+            skip: o => o.Interaction?.ClickAction == Viewer.Core.Interaction.ClickAction.Ignore && _edit is not { BuildMode: true });
     }
 
     /// <summary>The objects the own avatar wears that the outfit does not list (one put on from the ground has no link in the current outfit),

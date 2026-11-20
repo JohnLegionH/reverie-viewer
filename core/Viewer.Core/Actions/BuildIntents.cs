@@ -20,13 +20,14 @@ internal static class PlacementRules
     }
 }
 
-/// <summary>Make a box where the ray says (Build, Create): the default half-metre wooden box, or the size and material the new-prim
-/// settings give.</summary>
-public sealed record CreateBoxIntent(Placement Placement, Vector3? Scale = null, byte? Material = null) : ActionIntent
+/// <summary>Make a shape where the ray says (Build, Create): the default half-metre wooden box, or the size and material the new-prim
+/// settings give; <paramref name="Shape"/> is the Create tool's button (a box when not given) and <paramref name="Species"/> the kind of tree or
+/// grass.</summary>
+public sealed record CreateBoxIntent(Placement Placement, Vector3? Scale = null, byte? Material = null, CreateShape Shape = CreateShape.Cube, byte Species = 0) : ActionIntent
 {
     public override ActionKind Kind => ActionKind.CreateObject;
     public override IReadOnlyList<ActionIssue> Validate() => PlacementRules.Check(Placement, "create");
-    internal override TransportCommand? ToCommand() => new CreateObjectCommand(Placement, Scale ?? DefaultBox.Scale, Material ?? DefaultBox.MaterialWood);
+    internal override TransportCommand? ToCommand() => new CreateObjectCommand(Placement, Scale ?? DefaultBox.Scale, Material ?? DefaultBox.MaterialWood, Shape, Species);
 }
 
 /// <summary>Rez an object from the agent's inventory where the ray says.</summary>

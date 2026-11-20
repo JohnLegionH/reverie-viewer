@@ -217,6 +217,8 @@ public sealed partial class EditController
         _selection.Add(id);
         // the region answers a selection with the object's properties (owner, creator, permissions)
         _submit(new ObjectPropertiesIntent(id, Hold: true));
+        if (Find(RootOf(id)) is { } root)
+            _submit(new RequestObjectCostIntent([root.FullId]));
     }
 
     /// <summary>What may be done with a selected object.</summary>
@@ -241,6 +243,7 @@ public sealed partial class EditController
             return;
         }
         ReceiveFeatures(e);
+        ReceiveCost(e);
         if (e is ObjectPropertiesReceived p)
         {
             _properties[p.ObjectId] = p;

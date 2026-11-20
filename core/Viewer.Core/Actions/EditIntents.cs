@@ -144,6 +144,48 @@ public sealed record DuplicateObjectsIntent(IReadOnlyList<uint> Roots, Vector3 O
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
 
+/// <summary>The create tool's "Copy selection": copies the roots to where the placement's ray says. The copy is not selected unless
+/// <paramref name="Flags"/> asks (the create tool does not).</summary>
+public sealed record DuplicateOnRayIntent(IReadOnlyList<uint> Roots, Placement Placement, bool CopyCenters, bool CopyRotates, uint Flags = 0) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => [.. EditText.Objects(Roots), .. PlacementRules.Check(Placement, "duplicate")];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>"When left-clicked": the action a click on each of these objects runs (<see cref="Viewer.Core.Interaction.ClickAction"/>).</summary>
+public sealed record SetClickActionIntent(IReadOnlyList<uint> LocalIds, byte Action) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => EditText.Objects(LocalIds);
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>For sale: the sale type (0 not for sale, 1 original, 2 copy, 3 contents) and the price of each of these roots.</summary>
+public sealed record SetObjectSaleIntent(IReadOnlyList<uint> Roots, byte SaleType, int Price) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() =>
+        [.. EditText.Objects(Roots), .. (SaleType > 3 || Price < 0 ? [new ActionIssue("edit.bad_number")] : Array.Empty<ActionIssue>())];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Return objects to their owners (the right-click menu's Return). The region decides which of them the agent may return.</summary>
+public sealed record ReturnObjectsIntent(IReadOnlyList<uint> Roots) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => EditText.Objects(Roots);
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
+/// <summary>Ask the region for the land impact of some objects (its GetObjectCost capability).</summary>
+public sealed record RequestObjectCostIntent(IReadOnlyList<Guid> ObjectIds) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => ObjectIds.Count == 0 || ObjectIds.Any(i => i == Guid.Empty) ? [new ActionIssue("edit.no_object")] : [];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
 /// <summary>Flexible Path on (with its settings) or off (<paramref name="Flexible"/> null) for one prim: the flexible block and the shape's
 /// path, as the official Features tab sends them (LLVOVolume::setIsFlexible).</summary>
 public sealed record SetFlexibleIntent(uint LocalId, FlexibleParams? Flexible) : ActionIntent

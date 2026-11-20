@@ -32,12 +32,17 @@ public static class BuildRules
     public const float MaxPlaceDistance = 127f;
 
     /// <summary>The protocol's derez destinations used here.</summary>
-    public const byte DeRezTakeIntoInventory = 4, DeRezTrash = 6;
+    public const byte DeRezTakeIntoInventory = 4, DeRezTrash = 6, DeRezReturnToOwner = 9;
 
     /// <summary>Take: an object on the ground that the agent owns, or one that may be modified and transferred; not one worn or sat on.</summary>
     public static bool CanTake(uint flags, bool attachment, bool sittingOnIt) =>
         !attachment && !sittingOnIt &&
         ((flags & ObjectFlagBits.YouOwner) != 0 || (flags & (ObjectFlagBits.Modify | ObjectFlagBits.Transfer)) == (ObjectFlagBits.Modify | ObjectFlagBits.Transfer));
+
+    /// <summary>Return: the right-click menu offers it for any object that is not worn (llviewermenu.cpp get_derezzable_objects, case
+    /// DRD_RETURN_TO_OWNER: every root that is not an attachment counts). Whether the agent may return that object is the region's decision,
+    /// by who owns it and the land it stands on; the viewer does not test it.</summary>
+    public static bool CanReturn(bool attachment) => !attachment;
 
     /// <summary>Delete: an object on the ground that the agent owns or may modify.</summary>
     public static bool CanDelete(uint flags, bool attachment) =>

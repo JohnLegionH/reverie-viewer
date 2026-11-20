@@ -98,6 +98,10 @@ public static class ContextMenus
             list.Add(new("attach_hud", "menu.attach_hud", wearable, AttachPoints(AttachmentMenu.HudPoints, wearable)));
         }
         list.Add(c.IsBlocked ? new("unblock", "menu.unblock") : new("block", "menu.block"));
+        // Return stands with Block in the official "Manage" list (menu_object.xml); it asks first with the official question, and only its
+        // confirm entry sends the return. The region decides whether the agent may return the object.
+        bool returnable = Viewer.Core.Building.BuildRules.CanReturn(c.Attachment);
+        list.Add(new("return", "menu.return", returnable, [new ContextEntry("return/question", "menu.return_confirm", false), new ContextEntry("return/confirm", "menu.return_ok", returnable)]));
         return list;
     }
 

@@ -45,7 +45,6 @@ public static class ViewerShortcuts
         ("control|alt|shift|N", "Beacons"), ("control|alt|shift|P", "Property lines"),
         ("H", "Focus on selection"), ("shift|H", "Zoom to selection"),
         ("control|alt|R", "Rebake textures"), ("control|shift|2", "Scene load statistics"),
-        ("control|D", "Duplicate"),
         ("control|E", "Events"),
         ("control|shift|F", "Friends (the People window has no Friends tab to open on)"),
         ("control|shift|G", "Groups (the People window has no Groups tab to open on)"),

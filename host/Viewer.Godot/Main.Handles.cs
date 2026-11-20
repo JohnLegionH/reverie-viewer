@@ -36,7 +36,8 @@ public partial class Main
         public PickRay Start;
         public NVector3 Centre, Size;
         public NQuaternion Frame;
-        public bool Copied;
+        public bool Copied, OutsideSlop;
+        public Vector2 DownAt;
         public ulong LastSent;
         public Action? Pending;
     }
@@ -143,14 +144,7 @@ public partial class Main
         var h = Manipulator.Hit(mode, centre, frame, size, HandleViewNow(), ProjectN, new NVector2(at.X, at.Y));
         if (h.Kind == HandleKind.None || !e.BeginManip())
             return false;
-        _handleDrag = new HandleDragState { Handle = h, Mode = mode, Start = RayAt(at), Centre = centre, Frame = frame, Size = size };
-        // Shift at the start of a Move drag leaves a copy where the selection was (llmaniptranslate.cpp: selectDuplicate with no offset)
-        if (shift && mode == ManipMode.Move && e.CopyInPlace())
-        {
-            _handleDrag.Copied = true;
-            _heldMoveCopyFrom = e.Object()?.Position;   // the primary root: its copy appears where it stands
-            _copyAskedAt = Time.GetTicksMsec();
-        }
+        _handleDrag = new HandleDragState { Handle = h, Mode = mode, Start = RayAt(at), Centre = centre, Frame = frame, Size = size, DownAt = at };
         return true;
     }
 
@@ -158,10 +152,25 @@ public partial class Main
     private NVector3? _heldMoveCopyFrom;
     private ulong _copyAskedAt;
 
-    private void HandleMotion(EditController e, Vector2 at)
+    private void HandleMotion(EditController e, Vector2 at, bool shift)
     {
         if (_handleDrag is not { } d)
             return;
+        // The mouse must leave the slop square round where it went down before the drag starts. Shift held at that moment leaves a copy where
+        // the selection stands, and that movement does nothing else (llmaniptranslate.cpp 459-476: MOUSE_DRAG_SLOP, selectDuplicate with no offset).
+        if (!d.OutsideSlop)
+        {
+            if (!EditController.LeavesDragSlop(d.DownAt.X, d.DownAt.Y, at.X, at.Y))
+                return;
+            d.OutsideSlop = true;
+            if (shift && d.Mode == ManipMode.Move && e.CopyInPlace())
+            {
+                d.Copied = true;
+                _heldMoveCopyFrom = e.Object()?.Position;   // the primary root: its copy appears where it stands
+                _copyAskedAt = Time.GetTicksMsec();
+                return;
+            }
+        }
         var now = RayAt(at);
         var axis = NVector3.Transform(Manipulator.AxisVector(d.Handle.Axis), d.Frame);
         Action? step = d.Handle.Kind switch
@@ -358,7 +367,7 @@ public partial class Main
             {
                 if (_handleDrag is { } d)
                     d.LastSent = 0;   // every step goes out, as a slow hand's would
-                HandleMotion(e, a.Lerp(b, i / 8f));
+                HandleMotion(e, a.Lerp(b, i / 8f), shift);
             }
             HandleRelease(e);
             return new { handle = handle.Kind.ToString().ToLowerInvariant(), axis = handle.Axis, sign = handle.Sign, corner = handle.Corner, copied = shift };

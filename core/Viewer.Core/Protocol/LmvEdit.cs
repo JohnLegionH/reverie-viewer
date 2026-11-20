@@ -180,6 +180,37 @@ internal static class LmvEdit
         ObjectData = [.. objects.Select(o => new RedoPacket.ObjectDataBlock { ObjectID = new UUID(o) })],
     };
 
+    /// <summary>The create tool's "Copy selection": the selected roots copied to where the ray says (ObjectDuplicateOnRay; llselectmgr.cpp
+    /// selectDuplicateOnRay). The create tool sends the copy unselected.</summary>
+    public static ObjectDuplicateOnRayPacket DuplicateOnRay(UUID agent, UUID session, UUID group, IReadOnlyList<uint> roots, Placement p, bool copyCenters,
+        bool copyRotates, uint flags) => new()
+    {
+        AgentData =
+        {
+            AgentID = agent, SessionID = session, GroupID = group,
+            RayStart = new LibreMetaverse.Vector3(p.RayStart.X, p.RayStart.Y, p.RayStart.Z),
+            RayEnd = new LibreMetaverse.Vector3(p.RayEnd.X, p.RayEnd.Y, p.RayEnd.Z),
+            BypassRaycast = p.BypassRaycast, RayEndIsIntersection = false, CopyCenters = copyCenters, CopyRotates = copyRotates,
+            RayTargetID = new UUID(p.RayTargetId), DuplicateFlags = flags,
+        },
+        ObjectData = roots.Select(l => new ObjectDuplicateOnRayPacket.ObjectDataBlock { ObjectLocalID = l }).ToArray(),
+    };
+
+    /// <summary>"When left-clicked": one ObjectClickAction block for each object, parts as well as roots (llselectmgr.cpp
+    /// selectionSetClickAction sends to every selected object).</summary>
+    public static ObjectClickActionPacket ClickAction(UUID agent, UUID session, IReadOnlyList<uint> locals, byte action) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = locals.Select(l => new ObjectClickActionPacket.ObjectDataBlock { ObjectLocalID = l, ClickAction = action }).ToArray(),
+    };
+
+    /// <summary>For sale: one ObjectSaleInfo block for each root, with the sale type and the price (llselectmgr.cpp selectionSetObjectSaleInfo).</summary>
+    public static ObjectSaleInfoPacket SaleInfo(UUID agent, UUID session, IReadOnlyList<uint> roots, byte saleType, int price) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = roots.Select(l => new ObjectSaleInfoPacket.ObjectDataBlock { LocalID = l, SaleType = saleType, SalePrice = price }).ToArray(),
+    };
+
     public static ObjectDuplicatePacket Duplicate(UUID agent, UUID session, UUID group, IReadOnlyList<uint> roots, System.Numerics.Vector3 offset, uint flags) => new()
     {
         AgentData = { AgentID = agent, SessionID = session, GroupID = group },

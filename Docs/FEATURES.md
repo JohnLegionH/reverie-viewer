@@ -48,6 +48,10 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 - Build mode: **Build > Build** (Ctrl+B). Tools: Focus (Ctrl+1), Grab (Ctrl+2), Edit (Ctrl+3), Create (Ctrl+4).
 - The Build window has a tool row (Focus, Grab, Edit, Create; Land is greyed), the Move, Rotate, Stretch and Select Face modes with Undo and Redo, and folding sections: Contents, Placement, Shape, Look, Object and Behaviour. Move, rotate and stretch handles; PBR materials (Look); the colour picker from any colour swatch.
+- Create places one of fifteen shapes (cube, prism, pyramid, tetrahedron, cylinder, hemicylinder, cone, hemicone, sphere, hemisphere, torus, tube, ring, tree, grass), with Keep Tool selected, Copy selection, Center Copy and Rotate Copy.
+- Duplicate (Ctrl+D): **Build > Object > Duplicate**. A Shift-drag of a move handle leaves a copy behind.
+- Object section: For sale (Copy, Contents or Original, and the price), When left-clicked (Touch, Sit, Buy, Pay, Open, Zoom, Ignore or None). The selection card shows the land impact.
+- Return: right-click an object (a question asks first).
 - Link (Ctrl+L), Unlink (Ctrl+Shift+L), Edit Linked Parts, Select Next Part (Ctrl+.) and Previous Part (Ctrl+,), Select Only My Objects: **Build** menu.
 - Undo (Ctrl+Z) and Redo (Ctrl+Y): **Build** menu.
 - Grid snapping: **Build > Options** (Snap to Grid G, Snap Object XY to Grid Shift+X, Use Selection for Grid Shift+G, Grid Options… Ctrl+Shift+B).
@@ -96,6 +100,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 | F9 | Next environment choice (an active gesture on F9 wins) |
 | Ctrl+B | Build mode |
 | Ctrl+1, 2, 3, 4 | Focus, Grab, Edit, Create |
+| Ctrl+D | Duplicate the selection |
 | Ctrl+L, Ctrl+Shift+L | Link, Unlink |
 | Ctrl+. and Ctrl+, | Select next part, previous part |
 | Ctrl+Z, Ctrl+Y | Undo, Redo |
@@ -119,7 +124,7 @@ Things people coming from other viewers look for. They are not in this preview:
 
 - Snapshots; search; landmarks and a places list; teleport history.
 - Profiles; a list of people nearby; paying or giving items to people; groups beyond chat, notices and your active group.
-- Land, parcel and estate tools; the Land build tool; hypergrid travel.
+- Land, parcel and estate tools; the Land build tool; hypergrid travel; the object weights window (Reverie shows the land impact only).
 - Saved chat logs; away and do-not-disturb replies; emoji, spell check and translation.
 - Inventory: emptying the Trash, copy and paste, item properties, a Worn tab and filters.
 - Voice, parcel music, media on a prim and particles.

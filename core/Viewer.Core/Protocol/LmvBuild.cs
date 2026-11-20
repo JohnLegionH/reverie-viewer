@@ -24,32 +24,44 @@ internal static class LmvBuild
 
     private static Vector3 L(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
-    /// <summary>The create tool's message for a box: square profile on a straight path, of the size and material given (the default
-    /// half-metre wooden box unless the new-prim settings say otherwise), made selected; the placement's ray tells the region where it goes.</summary>
-    public static ObjectAddPacket ObjectAdd(UUID agent, UUID session, UUID group, Placement p, System.Numerics.Vector3 scale, byte material) => new()
+    /// <summary>The create tool's message for a shape (the default is the box: square profile on a straight path), of the size and material given
+    /// (the default half-metre wooden box unless the new-prim settings say otherwise); the placement's ray tells the region where it goes. A
+    /// volume arrives selected and is made with its shape and turn (<see cref="CreateShapes"/>); a tree or grass is sent with its pcode and
+    /// <paramref name="species"/> in the state field and is not selected (lltoolplacer.cpp addObject, read as behaviour).</summary>
+    public static ObjectAddPacket ObjectAdd(UUID agent, UUID session, UUID group, Placement p, System.Numerics.Vector3 scale, byte material,
+        CreateShape shape = CreateShape.Cube, byte species = 0)
     {
-        AgentData = { AgentID = agent, SessionID = session, GroupID = group },
-        ObjectData =
+        var spec = CreateShapes.Of(shape);
+        // a plant has no volume: the path and profile are the plain defaults (a straight path with a square profile, a ratio of 1)
+        var b = ShapeRules.Encode(spec.Volume ?? Viewer.Core.Meshing.PrimShape.Box);
+        var turn = spec.Rotation;
+        return new ObjectAddPacket
         {
-            PCode = DefaultBox.PCodeVolume,
-            Material = material,
-            AddFlags = DefaultBox.AddFlagCreateSelected,
-            PathCurve = DefaultBox.PathLine,
-            ProfileCurve = DefaultBox.ProfileSquare,
-            // begin and end cuts at 0 and 1 pack to 0; a ratio of 1 packs to 100; no shear, twist, taper or hollow
-            PathBegin = 0, PathEnd = 0, PathScaleX = DefaultBox.PathScalePacked, PathScaleY = DefaultBox.PathScalePacked,
-            PathShearX = 0, PathShearY = 0, PathTwist = 0, PathTwistBegin = 0, PathRadiusOffset = 0, PathTaperX = 0, PathTaperY = 0,
-            PathRevolutions = 0, PathSkew = 0, ProfileBegin = 0, ProfileEnd = 0, ProfileHollow = 0,
-            Scale = L(scale),
-            Rotation = Quaternion.Identity,
-            RayStart = L(p.RayStart),
-            RayEnd = L(p.RayEnd),
-            RayTargetID = new UUID(p.RayTargetId),
-            BypassRaycast = (byte)(p.BypassRaycast ? 1 : 0),
-            RayEndIsIntersection = 0,
-            State = 0,
-        },
-    };
+            AgentData = { AgentID = agent, SessionID = session, GroupID = group },
+            ObjectData =
+            {
+                PCode = spec.PCode,
+                Material = material,
+                AddFlags = spec.CreateSelected ? DefaultBox.AddFlagCreateSelected : 0,
+                PathCurve = b.PathCurve,
+                ProfileCurve = b.ProfileCurve,
+                // each parameter as the official packing quantises it (llvolumemessage.cpp packPathParams, packProfileParams)
+                PathBegin = b.PathBegin, PathEnd = b.PathEnd, PathScaleX = b.PathScaleX, PathScaleY = b.PathScaleY,
+                PathShearX = b.PathShearX, PathShearY = b.PathShearY, PathTwist = b.PathTwist, PathTwistBegin = b.PathTwistBegin,
+                PathRadiusOffset = b.PathRadiusOffset, PathTaperX = b.PathTaperX, PathTaperY = b.PathTaperY,
+                PathRevolutions = b.PathRevolutions, PathSkew = b.PathSkew, ProfileBegin = b.ProfileBegin, ProfileEnd = b.ProfileEnd,
+                ProfileHollow = b.ProfileHollow,
+                Scale = L(scale),
+                Rotation = new Quaternion(turn.X, turn.Y, turn.Z, turn.W),
+                RayStart = L(p.RayStart),
+                RayEnd = L(p.RayEnd),
+                RayTargetID = new UUID(p.RayTargetId),
+                BypassRaycast = (byte)(p.BypassRaycast ? 1 : 0),
+                RayEndIsIntersection = 0,
+                State = species,
+            },
+        };
+    }
 
     /// <summary>Rezzing an inventory object where the placement's ray says (not selected); the item's own record follows, with its checksum.</summary>
     public static RezObjectPacket RezObject(UUID agent, UUID session, UUID group, Placement p, InventoryItem item, bool removeItem, UUID folderSent)
@@ -112,6 +124,30 @@ internal static class LmvBuild
         },
         ObjectData = [new DeRezObjectPacket.ObjectDataBlock { ObjectLocalID = localId }],
     };
+
+    /// <summary>The most roots one DeRezObject carries (llviewermenu.cpp derez_objects: MAX_ROOTS_PER_PACKET).</summary>
+    public const int MaxRootsPerDeRez = 250;
+
+    /// <summary>Return to owner: the objects sent back to their owners' inventories (destination 9, no folder), in packets of at most
+    /// <see cref="MaxRootsPerDeRez"/> roots that share one transaction and count each other; the sender's active group goes in each, as the
+    /// official viewer's derez_objects sends it. The region decides which objects the agent may return.</summary>
+    public static IReadOnlyList<DeRezObjectPacket> ReturnToOwner(UUID agent, UUID session, UUID group, IReadOnlyList<uint> locals, UUID transaction)
+    {
+        int count = (locals.Count + MaxRootsPerDeRez - 1) / MaxRootsPerDeRez;
+        var packets = new List<DeRezObjectPacket>(count);
+        for (int n = 0; n < count; n++)
+            packets.Add(new DeRezObjectPacket
+            {
+                AgentData = { AgentID = agent, SessionID = session },
+                AgentBlock = new DeRezObjectPacket.AgentBlockBlock
+                {
+                    GroupID = group, Destination = BuildRules.DeRezReturnToOwner, DestinationID = UUID.Zero, TransactionID = transaction,
+                    PacketCount = (byte)count, PacketNumber = (byte)n,
+                },
+                ObjectData = [.. locals.Skip(n * MaxRootsPerDeRez).Take(MaxRootsPerDeRez).Select(l => new DeRezObjectPacket.ObjectDataBlock { ObjectLocalID = l })],
+            });
+        return packets;
+    }
 
     /// <summary>The body of the upload's first step for a texture, with the official default permissions of an upload.</summary>
     public static OSDMap UploadRequestBody(UploadRequest r) => new()

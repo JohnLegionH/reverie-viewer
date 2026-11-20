@@ -94,15 +94,23 @@ public sealed class InteractionController
 
     /// <summary>The click of the create tool: places the default box where the click points (lltoolplacer.cpp, read as behaviour). A click that
     /// cannot place (nothing there, an avatar, too far) leaves the tool waiting for another. True when the box was sent.</summary>
-    public bool Place(PickResult pick, Vector3 cameraPosition, Vector3 cameraAt, Vector3 rayDirection, float nearClip)
+    public bool Place(PickResult pick, Vector3 cameraPosition, Vector3 cameraAt, Vector3 rayDirection, float nearClip,
+        Viewer.Core.Building.CreateShape shape = Viewer.Core.Building.CreateShape.Cube, Func<float>? random = null)
     {
         if (!Placing || Viewer.Core.Building.BuildRules.CreatePlacement(pick, cameraPosition, cameraAt, rayDirection, nearClip) is not { } placement)
             return false;
         var made = NewPrim?.Invoke();
-        if (_submit(new CreateBoxIntent(placement, made?.Size, made is null ? null : (byte)made.Material)).Status != ActionStatus.Sent)
+        var spec = Viewer.Core.Building.CreateShapes.Of(shape);
+        random ??= Random.Shared.NextSingle;
+        // a plant has its own size (a patch of grass a random one) and species; a volume takes the new-prim settings' size
+        Vector3? size = spec.IsPlant ? Viewer.Core.Building.CreateShapes.PlantScale(shape, random) : made?.Size;
+        byte species = Viewer.Core.Building.CreateShapes.Species(shape, random);
+        if (_submit(new CreateBoxIntent(placement, size, made is null ? null : (byte)made.Material, shape, species)).Status != ActionStatus.Sent)
             return false;
         Placing = false;
-        BoxCreated?.Invoke();
+        // only a volume arrives selected, and only it takes the new-prim settings
+        if (spec.CreateSelected)
+            BoxCreated?.Invoke();
         PlaySound?.Invoke(global::Viewer.Shell.Sound.UiSoundSlot.ObjectCreate);
         Changed?.Invoke();
         return true;
@@ -417,11 +425,17 @@ public sealed class InteractionController
             case LeftClick.Pay:
                 StartPay(root);
                 break;
+            case LeftClick.Zoom:
+                ZoomRequested?.Invoke(prim);
+                break;
             case LeftClick.Unhandled:
                 UnhandledClicks++;
                 break;
         }
     }
+
+    /// <summary>A click on an object whose click action is Zoom: the camera frames that object (lltoolpie.cpp, CLICK_ACTION_ZOOM).</summary>
+    public event Action<ObjectState>? ZoomRequested;
 
     /// <summary>The camera when a click is made: its origin and view direction in region coordinates (the pick ray's frame). Set by the
     /// host; null where there is none (checks), and the sit offset is then the clicked surface point.</summary>
@@ -551,7 +565,7 @@ public sealed class InteractionController
         var entry = FindEntry(Entries, entryId);
         if (entry is not { Enabled: true } || _menuPick is not { } pick)
             return false;
-        if (entry.Id is "drop" || (entry.Id == "delete" && entry.Children is not null))
+        if (entry.Id is "drop" or "return" || (entry.Id == "delete" && entry.Children is not null))
             return false;   // the question's header: only its confirm entry drops or deletes
         var kind = Menu;
         _menuChoiceKeepsSelection = kind == MenuKind.Object && entryId is "inspect" or "open" or "buy" or "pay";
@@ -591,6 +605,9 @@ public sealed class InteractionController
                         break;
                     case "block": _social.Block?.Invoke(MuteKind.Object, root.FullId); break;
                     case "unblock": _social.Unblock?.Invoke(MuteKind.Object, root.FullId); break;
+                    case "return/confirm" when Viewer.Core.Building.BuildRules.CanReturn(root.AttachmentPoint is not null):
+                        _submit(new ReturnObjectsIntent([root.Id.LocalId]));
+                        break;
                     case var attach when attach.StartsWith("attach/", StringComparison.Ordinal) && int.TryParse(attach["attach/".Length..], out int point):
                         _submit(new AttachWorldObjectIntent(root.Id.LocalId, point));
                         break;

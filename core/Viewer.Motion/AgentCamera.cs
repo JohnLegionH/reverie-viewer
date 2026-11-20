@@ -282,6 +282,16 @@ public class AgentCamera
         if (isAvatar) _focusIsAvatar = false;   // another avatar: its extents bound the approach like any object's box does not apply here
     }
 
+    /// <summary>Sets the camera's place and the focus together (llagentcamera.cpp setCameraPosAndFocusGlobal after setFocusOnAvatar(false)): the
+    /// focus is the point or object, and the camera stands at <paramref name="camera"/>.</summary>
+    public void SetCameraPosAndFocus(Vector3 camera, Vector3 focus, Func<Vector3>? follow = null, Vector3? extents = null)
+    {
+        if (!_hasPose) return;
+        UnlockView();
+        SetFocus(focus, follow, extents);
+        _offsetTarget = camera - focus;
+    }
+
     /// <summary>The distance from the camera (as last posed) to the focus.</summary>
     public float FocusDistance => (_lastEye - FocusPosition(_anchor ?? default)).Length();
 
