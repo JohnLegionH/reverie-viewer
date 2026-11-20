@@ -129,9 +129,9 @@ public partial class TestRender
     }
 
     /// <summary>
-    /// The script editor's engine row as a person meets it, for the guide's pictures. "script-engine": a region that lists YEngine and Phlox and
-    /// keeps a choice, the tick clear and the greyed drop-down naming the engine the first line asks for; "script-engine-on": ticked, Phlox
-    /// chosen; "script-engine-early": Phlox marked early access, picked, with the warning; "script-engine-nosave": the region lists engines
+    /// The script editor's engine row as a person meets it, for the guide's pictures. "script-engine": a region that lists YEngine and Alpha and
+    /// keeps a choice, the tick clear and the greyed drop-down naming the engine the first line asks for; "script-engine-on": ticked, Alpha
+    /// chosen; "script-engine-early": Alpha marked early access, picked, with the warning; "script-engine-nosave": the region lists engines
     /// but keeps no choice, so the tick is greyed; "script-engine-slua": a region that also lists SLua and runs Lua, SLua (Lua) picked; "script-sl": Second Life's four-way compiler list. No session or grid.
     /// </summary>
     private static void ExampleEngineRow(ScriptEditorPanel panel, string scene, string text)
@@ -139,10 +139,10 @@ public partial class TestRender
         var region = scene switch
         {
             "script-sl" => new Viewer.Core.Inventory.ScriptRegion([], true, false, false),
-            "script-engine-nosave" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Phlox"], false, false, false),
-            "script-engine-slua" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Phlox", "SLua"], true, true, false),
-            "script-engine-early" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Phlox"], false, true, false) { EarlyAccess = ["Phlox"] },
-            _ => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Phlox"], false, true, false),
+            "script-engine-nosave" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Alpha"], false, false, false),
+            "script-engine-slua" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Alpha", "SLua"], true, true, false),
+            "script-engine-early" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Alpha"], false, true, false) { EarlyAccess = ["Alpha"] },
+            _ => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Alpha"], false, true, false),
         };
         panel.Editing!.Region = region;
         // the first line names the engine the greyed drop-down shows
@@ -152,7 +152,7 @@ public partial class TestRender
         if (scene is "script-engine-on" or "script-engine-early" or "script-engine-slua")
         {
             panel.Editing.SetChooseEngine(true);
-            panel.Editing.Choose(scene == "script-engine-slua" ? Viewer.Core.Inventory.ScriptTarget.Luau : Viewer.Core.Inventory.ScriptTarget.Engine("Phlox"));
+            panel.Editing.Choose(scene == "script-engine-slua" ? Viewer.Core.Inventory.ScriptTarget.Luau : Viewer.Core.Inventory.ScriptTarget.Engine("Alpha"));
             if (scene == "script-engine-early")
                 panel.EarlyWarning.Visible = true;
         }
