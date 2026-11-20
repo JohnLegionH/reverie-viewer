@@ -15,6 +15,9 @@
 #
 #   powershell -NoProfile -File <repo>\tools\engine-live.ps1 -Mode A|B|Other [-BoxLocal <id>] -Sandbox <new folder> -ShotsDir <existing folder>
 #     -Credentials <accounts file> -Account <alias> -GridInfoUrl <get_grid_info URL> -Start <start location> [-Exe <development export>]
+#     [-Token <text>]  the chat search token to use instead of a random one, so a second account can count what the first one's scripts say.
+#       The automation's own token is kept in $script:apiToken: PowerShell variable names ignore case, so a variable named $script:token
+#       would silently replace this parameter.
 #
 # Run it under an avatar claim on the account and a live-test claim on the region. Output: engine-live-report.json in the sandbox.
 # Exit: 0 all checks passed, 1 a check failed, 3 blocked, 5 the viewer or the login did not come up.
@@ -30,17 +33,18 @@ param(
     [Parameter(Mandatory)][string]$GridInfoUrl,
     [Parameter(Mandatory)][string]$Start,
     [string]$Exe = "",
-    [int]$StartSeconds = 60
+    [int]$StartSeconds = 60,
+    [string]$Token = ""
 )
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "claim-guard.ps1")
 Assert-ClaimGranted
-$script:port = $null; $script:token = $null; $script:proc = $null
+$script:port = $null; $script:apiToken = $null; $script:proc = $null
 trap {
     Write-Output ("ERROR " + $_.Exception.GetType().Name + ": " + $_.Exception.Message); Write-Output $_.InvocationInfo.PositionMessage
     # a check that stops part way still takes back what it rezzed before it logs out
-    if ($script:port -and $script:token -and (Get-Command Invoke-TakeBack -ErrorAction SilentlyContinue)) { try { [void](Invoke-TakeBack -Seconds 20) } catch { } }
-    if ($script:port -and $script:token) { try { [void](Invoke-Raw $script:port "session" $script:token ('{"action":"logout"}')); Start-Sleep -Seconds 3; [void](Invoke-Raw $script:port "quit" $script:token) } catch { } }
+    if ($script:port -and $script:apiToken -and (Get-Command Invoke-TakeBack -ErrorAction SilentlyContinue)) { try { [void](Invoke-TakeBack -Seconds 20) } catch { } }
+    if ($script:port -and $script:apiToken) { try { [void](Invoke-Raw $script:port "session" $script:apiToken ('{"action":"logout"}')); Start-Sleep -Seconds 3; [void](Invoke-Raw $script:port "quit" $script:apiToken) } catch { } }
     break
 }
 $godot = Join-Path $PSScriptRoot "godot.ps1"
@@ -76,14 +80,14 @@ function Invoke-Raw([int]$port, [string]$command, [string]$token, [string]$body 
 function Parse([string]$json) { try { return $json | ConvertFrom-Json } catch { return $null } }
 $clock = [System.Diagnostics.Stopwatch]::StartNew()
 function Note([string]$what) { [Console]::Out.WriteLine(("{0,7:N1} {1}" -f $clock.Elapsed.TotalSeconds, $what)) }
-function Api([string]$command, [hashtable]$b) { Parse (Invoke-Raw $script:port $command $script:token ($b | ConvertTo-Json -Compress)).Body }
-function Obs() { Parse (Invoke-Raw $script:port "observe" $script:token).Body }
+function Api([string]$command, [hashtable]$b) { Parse (Invoke-Raw $script:port $command $script:apiToken ($b | ConvertTo-Json -Compress)).Body }
+function Obs() { Parse (Invoke-Raw $script:port "observe" $script:apiToken).Body }
 function In([hashtable]$b) { Api "input" $b }
 function Key([string]$k, [bool]$down) { In @{ kind = "key"; key = $k; down = $down; shift = $false; alt = $false; ctrl = $false } }
 function Interact([hashtable]$b) { Api "interact" $b }
 function Build([hashtable]$b) { Api "build" $b }
 function World([hashtable]$b) { Api "world_sounds" $b }
-function Shot([string]$name) { [void](Invoke-Raw $script:port "screenshot" $script:token (@{ dir = $ShotsDir; name = $name } | ConvertTo-Json -Compress)) }
+function Shot([string]$name) { [void](Invoke-Raw $script:port "screenshot" $script:apiToken (@{ dir = $ShotsDir; name = $name } | ConvertTo-Json -Compress)) }
 function Flat($a, $b) { [math]::Sqrt([math]::Pow($a[0] - $b[0], 2) + [math]::Pow($a[1] - $b[1], 2)) }
 . (Join-Path $PSScriptRoot "live-takeback.ps1")
 function Wait-Until([scriptblock]$cond, [int]$seconds) { $end = (Get-Date).AddSeconds($seconds); while ((Get-Date) -lt $end) { $r = & $cond; if ($r) { return $r }; Start-Sleep -Milliseconds 500 }; return $null }
@@ -105,11 +109,11 @@ for ($i = 0; $i -lt ($StartSeconds * 4) -and -not $tf; $i++) { Start-Sleep -Mill
 if (-not $tf) { Note "no automation token file: stopping"; exit 5 }
 Start-Sleep -Milliseconds 300
 $j = Get-Content -Raw -LiteralPath $tf.FullName | ConvertFrom-Json
-$script:port = [int]$j.port; $script:token = [string]$j.token
-$login = Invoke-Raw $script:port "session" $script:token (@{ action = "login"; accounts_file = $Credentials; account = $Account; login_uri = $loginUri; start = $Start } | ConvertTo-Json -Compress)
+$script:port = [int]$j.port; $script:apiToken = [string]$j.token
+$login = Invoke-Raw $script:port "session" $script:apiToken (@{ action = "login"; accounts_file = $Credentials; account = $Account; login_uri = $loginUri; start = $Start } | ConvertTo-Json -Compress)
 Note "login requested: $($login.Status) $($login.Body)"
 $inWorld = Wait-Until { $o = Obs; if ($o -and $o.stage -eq "InWorld" -and $o.terrain.complete -and $o.self) { $o } } 150
-if (-not $inWorld) { Note "not in the world: stopping"; [void](Invoke-Raw $script:port "quit" $script:token); exit 5 }
+if (-not $inWorld) { Note "not in the world: stopping"; [void](Invoke-Raw $script:port "quit" $script:apiToken); exit 5 }
 Start-Sleep -Seconds 4
 
 
@@ -179,6 +183,8 @@ function NewBox([double]$dx) {
     if (-not $b) { return $null }
     Add-Rezzed ([uint32]$b.local)
     [void](Edit @{ action = "select"; text = "$([uint32]$b.local)" }); Start-Sleep -Milliseconds 500
+    # Create lands where the click's ray meets something, which can be the water 20+ m away (past llSay's 20 m): put the box where it was meant to go
+    [void](Edit @{ action = "position"; x = [double]$me[0] + $dx; y = [double]$me[1] + 2.0; z = [double]$me[2] }); Start-Sleep -Milliseconds 1200
     [void](ClickCtl "tab:content"); Start-Sleep -Milliseconds 800
     [void](Wait-Until { $c = Edit @{ action = "state" }; if ($null -ne $c.contents) { $c } } 15)
     return $b
@@ -204,7 +210,7 @@ function SaveNow() {
     return (Wait-Until { $s = SState; if (-not $s.saving -and $s.status -eq "script.save_complete" -and -not $s.dirty) { $s } } 40)
 }
 function Said([string]$token, [int]$atLeast) { Wait-Until { if ((ChatCount $token) -ge $atLeast) { $true } } 30 }
-$tok = "EN" + (Get-Random -Minimum 100000 -Maximum 999999)
+$tok = if ($Token) { $Token } else { "EN" + (Get-Random -Minimum 100000 -Maximum 999999) }
 $report.token = $tok
 
 if ($Mode -eq "A") {
@@ -345,9 +351,9 @@ $report.friends = $fr
 NoFocus
 Press "ESC"
 if ($Mode -eq "A") { [void](Interact @{ action = "aim"; distance = 0 }); $report.take_back = Invoke-TakeBack -Seconds 30 }
-$logout = Invoke-Raw $script:port "session" $script:token '{"action":"logout"}'
+$logout = Invoke-Raw $script:port "session" $script:apiToken '{"action":"logout"}'
 Note "logout: $($logout.Status)"
-[void](Invoke-Raw $script:port "quit" $script:token)
+[void](Invoke-Raw $script:port "quit" $script:apiToken)
 $script:proc.WaitForExit(60000) | Out-Null
 $report.checks = $checks
 $report.completed = $true
