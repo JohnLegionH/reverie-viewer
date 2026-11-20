@@ -110,7 +110,18 @@ public partial class Main
                     return new { chosen, placed = false, error = "not_in_view" };
                 }
                 var pick = PickAt(px);
-                bool placed = ic.Place(pick, Region(_camera.GlobalPosition), Region(-_camera.GlobalBasis.Z), Region(_camera.ProjectRayNormal(px)), _camera.Near);
+                // the shape button to press (named in expect) and, with Copy selection on, the copy of the selection instead of a shape
+                if (Enum.TryParse<Viewer.Core.Building.CreateShape>(expect, true, out var button))
+                    _edit?.ChooseShape(button);
+                bool placed;
+                if (_edit is { CopySelection: true } copying)
+                {
+                    placed = copying.PlaceCopy(pick, Region(_camera.GlobalPosition), Region(-_camera.GlobalBasis.Z), Region(_camera.ProjectRayNormal(px)), _camera.Near);
+                    if (placed) ic.CancelCreate();
+                }
+                else
+                    placed = ic.Place(pick, Region(_camera.GlobalPosition), Region(-_camera.GlobalBasis.Z), Region(_camera.ProjectRayNormal(px)), _camera.Near,
+                        _edit?.ShapeChoice ?? Viewer.Core.Building.CreateShape.Cube);
                 if (!placed) ic.CancelCreate();
                 else HandBackAfterCreate(ic);
                 return new { chosen, placed, pick = pick.Kind.ToString(), tool = _edit?.Tool.ToString(), sounds = RecentObjectSounds() };
@@ -170,7 +181,14 @@ public partial class Main
         Guid textures = inv.FolderOfKind(Viewer.Core.Inventory.FolderKind.Texture), objects = inv.FolderOfKind(Viewer.Core.Inventory.FolderKind.Object);
         var own = s.World.Snapshot().Objects.Values
             .Where(o => o.ParentLocalId == 0 && o.AttachmentPoint is null && ((o.Interaction?.Flags ?? 0) & Viewer.Core.Interaction.ObjectFlagBits.YouOwner) != 0)
-            .Select(o => new { id = o.FullId, local = o.Id.LocalId, x = o.Position.X, y = o.Position.Y, z = o.Position.Z, sx = o.Scale.X, sy = o.Scale.Y, sz = o.Scale.Z })
+            .Select(o => new
+            {
+                id = o.FullId, local = o.Id.LocalId, x = o.Position.X, y = o.Position.Y, z = o.Position.Z, sx = o.Scale.X, sy = o.Scale.Y, sz = o.Scale.Z,
+                click = o.Interaction?.ClickAction ?? 0, plant = o.Shape is null,
+                profile = o.Shape?.ProfileCurve, path = o.Shape?.PathCurve, path_scale = o.Shape is { } sh ? new[] { sh.PathScaleX, sh.PathScaleY } : null,
+                path_end = o.Shape?.PathEnd, profile_cut = o.Shape is { } pc ? new[] { pc.ProfileBegin, pc.ProfileEnd } : null,
+                shear_x = o.Shape?.PathShearX, rotation = new[] { o.Rotation.X, o.Rotation.Y, o.Rotation.Z, o.Rotation.W },
+            })
             .ToArray();
         // every own prim on the ground, children included, with each face's texture (the first eight faces; empty where none is sent)
         var snapshot = s.World.Snapshot().Objects.Values;

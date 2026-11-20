@@ -70,7 +70,9 @@ public partial class Main
         _takeFolder = new FolderPickPanel(shell.Strings, folder => _edit?.TakeIntoFolder(folder), () => shell.Floaters.Close(FolderPickPanel.FloaterId));
         _shell.AddFloater(new FloaterSpec(FolderPickPanel.FloaterId, "edit.take_folder.title", new UiSize(380, 460), new UiSize(320, 340)), _takeFolder);
         var timer = new global::Godot.Timer { Name = "edit_refresh", WaitTime = 0.25, Autostart = true };
-        timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) _editPanel.Refresh(); };
+        int costTicks = 0;
+        // the land impact is asked for again every three seconds while something is selected (an edit changes it)
+        timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) { _editPanel.Refresh(); if (++costTicks % 12 == 0) _edit?.RefreshCosts(); } };
         _editPanel.AddChild(timer);
         shell.Floaters.Closed += id => { if (id == EditPanel.FloaterId && _edit is { BuildMode: true } e) e.CloseBuild(); };
         shell.Commands.Register(BuildMenu.ToggleCommand, ToggleBuild);
@@ -382,6 +384,21 @@ public partial class Main
                 e.SelectMany((text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => uint.TryParse(t.Trim(), out var v) ? v : 0).Where(v => v != 0), shift);
                 break;
             case "linked": e.EditLinked = text == "on"; break;
+            case "copy_selection": e.CopySelection = text == "on"; break;
+            case "duplicate": done = e.Duplicate() ?? "sent"; break;
+            case "click_action":
+                done = Enum.TryParse<Viewer.Core.Interaction.ClickChoice>(text, true, out var choice) ? e.SetClickChoice(choice) is var (sentClick, noticeClick) ? new { sent = sentClick, notice = noticeClick } : null : null;
+                break;
+            case "sale":
+            {
+                // "off", or "copy:50", "contents:10", "original:99"
+                var parts = (text ?? "off").Split(':');
+                bool on = parts[0] != "off";
+                var kind = on && Enum.TryParse<Viewer.Core.Building.SaleKind>(parts[0], true, out var k) ? k : Viewer.Core.Building.SaleKind.Copy;
+                done = e.SetSale(on, kind, parts.Length > 1 && int.TryParse(parts[1], out var priced) ? priced : null);
+                break;
+            }
+            case "land_impact_refresh": e.RefreshCosts(); break;
             case "position": done = e.SetPosition(p); break;
             case "size": done = e.SetSize(p); break;
             case "rotation": done = e.SetRotation(p); break;
@@ -532,6 +549,10 @@ public partial class Main
             grid_close = GridCloseButton() is { } gc ? new[] { gc.GetGlobalRect().GetCenter().X, gc.GetGlobalRect().GetCenter().Y } : null,
             focus = GetViewport().GuiGetFocusOwner()?.Name.ToString(),
             placing = _interact?.Placing ?? false,
+            shape = e.ShapeChoice.ToString().ToLowerInvariant(), copy_selection = e.CopySelection, copy_centers = e.CopyCenters, copy_rotates = e.CopyRotates,
+            click_choice = e.ClickChoiceShown?.ToString().ToLowerInvariant(), click_enabled = e.ClickChoiceEnabled,
+            sale = e.SaleState() is { } sv ? new { for_sale = sv.ForSale, price = sv.Price, type = sv.Type.ToString().ToLowerInvariant(), box = sv.BoxEnabled, price_enabled = sv.PriceEnabled, type_enabled = sv.TypeEnabled } : null,
+            land_impact = e.LandImpactShown() is var (impactRoots, impact) ? new { roots = impactRoots, impact } : null,
             selection = e.Selection.ToArray(),
             select_faces = e.SelectFaces,
             faces = e.SelectedFaces.Select(f => new
