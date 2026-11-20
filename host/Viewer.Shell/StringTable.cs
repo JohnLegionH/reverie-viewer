@@ -17,7 +17,7 @@ namespace Viewer.Shell;
 /// </summary>
 public readonly record struct Counted(string Noun, double N, string? Shown = null);
 
-/// <summary>The plural categories of the Unicode CLDR plural rules (https://cldr.unicode.org/index/cldr-spec/plural-rules).</summary>
+/// <summary>The plural categories of the Unicode CLDR plural rules (the language plural rules in the CLDR specification).</summary>
 public enum PluralCategory { Zero, One, Two, Few, Many, Other }
 
 /// <summary>A language's plural rule: the category a number falls in.</summary>
