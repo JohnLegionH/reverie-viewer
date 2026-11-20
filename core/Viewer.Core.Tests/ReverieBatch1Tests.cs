@@ -32,7 +32,7 @@ public class ReverieBatch1Tests
     [InlineData("script_queue", false)]
     [InlineData("scripts.1", false)]
     [InlineData("gesture", false)]
-    [InlineData("addon.example.window", false)]
+    [InlineData("addon.example.window", true)]
     [InlineData("", false)]
     public void A_window_made_once_per_item_is_named_by_its_prefix(string id, bool perItem) =>
         Assert.Equal(perItem, ReverieRestyleRules.IsPerItemWindow(id));

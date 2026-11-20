@@ -18,7 +18,7 @@ namespace Viewer.Godot;
 public static class ReverieRestyle
 {
     /// <summary>The windows, by exact id, that take the Reverie look now; the rest follow in later steps. Windows made once per item
-    /// (a notecard, a script) are listed by prefix instead: <see cref="IsListed"/>.</summary>
+    /// (a notecard, a script, an add-on's window) are listed by prefix instead: <see cref="IsListed"/>.</summary>
     private static readonly IReadOnlySet<string> Listed = new HashSet<string>(StringComparer.Ordinal)
     {
         InventoryFeature.FloaterId, ChatFeature.NearbyId, ChatFeature.ConversationsId, PeopleFeature.PeopleId,
@@ -27,6 +27,7 @@ public static class ReverieRestyle
         Main.TexturePreviewId, ScriptQueueWindow.FloaterId,
         ColourPickerWindow.FloaterId, FacePickerWindows.ItemPickerId, FolderPickPanel.FloaterId, GridPanel.FloaterId,
         InteractFeature.ContentsId, InteractFeature.BuyId, NotificationFeature.ObjectId,
+        GesturePanel.FloaterId, AddonsPanel.FloaterId, PersonalLightingFeature.FloaterId,
     };
 
     private static readonly StringName Restyled = "reverie_restyled";

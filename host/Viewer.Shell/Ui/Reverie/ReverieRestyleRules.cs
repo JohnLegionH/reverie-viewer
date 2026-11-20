@@ -65,7 +65,7 @@ public static class ReverieRestyleRules
         };
     }
 
-    /// <summary>Whether a window id names a window made once per item (a notecard, a script), which takes the restyle by its prefix.</summary>
+    /// <summary>Whether a window id names a window made once per item (a notecard, a script, an add-on's window), which takes the restyle by its prefix.</summary>
     public static bool IsPerItemWindow(string id)
     {
         foreach (var prefix in PerItemPrefixes)
@@ -74,9 +74,9 @@ public static class ReverieRestyleRules
         return false;
     }
 
-    /// <summary>The prefixes of the windows made once per item: "notecard.N" and "script.N". A later step adds the add-on windows' prefix
-    /// when those windows take the restyle.</summary>
-    private static readonly string[] PerItemPrefixes = ["notecard.", "script."];
+    /// <summary>The prefixes of the windows made once per item: "notecard.N", "script.N" and the add-ons' windows
+    /// ("addon.&lt;add-on&gt;.&lt;window&gt;").</summary>
+    private static readonly string[] PerItemPrefixes = ["notecard.", "script.", "addon."];
 
     /// <summary>The variation a control takes when window code sets <paramref name="classic"/> on it after the restyle ran.</summary>
     public static string AfterSet(string kind, string classic, bool flat, RestylePlace place, bool toggle, bool restyled) =>

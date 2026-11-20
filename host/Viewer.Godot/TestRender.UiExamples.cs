@@ -7,12 +7,84 @@ using Godot;
 using Viewer.Core.Inventory;
 using Viewer.Core.Session;
 using Viewer.Shell;
+using Viewer.Addons;
+using Viewer.Shell.Addons;
 using Viewer.Shell.Notifications;
 
 namespace Viewer.Godot;
 
 public partial class TestRender
 {
+    /// <summary>What the add-on host needs of the viewer in a picture: nothing is sent and there is no inventory.</summary>
+    private sealed class RenderAddonServices : IAddonServices
+    {
+        public double Now => 0;
+        public void SendAnimations(System.Collections.Generic.IReadOnlyList<(Guid Animation, bool Start)> requests) { }
+        public bool Say(string text) => false;
+        public IAddonInventory? Inventory => null;
+    }
+
+    /// <summary>An empty world for the restraints in a picture.</summary>
+    private sealed class RenderRlvWorld : IRlvWorld
+    {
+        public bool Seated => false;
+        public System.Numerics.Vector3? AgentPosition => null;
+        public System.Numerics.Vector3? ObjectPosition(Guid objectId) => null;
+        public System.Collections.Generic.IReadOnlyList<RlvAttachment> Attachments => [];
+        public bool HasImSession(Guid id) => false;
+    }
+
+    /// <summary>The Add-ons window ("addons"), or one of the built-in add-ons' windows each in its own window as the viewer draws them
+    /// ("addon-ao": the overrider's sets and animations editor; "addon-rlv": the restraints window), over the add-ons this build carries,
+    /// started as the viewer starts them. No session or grid.</summary>
+    private static void ExampleAddons(ShellRoot shell, StringTable strings, string scene)
+    {
+        var host = new AddonHost(new RenderAddonServices(), new Viewer.Core.Diagnostics.CoreLog(new DiscardSink(), "render"))
+        {
+            Restraints = new RlvGate(new RenderRlvWorld(), (_, _) => true),
+        };
+        if (Main.BuiltInAddonsFolder() is { } folder)
+            host.Discover(folder, builtIn: true);
+        host.StartEnabled();
+        if (scene == "addon-rlv")
+        {
+            // restrictions are off until switched on and take hold at the next login; one object has asked for one restriction
+            host.SetEnabled("rlv", true);
+            host.LoggedIn();
+            host.Chat(new Viewer.Addons.ChatLine(Viewer.Addons.ChatKind.OwnerSay, new Guid("00000000-0000-4000-8000-0000000000a1"), "Example collar", "@sit=n"));
+        }
+        if (scene == "addons")
+        {
+            shell.AddFloater(new FloaterSpec(AddonsPanel.FloaterId, "addons.title", new UiSize(420, 460), new UiSize(320, 260)), new AddonsPanel(strings, host));
+            shell.Shell.Floaters.Open(AddonsPanel.FloaterId);
+            return;
+        }
+        string addon = scene == "addon-ao" ? "ao" : "rlv", window = scene == "addon-ao" ? "editor" : "restrictions";
+        var (addonId, made) = host.Windows.First(w => w.AddonId == addon && w.Window.Id == window);
+        string key = $"addon.{addonId}.{made.Id}";
+        strings.Define(key + ".title", made.Title);
+        var view = new AddonWindowView(strings, host, addonId);
+        var scroll = new ScrollContainer { Name = "addon_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        scroll.AddChild(view);
+        shell.AddFloater(new FloaterSpec(key, key + ".title", new UiSize(380, 420), new UiSize(260, 200)), scroll);
+        view.Bind(made);
+        // the restraints window shows the wall-clock time a restriction was set: the picture shows the picture clock's time instead
+        foreach (var child in view.GetChildren())
+            if (child is Label label && System.Text.RegularExpressions.Regex.IsMatch(label.Text, @"set at \d\d:\d\d:\d\d"))
+                label.Text = System.Text.RegularExpressions.Regex.Replace(label.Text, @"set at \d\d:\d\d:\d\d", "set at 12:00:00");
+        shell.Shell.Floaters.Open(key);
+    }
+
+    /// <summary>The Gestures window after some use: sorted by chat trigger (descending), a gesture playing so Stop takes Play's place, and
+    /// the question Delete asks showing. No session or grid.</summary>
+    private static void ExampleGestureListUsed(ShellRoot shell)
+    {
+        var window = ExampleGestureList(shell);
+        window.SortBy(Viewer.Shell.Inventory.GestureColumn.Trigger);
+        window.SortBy(Viewer.Shell.Inventory.GestureColumn.Trigger);
+        window.SetPlaying([new Guid("00000000-0000-4000-8000-000000000022")]);
+        window.DeleteButton.EmitSignal(BaseButton.SignalName.Pressed);
+    }
     /// <summary>A small made-up inventory for the pickers: a Textures folder (five textures), an
     /// Objects folder and a Library folder, every folder loaded.</summary>
     private static InventoryModel ExamplePickModel()
