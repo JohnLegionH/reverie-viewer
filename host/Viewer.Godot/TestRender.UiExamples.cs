@@ -70,8 +70,8 @@ public partial class TestRender
         view.Bind(made);
         // the restraints window shows the wall-clock time a restriction was set: the picture shows the picture clock's time instead
         foreach (var child in view.GetChildren())
-            if (child is Label label && System.Text.RegularExpressions.Regex.IsMatch(label.Text, @"set at \d\d:\d\d:\d\d"))
-                label.Text = System.Text.RegularExpressions.Regex.Replace(label.Text, @"set at \d\d:\d\d:\d\d", "set at 12:00:00");
+            if (child is Label label && System.Text.RegularExpressions.Regex.IsMatch(label.Text, @"set at [0-9]{2}:[0-9]{2}:[0-9]{2}"))
+                label.Text = System.Text.RegularExpressions.Regex.Replace(label.Text, @"set at [0-9]{2}:[0-9]{2}:[0-9]{2}", "set at 12:00:00");
         shell.Shell.Floaters.Open(key);
     }
 
