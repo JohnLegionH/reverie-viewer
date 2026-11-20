@@ -89,7 +89,7 @@ If things stay grey:
 
 Clearing the cache is safe. The viewer fetches what it needs again, so the first minutes after it are slower.
 
-Other things on the **Cache** page: **Cache folder** (empty means the default) and **Cache size limit (MB)**. Both need a restart. A cache that is too small makes the viewer fetch the same things again and again.
+Other things on the **Cache** page: **Cache folder** (empty means the default; **Choose...** picks one) and **Cache size limit (MB)**. Both need a restart. A cache that is too small makes the viewer fetch the same things again and again.
 
 If clearing does not help, report it (see below). Say which grid you were on.
 

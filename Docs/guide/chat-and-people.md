@@ -164,7 +164,7 @@ To block an object by its name, type the name and press **Block**.
 You can also block from other places:
 
 - Right-click an avatar or an object and choose **Block...**.
-- Press **Block this resident** on the Friends tab.
+- Pick a friend on the Friends tab and press **Block this resident**. It is greyed out until you pick one.
 
 Some grids keep no block list for you. Then the Blocked tab says the entries last only until you log out.
 
@@ -208,7 +208,7 @@ Notifications are the small messages the viewer shows you: friend offers, telepo
 To see everything that is waiting, open **Communicate > Notifications** (Alt+Shift+N), or press the **Notices** button on the dock. The window has:
 
 - The notifications that wait for you, each with its answer buttons.
-- **Mark all as read**.
+- **Mark all as read**. It is greyed out while nothing waits.
 - An **Earlier** list with the last few you answered.
 
 ![The Notifications window](../../fixtures/ui/golden-ui-notifications-classic-vulkan.png)

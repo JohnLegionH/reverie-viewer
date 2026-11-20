@@ -8,6 +8,7 @@ using System.Linq;
 using Godot;
 using Viewer.Core.Session;
 using Viewer.Shell;
+using Viewer.Shell.Ui;
 using Viewer.Shell.Chat;
 using Viewer.Shell.Social;
 
@@ -472,6 +473,7 @@ public partial class PeoplePanel : VBoxContainer
         MessageButton.Disabled = _pickedFriends.Count == 0;
         MessageButton.Text = _pickedFriends.Count > 1 ? _strings.Get("friends.conference") : _strings.Get("friends.message");
         RemoveButton.Disabled = current is null;
+        BlockButton.Disabled = !ButtonAvailability.BlockResidentEnabled(current is null ? 0 : 1);
         foreach (var c in new CheckBox[] { RightOnline, RightMap, RightModify })
             c.Disabled = current is null;
         RightOnline.ButtonPressed = current?.Granted.HasFlag(FriendRightsFlags.SeeOnline) ?? false;

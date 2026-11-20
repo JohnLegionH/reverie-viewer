@@ -56,6 +56,7 @@ public partial class TestRender
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
+        "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "soundtuner", "about", "licences", "login-dialog",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -294,6 +295,13 @@ public partial class TestRender
                 shell.MainView.AddChild(drop);
                 drop.ShowNotice(new Viewer.Shell.Reconnect.DropNotice(strings.Get("drop.title"), strings.Get("drop.body"), strings.Get("drop.reason.unknown"), true));
                 break;
+            case "login-dialog":
+                var dialogLogin = new LoginScreen(strings, null);
+                shell.MainView.AddChild(dialogLogin);
+                dialogLogin.ShowExampleGrid(ExampleGrid());
+                dialogLogin.ApplyBranding(ExampleBranding());
+                dialogLogin.Dialogs.Show(LoginDialogs.TrustCertificate(strings, ExampleCertificate()));
+                break;
             case "script":
             case "script-error":
             case "script-readonly":
@@ -352,6 +360,10 @@ public partial class TestRender
                 }
                 if (scene is "addons" or "addon-ao" or "addon-rlv")
                     ExampleAddons(shell, strings, scene);
+                if (scene.StartsWith("upload-", StringComparison.Ordinal))
+                    ExampleUploads(shell);
+                if (scene == "soundtuner")
+                    ExampleSoundTuner(shell, strings);
                 if (scene == "takefolder")
                     takeFolder = ExampleTakeFolder(shell, strings);
                 if (scene is "objectcontents" or "buy")
@@ -380,6 +392,13 @@ public partial class TestRender
                     "personal" => PersonalLightingFeature.FloaterId,
                     "build" or "build-look" or "build-search" or "build-contents" => EditPanel.FloaterId,
                     "colourpicker" or "texturepicker" or "gridoptions" or "takefolder" or "objectcontents" or "buy" or "objectinfo" or "addons" or "addon-ao" or "addon-rlv" => "",
+                    "upload-image" => BuildFeature.ImageFloaterId,
+                    "upload-bulk" => BuildFeature.BulkFloaterId,
+                    "upload-model" => ModelFeature.ModelFloaterId,
+                    "upload-bulk-models" => ModelFeature.BulkModelsFloaterId,
+                    "soundtuner" => SoundTunerPanel.FloaterId,
+                    "about" => ShellController.AboutFloaterId,
+                    "licences" => ShellController.LicencesFloaterId,
                     "commandlist" or "commandlist-search" or "commandlist-setting" => "",
                     _ => PreferencesFeature.FloaterId,
                 };

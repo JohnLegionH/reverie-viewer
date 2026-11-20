@@ -135,7 +135,7 @@ Open **Content > Outfits** (Ctrl+O), or the **Outfits** button on the dock. The 
 
 **Current outfit** lists what you wear now, in groups: Attachments, Body parts, Clothing and Other. If your look came from a saved outfit, a line says "From outfit: ...".
 
-**My outfits** lists the outfits you saved. They are folders under the My Outfits folder of your inventory.
+**My outfits** lists the outfits you saved. They are folders under the My Outfits folder of your inventory.  With none saved, it says so.
 
 ### Take something off
 

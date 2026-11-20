@@ -125,6 +125,28 @@ public partial class TestRender
         return panel;
     }
 
+    /// <summary>The four upload windows (image, bulk images, model, bulk models) with no session: each opens empty, as it does before a file is chosen.</summary>
+    private static void ExampleUploads(ShellRoot shell)
+    {
+        BuildFeature.Install(shell, () => null, () => Guid.Empty);
+        ModelFeature.Install(shell, () => null, () => Guid.Empty, () => Guid.Empty);
+    }
+
+    /// <summary>The Sound Tuner with the shipped sounds and no saved tuning.</summary>
+    private static void ExampleSoundTuner(ShellRoot shell, StringTable strings)
+    {
+        var tuner = new SoundTunerPanel(strings, new Viewer.Shell.Sound.UiSoundTuning(null), _ => { });
+        shell.AddFloater(new FloaterSpec(SoundTunerPanel.FloaterId, "tuner.title", new UiSize(560, 600), new UiSize(400, 320)), tuner);
+    }
+
+    /// <summary>An unknown-authority certificate for a reserved example host.</summary>
+    private static Viewer.Core.Net.CertificateRefusal ExampleCertificate() =>
+        new("grid.example.org", "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF", "UntrustedRoot", "CN=grid.example.org", new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero))
+        {
+            Kind = Viewer.Core.Net.CertificateProblem.UnknownAuthority, Issuer = "CN=Example Authority",
+            NotBefore = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+
     /// <summary>The Grid options window with the example box's settings. No session or grid.</summary>
     private static void ExampleGridOptions(ShellRoot shell, StringTable strings, Viewer.Shell.Build.EditController edit)
     {

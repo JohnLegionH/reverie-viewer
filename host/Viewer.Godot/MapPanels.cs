@@ -347,6 +347,11 @@ public partial class WorldMapPanel : VBoxContainer
                 FriendChoice.Select(again);
             else if (_friendIds.Count > 0)
                 FriendChoice.Select(0);
+            if (_friendIds.Count == 0)
+            {
+                FriendChoice.AddItem(_strings.Get("map.friend.placeholder"));   // nothing to choose: the select says so (the choice is disabled)
+                FriendChoice.Select(0);
+            }
             FriendChoice.Disabled = FriendButton.Disabled = _friendIds.Count == 0;
             FriendNote.Visible = _friendIds.Count == 0;
         }

@@ -124,6 +124,7 @@ public partial class LoginDialogView : Control
             _agree.Toggled += on => _confirm.Disabled = !on;
         if (_input is not null)
             _input.TextSubmitted += _ => _confirm.EmitSignal(BaseButton.SignalName.Pressed);
+        ReverieRestyle.Apply(panel);   // the login screen is in the Reverie look: the dialog on it matches
     }
 
     public override void _Ready()

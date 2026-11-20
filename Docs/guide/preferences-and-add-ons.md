@@ -45,7 +45,7 @@ You do not need to know the page. Press **Ctrl+Shift+K**, type the setting's nam
 - **Frame-rate limit.** 0 means no limit. Up to 360.
 - **Vertical sync**, **Clouds** and **Show neighbouring regions**. The last one applies at your next login.
 - **Keep my sky choice for the next login** and **Use the region's sky again after a teleport**. Both start off (see the sky section of the world guide).
-- **Rendering backend.** **Automatic**, **Vulkan** or **Direct3D 12**. Needs a restart. If a backend will not start, start the viewer with `-- --backend=auto` (see [Fixing problems](fixing-problems.md#switch-the-graphics-backend)).
+- **Rendering backend.** **Automatic**, **Vulkan** or **Direct3D 12**. Needs a restart. If a backend will not start, choose **Automatic** and start the viewer again (see [Fixing problems](fixing-problems.md#switch-the-graphics-backend)).
 - **Window.** **Windowed**, **Borderless** or **Fullscreen**.
 
 Shadows, anti-aliasing and other advanced graphics settings are not in Reverie yet.
@@ -84,7 +84,7 @@ See [Moving and the camera](moving-and-the-camera.md).
 
 ### Cache
 
-- **Cache folder.** Empty means the default folder. Needs a restart.
+- **Cache folder.** Empty means the default folder. **Choose...** opens a folder picker. Needs a restart.
 - **Cache size limit (MB).** From 256 to 65536. Needs a restart.
 - **Clear cache…** asks first, then removes everything cached. It is fetched again when needed.
 

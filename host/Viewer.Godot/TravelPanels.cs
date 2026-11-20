@@ -293,7 +293,7 @@ public partial class TeleportPanel : VBoxContainer
         FriendChoice = new OptionButton { Name = "friend", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         FriendChoice.AccessibilityName = strings.Get("teleport.offer_to.friend");
         AddChild(FriendChoice);
-        MessageEdit = new LineEdit { Name = "message", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        MessageEdit = new LineEdit { Name = "message", SizeFlagsHorizontal = SizeFlags.ExpandFill, PlaceholderText = strings.Get("teleport.offer_to.message.hint") };
         MessageEdit.AccessibilityName = strings.Get("teleport.offer_to.message");
         MessageEdit.TextSubmitted += _ => Offer();
         AddChild(MessageEdit);
@@ -436,6 +436,11 @@ public partial class TeleportPanel : VBoxContainer
         else if (_friendIds.Count > 0)
             FriendChoice.Select(0);
         bool anyone = _friendIds.Count > 0;
+        if (!anyone)
+        {
+            FriendChoice.AddItem(_strings.Get("teleport.offer_to.friend.placeholder"));   // nothing to choose: the select says so (the choice is disabled)
+            FriendChoice.Select(0);
+        }
         FriendChoice.Disabled = !anyone;
         MessageEdit.Editable = anyone;
         OfferButton.Disabled = !anyone;

@@ -48,7 +48,7 @@ public partial class DropPanel : CenterContainer
         foreach (var l in new[] { _body, _reason, _status })
             l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         var buttons = new HBoxContainer { Name = "drop_buttons" };
-        _reconnectButton = new Button { Name = "reconnect", Text = strings.Get("drop.reconnect") };
+        _reconnectButton = new Button { Name = "reconnect", Text = strings.Get("drop.reconnect"), ThemeTypeVariation = UiTheme.PrimaryButton };
         _reconnectButton.AccessibilityName = strings.Get("drop.reconnect");
         _reconnectButton.Pressed += () => ReconnectRequested?.Invoke();
         _cancelButton = new Button { Name = "cancel_reconnect", Text = strings.Get("drop.cancel"), Visible = false };
@@ -66,6 +66,7 @@ public partial class DropPanel : CenterContainer
         box.AddChild(_status);
         box.AddChild(buttons);
         panel.AddChild(box);
+        ReverieRestyle.Apply(panel);   // not a floater: the reconnect notice takes the Reverie look itself
         AddChild(panel);
     }
 

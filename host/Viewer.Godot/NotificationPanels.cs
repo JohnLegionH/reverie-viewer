@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Viewer.Shell;
+using Viewer.Shell.Ui;
 using Viewer.Shell.Notifications;
 
 namespace Viewer.Godot;
@@ -369,6 +370,7 @@ public partial class NotificationListPanel : VBoxContainer
         var model = _hub?.Model;
         Count.Text = _strings.Get("notifications.unread", model?.List.Count ?? 0);
         Count.AccessibilityName = Count.Text;
+        MarkAll.Disabled = !ButtonAvailability.MarkAllReadEnabled(model?.List.Count ?? 0);
         if (model is null)
             return;
         if (model.List.Count == 0)

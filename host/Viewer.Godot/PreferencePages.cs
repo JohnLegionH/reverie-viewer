@@ -115,6 +115,8 @@ public sealed partial class PrefPageView : ScrollContainer
             row.AddChild(caption);
             control = MakeValueControl(def, label);
             row.AddChild(control);
+            if (def.Kind == PrefKind.Folder)
+                AddChooseFolder(row, def);
             box.AddChild(row);
         }
         _controls[def.Key] = control;
@@ -186,6 +188,22 @@ public sealed partial class PrefPageView : ScrollContainer
                 return line;
             }
         }
+    }
+
+    /// <summary>A Choose... button beside a folder setting's field: it opens the system's folder picker and puts the chosen folder in the field.</summary>
+    private void AddChooseFolder(HBoxContainer row, PrefDef def)
+    {
+        var choose = new Button { Name = "choose_" + def.Key, Text = _strings.Get("prefs.cache.choose") };
+        choose.AccessibilityName = choose.Text;
+        var dialog = new FileDialog
+        {
+            Name = "choose_" + def.Key + "_dialog", FileMode = FileDialog.FileModeEnum.OpenDir, Access = FileDialog.AccessEnum.Filesystem,
+            UseNativeDialog = true, Title = _strings.Get("prefs.cache.choose.title"),
+        };
+        dialog.DirSelected += dir => { Edit(def, dir.Trim()); Sync(); };
+        choose.Pressed += () => dialog.PopupCentered(new Vector2I(700, 450));
+        row.AddChild(choose);
+        row.AddChild(dialog);
     }
 
     private OptionButton Options(PrefDef def, string label, List<string> texts, Func<int> selected, Func<int, object> valueAt)

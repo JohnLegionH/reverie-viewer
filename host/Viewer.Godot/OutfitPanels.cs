@@ -66,6 +66,7 @@ public partial class OutfitPanel : VBoxContainer
     public Button SaveButton { get; }
     public LineEdit NameField { get; }
     public Label BaseLabel { get; }
+    public Label SavedNone { get; }
     public Label NoticeLabel { get; }
     public Label StatusLabel { get; }
 
@@ -90,6 +91,9 @@ public partial class OutfitPanel : VBoxContainer
         SavedTree = MakeTree("saved_tree", "outfit.saved.tree");
         SavedTree.ItemSelected += () => { if (!_building) { _selectedOutfit = IdOf(SavedTree.GetSelected()); Refresh(); } };
         AddChild(SavedTree);
+        SavedNone = ChatFeature.Note("saved_none", strings.Get("outfit.saved.none"), _theme);
+        SavedNone.Text = strings.Get("outfit.saved.none");
+        AddChild(SavedNone);
         var savedRow = new HBoxContainer { Name = "saved_buttons" };
         WearOutfitButton = Button("wear_outfit", "outfit.button.wear", OnWearOutfit);
         savedRow.AddChild(WearOutfitButton);
@@ -218,6 +222,7 @@ public partial class OutfitPanel : VBoxContainer
                         pickedOutfit = row;
                 }
                 if (pickedOutfit is not null) pickedOutfit.Select(0); else _selectedOutfit = Guid.Empty;
+                SavedNone.Visible = sr.GetChildCount() == 0;
             }
         }
         finally { _building = false; }

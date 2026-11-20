@@ -304,8 +304,10 @@ public sealed partial class AddonWindowView : BoxContainer
                     list.AccessibilityName = choice.Text;
                     list.Clear();
                     foreach (string item in choice.Items) list.AddItem(item);
-                    list.Selected = choice.Selected < choice.Items.Count ? choice.Selected : -1;
-                    list.Disabled = !choice.Enabled;
+                    if (choice.Items.Count == 0)
+                        list.AddItem(_strings.Get("addons.choice.empty"));   // an empty list says so rather than showing a blank select
+                    list.Selected = choice.Items.Count == 0 ? 0 : choice.Selected < choice.Items.Count ? choice.Selected : -1;
+                    list.Disabled = !choice.Enabled || choice.Items.Count == 0;
                     _syncing = false;
                 }
                 choice.Changed += Sync;

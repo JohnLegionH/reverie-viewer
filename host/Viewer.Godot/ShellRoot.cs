@@ -620,6 +620,7 @@ public partial class ShellRoot : Control
             box.AddChild(about);
             box.AddChild(disclaimer);
             box.AddChild(buttons);
+            ReverieRestyle.Apply(box);   // built here, not by AddFloater: it takes the Reverie look itself
             frame.SetContent(box);
         }
         else if (spec.Id == ShellController.LicencesFloaterId)
@@ -638,6 +639,7 @@ public partial class ShellRoot : Control
             pick.ItemSelected += i => { text.Text = docs[(int)i].Text; text.AccessibilityName = docs[(int)i].Title; };
             box.AddChild(pick);
             box.AddChild(text);
+            ReverieRestyle.Apply(box);   // built here, not by AddFloater: it takes the Reverie look itself
             frame.SetContent(box);
         }
         _frames[spec.Id] = frame;
