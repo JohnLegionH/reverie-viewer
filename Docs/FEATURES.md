@@ -46,13 +46,13 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 ## Building and scripting
 
 - Build mode: **Build > Build** (Ctrl+B). Tools: Focus (Ctrl+1), Grab (Ctrl+2), Edit (Ctrl+3), Create (Ctrl+4).
-- Build window tabs: General, Object, Texture, Features, Content. Move, rotate and stretch handles; PBR materials; the colour picker from any colour swatch.
+- The Build window has a tool row (Focus, Grab, Edit, Create; Land is greyed), the Move, Rotate, Stretch and Select Face modes with Undo and Redo, and folding sections: Contents, Placement, Shape, Look, Object and Behaviour. Move, rotate and stretch handles; PBR materials (Look); the colour picker from any colour swatch.
 - Link (Ctrl+L), Unlink (Ctrl+Shift+L), Edit Linked Parts, Select Next Part (Ctrl+.) and Previous Part (Ctrl+,), Select Only My Objects: **Build** menu.
 - Undo (Ctrl+Z) and Redo (Ctrl+Y): **Build** menu.
 - Grid snapping: **Build > Options** (Snap to Grid G, Snap Object XY to Grid Shift+X, Use Selection for Grid Shift+G, Grid Options… Ctrl+Shift+B).
-- Take, Take Copy, Delete, Take Into Folder…: right-click an object, or **Build > Take Into Folder…**.
 - Recompile, reset, run and stop all scripts in a selection: **Build > Scripts**.
-- Script editor (compile errors, Running, Reset, engine choice where the grid offers it), notecard editor, gesture editor: open from the Inventory or the Build window's Content tab.
+- Script editor (compile errors, Running, Reset, engine choice where the grid offers it) and notecard editor: double-click the item in the Inventory, or open it from the Build window's Contents section. Gesture editor: **Edit** in the Gestures window, or a new gesture from the Inventory's Create new menu (a double-click on a gesture in the Inventory does not open it).
+- Take, Take Copy, Delete: right-click an object; Take Into Folder...: **Build > Take Into Folder...**. In the Contents section, F2 renames the chosen item and Delete removes the chosen items.
 - Upload an image (Ctrl+U), a static mesh model (Ctrl+Alt+U), or many at once: **Build > Upload**.
 - Touch, sit on, open, buy and pay objects; answer script dialogs: right-click an object.
 
