@@ -91,3 +91,21 @@ public class ReverieBatch4Tests
         Assert.Contains("prefs.cache.choose", Host("PreferencePages.cs"));
     }
 }
+
+public class GestureDeleteQuestionTests
+{
+    private static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+    private static Viewer.Shell.Inventory.GestureListRow Row(int n) => new(G(n), "g" + n, "", "None", false);
+
+    [Fact]
+    public void The_question_holds_while_every_gesture_it_names_is_listed()
+    {
+        Assert.True(Viewer.Shell.Inventory.GestureList.PendingStillValid([G(1), G(2)], [Row(1), Row(2), Row(3)]));
+    }
+
+    [Fact]
+    public void The_question_is_dropped_when_a_gesture_it_names_is_gone()
+    {
+        Assert.False(Viewer.Shell.Inventory.GestureList.PendingStillValid([G(1), G(9)], [Row(1), Row(2)]));
+    }
+}

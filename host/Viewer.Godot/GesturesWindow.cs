@@ -233,6 +233,8 @@ public sealed partial class GesturesWindow : VBoxContainer
     public void Show(IReadOnlyList<GestureListRow> rows)
     {
         List.SetRows(rows);
+        if (_pendingDelete.Count > 0 && !GestureList.PendingStillValid(_pendingDelete, rows))
+            CancelDelete();   // the question named a gesture that is gone: it would answer for a choice nobody sees
         Fill();
     }
 

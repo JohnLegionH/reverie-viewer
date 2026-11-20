@@ -82,6 +82,10 @@ public static class GestureListRows
 /// </summary>
 public sealed class GestureList
 {
+    /// <summary>Whether a delete question still holds after the list was filled again: every gesture it names is still listed.</summary>
+    public static bool PendingStillValid(IReadOnlyList<Guid> pending, IReadOnlyList<GestureListRow> rows) =>
+        pending.All(id => rows.Any(r => r.ItemId == id));
+
     private readonly List<Guid> _selected = new();
 
     public IReadOnlyList<GestureListRow> Rows { get; private set; } = [];
