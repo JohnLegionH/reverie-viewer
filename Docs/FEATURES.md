@@ -20,17 +20,17 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Walk and turn: W A S D or the arrow keys. Shift+A or Shift+D slides sideways. E or Page Up jumps (flying: up); C or Page Down crouches (flying: down).
 - Fly or land: F or Home. Stop moving: Space.
 - Run: Ctrl+R switches always-run; tap a direction twice and hold to run (Preferences > Move & View).
-- Sit on an object or the ground, and stand up. Right-click menu.
+- Sit on an object or the ground (right-click > **Sit Here**), and stand up (the **Stand** button, or right-click > **Stand Up**).
 - Mouselook: M, or scroll in past the closest zoom. Esc or scroll out leaves it. Turn it off in Preferences > Move & View.
 - Camera: Alt+drag orbits and zooms, Ctrl+Alt+drag orbits, Ctrl+Alt+Shift+drag pans. Alt+click focuses on what you click. Alt with the arrow keys also moves the camera. Scroll wheel zooms. Esc resets the view.
 - Smoothing, inverted mouse, crosshair and camera constraints: Preferences > Move & View.
 
 ## Chat and people
 
-- Nearby chat: **Communicate > Nearby chat** (Ctrl+H), or the dock's Chat button. Enter starts a message, Shift+Enter whispers, Ctrl+Enter shouts, `/5 text` speaks on channel 5.
+- Nearby chat: **Communicate > Nearby chat** (Ctrl+H), or the dock's Chat button. Click the chat bar to type; in a chat line, Enter says, Shift+Enter whispers, Ctrl+Enter shouts, `/5 text` speaks on channel 5.
 - Instant messages and group chat, in tabs with unread counts: **Communicate > Conversations** (Ctrl+T). Select several friends to start one conference.
 - People window: **Communicate > People** (Ctrl+Shift+A), with Friends, Groups, Notices and Blocked tabs. Friend offers, your active group and title, group notices.
-- Teleport offers and requests, and friend requests: from the People window or an avatar's right-click menu.
+- Friend offers, teleport offers and teleport requests: right-click an avatar (**Add Friend**, **Offer Teleport**, **Request Teleport**), or **World > Teleport…** for a friend. Answer incoming ones in the notice that appears, or in People > Friends and the Teleport window.
 - Notifications and offers: **Communicate > Notifications** (Alt+Shift+N), or the dock's Notices button.
 - Gestures, with chat triggers and function keys (F2 to F12): **Me > Gestures…** (Ctrl+G).
 
@@ -105,7 +105,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 | Ctrl+R | Always run |
 | M | Mouselook |
 | Esc | Reset the view (leave mouselook) |
-| Enter | Start a chat message |
+| Enter, Shift+Enter, Ctrl+Enter | In a chat line: say, whisper, shout |
 | F2 to F12 | Gesture keys |
 
 ## Not in Reverie yet

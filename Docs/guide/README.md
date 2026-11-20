@@ -7,8 +7,8 @@ for those topics, see the [feature cheat sheet](../FEATURES.md), which says what
 |---|---|
 | [Installing and first login](installing-and-first-login.md) (including adding a grid) | written |
 | [Finding your way around](finding-your-way-around.md): the top bar, the dock and the command search | written |
-| Moving and the camera | coming |
-| Chat, instant messages and friends | coming |
+| [Moving and the camera](moving-and-the-camera.md): walking, flying, sitting, mouselook, the camera and Move & View | written |
+| [Chat and people](chat-and-people.md): nearby chat, conversations, the People window, offers, notifications and gestures | written |
 | Inventory, outfits and appearance | coming |
 | Building and scripting | coming |
 | The world: maps, teleporting, sky and land | coming |
