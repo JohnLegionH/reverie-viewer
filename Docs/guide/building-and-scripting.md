@@ -240,6 +240,10 @@ To choose the engine yourself:
 
 ![The tick set and Phlox chosen](../../fixtures/ui/golden-ui-script-engine-on-classic-vulkan.png)
 
+Where the region runs Lua, the list also has **SLua (LSL)** and **SLua (Lua)**. Pick **SLua (Lua)** for a script written in Lua; the editor then colours it as Lua. **SLua (LSL)** runs an LSL script on the Lua engine.
+
+![The tick set and SLua (Lua) chosen on a region that runs Lua](../../fixtures/ui/golden-ui-script-engine-slua-classic-vulkan.png)
+
 An engine the region marks as early access says so in its name. The first time you pick one, a line under the code warns that it may not keep a script's state across future updates.
 
 ![An early-access engine picked, with the warning](../../fixtures/ui/golden-ui-script-engine-early-classic-vulkan.png)
