@@ -37,6 +37,7 @@ public class WindowPlacesWiringTests
         ["BuildPanels.cs"] = "FileDialog",
         ["ModelPanels.cs"] = "FileDialog",
         ["PreferencesPanels.cs"] = "FileDialog",
+        ["PreferencePages.cs"] = "FileDialog",
         ["AddonPanels.cs"] = "ConfirmationDialog",
     };
 
