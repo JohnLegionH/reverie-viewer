@@ -468,6 +468,8 @@ public partial class Main
                 .Select(i => new { text = front.TargetCombo.GetItemText(i), disabled = front.TargetCombo.IsItemDisabled(i) }).ToArray(),
             runtime = e?.Runtime is { } rt ? new { rt.Running, rt.Mono, rt.Luau, rt.LuauLanguage, rt.Engine, rt.EngineChoice } : null,
             why = e?.Why is { } w ? new { engine = w.Engine, reason = w.ReasonKey } : null,
+            // what the region sent for the engine choice: OpenSimExtras ScriptEngines, ScriptEngineChoice, ScriptEngineChoiceNoMod, ScriptEngineEarlyAccess, and LuaScriptsEnabled
+            region = e is null ? null : new { engines = e.Region.Engines, choice_saved = e.Region.ChoiceSaved, choice_no_mod = e.Region.ChoiceNoMod, early_access = e.Region.EarlyAccess, lua = e.Region.LuaEnabled },
         };
     }
 

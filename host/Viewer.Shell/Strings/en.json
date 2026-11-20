@@ -569,6 +569,7 @@
   "script.engine.early_warning": "Early access: this engine may not keep script state across future updates.",
   "script.engine.set_failed_why": "The region did not accept the engine choice: {0}",
   "script.engine.no_choice": "This grid can't save an engine choice. A first line such as //{0}: picks one instead.",
+  "script.engine.no_save": "This region does not keep engine choices. A first line such as //{0}: picks the engine instead.",
   "script.engine.no_mod": "This region does not let you set the engine of a script you can't modify.",
   "script.engine.why.saved": "{0} (saved choice)",
   "script.engine.why.first_line": "{0} (from first line)",

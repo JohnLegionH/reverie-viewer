@@ -52,7 +52,7 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
-        "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "commandlist", "commandlist-search", "commandlist-setting",
+        "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
@@ -86,8 +86,9 @@ public partial class TestRender
     private static ScriptEditorPanel ExampleScript(ShellRoot shell, string scene)
     {
         static Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        bool engineScene = scene.StartsWith("script-engine", StringComparison.Ordinal) || scene == "script-sl";
         var feature = new ScriptEditorFeature(shell);
-        feature.Bind(null, openSim: true);
+        feature.Bind(null, openSim: scene != "script-sl");
         const uint full = 0x7fffffff;
         bool readOnly = scene == "script-readonly";
         var owner = readOnly ? G(3) : G(1);
@@ -96,6 +97,11 @@ public partial class TestRender
             InLibrary: readOnly, ObjectId: readOnly ? Guid.Empty : G(30), LocalId: readOnly ? 0u : 7u);
         var panel = feature.Open(access, readOnly ? "Example library script" : "Example script");
         string text = scene == "script-error" ? ExampleScriptText : ExampleScriptText.Replace("count += total\n", "count += total;\n", StringComparison.Ordinal);
+        if (engineScene)
+        {
+            ExampleEngineRow(panel, scene, text);
+            return panel;
+        }
         panel.ShowText(text);
         if (readOnly)
             return panel;
@@ -109,6 +115,35 @@ public partial class TestRender
         else
             panel.ShowAnswer(new Viewer.Core.Inventory.ScriptSaveResult(Viewer.Core.Inventory.ScriptSaveStatus.Saved, true, G(22), []));
         return panel;
+    }
+
+    /// <summary>
+    /// The script editor's engine row as a person meets it, for the guide's pictures. "script-engine": a region that lists YEngine and Phlox and
+    /// keeps a choice, the tick clear and the greyed drop-down naming the engine the first line asks for; "script-engine-on": ticked, Phlox
+    /// chosen; "script-engine-early": Phlox marked early access, picked, with the warning; "script-engine-nosave": the region lists engines
+    /// but keeps no choice, so the tick is greyed; "script-sl": Second Life's four-way compiler list. No session or grid.
+    /// </summary>
+    private static void ExampleEngineRow(ScriptEditorPanel panel, string scene, string text)
+    {
+        var region = scene switch
+        {
+            "script-sl" => new Viewer.Core.Inventory.ScriptRegion([], true, false, false),
+            "script-engine-nosave" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Phlox"], false, false, false),
+            "script-engine-early" => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Phlox"], false, true, false) { EarlyAccess = ["Phlox"] },
+            _ => new Viewer.Core.Inventory.ScriptRegion(["YEngine", "Phlox"], false, true, false),
+        };
+        panel.Editing!.Region = region;
+        // the first line names the engine the greyed drop-down shows
+        panel.ShowText(scene is "script-engine" or "script-engine-nosave" ? "//YEngine:\n" + text : text);
+        panel.ShowRunning(true, true);
+        if (scene is "script-engine-on" or "script-engine-early")
+        {
+            panel.Editing.SetChooseEngine(true);
+            panel.Editing.Choose(Viewer.Core.Inventory.ScriptTarget.Engine("Phlox"));
+            if (scene == "script-engine-early")
+                panel.EarlyWarning.Visible = true;
+        }
+        panel.ShowFixture();
     }
 
     /// <summary>
@@ -305,6 +340,11 @@ public partial class TestRender
             case "script":
             case "script-error":
             case "script-readonly":
+            case "script-engine":
+            case "script-engine-on":
+            case "script-engine-early":
+            case "script-engine-nosave":
+            case "script-sl":
                 ExampleScript(shell, scene);
                 break;
             case "notecard":

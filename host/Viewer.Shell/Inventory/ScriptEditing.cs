@@ -178,6 +178,13 @@ public sealed class ScriptEditing
     /// <summary>The engine row (the tick box and its drop-down) is shown: not on Second Life, and only where the region lists an engine or runs Lua.</summary>
     public bool EngineRowVisible => !SecondLife && (Region.Engines.Count > 0 || Region.LuaEnabled);
 
+    /// <summary>The engine row is shown but nothing in it can be chosen: the region lists engines yet does not keep a choice, and has no Lua
+    /// entries to offer either. The tick is then greyed, as Second Life's greyed entries are, and its tooltip says why.</summary>
+    public bool EngineChoiceGreyed => !SecondLife && EngineRowVisible && !Region.ChoiceSaved && !Region.LuaEnabled;
+
+    /// <summary>The engine a first line can name in the tooltip of a greyed tick: the region's first LSL engine.</summary>
+    public string EngineChoiceExample => ScriptEngineChoices.FirstLslEngine(Region);
+
     /// <summary>What runs the script and why, for the greyed drop-down; null when there is nothing to say.</summary>
     public ScriptEngineWhy? Why => SecondLife || Region.Engines.Count == 0 && Runtime is not { Luau: true } ? null : ScriptEngineChoices.Why(Region, Runtime, Text);
 
@@ -189,7 +196,7 @@ public sealed class ScriptEditing
     /// is to be cleared with SetScriptEngine.</summary>
     public bool SetChooseEngine(bool on)
     {
-        if (SecondLife || on && !EngineRowVisible)
+        if (SecondLife || on && (!EngineRowVisible || EngineChoiceGreyed))
             return false;
         ChooseEngine = on;
         if (on)

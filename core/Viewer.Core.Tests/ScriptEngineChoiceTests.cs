@@ -184,6 +184,28 @@ public class ScriptEngineChoiceTests
     }
 
     [Fact]
+    public void A_region_that_lists_engines_but_keeps_no_choice_and_has_no_lua_greys_the_tick()
+    {
+        var e = Opened(InObj(), Region(["YEngine", "Example.Alpha"], lua: false, choice: false));
+        e.RunningKnown(new ScriptRuntime(true, true));
+        Assert.True(e.EngineRowVisible);
+        Assert.True(e.EngineChoiceGreyed);
+        Assert.False(e.SetChooseEngine(true));
+        Assert.False(e.ChooseEngine);   // the tick does not take
+        Assert.Empty(e.Choices);
+        Assert.Equal("mono", Sent(e));
+    }
+
+    [Fact]
+    public void The_tick_is_not_greyed_where_the_region_keeps_a_choice_or_offers_lua_or_the_grid_is_second_life()
+    {
+        Assert.False(Opened(InObj(), Region(["YEngine"], lua: false, choice: true)).EngineChoiceGreyed);
+        Assert.False(Opened(InObj(), Region(["YEngine"], lua: true, choice: false)).EngineChoiceGreyed);   // the Lua entries still work
+        Assert.False(Opened(InObj(), Region(["YEngine"], lua: false, choice: false), secondLife: true).EngineChoiceGreyed);
+        Assert.False(Opened(InObj(), Region([], lua: false, choice: false)).EngineChoiceGreyed);   // no row at all
+    }
+
+    [Fact]
     public void A_region_that_lists_no_engines_shows_only_the_lua_choices_where_lua_is_on()
     {
         Assert.Equal(["lsl-luau", "luau"], ScriptEngineChoices.OpenSim(Region([], lua: true)).Select(c => c.Target.Value));

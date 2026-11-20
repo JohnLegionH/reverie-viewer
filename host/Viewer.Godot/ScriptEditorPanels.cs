@@ -536,7 +536,8 @@ public partial class ScriptEditorPanel : VBoxContainer
         TargetCombo.Visible = show;
         if (!show)
             return;
-        EngineCheck.Disabled = !e.CanEdit || e.Saving;
+        EngineCheck.Disabled = !e.CanEdit || e.Saving || e.EngineChoiceGreyed;   // a region that keeps no choice: greyed, as Second Life greys what a region lacks
+        EngineCheck.TooltipText = e.EngineChoiceGreyed ? _s.Get("script.engine.no_save", e.EngineChoiceExample) : "";
         EngineCheck.ButtonPressed = e.ChooseEngine;
         var choices = e.Choices;
         if (choices.Count == 0)
@@ -553,7 +554,7 @@ public partial class ScriptEditorPanel : VBoxContainer
             _shownChoices = choices;
             TargetCombo.Select(0);
             TargetCombo.Disabled = true;
-            TargetCombo.TooltipText = string.Empty;
+            TargetCombo.TooltipText = e.EngineChoiceGreyed ? _s.Get("script.engine.no_save", e.EngineChoiceExample) : string.Empty;
             return;
         }
         string listKey = string.Join("|", choices.Select(c => c.Target.Value + (c.Enabled ? "+" : "-")));
