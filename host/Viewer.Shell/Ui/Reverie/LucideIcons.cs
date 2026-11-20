@@ -11,7 +11,7 @@ public static class LucideIcons
         AddOn = "plug", Notices = "bell", Back = "arrow-left", Home = "house", Landmark = "star", Grid = "globe", Down = "chevron-down",
         Submenu = "chevron-right", Gestures = "face-slightly-smiling", Speak = "mic", Return = "undo-2", Search = "search", Sort = "list-filter",
         Folder = "folder", Trash = "trash-2", Add = "plus", Minimise = "minus", Close = "x", Locked = "lock", Warning = "triangle-alert",
-        Check = "check", Show = "eye", Hide = "eye-off", Help = "circle-question-mark";
+        Check = "check", Show = "eye", Hide = "eye-off", Help = "circle-question-mark", More = "ellipsis";
 
     /// <summary>Every icon the interface may ask for.</summary>
     public static IReadOnlyList<string> All { get; } = typeof(LucideIcons).GetFields()

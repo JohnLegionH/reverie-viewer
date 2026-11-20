@@ -31,6 +31,7 @@ public partial class Main
     private Guid _gestureItem;
     private CancellationTokenSource _gestureCancel = new();
     private bool _gestureOpenHooked;
+    private readonly Dictionary<Guid, CancellationTokenSource> _gesturePlays = new();
 
     private void AttachGestures(ViewerSession session)
     {
@@ -78,13 +79,94 @@ public partial class Main
             _shell.Shell.Floaters.Close(GesturesFeature.FloaterId, force: true);
     }
 
-    /// <summary>Plays a gesture on the user: animations through the region, sounds as a triggered sound, chat said on channel 0.</summary>
+    /// <summary>Plays a gesture on the user: animations through the region, sounds as a triggered sound, chat said on channel 0. A gesture
+    /// that is active is tracked by its item while it plays, so the Gestures window's Stop can end it (llgesturemgr.cpp stopGesture).</summary>
     private void PlayGesture(ViewerSession session, GestureDocument gesture)
     {
         var fx = new SessionGestureEffects(session);
-        var token = _gestureCancel.Token;
+        var own = CancellationTokenSource.CreateLinkedTokenSource(_gestureCancel.Token);
+        var token = own.Token;
+        Guid item = _gestureSet?.Items().FirstOrDefault(i => ReferenceEquals(_gestureSet.Get(i), gesture)) ?? Guid.Empty;
+        if (item != Guid.Empty)
+        {
+            CancellationTokenSource? before;
+            lock (_gesturePlays)
+            {
+                _gesturePlays.TryGetValue(item, out before);
+                _gesturePlays[item] = own;
+            }
+            try { before?.Cancel(); }   // played again while it plays: it starts over
+            catch (ObjectDisposedException) { }
+            Callable.From(ShowGesturesPlaying).CallDeferred();
+        }
         Log.Info("gesture.play", Viewer.Core.Diagnostics.CoreLog.F("steps", gesture.Steps.Count));
-        _ = Task.Run(() => GesturePlayer.PlayAsync(gesture, fx, (span, ct) => Task.Delay(span, ct), token), token);
+        _ = Task.Run(async () =>
+        {
+            try { await GesturePlayer.PlayAsync(gesture, fx, (span, ct) => Task.Delay(span, ct), token).ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            finally
+            {
+                lock (_gesturePlays)
+                {
+                    if (item != Guid.Empty && _gesturePlays.TryGetValue(item, out var current) && ReferenceEquals(current, own))
+                        _gesturePlays.Remove(item);
+                }
+                own.Dispose();
+                if (item != Guid.Empty)
+                    Callable.From(ShowGesturesPlaying).CallDeferred();
+            }
+        });
+    }
+
+    /// <summary>The Gestures window's Stop button follows which gestures play.</summary>
+    private void ShowGesturesPlaying()
+    {
+        Guid[] playing;
+        lock (_gesturePlays)
+            playing = _gesturePlays.Keys.ToArray();
+        _gestureList?.SetPlaying(playing);
+    }
+
+    /// <summary>Stop: ends the chosen gestures that play, and the animations they started.</summary>
+    private void StopFromList(IReadOnlyList<Guid> items)
+    {
+        foreach (var item in items)
+        {
+            CancellationTokenSource? playing;
+            lock (_gesturePlays)
+                _gesturePlays.TryGetValue(item, out playing);
+            try { playing?.Cancel(); }
+            catch (ObjectDisposedException) { }   // it had just ended
+        }
+        Log.Info("gestures.stop", Viewer.Core.Diagnostics.CoreLog.F("count", items.Count));
+    }
+
+    /// <summary>Delete, answered Yes: each gesture is stopped and deactivated, then moved to the Trash (never purged), and the editor
+    /// closes when it showed one of them.</summary>
+    private void DeleteFromList(IReadOnlyList<Guid> items)
+    {
+        if (_gesturesFor is not { IsEnded: false } session || session.Gestures is not { } transport || _shell is null)
+            return;
+        var actions = new InventoryActions(session.Inventory, session.Actions.Submit);
+        int moved = 0;
+        foreach (var item in items)
+        {
+            StopFromList([item]);
+            if (_gestureSet?.IsActive(item) == true || transport.ActiveGestures().Any(g => g.ItemId == item))
+            {
+                transport.SetGestureActive(item, transport.GestureAssetOf(item), false);
+                _gestureSet?.Remove(item);
+            }
+            if (actions.Trash(item, confirmed: true).Submitted)
+                moved++;
+            if (_gestureItem == item)
+            {
+                _gestureItem = Guid.Empty;
+                _shell.Shell.Floaters.Close(GesturePanel.FloaterId, force: true);
+            }
+        }
+        Log.Info("gestures.delete", Viewer.Core.Diagnostics.CoreLog.F("count", items.Count), Viewer.Core.Diagnostics.CoreLog.F("moved", moved));
+        RefreshGestureList();
     }
 
     private sealed class SessionGestureEffects(ViewerSession session) : IGestureEffects
@@ -236,6 +318,8 @@ public partial class Main
         _gestureList.EditRequested = OpenGesture;
         _gestureList.PlayRequested = PlayFromList;
         _gestureList.ToggleRequested = ToggleFromList;
+        _gestureList.StopRequested = StopFromList;
+        _gestureList.DeleteRequested = DeleteFromList;
         // Make new gesture: made as Inventory > New Gesture makes it, in the Gestures folder, then activated and opened (onClickNew,
         // GestureShowCallback)
         _gestureList.NewRequested = () => OnNewRequested("gesture", Guid.Empty);

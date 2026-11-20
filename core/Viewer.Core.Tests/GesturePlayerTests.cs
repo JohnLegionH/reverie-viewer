@@ -120,4 +120,14 @@ public class GesturePlayerTests
         Assert.False(set.Key(GestureKeys.F3, GestureKeys.MaskNone));
         Assert.Single(played);
     }
+
+    [Fact]
+    public async Task A_stopped_gesture_stops_the_animations_it_started_and_runs_no_more_steps()
+    {
+        var g = new GestureDocument { Steps = { GestureStep.Animation("wave", Wave, stop: false), GestureStep.WaitTime(5), GestureStep.Chat("after") } };
+        var fx = new Fx();
+        using var cts = new CancellationTokenSource();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => GesturePlayer.PlayAsync(g, fx, (span, ct) => { cts.Cancel(); ct.ThrowIfCancellationRequested(); return Task.CompletedTask; }, cts.Token));
+        Assert.Equal(["start wave", "stop wave"], fx.Log);
+    }
 }
