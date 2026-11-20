@@ -141,8 +141,8 @@ public sealed class ScriptEditing
             return;
         }
         Pristine = Text;
-        if (result.NewAssetId != Guid.Empty)
-            Access = Access with { AssetId = result.NewAssetId };
+        if (result.StoredAssetFor(Access) is var stored && stored != Guid.Empty)
+            Access = Access with { AssetId = stored };
         Messages = result.Messages;
         StatusKey = result.Compiled == false || result.Messages.Count > 0 ? null : "script.save_complete";
         if (_closeWhenSaved)

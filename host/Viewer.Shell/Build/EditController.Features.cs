@@ -124,6 +124,8 @@ public sealed partial class EditController
     /// An item of the shown object was saved in place (a notecard edited from Contents): its listed asset becomes the one the save stored and
     /// the object's contents are read again, as the official window takes the new asset id from the upload's answer and reads the card
     /// again (llpreviewnotecard.cpp finishTaskUpload). Opening the item again then reads what was saved, not the asset listed before.
+    /// A script is saved the same way; where the answer names no asset (<paramref name="newAssetId"/> empty, OpenSim's answer for a script
+    /// inside an object) the item waits for the list (<see cref="Relisting"/>, <see cref="OpenWhenListed"/>).
     /// False when the item is not listed for that object.
     /// </summary>
     public bool ItemSaved(Guid objectId, Guid itemId, Guid newAssetId)
@@ -131,11 +133,37 @@ public sealed partial class EditController
         if (_contents is not { } c || c.ObjectId != objectId || !c.Items.Any(i => i.ItemId == itemId))
             return false;
         if (newAssetId != Guid.Empty)
+        {
             _contents = (c.ObjectId, c.Items.Select(i => i.ItemId == itemId ? i with { AssetId = newAssetId } : i).ToArray());
+            _relisting.Remove(itemId);
+        }
+        else
+            _relisting.Add(itemId);   // the listed asset is the text before the save until the list comes again
         Changed?.Invoke();
         RequestContents();
         return true;
     }
+
+    /// <summary>Whether a saved item's new asset is still unknown: its list has been asked for again and has not come.</summary>
+    public bool Relisting(Guid itemId) => _relisting.Contains(itemId);
+
+    /// <summary>Open waits for the list: true when the item's asset is still unknown after a save; <see cref="ReadyToOpen"/> then names it.
+    /// The list is asked for again, in case the earlier answer was lost.</summary>
+    public bool OpenWhenListed(Guid itemId)
+    {
+        if (!_relisting.Contains(itemId))
+            return false;
+        _openWhenListed = itemId;
+        RequestContents();
+        return true;
+    }
+
+    /// <summary>The shown prim's items saved with no asset named, until its list is read again.</summary>
+    private readonly HashSet<Guid> _relisting = new();
+    private Guid _openWhenListed;
+
+    /// <summary>An item whose open waited for the list may be opened now.</summary>
+    public event Action<Guid>? ReadyToOpen;
 
     /// <summary>The primary prim when its contents may be changed: one the agent may modify.</summary>
     private Viewer.Core.World.ObjectState? ContentTarget() => Primary is { } p && Access(p).CanModify ? Find(p) : null;
@@ -373,7 +401,14 @@ public sealed partial class EditController
             // an answer with nothing in it is an empty list: a prim whose last item was deleted has no contents file, and its read ends empty
             case TaskInventoryReceived t when (t.Ok || t.Items.Count == 0) && Object() is { } shown && shown.FullId == t.ObjectId:
                 _contents = (t.ObjectId, t.Items.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ThenBy(i => i.Name, StringComparer.Ordinal).ToArray());
+                _relisting.Clear();
                 Changed?.Invoke();
+                if (_openWhenListed is var waiting && waiting != Guid.Empty)
+                {
+                    _openWhenListed = Guid.Empty;
+                    if (Listed(waiting) is not null)
+                        ReadyToOpen?.Invoke(waiting);
+                }
                 break;
         }
     }

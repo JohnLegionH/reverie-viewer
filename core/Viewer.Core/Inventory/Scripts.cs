@@ -128,6 +128,12 @@ public enum ScriptSaveStatus { Saved, NoService, Failed }
 public sealed record ScriptSaveResult(ScriptSaveStatus Status, bool? Compiled, Guid NewAssetId, IReadOnlyList<ScriptMessage> Messages, string? Reason = null)
 {
     public static ScriptSaveResult Of(ScriptSaveStatus status, string? reason = null) => new(status, null, Guid.Empty, [], reason);
+
+    /// <summary>The asset the save stored for <paramref name="access"/>'s item, or empty when the answer does not name it. OpenSim answers a
+    /// save inside an object with the item's own id as "new_asset" (TaskInventoryScriptUpdater, OpenSim.Region.ClientStack.LindenCaps
+    /// UpdateItemAsset.cs), which is not the stored text; only the object's contents, read again, then say which asset holds it.</summary>
+    public Guid StoredAssetFor(ScriptAccess access) =>
+        Status != ScriptSaveStatus.Saved || NewAssetId == Guid.Empty || access.InObject && NewAssetId == access.ItemId ? Guid.Empty : NewAssetId;
 }
 
 /// <summary>Reads and saves scripts and their running state. Implemented by the protocol adapter.</summary>

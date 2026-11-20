@@ -52,9 +52,22 @@ public partial class Main
     }
 
     /// <summary>The script editor windows, made once.</summary>
-    private ScriptEditorFeature Scripts() => _scripts ??= new ScriptEditorFeature(_shell!, (where, view) =>
-        Log.Info("script.open", Viewer.Core.Diagnostics.CoreLog.F("where", where), Viewer.Core.Diagnostics.CoreLog.F("view", view ?? "")),
-        new Viewer.Shell.Inventory.EarlyAccessNotice(UserSettings(null)));
+    private ScriptEditorFeature Scripts() => _scripts ??= NewScripts();
+
+    private ScriptEditorFeature NewScripts()
+    {
+        var feature = new ScriptEditorFeature(_shell!, (where, view) =>
+            Log.Info("script.open", Viewer.Core.Diagnostics.CoreLog.F("where", where), Viewer.Core.Diagnostics.CoreLog.F("view", view ?? "")),
+            new Viewer.Shell.Inventory.EarlyAccessNotice(UserSettings(null)));
+        // a script saved inside the object the Build window shows: its listed asset is the saved one, or, where the answer names none, the
+        // contents are read again before it opens, so opening it again reads the saved text and not the one listed before the save
+        feature.Saved += (access, stored) =>
+        {
+            if (access.InObject)
+                _edit?.ItemSaved(access.ObjectId, access.ItemId, stored);
+        };
+        return feature;
+    }
 
     private void OpenInventoryScript(Guid itemId)
     {
@@ -72,6 +85,8 @@ public partial class Main
     {
         if (_shell is null || _edit is null || (_interactFor ?? _inventoryFor) is not { IsEnded: false } session)
             return;
+        if (_edit.OpenWhenListed(itemId))
+            return;   // saved and its asset not yet listed: it opens when the list comes (ReadyToOpen)
         if (_edit.ScriptToOpen(itemId, session.AgentId) is not { } access)
             return;
         string name = _edit.Contents.FirstOrDefault(i => i.ItemId == itemId)?.Name ?? "";

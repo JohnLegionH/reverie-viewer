@@ -141,8 +141,8 @@ internal sealed partial class LmvTransport : IScriptTransport
                 return ScriptSaveResult.Of(ScriptSaveStatus.Failed, "no_answer");
             var result = ParseScriptAnswer(OSDParser.Deserialize(answer));
             // the inventory item now holds the new text (llviewerassetupload.cpp finishUpload updates the item's asset)
-            if (result.Status == ScriptSaveStatus.Saved && !access.InObject && result.NewAssetId != Guid.Empty && Stored(access.ItemId) is InventoryItem item)
-                item.AssetUUID = new UUID(result.NewAssetId);
+            if (!access.InObject)
+                TakeStoredAsset(Stored(access.ItemId) as InventoryItem, access, result);
             _log.Info("script.saved", CoreLog.F("in_object", access.InObject), CoreLog.F("status", result.Status.ToString()), CoreLog.F("messages", result.Messages.Count));
             return result;
         }
@@ -152,6 +152,16 @@ internal sealed partial class LmvTransport : IScriptTransport
             _log.Warn("script.save-failed", CoreLog.F("error", ex.GetType().Name));
             return ScriptSaveResult.Of(ScriptSaveStatus.Failed, "failed");
         }
+    }
+
+    /// <summary>An inventory script's item takes the asset its save stored; false when there is none to take.</summary>
+    internal static bool TakeStoredAsset(InventoryItem? item, ScriptAccess access, ScriptSaveResult result)
+    {
+        Guid stored = result.StoredAssetFor(access);
+        if (access.InObject || item is null || stored == Guid.Empty)
+            return false;
+        item.AssetUUID = new UUID(stored);
+        return true;
     }
 
     private readonly LmvScriptReplyKeeper _scriptReplies = new();

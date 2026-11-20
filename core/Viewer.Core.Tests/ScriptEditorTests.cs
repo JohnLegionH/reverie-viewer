@@ -184,6 +184,36 @@ public class ScriptEditorTests
     }
 
     [Fact]
+    public void A_save_inside_an_object_whose_answer_names_the_item_is_not_taken_as_the_stored_text()
+    {
+        // OpenSim's UpdateScriptTask uploader answers "new_asset" with the item's own id (TaskInventoryScriptUpdater in
+        // OpenSim.Region.ClientStack.LindenCaps UpdateItemAsset.cs), not the stored text's asset; Second Life's answer names the asset
+        var inObj = InObj(Copy | Modify);
+        Assert.Equal(Guid.Empty, new ScriptSaveResult(ScriptSaveStatus.Saved, true, Item, []).StoredAssetFor(inObj));
+        Assert.Equal(G(9), new ScriptSaveResult(ScriptSaveStatus.Saved, true, G(9), []).StoredAssetFor(inObj));
+        Assert.Equal(G(9), new ScriptSaveResult(ScriptSaveStatus.Saved, null, G(9), []).StoredAssetFor(Inv(Copy | Modify)));
+        Assert.Equal(Guid.Empty, ScriptSaveResult.Of(ScriptSaveStatus.Failed, "x").StoredAssetFor(inObj));
+        // the window never takes the item's id as its text's asset
+        var e = Opened(inObj, "x");
+        e.Text = "y";
+        e.BeginSave();
+        e.SaveFinished(new ScriptSaveResult(ScriptSaveStatus.Saved, true, Item, []));
+        Assert.NotEqual(Item, e.Access.AssetId);
+    }
+
+    [Fact]
+    public void A_script_saved_in_the_inventory_lists_the_asset_the_save_stored()
+    {
+        // llviewerassetupload.cpp finishUpload: the inventory item takes the new asset, so opening the script again reads the saved text
+        var item = new InventoryLSL(new UUID(Item)) { AssetUUID = new UUID(Asset), AssetType = AssetType.LSLText };
+        Assert.True(LmvTransport.TakeStoredAsset(item, Inv(Copy | Modify), new ScriptSaveResult(ScriptSaveStatus.Saved, null, G(9), [])));
+        Assert.Equal(G(9), item.AssetUUID.Guid);
+        Assert.False(LmvTransport.TakeStoredAsset(item, Inv(Copy | Modify), ScriptSaveResult.Of(ScriptSaveStatus.Failed, "x")));
+        Assert.Equal(G(9), item.AssetUUID.Guid);
+        Assert.False(LmvTransport.TakeStoredAsset(null, Inv(Copy | Modify), new ScriptSaveResult(ScriptSaveStatus.Saved, null, G(10), [])));
+    }
+
+    [Fact]
     public void An_editable_script_reads_its_text_counts_changes_and_saves()
     {
         var e = Opened(Inv(Copy | Modify), "default\n{\n}\n");

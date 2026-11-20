@@ -41,6 +41,7 @@ public partial class Main
         _edit = new EditController(s.World, s.Actions.Submit, () => s.EditLimits,
             regions: () => s.Worlds.Select(w => new RegionArea(w.Offset.X, w.Offset.Y, w.Region.SizeX, w.Region.SizeY)).ToList());
         _edit.Changed += () => _editPanel?.Refresh();
+        _edit.ReadyToOpen += OpenContentScript;
         _edit.KeepToolSelected = _settings?.Get(Viewer.Shell.Build.BuildSettings.KeepToolSelected) ?? false;
         _editDrag = null;
         // Create makes the box of the new-prim settings (Preferences, Building) and puts the rest of them on it when it arrives

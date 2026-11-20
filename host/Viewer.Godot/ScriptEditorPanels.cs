@@ -49,6 +49,9 @@ public sealed class ScriptEditorFeature
 
     public static string FloaterId(int slot) => "script." + (slot + 1);
 
+    /// <summary>A script was saved: its access and the asset the save stored (empty when the answer names none).</summary>
+    public event Action<ScriptAccess, Guid>? Saved;
+
     /// <summary>The windows open, front last.</summary>
     public IReadOnlyList<ScriptEditorPanel> OpenPanels =>
         _open.Select(k => SlotOf(k) is int s ? _panels[s] : null).OfType<ScriptEditorPanel>().ToList();
@@ -118,6 +121,7 @@ public sealed class ScriptEditorFeature
             _shell.AddFloater(new FloaterSpec(id, "script.title", new UiSize(640, 560), new UiSize(420, 320)), panel);
             _shell.Shell.Floaters.SetCloseGuard(id, () => panel.MayClose(() => _shell.Shell.Floaters.Close(id, force: true)));
             panel.Closing = () => _shell.Shell.Floaters.Close(id, force: true);
+            panel.SaveDone = (a, r) => { if (r.Status == ScriptSaveStatus.Saved) Saved?.Invoke(a, r.StoredAssetFor(a)); };
         }
         _keyIn[slot] = key;
         _open.Add(key);
@@ -218,6 +222,9 @@ public partial class ScriptEditorPanel : VBoxContainer
 
     /// <summary>Closes the window without asking again (set by the feature).</summary>
     public Action? Closing;
+
+    /// <summary>A save's answer has arrived for the script shown (its access and the answer).</summary>
+    public Action<ScriptAccess, ScriptSaveResult>? SaveDone;
 
     public ScriptEditing? Editing => _editing;
 
@@ -647,6 +654,7 @@ public partial class ScriptEditorPanel : VBoxContainer
             return;
         e.SaveFinished(result);
         Sync();
+        SaveDone?.Invoke(e.Access, result);
         if (e.CloseAfterSave)
             Closing?.Invoke();
         else if (e.InObject && result.Status == ScriptSaveStatus.Saved && _transport is { } t)

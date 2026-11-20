@@ -66,6 +66,34 @@ public class BuildContentTabTests
     }
 
     [Fact]
+    public void A_script_saved_into_the_prim_with_no_asset_named_opens_only_once_the_list_is_read_again()
+    {
+        // OpenSim's answer to a script saved inside an object does not name the stored asset; the listed one is the text before the save,
+        // so Open waits for the list the save asks for, as the official live editor reads the object's contents again after a save
+        var r = Selected();
+        var script = new TaskItem(G(11), "New Script", 10, 10, G(50), 0x7FFFFFFF, 0, G(60), G(50), 0x7FFFFFFF, 0, 0);
+        r.C.Receive(new TaskInventoryReceived(G(1), [script]));
+        var ready = new List<Guid>();
+        r.C.ReadyToOpen += ready.Add;
+        Assert.False(r.C.OpenWhenListed(G(11)));   // nothing saved: open at once
+        Assert.True(r.C.ItemSaved(G(1), G(11), Guid.Empty));
+        Assert.IsType<RequestContentsIntent>(r.Sent[^1]);
+        Assert.True(r.C.Relisting(G(11)));
+        Assert.True(r.C.OpenWhenListed(G(11)));
+        Assert.Empty(ready);
+        r.C.Receive(new TaskInventoryReceived(G(9), [Item(90, "other")]));   // another object's list changes nothing
+        Assert.Empty(ready);
+        r.C.Receive(new TaskInventoryReceived(G(1), [script with { AssetId = G(61) }]));
+        Assert.Equal([G(11)], ready);
+        Assert.False(r.C.Relisting(G(11)));
+        Assert.Equal(G(61), r.C.ScriptToOpen(G(11), G(50))!.AssetId);
+        // a save whose answer names the asset lists it at once, and Open does not wait
+        Assert.True(r.C.ItemSaved(G(1), G(11), G(62)));
+        Assert.False(r.C.Relisting(G(11)));
+        Assert.Equal(G(62), r.C.ScriptToOpen(G(11), G(50))!.AssetId);
+    }
+
+    [Fact]
     public void An_answer_with_nothing_in_it_shows_an_empty_list_even_one_the_region_could_not_read()
     {
         var r = Selected();
