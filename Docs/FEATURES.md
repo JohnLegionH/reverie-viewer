@@ -41,7 +41,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Open notecards and scripts; wear, add, take off, attach and detach items: Inventory window.
 - Outfits: **Content > Outfits** (Ctrl+O).
 - Edit your shape, skin, hair, eyes and clothing: **Me > Appearance**, or the dock's Appearance button.
-- Animation overrider (AO): built in, on by default; switch it with its button, or in **Me > Add-ons**. It reads sets from the `#AO` folder inside the `#Firestorm` folder of your inventory.
+- Animation overrider (AO): built in, on by default; switch it with the **AO** button on the dock (a click turns it on or off; its arrow or a right-click lists your sets and **Edit sets...**), or turn the whole add-on off in **Me > Add-ons**. It reads sets from the `#AO` folder inside the `#Firestorm` folder of your inventory.
 
 ## Building and scripting
 

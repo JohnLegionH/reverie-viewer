@@ -6,7 +6,7 @@ for those topics, see the [feature cheat sheet](../FEATURES.md), which says what
 | Section | State |
 |---|---|
 | [Installing and first login](installing-and-first-login.md) (including adding a grid) | written |
-| Finding your way around: the top bar, the dock and the command search | coming |
+| [Finding your way around](finding-your-way-around.md): the top bar, the dock and the command search | written |
 | Moving and the camera | coming |
 | Chat, instant messages and friends | coming |
 | Inventory, outfits and appearance | coming |
