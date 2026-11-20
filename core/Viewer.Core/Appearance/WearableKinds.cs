@@ -106,7 +106,8 @@
 
 // Adapted 2026 by Legion Builds. The wearable kinds' names, numbers and asset types (llwearabletype.cpp), the texture slot numbers
 // (llavatarappearancedefines.cpp), the colour parameters of a slot (teToColorParams in llavatarappearance.cpp) and which slots a panel offers and
-// whether one may be left empty (llpaneleditwearable.cpp) are the files' tables, written out in C#. The rest of this file is our own code.
+// whether one may be left empty (llpaneleditwearable.cpp) are the files' tables, written out in C#. The rest of this file is our own code. The slots' default textures follow
+// llviewerwearable.cpp (getDefaultTextureImageID) and the UIImgDefault*UUID values of app_settings/settings.xml.
 // Copyright (c) 2026 Legion Builds
 
 using Viewer.Core.Inventory;
@@ -174,6 +175,30 @@ public static class WearableKinds
     };
 
     public static IReadOnlyList<TextureSlot> Slots(WearableType t) => SlotTable.GetValueOrDefault(t) ?? NoSlots;
+
+    private static readonly Guid ImgDefaultAvatar = Guid.Parse("c228d1cf-4b5d-4ba8-84f4-899a0796aa97");
+    private static readonly Guid ImgWhite = Guid.Parse("5748decc-f629-461c-9a36-a35a221fe21f");
+    private static readonly Guid ImgEyes = Guid.Parse("6522e74d-1660-4e7f-b601-6f48c1659a77");
+    private static readonly Guid ImgHair = Guid.Parse("7ca39b4c-bd19-4699-aff7-f93fd03d3e7b");
+
+    /// <summary>
+    /// The texture a slot holds when it is reset, and the one a new wearable's file writes for it (LLViewerWearable::getDefaultTextureImageID
+    /// and setTexturesToDefaults): the type's default image setting where the avatar definition names one (eyes and hair their own pictures,
+    /// clothing and alpha the plain white texture; app_settings/settings.xml UIImgDefault*UUID), else the default avatar texture (skin, tattoo
+    /// and universal slots). Empty for a slot the type does not have.
+    /// </summary>
+    public static Guid DefaultTexture(WearableType t, int slot)
+    {
+        if (!Slots(t).Any(s => s.Index == slot))
+            return Guid.Empty;
+        return t switch
+        {
+            WearableType.Eyes => ImgEyes,
+            WearableType.Hair => ImgHair,
+            WearableType.Skin or WearableType.Tattoo or WearableType.Universal => ImgDefaultAvatar,
+            _ => ImgWhite,
+        };
+    }
 
     private static readonly IReadOnlyList<ColourSwatch> NoSwatches = [];
 

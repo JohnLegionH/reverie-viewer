@@ -571,7 +571,8 @@ public partial class AppearancePanel : VBoxContainer
             editor.SetTexture(slot.Index, asset);
             NoticeLabel.Text = string.Empty;
             _rebuild = _dirty = true;
-        }, slot.AllowNone ? () => { editor.SetTexture(slot.Index, Guid.Empty); _rebuild = _dirty = true; } : null);
+        }, slot.AllowNone ? () => { editor.SetTexture(slot.Index, Guid.Empty); _rebuild = _dirty = true; } : null,
+        () => { editor.ResetTexture(slot.Index); NoticeLabel.Text = string.Empty; _rebuild = _dirty = true; }, editor.IsDefaultTexture(slot.Index) || !editor.CanModify);
         AddChild(_picker);
         _picker.PopupCentered(new Vector2I(360, 420));
     }
@@ -690,7 +691,10 @@ public partial class TexturePickerPopup : PopupPanel
 
     private readonly Func<Guid, bool>? _usable;
 
-    public TexturePickerPopup(StringTable strings, InventoryModel model, Func<Guid, bool>? usable, bool allowNone, Action<Guid> chosen, Action? none)
+    /// <param name="reset">Puts the slot back to its type's default texture (the official picker's Default button); null: no such button.</param>
+    /// <param name="atDefault">The slot already holds its default, so the button is off.</param>
+    public TexturePickerPopup(StringTable strings, InventoryModel model, Func<Guid, bool>? usable, bool allowNone, Action<Guid> chosen, Action? none,
+        Action? reset = null, bool atDefault = false)
     {
         _strings = strings;
         _model = model;
@@ -718,6 +722,13 @@ public partial class TexturePickerPopup : PopupPanel
         ok.AccessibilityName = strings.Get("appearance.texture.pick");
         ok.Pressed += () => Choose(_selected);
         row.AddChild(ok);
+        if (reset is not null)
+        {
+            var d = new Button { Name = "texture_default", Text = strings.Get("appearance.texture.default"), Disabled = atDefault };
+            d.AccessibilityName = strings.Get("appearance.texture.default");
+            d.Pressed += () => { reset(); Hide(); };
+            row.AddChild(d);
+        }
         if (allowNone && none is not null)
         {
             var b = new Button { Name = "texture_none", Text = strings.Get("appearance.texture.none") };

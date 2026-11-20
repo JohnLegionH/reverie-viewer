@@ -181,3 +181,4 @@ host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	@file luminan
 host/Viewer.Godot/Presentation/HdrTonemap.cs	LGPL-2.1-only AND MIT	Copyright (C) 2023, Linden Research, Inc.
 host/Viewer.Godot/Presentation/TerrainView.cs	LGPL-2.1-only	@file class1\deferred\terrainF.glsl
 host/Viewer.Godot/Presentation/TerrainView.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/Avatars/BuiltInAnimations.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.

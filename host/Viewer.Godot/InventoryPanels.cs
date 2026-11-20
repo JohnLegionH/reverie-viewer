@@ -753,6 +753,11 @@ public partial class InventoryPanel : VBoxContainer
         if (_view is not null)
             _shownRevision = _model!.Revision;
         RefreshControls();
+        if (_selected != Guid.Empty && _autoRename.Take(rows.Select(r => r.Id), DateTimeOffset.UtcNow) is var renaming && renaming != Guid.Empty)
+        {
+            if (renaming == _selected)
+                Callable.From(OnRename).CallDeferred();   // once the tree is laid out: the row's name opens for typing
+        }
     }
 
     private string _wornDrawn = "";
@@ -895,6 +900,16 @@ public partial class InventoryPanel : VBoxContainer
     }
 
     private bool _scrollToSelected;
+
+    private readonly AutoRename _autoRename = new();
+
+    /// <summary>Shows a newly made item and waits for it to be named: it is selected once its row is listed and its name opens for typing, as
+    /// the official viewer does for an item made from the New menu (the folder view's needsAutoRename).</summary>
+    public void RevealAndRename(Guid id)
+    {
+        _autoRename.Want(id, DateTimeOffset.UtcNow);
+        Reveal(id);
+    }
 
     /// <summary>Opens the selected row as a double-click or Enter does (the automation's check; also usable by a key binding).</summary>
     public bool OpenSelected()

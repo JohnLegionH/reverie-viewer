@@ -80,6 +80,19 @@ public sealed class WearableEditor
 
     public Guid Texture(int slot) => _cur.Textures.TryGetValue(slot, out var g) ? g : Guid.Empty;
 
+    /// <summary>Whether a slot holds its type's default texture (the official picker's Default button is on while it does not).</summary>
+    public bool IsDefaultTexture(int slot) => WearableKinds.DefaultTexture(Type, slot) is var d && d != Guid.Empty && Texture(slot) == d;
+
+    /// <summary>Puts a slot back to its type's default texture; false when it is already there, the item is read-only or the slot is not the type's.</summary>
+    public bool ResetTexture(int slot)
+    {
+        var d = WearableKinds.DefaultTexture(Type, slot);
+        if (!CanModify || d == Guid.Empty || IsDefaultTexture(slot))
+            return false;
+        SetTexture(slot, d);
+        return true;
+    }
+
     public void SetTexture(int slot, Guid texture)
     {
         if (!CanModify || WearableKinds.Slots(Type).FirstOrDefault(s => s.Index == slot) is not { } s)

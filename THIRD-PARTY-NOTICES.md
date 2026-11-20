@@ -113,6 +113,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   - `core/Viewer.Core/Avatars/AvatarDefaultMotions.cs` (the motions every avatar runs, the flying roll's conditions): `indra/newview/llvoavatar.cpp`.
   - `core/Viewer.Core/Avatars/AnimationMix.cs` (priority and weight blending, additive motions): `indra/llcharacter/llpose.cpp`.
   - `core/Viewer.Core/Avatars/MotionController.cs` (starting, stopping and easing motions): `indra/llcharacter/llmotioncontroller.cpp` and `indra/newview/llvoavatar.cpp`.
+  - `core/Viewer.Core/Avatars/BuiltInAnimations.cs` (the built-in animations a gesture may play: names, asset ids and order): `indra/llcharacter/llanimationstates.cpp` (`gUserAnimStates`); the labels: `indra/newview/skins/default/xui/en/strings.xml`.
   - `core/Viewer.Core/Imaging/AlphaMask.cs` (whether a texture's alpha can be drawn as a cut-out): `indra/llrender/llimagegl.cpp` (`analyzeAlphaData`).
   - `core/Viewer.Core/World/AutoMask.cs` (when a face without a material is drawn as a cut-out, and its cutoff): `indra/newview/llface.cpp` (`canRenderAsMask`),
     `indra/newview/pipeline.cpp` (`sAutoMaskAlphaDeferred`, `sAutoMaskAlphaNonDeferred`) and `indra/newview/llvovolume.cpp` (the mask cutoff of a draw info).

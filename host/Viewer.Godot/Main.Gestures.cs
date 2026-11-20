@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Godot;
 using Viewer.Core.Actions;
 using Viewer.Core.Assets;
+using Viewer.Core.Avatars;
 using Viewer.Core.Inventory;
 using Viewer.Core.Session;
 using Viewer.Shell;
@@ -219,7 +220,7 @@ public partial class Main
         _shell.Shell.Floaters.Open(GesturePanel.FloaterId);
         _shell.Shell.Floaters.Focus(GesturePanel.FloaterId);
         var all = session.Inventory.AllItems();
-        var anims = all.Where(i => i.Kind == ItemKind.Animation && i.AssetId is { } a && a != Guid.Empty).Select(i => (i.AssetId!.Value, i.Name)).OrderBy(a => a.Name).ToArray();
+        var anims = BuiltInAnimations.Choices(all.Where(i => i.Kind == ItemKind.Animation && i.AssetId is { } a && a != Guid.Empty).Select(i => (i.AssetId!.Value, i.Name)).ToArray()).ToArray();   // the built-in animations first, then the agent's own (LLPreviewGesture::addAnimations)
         var sounds = all.Where(i => i.Kind == ItemKind.Sound && i.AssetId is { } a && a != Guid.Empty).Select(i => (i.AssetId!.Value, i.Name)).OrderBy(a => a.Name).ToArray();
         bool active = _gestureSet?.IsActive(itemId) == true || transport.ActiveGestures().Any(g => g.ItemId == itemId);
         Guid asset = transport.GestureAssetOf(itemId);

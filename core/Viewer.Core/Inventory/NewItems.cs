@@ -79,9 +79,8 @@ public static class NewItemCatalog
     /// <summary>
     /// A new wearable's file, made as the official viewer makes one (llwearablelist.cpp createNewWearable, lines 254-280): its type and
     /// name; the agent as creator and owner with base and owner rights all, group and everyone none, next owner move and transfer; not for
-    /// sale; and every parameter the avatar definition gives that type at its default (setParamsToDefaults). The official viewer also
-    /// writes each texture slot's default texture (setTexturesToDefaults); this file leaves the slots out, as this viewer has no table
-    /// of those defaults.
+    /// sale; every parameter the avatar definition gives that type at its default (setParamsToDefaults); and each texture slot of the type
+    /// at its default texture (setTexturesToDefaults, <see cref="WearableKinds.DefaultTexture"/>).
     /// </summary>
     public static byte[] DefaultWearable(WearableType type, string name, EditParamCatalog catalog, Guid agent = default)
     {
@@ -99,6 +98,8 @@ public static class NewItemCatalog
         };
         foreach (var p in catalog.ParamsOf(type))
             asset.Params[p.Id] = p.Default;
+        foreach (var s in WearableKinds.Slots(type))
+            asset.Textures[s.Index] = WearableKinds.DefaultTexture(type, s.Index);
         return asset.ToBytes();
     }
 }

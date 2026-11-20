@@ -1725,6 +1725,7 @@
   "appearance.unsaved.cancel": "Cancel",
   "appearance.texture": "Texture",
   "appearance.texture.none": "None",
+  "appearance.texture.default": "Default",
   "appearance.texture.empty": "Not set",
   "appearance.texture.change": "Change",
   "edit.take_folder.search": "Search folders",

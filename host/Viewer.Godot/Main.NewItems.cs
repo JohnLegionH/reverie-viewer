@@ -69,6 +69,7 @@ public partial class Main
             return;
         }
         session.Inventory.Invalidate(folder);   // the folder's contents are read again, so the new item shows with the grid's own record of it
+        _inventoryPanel.RevealAndRename(made);   // the new row is selected and its name opens for typing (needsAutoRename in the official viewer)
         // the official viewer opens a new gesture (create_gesture_cb) and nothing else; a new wearable opens in the appearance editor here
         bool opens = entry.Kind is ItemKind.Gesture || entry.IsWearable && HasWearableEditor(entry.Wearable);
         _inventoryPanel.StatusLabel.Text = _strings.Get(opens || !entry.IsWearable ? "inventory.new.made" : "inventory.new.made_no_editor", entry.DefaultName);
