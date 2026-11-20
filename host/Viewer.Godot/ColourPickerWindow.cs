@@ -187,7 +187,8 @@ public partial class ColourPickerWindow : VBoxContainer
         _was.AccessibilityName = _s.Get("colour.was");
         _was.Pressed += () => { if (_session is { } ss) Set(ss.Was); };
         side.AddChild(_was);
-        _pick = new Button { Name = "pick", Text = _s.Get("colour.pick"), TooltipText = _s.Get("colour.pick.tip"), ToggleMode = true };
+        _pick = new Button { Name = "pick", Text = _s.Get("colour.pick"), TooltipText = _s.Get("colour.pick.tip"), ToggleMode = true,
+            ThemeTypeVariation = ReverieVariations.Secondary };   // a lone toggle keeps its outline (a list row would read as plain text); the hint line below says when it is on
         _pick.AccessibilityName = _pick.Text;
         _pick.Toggled += on => { if (on) StartPick(); else StopPick(); };
         side.AddChild(_pick);

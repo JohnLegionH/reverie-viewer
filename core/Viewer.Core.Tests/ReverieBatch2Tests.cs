@@ -62,6 +62,14 @@ public class ReverieBatch2Tests
     }
 
     [Fact]
+    public void The_folder_picker_asks_for_folders_not_textures_and_the_colour_pick_toggle_keeps_its_outline()
+    {
+        Assert.Equal("Search folders", StringTable.English().Get("edit.take_folder.search"));
+        Assert.DoesNotContain("appearance.texture.search", Host("FolderPickPanel.cs"));
+        Assert.Contains("ThemeTypeVariation = ReverieVariations.Secondary", Host("ColourPickerWindow.cs"));
+    }
+
+    [Fact]
     public void The_example_scenes_for_the_new_windows_are_listed_in_the_render_harness()
     {
         string scenes = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "tools", "render.ps1"));

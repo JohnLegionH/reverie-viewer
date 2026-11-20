@@ -37,8 +37,8 @@ public partial class FolderPickPanel : VBoxContainer
         _use = use;
         _close = close;
         Name = "folder_pick";
-        _search = new LineEdit { Name = "folder_search", PlaceholderText = strings.Get("appearance.texture.search") };
-        _search.AccessibilityName = strings.Get("appearance.texture.search");
+        _search = new LineEdit { Name = "folder_search", PlaceholderText = strings.Get("edit.take_folder.search") };
+        _search.AccessibilityName = strings.Get("edit.take_folder.search");
         AddChild(_search);
         _list = new ItemList { Name = "folder_list", CustomMinimumSize = new Vector2(320, 300), SizeFlagsVertical = SizeFlags.ExpandFill };
         _list.AccessibilityName = strings.Get("edit.take_folder.title");
