@@ -64,7 +64,7 @@ The line under the button shows how the login is going. If it fails, it says why
 
 ### If the connection drops
 
-The viewer tries to reconnect by itself.
+A window called **Logged out** tells you why. Choose **Reconnect** to log in again. The viewer does not reconnect until you choose it. See [Fixing problems](fixing-problems.md#the-connection-drops).
 
 ## Where the viewer keeps its files
 

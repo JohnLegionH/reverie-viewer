@@ -44,7 +44,7 @@ You do not need to know the page. Press **Ctrl+Shift+K**, type the setting's nam
 - **Largest texture (pixels across).** From 256 to 2048.
 - **Frame-rate limit.** 0 means no limit. Up to 360.
 - **Vertical sync**, **Clouds** and **Show neighbouring regions**. The last one applies at your next login.
-- **Rendering backend.** **Automatic**, **Vulkan** or **Direct3D 12**. Needs a restart. If a backend will not start, start the viewer with `--backend=auto`.
+- **Rendering backend.** **Automatic**, **Vulkan** or **Direct3D 12**. Needs a restart. If a backend will not start, start the viewer with `-- --backend=auto` (see [Fixing problems](fixing-problems.md#switch-the-graphics-backend)).
 - **Window.** **Windowed**, **Borderless** or **Fullscreen**.
 
 Shadows, anti-aliasing and other advanced graphics settings are not in Reverie yet.

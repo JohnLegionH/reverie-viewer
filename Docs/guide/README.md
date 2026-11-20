@@ -13,8 +13,8 @@ for those topics, see the [feature cheat sheet](../FEATURES.md), which says what
 | Building and scripting | coming |
 | [The world](the-world.md): maps, teleporting, sky and land | written |
 | [Preferences and add-ons](preferences-and-add-ons.md): the Preferences pages, themes and interface size, and the Add-ons window | written |
-| Keyboard shortcuts | coming (the table is in the cheat sheet) |
-| Fixing problems | coming |
+| [Keyboard shortcuts](keyboard-shortcuts.md): every key, in groups, and where a key works only in one place | written |
+| [Fixing problems](fixing-problems.md): logs, start-up and graphics, login, dropped connections, grey textures, settings, and how to report a problem | written |
 
 ## Adding to the guide
 

@@ -13,7 +13,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Add or manage grids. Login screen: Grid list > **Add a grid…** or **Manage grids…**.
 - Remember your name, or (where this computer can protect it) your password. Login screen: **Remember name**, **Remember password**.
 - Choose where you arrive: last location, home, or a named region. Login screen: **Start at**.
-- Reconnect after a dropped connection. Automatic.
+- Reconnect after a dropped connection: the **Logged out** window has a **Reconnect** button. It does not start by itself.
 
 ## Moving and the camera
 
@@ -105,8 +105,10 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 | Ctrl+R | Always run |
 | M | Mouselook |
 | Esc | Reset the view (leave mouselook) |
-| Enter, Shift+Enter, Ctrl+Enter | In a chat line: say, whisper, shout |
+| Enter, Shift+Enter, Ctrl+Enter | In the nearby chat line: say, whisper, shout (in an instant message line, Enter sends) |
 | F2 to F12 | Gesture keys |
+
+Every key is listed in the [keyboard shortcuts](guide/keyboard-shortcuts.md) section of the guide.
 
 ## Not in Reverie yet
 
