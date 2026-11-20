@@ -81,6 +81,11 @@ information, edit it or remove it.
 
 The viewer writes nothing into the folder it runs from.
 
+## Documentation
+
+- [Feature cheat sheet](Docs/FEATURES.md): what you can do today, and where to find it, on one page.
+- [User guide](Docs/guide/README.md): step-by-step help, written a section at a time. It starts with installing and first login.
+
 ## Hardware
 
 The viewer needs a graphics card and driver with **Vulkan 1.3** or **Direct3D 12** (feature level 12_0). There is no
