@@ -52,7 +52,7 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
-        "build-look", "build-search", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
+        "build-look", "build-search", "build-create", "build-object", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
@@ -269,12 +269,20 @@ public partial class TestRender
             | Viewer.Core.Interaction.ObjectFlagBits.Copy | Viewer.Core.Interaction.ObjectFlagBits.Transfer;
         var shape = Viewer.Core.Meshing.PrimShape.Box with { ProfileHollow = 0.5, PathTwist = 0.5 };
         world.ApplyObject(sim, new Viewer.Core.World.PrimData(1, G(31), 0, 0, new System.Numerics.Vector3(128.5f, 64.25f, 22.1f),
-            Viewer.Core.Building.EditNumbers.FromEulerDegrees(new System.Numerics.Vector3(0, 0, 30)), new System.Numerics.Vector3(10f, 10f, 0.2f), Interaction: new Viewer.Core.World.PrimInteraction(0, own), Shape: shape));
+            Viewer.Core.Building.EditNumbers.FromEulerDegrees(new System.Numerics.Vector3(0, 0, 30)), new System.Numerics.Vector3(10f, 10f, 0.2f), Interaction: new Viewer.Core.World.PrimInteraction(scene == "build-object" ? Viewer.Core.Interaction.ClickAction.Buy : (byte)0, own), Shape: shape));
         var edit = new Viewer.Shell.Build.EditController(world, _ => new ActionResult(ActionStatus.Sent));
         edit.SelectTool(Viewer.Shell.Build.BuildTool.Edit);
         edit.SelectMany([1], shift: false);
+        // the Object scene shows the sale (a copy for L$ 50) and a land impact; the Create scene the Create tool's options
+        bool sold = scene == "build-object";
         edit.Receive(new Viewer.Core.Session.ObjectPropertiesReceived(G(31), "Floor", "Plank floor", G(32), G(32), Guid.Empty, null,
-            0x7fffffff, 0, 1u << 19 | 1u << 15 | 1u << 13, 0, false));
+            0x7fffffff, 0, 1u << 19 | 1u << 15 | 1u << 13, sold ? 50 : 0, sold, sold ? (byte)2 : (byte)0));
+        edit.Receive(new Viewer.Core.Session.ObjectCostReceived(G(31), 3.4f, 3.4f));
+        if (scene == "build-create")
+        {
+            edit.SelectTool(Viewer.Shell.Build.BuildTool.Create);
+            edit.ChooseShape(Viewer.Core.Building.CreateShape.Torus);
+        }
         if (scene == "build-contents")
             edit.Receive(new TaskInventoryReceived(G(31), ExampleTaskItems()));
         // the owner and creator are named as the session's name cache would name them (a neutral example name)
@@ -282,7 +290,8 @@ public partial class TestRender
         shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
         foreach (var section in Viewer.Shell.Build.BuildLayout.Sections)
             panel.SetOpen(section, scene == "build-look" && section == Viewer.Shell.Build.BuildSection.Look
-                || scene == "build-contents" && section == Viewer.Shell.Build.BuildSection.Contents);
+                || scene == "build-contents" && section == Viewer.Shell.Build.BuildSection.Contents
+                || scene == "build-object" && section == Viewer.Shell.Build.BuildSection.Object);
         if (scene == "build-search")
             panel.SearchText = "hollow";
         panel.Refresh();
@@ -444,7 +453,7 @@ public partial class TestRender
                     "inspect" => InteractFeature.InspectId,
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
-                    "build" or "build-look" or "build-search" or "build-contents" => EditPanel.FloaterId,
+                    "build" or "build-look" or "build-search" or "build-contents" or "build-create" or "build-object" => EditPanel.FloaterId,
                     "colourpicker" or "texturepicker" or "gridoptions" or "takefolder" or "objectcontents" or "buy" or "objectinfo" or "addons" or "addon-ao" or "addon-rlv" => "",
                     "upload-image" => BuildFeature.ImageFloaterId,
                     "upload-bulk" => BuildFeature.BulkFloaterId,
@@ -500,6 +509,33 @@ public partial class TestRender
         {
             contentsPanel.ContentTab.OpenMenuOnRow(1);   // the right-click menu on the second row (the notecard)
             await Frames(10);
+        }
+        if (scene == "build-object" && shell.FindChild("section_box_object", true, false) is Control objectBox)
+        {
+            // the Object section is below the fold: the window is scrolled so its card is at the top, and its controls must be in view
+            await Frames(4);
+            ScrollContainer? objectScroll = null;
+            for (Node? n = objectBox.GetParent(); n is not null && objectScroll is null; n = n.GetParent())
+                objectScroll = n as ScrollContainer;
+            if (objectScroll is not null && objectBox.GetParent() is Control objectCard)
+            {
+                objectScroll.ScrollVertical = (int)(objectCard.GetGlobalRect().Position.Y - objectScroll.GetGlobalRect().Position.Y + objectScroll.ScrollVertical);
+                await Frames(4);
+                // then to the sale and click rows, which the case exists to show: their top a little below the top of the view
+                if (shell.FindChild("sale_row", true, false) is Control saleRow)
+                {
+                    objectScroll.ScrollVertical = (int)(saleRow.GetGlobalRect().Position.Y - objectScroll.GetGlobalRect().Position.Y + objectScroll.ScrollVertical - 60);
+                    await Frames(4);
+                    var sv = objectScroll.GetGlobalRect();
+                    var clickBottom = (shell.FindChild("click_row", true, false) as Control)?.GetGlobalRect().End.Y ?? float.MaxValue;
+                    if (clickBottom > sv.End.Y)
+                        _failures.Add($"build-object: the click action row ({clickBottom:F0}) is below the Build window's view ({sv.End.Y:F0})");
+                }
+                else
+                    _failures.Add("build-object: the For sale row was not found");
+            }
+            else
+                _failures.Add("build-object: the Object section's scroll area was not found");
         }
         if (scene == "build-look" && shell.FindChild("section_box_look", true, false) is Control lookBox)
         {
