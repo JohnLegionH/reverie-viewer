@@ -29,6 +29,9 @@ public static class JitWarmup
     /// <summary>True when the warm-up has finished.</summary>
     public static bool Done => Milliseconds is not null;
 
+    /// <summary>True from the start until the warm-up has finished.</summary>
+    public static bool Running => Volatile.Read(ref _started) != 0 && !Done;
+
     /// <summary>Starts the warm-up once per process (later calls do nothing).</summary>
     public static void Start()
     {

@@ -465,3 +465,45 @@ public class CloseRequestTests
         session.Dispose();
     }
 }
+
+/// <summary>The bounded exit: once the viewer starts to quit, nothing may hold the process for longer than a fixed limit.
+/// A stuck engine teardown (all the viewer's own cleanup done, the engine waiting on a worker thread that never wakes) was
+/// seen to keep a quitting viewer alive until it was killed minutes later.</summary>
+public class QuitWatchdogTests
+{
+    [Fact]
+    public void A_quit_that_never_finishes_is_ended_at_the_limit_and_the_stage_is_named()
+    {
+        var sink = new ListSink();
+        var ended = new ManualResetEventSlim();
+        int code = -1;
+        var watchdog = new QuitWatchdog(new CoreLog(sink, "test"), c => { code = c; ended.Set(); }, TimeSpan.FromMilliseconds(100),
+            () => new[] { "automation" });
+        watchdog.Enter("engine-teardown");   // the stand-in for the part that never returns
+        watchdog.Arm();
+        Assert.True(ended.Wait(TimeSpan.FromSeconds(30)), "the stuck quit was not ended");   // waits for the result, not for a clock window
+        Assert.Equal(QuitWatchdog.ExitCode, code);
+        Assert.NotEqual(0, code);   // a forced end is never reported as a clean one
+        string text = sink.Text;
+        Assert.Contains("quit.stalled", text);
+        Assert.Contains("engine-teardown", text);
+        Assert.Contains("automation", text);
+    }
+
+    [Fact]
+    public void A_quit_that_finishes_in_time_is_left_alone()
+    {
+        var ended = new ManualResetEventSlim();
+        var watchdog = new QuitWatchdog(new CoreLog(new ListSink(), "test"), _ => ended.Set(), TimeSpan.FromMilliseconds(150));
+        watchdog.Arm();
+        watchdog.Disarm();
+        Assert.False(ended.Wait(TimeSpan.FromMilliseconds(600)));   // a "did not happen" window stays a real wait
+    }
+
+    [Fact]
+    public void The_limit_is_finite_and_long_enough_for_a_slow_machine()
+    {
+        Assert.InRange(QuitWatchdog.Limit, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60));
+        Assert.NotEqual(0, QuitWatchdog.ExitCode);
+    }
+}

@@ -1575,16 +1575,27 @@ public partial class Main : Node
     }
 #endif
 
+    /// <summary>The time limit on quitting (<see cref="QuitWatchdog"/>): started when the tree is left, so a stall in the engine's own
+    /// shutdown after the viewer's cleanup ends the process with a log line instead of keeping it alive.</summary>
+    private QuitWatchdog? _quitWatchdog;
+
     public override void _ExitTree()
     {
+        _quitWatchdog = new QuitWatchdog(Log, QuitWatchdog.TerminateThisProcess, QuitWatchdog.Limit,
+            () => JitWarmup.Running ? ["jit-warmup"] : []);
+        _quitWatchdog.Arm();
+        _quitWatchdog.Enter("settings");
         try { RecordInventoryLogout(); } catch (Exception) { /* the settings file is a convenience; shutdown goes on */ }
         try { _shell?.Shell.Floaters.SavePlaces(); } catch (Exception) { /* the windows' places are a convenience; shutdown goes on */ }
+        _quitWatchdog.Enter("add-ons");
         try { _addons?.Dispose(); } catch (Exception) { /* each add-on is stopped on its own; shutdown goes on */ }
+        _quitWatchdog.Enter("presentation");
         try { CrossingFramesFlush(); } catch (Exception) { /* a development trace; shutdown goes on */ }
         try { Unpresent(); }
         finally
         {
             // whatever happens above, the rest of the shutdown runs
+            _quitWatchdog.Enter("variant-disposal");
             VariantDisposal.DrainAll("shutdown");   // nothing held is left to a finalizer
             // The engine corrupts its heap when it quits with resources we made still live: free any a failed teardown left.
             string live = Presentation.Rids.CheckAtQuit(out int leaked);
@@ -1592,6 +1603,8 @@ public partial class Main : Node
             if (_logger is not null)
                 OS.RemoveLogger(_logger);
             LoggedErrorReleases.DrainAll();   // the backtraces of errors logged up to the logger's removal
+            // The viewer's own cleanup is done; what runs next is the engine's shutdown. The watchdog stays armed through it.
+            _quitWatchdog.Enter("engine-shutdown");
         }
     }
 }
