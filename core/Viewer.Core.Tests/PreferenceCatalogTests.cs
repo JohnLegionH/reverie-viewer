@@ -66,6 +66,8 @@ public class PreferenceCatalogTests
         new("chat_font_size", PrefPage.Chat, PrefKind.Whole, Live, PrefScope.Global, 15, 10, 32),
         new("chat_overlay_seconds", PrefPage.Chat, PrefKind.Whole, Live, PrefScope.Global, 23, 0, 600),
         new("chat_timestamps", PrefPage.Chat, PrefKind.Switch, Live, PrefScope.Global, true),
+        new("friend_online_notices", PrefPage.Chat, PrefKind.Switch, Live, PrefScope.Global, true),
+        new("friend_online_in_chat", PrefPage.Chat, PrefKind.Switch, Live, PrefScope.Global, true),
 
         new("double_tap_run", PrefPage.MoveView, PrefKind.Switch, Live, PrefScope.Global, true),
         new("automatic_fly", PrefPage.MoveView, PrefKind.Switch, Live, PrefScope.Global, true),

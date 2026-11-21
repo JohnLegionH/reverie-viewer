@@ -18,7 +18,7 @@ public static class Confirmations
 
     /// <summary>Delete an object that is locked, cannot be copied or is not the agent's own; <paramref name="variant"/> is the official
     /// notification's name (<see cref="Viewer.Core.Building.BuildRules.DeleteConfirmation"/>).</summary>
-    public static Notification Delete(string variant, Action confirm) => Ask("confirm.delete.title", "confirm.delete." + variant, null, "button.ok", "button.cancel", confirm);
+    public static Notification DeleteObjects(string variant, Action confirm) => Ask("confirm.delete.title", "confirm.delete." + variant, null, "button.ok", "button.cancel", confirm);
 
     /// <summary>Drop a worn attachment on the ground: Yes or No.</summary>
     public static Notification Drop(Action confirm) => Ask("confirm.drop.title", "confirm.drop.body", null, "button.yes", "button.no", confirm);

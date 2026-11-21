@@ -62,7 +62,7 @@ public class ConfirmationDialogTests
     public void Delete_asks_the_official_question_for_each_reason_with_OK_and_Cancel(string variant, string text)
     {
         int confirmed = 0;
-        var n = Confirmations.Delete(variant, () => confirmed++);
+        var n = Confirmations.DeleteObjects(variant, () => confirmed++);
         Assert.Equal(text, Body(n));
         Assert.Equal(["OK", "Cancel"], ButtonTexts(n));
         Assert.Equal((0, 1), (n.DefaultButton, n.CancelButton));

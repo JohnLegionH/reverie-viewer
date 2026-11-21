@@ -608,7 +608,7 @@ public sealed class InteractionController
                         if (question is null)
                             _submit(new DeleteObjectIntent(rootId));
                         else
-                            Ask(Confirmations.Delete(question, () => _submit(new DeleteObjectIntent(rootId))));
+                            Ask(Confirmations.DeleteObjects(question, () => _submit(new DeleteObjectIntent(rootId))));
                         break;
                     }
                     case "detach" when root.AttachItemId is { } wornItem && wornItem != Guid.Empty:
