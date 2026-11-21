@@ -187,6 +187,57 @@ public sealed partial class PrimLayer
 
 public sealed partial class PrimLayer
 {
+    // The removal hold (John's ruling for logouts): another avatar's worn pieces removed in a burst stay drawn a moment and go together, or with the
+    // avatar if it leaves meanwhile (Viewer.Core.Avatars.WornRemovalHold). A held piece keeps its instance; the world no longer has it.
+    private readonly Viewer.Core.Avatars.WornRemovalHold _removalHold = new();
+    private readonly Dictionary<uint, uint> _burstHeld = new();   // local id of a held piece -> the local id of its wearer
+    private readonly System.Diagnostics.Stopwatch _burstClock = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>Pieces kept drawn by the removal hold now.</summary>
+    public int BurstHeld => _burstHeld.Count;
+
+    /// <summary>Whether a burst of removed pieces of <paramref name="agent"/> is still drawn by this layer.</summary>
+    public bool HoldsBurstOf(Guid agent) => _removalHold.Holding(agent);
+
+    private bool HoldBurstRemoval(WorldChange c)
+    {
+        uint local = c.Id.LocalId;
+        if (Attachments is not { } frames || !_instances.ContainsKey(local)) return false;
+        uint? wearer = _worn.TryGetValue(local, out var w) ? w.Wearer : _rigged.TryGetValue(local, out var r) ? r.Wearer : null;
+        if (wearer is not { } wl || !frames.WearerIsOther(wl)) return false;
+        var agent = WearerOfPiece(local).Agent;
+        if (agent == Guid.Empty) return false;
+        if (!_removalHold.Removed(agent, local, _burstClock.Elapsed.TotalSeconds)) return false;
+        _burstHeld[local] = wl;
+        if (WornFrameTrace.On) WornFrameTrace.Event(this, "burst-held", local, c.FullId);
+        return true;
+    }
+
+    private void ForgetBurstHeld(uint local)
+    {
+        if (_burstHeld.Remove(local)) _removalHold.Forget(local);
+    }
+
+    private void ReleaseDueBursts()
+    {
+        if (_burstHeld.Count == 0) return;
+        foreach (var local in _removalHold.Due(_burstClock.Elapsed.TotalSeconds)) ReleaseBurstPiece(local, "burst-released");
+    }
+
+    private void ReleaseBurstOf(uint wearerLocal)
+    {
+        if (_burstHeld.Count == 0) return;
+        foreach (var agent in _burstHeld.Where(kv => kv.Value == wearerLocal).Select(kv => WearerOfPiece(kv.Key).Agent).Distinct().ToList())
+            foreach (var local in _removalHold.WearerGone(agent)) ReleaseBurstPiece(local, "burst-with-wearer");
+    }
+
+    private void ReleaseBurstPiece(uint local, string why)
+    {
+        if (!_burstHeld.Remove(local)) return;
+        if (WornFrameTrace.On) WornFrameTrace.Event(this, why, local, WearerOfPiece(local).Full);
+        if (_world.Object(new ObjectId(_world.Epoch, local)) is null) Remove(local);   // sent again meanwhile: a live piece
+    }
+
     /// <summary>A short name for this layer in a trace (NV_WORN_FRAMES).</summary>
     public string Tag => (System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this) & 0xFFFF).ToString("x");
 

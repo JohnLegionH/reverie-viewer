@@ -10,6 +10,10 @@ public interface IAttachmentFrames
     /// <paramref name="wearerLocalId"/> is posed now. False while the avatar is not drawn, or when the skeleton has no such point.</summary>
     bool WearerHeld(uint wearerLocalId);
 
+    /// <summary>Whether the avatar with simulator local id <paramref name="wearerLocalId"/> is drawn here and is not the user's own (its pieces removed in a
+    /// burst are held, <see cref="Viewer.Core.Avatars.WornRemovalHold"/>).</summary>
+    bool WearerIsOther(uint wearerLocalId);
+
     bool TryPoint(uint wearerLocalId, int attachmentPointId, out System.Numerics.Matrix4x4 world);
 
     /// <summary>Which drawn skeleton the wearer's pieces are bound to: an identity for the layer that draws it and the avatar's row in that layer. Two

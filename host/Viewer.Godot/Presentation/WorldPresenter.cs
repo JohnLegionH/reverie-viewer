@@ -174,6 +174,8 @@ public sealed class WorldPresenter : IPresentationSink, System.IDisposable
             Prims.Attachments = avatars;   // what avatars wear follows their joints
             avatars.Scene.Carried = Prims.Moving;   // an avatar sitting on a moving object goes where the object is drawn
             avatars.LayerMade = Prims.RetryRiggedAttachments;   // rigged meshes found worn before the body existed are presented again once it does
+            var primLayer = Prims;
+            avatars.WornHeld = agent => primLayer.HoldsBurstOf(agent);   // a body part stays hidden while the pieces that covered it are still drawn
         }
         Prims?.MarkAll();
         Coordinator = new PresentationCoordinator(this, budgetMs) { Shared = Budget = new FrameBudget(budgetMs * PlannedShare) };

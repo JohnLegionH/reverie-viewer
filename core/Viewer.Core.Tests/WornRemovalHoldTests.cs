@@ -98,6 +98,18 @@ public class WornRemovalHoldTests
     }
 
     [Fact]
+    public void While_a_burst_of_the_avatars_pieces_is_held_the_part_stays_hidden_and_its_delay_starts_after()
+    {
+        var u = new BodyUncoverDelay();
+        var before = new HashSet<string> { "upper", "lower" };
+        var after = new HashSet<string>();
+        Assert.Equal(before, u.Next(before, after, 1.0, holding: true));
+        Assert.Equal(before, u.Next(before, after, 3.0, holding: true));
+        Assert.Equal(before, u.Next(before, after, 3.2));   // the hold ended at 3.0: the delay runs from there
+        Assert.Equal(after, u.Next(before, after, 3.0 + BodyUncoverDelay.Seconds + 0.01));
+    }
+
+    [Fact]
     public void A_newly_hidden_part_is_hidden_at_once_and_nothing_waits()
     {
         var u = new BodyUncoverDelay();

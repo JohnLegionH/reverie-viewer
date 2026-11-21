@@ -56,6 +56,9 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         public HashSet<string> Worn = new();          // body bake slots whose parts a worn mesh hides (its faces name that bake)
         public readonly HashSet<string> Transparent = new();   // body bake slots whose own bake has no drawn pixel (BakeAlphaMask)
         public readonly HashSet<string> SkippedForWorn = new();   // body bake slots left without a texture because a worn mesh draws their bake; loaded if the mesh goes
+        public readonly Dictionary<string, (Guid Id, Texture2D Texture)> LastGood = new();   // another avatar's last drawn bake per slot, kept on the part while a new one arrives (BaseBodyRule)
+        public AvatarArrivalGate? Gate;                // another avatar is drawn only once it is fully loaded (made at its first frame)
+        public readonly BodyUncoverDelay Uncover = new();   // a part a removed worn mesh stopped hiding is uncovered only after a moment (other avatars)
         public string PartsDrawn = "all=D";               // what each body part was last given, for the NV_BODY_FRAMES trace: slot=B (bake), L (last good bake), D (default skin), H (not drawn)
         public string LastBodyTrace = "";              // the last state the NV_BODY_FRAMES trace wrote for it
     }
@@ -131,6 +134,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
     public AvatarPresenter(Rid scenario, WorldState world, Guid selfAgentId, Task<LoadedBody?>? body,
         AnimationSource? animations, TextureSource? textures, Viewer.Core.Residency.TextureResidency? residency, Func<double>? clock = null)
     {
+        OfficialBodyRules = clock is null;
         if (clock is null)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -380,7 +384,8 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                     long wornAt = System.Diagnostics.Stopwatch.GetTimestamp();
                     bool wornChanged;
                     using (FrameProbe.Begin(FrameProbe.AvWorn)) wornChanged = UpdateWorn(e, d);
-                    if (wornChanged) ApplyBakes(d);
+                    if (wornChanged) ApplyBakes(e, d);
+                    if (d.Uncover.Pending) _recheck.Retry(e.Id.LocalId);   // worked out again next frame until the uncovered part may show
                     UnitDone(UnitWorn, wornAt);
                 }
                 else _recheck.Retry(e.Id.LocalId);   // next frame
@@ -415,6 +420,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 _layer.SetPlayingSkew(d.Id, d.Walk.Step(now, new System.Numerics.Vector2(v.X, v.Y), yaw, HoldWalkWithClock));   // the cycle plays at the rate the avatar's ground speed asks for
             }
             if (placed && d.Defaults is { Started: true } && _layer is not null && d.Id >= 0) StepDefaults(e, d, now, yaw);
+            if (!e.IsSelf && OfficialBodyRules) e.Loading = !ArrivalGateOpen(e, d, now);   // another avatar is drawn, with what it wears, once it is fully loaded
             bool shown = placed && Scene.Draws(e);   // the own avatar is left out in mouse-look: the body and what it wears (its name tag is the tag overlay's)
             if (_layer is not null && d.Id >= 0)
             {
@@ -797,6 +803,9 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
     /// <summary>Whether the avatar with this local id is kept drawn only because another region took it over and has not drawn it yet.</summary>
     public bool WearerHeld(uint wearerLocalId) => Scene.ByLocalId(wearerLocalId) is { } e && Scene.IsHeld(e);
 
+    /// <inheritdoc cref="IAttachmentFrames.WearerIsOther"/>
+    public bool WearerIsOther(uint wearerLocalId) => OfficialBodyRules && Scene.ByLocalId(wearerLocalId) is { IsSelf: false } e && e.Handle is DrawnAvatar { Id: >= 0 };
+
     public bool TryRigged(uint wearerLocalId, out int row, out System.Numerics.Matrix4x4 world)
     {
         row = -1;
@@ -884,8 +893,26 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 if (f is { } x) faces.Add(x.TextureId);
         }
         if (_wornFaces.TryGetValue(o.Id, out var seen) && seen.Wearer == wearer) _recheck.FacesChanged(wearer, seen.Faces, faces);
-        else _recheck.Attached(wearer);   // first seen on this wearer
+        else
+        {
+            _recheck.Attached(wearer);   // first seen on this wearer
+            if (Scene.ByLocalId(wearer)?.Handle is DrawnAvatar { Gate: { } gate }) gate.WornArrived(_now());   // a piece arriving before the first showing starts the wait again
+        }
         _wornFaces[o.Id] = (wearer, faces.ToArray());
+    }
+
+    /// <summary>Whether a burst of removed worn pieces of the agent is still drawn by this region's objects (the region's prim layer answers); null: none.</summary>
+    public Func<Guid, bool>? WornHeld { get; set; }
+
+    /// <summary>The official fully-loaded rule for another avatar (<see cref="AvatarArrivalGate"/>): a part missing (no shape, or no head, upper or lower
+    /// bake) or, before its first showing, a bake it names not decided yet.</summary>
+    private bool ArrivalGateOpen(AvatarEntry e, DrawnAvatar d, double now)
+    {
+        d.Gate ??= new AvatarArrivalGate(now);
+        bool missing = e.VisualParams is not { Count: > 0 } || !e.Bakes.ContainsKey("head") || !e.Bakes.ContainsKey("upper") || !e.Bakes.ContainsKey("lower");
+        bool pending = d.BakesVersion != e.BakesVersion
+            || e.Bakes.Keys.Any(slot => Slots.Contains(slot) && !(d.Bakes.TryGetValue(slot, out var b) && (b.Texture is not null || b.Done)));
+        return d.Gate.Update(now, missing, pending);
     }
 
     /// <summary>The body parts the avatar's worn meshes hide (<see cref="BodyVisibility"/>); true when the set changed.</summary>
@@ -904,6 +931,12 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         var hidden = BodyVisibility.HiddenSlots(faces);
         if (s_wornTrace) Main.Log.Info("worn.update", CoreLog.F("avatar", e.Id.LocalId), CoreLog.F("roots", _world.AttachmentRoots(e.Id.LocalId).Count), CoreLog.F("faces", faces.Count), CoreLog.F("hidden", string.Join("+", hidden.Order())));
         if (d.Users > 1) hidden = hidden.Union(d.Worn).ToHashSet();   // while the region left still draws pieces, what they hid stays hidden; the pieces this region has so far must not uncover it
+        if (!e.IsSelf && OfficialBodyRules)
+        {
+            // a part a removed mesh stopped hiding shows only after a moment, and not while a burst of the avatar's removed pieces is still drawn
+            if (WornHeld?.Invoke(e.AgentId) == true) hidden = d.Uncover.Next(d.Worn, hidden, _now(), holding: true).ToHashSet();
+            else hidden = d.Uncover.Next(d.Worn, hidden, _now()).ToHashSet();
+        }
         if (hidden.SetEquals(d.Worn)) return false;
         d.Worn = hidden.ToHashSet();
         return true;
@@ -1109,6 +1142,18 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 if (e.Bakes.TryGetValue(slot, out var id))
                     keep[slot] = d.Bakes.TryGetValue(slot, out var had) && had.Id == id && !d.SkippedForWorn.Contains(slot) ? had : (id, null, false);
             var dropped = d.Bakes.Where(kv => !keep.TryGetValue(kv.Key, out var k) || k.Item2 != kv.Value.Texture).Select(kv => kv.Value).ToList();
+            if (!e.IsSelf && OfficialBodyRules)
+                foreach (var kv in d.Bakes)
+                    if (kv.Value.Texture is { } oldTex && keep.TryGetValue(kv.Key, out var next) && next.Item2 is null)
+                    {
+                        // the slot names a new bake: the old one stays on the part until the new one is drawn (the official last-known-good bake)
+                        if (d.LastGood.TryGetValue(kv.Key, out var older)) FreeBake(older.Id, older.Texture);
+                        d.LastGood[kv.Key] = (kv.Value.Id, oldTex);
+                        dropped.Remove(kv.Value);
+                    }
+            List<(Guid Id, Texture2D Texture)>? noLonger = null;
+            foreach (var slot in d.LastGood.Keys.ToList())
+                if (!keep.ContainsKey(slot) && d.LastGood.Remove(slot, out var gone)) (noLonger ??= new()).Add(gone);   // the slot names no bake now: the part is not drawn
             foreach (var slot in d.Levels.Keys.ToList())
                 if (!keep.TryGetValue(slot, out var k) || k.Item2 is null)
                 {
@@ -1119,12 +1164,14 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             d.Bakes.Clear();
             foreach (var kv in keep) d.Bakes[kv.Key] = kv.Value;
             d.BakesVersion = e.BakesVersion;
-            ApplyBakes(d);   // the materials of dropped bakes go before their textures
+            ApplyBakes(e, d);   // the materials of dropped bakes go before their textures
             foreach (var b in dropped) FreeBake(b.Id, b.Texture);
+            if (noLonger is not null) foreach (var b in noLonger) FreeBake(b.Id, b.Texture);
         }
         if (_textures is null) return;
         bool changed = false;
         List<Texture2D>? retired = null;
+        List<string>? lastGoodDone = null;
         double claim = double.NaN;
         foreach (var slot in d.Bakes.Keys.ToList())
         {
@@ -1148,6 +1195,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 d.Bakes[slot] = (id, tex, true);
                 continue;
             }
+            if (id == BaseBodyRule.Invisible && OfficialBodyRules) { if (!done) { d.Bakes[slot] = (id, null, true); changed = true; } continue; }   // the invisible texture: the part is not drawn, nothing to fetch
             if (!d.Levels.TryGetValue(slot, out var lv)) d.Levels[slot] = lv = new BakeLevel();
             if (d.Worn.Contains(slot) && !KeepHiddenBakeTextures) { MaskOnly(d, slot, id, tex, lv); continue; }   // a worn mesh draws this bake itself: no texture of ours
             if (d.SkippedForWorn.Remove(slot))
@@ -1195,6 +1243,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 if (tex is not null) { (retired ??= new()).Add(tex); _residency?.Unpin(id); }
                 lv.Level = -1;
                 changed = true;
+                if (d.LastGood.ContainsKey(slot)) (lastGoodDone ??= new()).Add(slot);
                 continue;
             }
             if (lv.Mask.Hides) d.Transparent.Add(slot); else d.Transparent.Remove(slot);   // (a hiding bake reaches here only in the negative control)
@@ -1216,6 +1265,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             lv.ChangedAt = _now();
             d.Bakes[slot] = (id, made, true);
             changed = true;
+            if (d.LastGood.ContainsKey(slot)) (lastGoodDone ??= new()).Add(slot);
             double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
             uploadProbe.End();
             _bakeUploadsThisFrame++;
@@ -1224,7 +1274,9 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             BakeUploadMsTotal += ms;
             BakeUploadMsMax = Math.Max(BakeUploadMsMax, ms);
         }
-        if (changed) ApplyBakes(d);
+        if (changed) ApplyBakes(e, d);
+        if (lastGoodDone is not null)
+            foreach (var slot in lastGoodDone) FreeLastGood(d, slot);   // the new bake is drawn now (or hides the part): the old one goes, after the materials stopped naming it
         if (retired is not null) foreach (var old in retired) old.Dispose();   // after the materials name the new textures
     }
 
@@ -1270,15 +1322,39 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         return lv.Mask.Known;
     }
 
-    private void ApplyBakes(DrawnAvatar d)
+    private void ApplyBakes(AvatarEntry e, DrawnAvatar d)
     {
         if (_layer is null || d.Id < 0) return;
         using var probe = FrameProbe.Begin(FrameProbe.AvApplyBakes);
-        var textures = d.Bakes.Where(kv => kv.Value.Texture is not null).ToDictionary(kv => kv.Key, kv => kv.Value.Texture!);
-        var hidden = d.Worn.Union(d.Transparent).ToHashSet();
+        var textures = new Dictionary<string, Texture2D>();
+        var hidden = new HashSet<string>();
+        var drawn = s_bodyFrames ? new List<string>() : null;
+        foreach (var slot in Slots)
+        {
+            var bake = d.Bakes.TryGetValue(slot, out var b) ? b : default;
+            Guid? named = e.Bakes.TryGetValue(slot, out var id) ? id : null;
+            var draw = OfficialBodyRules
+                ? BaseBodyRule.Decide(new BodyPartState(e.IsSelf, named, d.Worn.Contains(slot), d.Transparent.Contains(slot), bake.Texture is not null, d.LastGood.ContainsKey(slot)))
+                : d.Worn.Contains(slot) || d.Transparent.Contains(slot) ? BodyPartDraw.Hidden : bake.Texture is not null ? BodyPartDraw.Bake : BodyPartDraw.DefaultSkin;
+            if (draw == BodyPartDraw.Hidden) hidden.Add(slot);
+            else if (draw == BodyPartDraw.Bake) textures[slot] = bake.Texture!;
+            else if (draw == BodyPartDraw.LastGood) textures[slot] = d.LastGood[slot].Texture;
+            drawn?.Add(slot + "=" + draw switch { BodyPartDraw.Hidden => "H", BodyPartDraw.Bake => "B", BodyPartDraw.LastGood => "L", _ => "D" });
+        }
         _layer.SetBakes(d.Id, textures, hidden);
-        if (s_bodyFrames) d.PartsDrawn = string.Join(" ", Slots.Select(slot => slot + "=" + (hidden.Contains(slot) ? "H" : textures.ContainsKey(slot) ? "B" : "D")));
+        if (drawn is not null) d.PartsDrawn = string.Join(" ", drawn);
     }
+
+    /// <summary>Lets go of another avatar's last good bake of a slot (its new bake is drawn, or hides the part); the materials no longer name it.</summary>
+    private void FreeLastGood(DrawnAvatar d, string slot)
+    {
+        if (d.LastGood.Remove(slot, out var old)) FreeBake(old.Id, old.Texture);
+    }
+
+    /// <summary>Whether another avatar's body follows the official viewer's rules (<see cref="BaseBodyRule"/>, <see cref="AvatarArrivalGate"/>, the removal hold
+    /// and its uncover delay). On in the viewer, which gives no clock; a test scene gives its own clock (often a fixed one, with no texture source) and
+    /// has it off unless it sets it, so scenes that check posing or attachments on stand-in bodies keep drawing them.</summary>
+    internal bool OfficialBodyRules { get; init; }
 
     private void FreeBake(Guid id, Texture2D? texture)
     {
@@ -1403,6 +1479,8 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 FreeBake(b.Id, b.Texture);
             }
             d.Bakes.Clear();
+            foreach (var lg in d.LastGood.Values) FreeBake(lg.Id, lg.Texture);
+            d.LastGood.Clear();
             e.Handle = null;
         }
     }
@@ -1455,6 +1533,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             {
                 foreach (var b in d.Bakes.Values)
                     if (b.Texture is not null) yield return ("avatar bake texture", b.Texture);
+                foreach (var lg in d.LastGood.Values) yield return ("avatar last good bake texture", lg.Texture);
             }
     }
 

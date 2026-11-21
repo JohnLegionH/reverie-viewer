@@ -16,6 +16,12 @@
 #     [-ObservedOutFirst [-WatchLogoutSeconds 15]]
 #   -ObservedOutFirst: at the end the observed avatar logs out first while the observer keeps watching (run the observer with NV_WORN_FRAMES=1 to
 #   log the removal of each of the observed avatar's pieces and of its body).
+#   -Watch: the frame-by-frame watch of the observed avatar at login, an outfit change and logout (development builds, NV_FRAME_BURST=1 and
+#   NV_BODY_FRAMES=1 in the environment). The observer logs in first; the observed avatar then logs in and, the moment the observer first lists it,
+#   the observer's camera is aimed at it and a frame burst saves every frame for 1.5 s; aimed pictures follow every 2 s for -WatchSeconds. With
+#   -WatchOutfit (and NV_OUTFIT_SCRATCH_OK=1) the observed avatar takes its last worn item off and puts it back, a burst at each step and another
+#   when the observer sees new bakes. Last the observed avatar logs out while the observer watches, and a burst starts the moment the observer
+#   sees its first piece go. The bodies' frame lines (body.frame) and the bursts' frame numbers are in the observer's log.
 #   -Shots lists the pictures as point:metres:side (side = front, back or side) in place of -Sides and -Distances; -ObserverGap puts the
 #   observer's own avatar that many metres from the observed one before the pictures (the camera does not depend on where it stands).
 #
@@ -62,6 +68,9 @@ param(
     [int]$EverySeconds = 5,
     [switch]$MoveObserved,
     [switch]$ProbeOnly,
+    [switch]$Watch,
+    [switch]$WatchOutfit,
+    [int]$WatchSeconds = 20,
     [switch]$ObservedOutFirst,   # at the end the observed avatar logs out first and the observer keeps watching -WatchLogoutSeconds before it logs out
     [ValidateRange(0, 300)][int]$WatchLogoutSeconds = 15,
     [string]$SaveBake = "",   # a bake slot (e.g. head): the final avatar_probe also saves the picture the observer holds of the observed avatar's bake in that slot, under its log folder
@@ -329,6 +338,81 @@ try {
             }
             ($rb | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath (Join-Path $OutDir "${Tag}rebake.json")
         }
+        return
+    }
+
+    if ($Watch) {
+        $O = Start-Client $Account (Join-Path $Sandbox "observer")
+        if (-not $O) { throw "observer viewer did not start" }
+        if (-not (Wait-World $O)) { throw "observer did not reach the world" }
+        Note "$Account in world"
+        [void](Invoke-Raw $O.port "sky" $O.token (@{ choice = $SkyChoice } | ConvertTo-Json -Compress))
+        $aimAt = { param($a) [void](Send-Aim -Port $O.port -Token $O.token -Spec @{ name = [string]$a.name; point = "body"; distance = $ViewDistance; around_deg = $CameraOffsetDeg; fov_deg = $FovDeg }) }
+        $burst = { param($why) $r = Invoke-Raw $O.port "frame_burst" $O.token; Note ("burst {0}: {1} {2}" -f $why, $r.Status, $r.Body) }
+        $row = { param($a, $phase, $t) [ordered]@{ phase = $phase; seconds = [math]::Round(((Get-Date) - $t).TotalSeconds, 1); seen = [bool]$a; bakes = $(if ($a) { @($a.bakes).Count } else { 0 }); pieces = $(if ($a) { @($a.pieces).Count } else { 0 }); body_drawn = $(if ($a) { $a.body_drawn } else { $false }); hidden = $(if ($a) { ($a.hidden_body_slots -join '+') } else { "" }) } }
+        $series = New-Object System.Collections.Generic.List[object]
+        # login: the observed avatar arrives while the observer watches
+        $T = Start-Client $Observed (Join-Path $Sandbox "observed")
+        if (-not $T) { throw "observed viewer did not start" }
+        $t0 = Get-Date; $a0 = $null
+        while (-not $a0 -and ((Get-Date) - $t0).TotalSeconds -lt 120) { $a0 = Read-Avatar $O; if (-not $a0) { Start-Sleep -Milliseconds 100 } }
+        if (-not $a0) { throw "the observer never listed the observed avatar" }
+        Note "observed avatar first listed"
+        & $aimAt $a0; & $burst "login"
+        $series.Add((& $row $a0 "login" $t0))
+        for ($i = 1; $i -le [math]::Ceiling($WatchSeconds / 2); $i++) {
+            Start-Sleep -Seconds 2
+            $a = Read-Avatar $O
+            $series.Add((& $row $a "login" $t0))
+            if ($a) { & $aimAt $a; [void](Shoot-Aimed -Port $O.port -Token $O.token -Dir $OutDir -Name ("{0}login-{1:D2}" -f $Tag, $i) -Spec @{ name = [string]$a.name; point = "body"; distance = $ViewDistance; around_deg = $CameraOffsetDeg; fov_deg = $FovDeg; min_fill = 0.01 } -SettleMs 300) }
+        }
+        if (-not (Wait-World $T)) { throw "observed avatar did not reach the world" }
+        if ($WatchOutfit) {
+            [void](Invoke-Raw $T.port "inventory" $T.token '{"action":"open"}'); Start-Sleep -Seconds 6
+            $of = Parse (Invoke-Raw $T.port "inventory" $T.token '{"action":"outfit"}').Body
+            $targets = @($of.targets)
+            Note ("observed avatar wears {0} items" -f $targets.Count)
+            if ($targets.Count -gt 0) {
+                $pick = $targets[$targets.Count - 1]
+                foreach ($step in @(@("takeoff", "off"), @("add", "back"))) {
+                    $a = Read-Avatar $O; if ($a) { & $aimAt $a }
+                    Start-Sleep -Seconds 3   # the previous burst's pictures are written
+                    $bakesBefore = if ($a) { (@($a.bakes) | ForEach-Object { [string]$_.id }) -join ',' } else { "" }
+                    & $burst ("outfit-" + $step[1])
+                    $r = Parse (Invoke-Raw $T.port "inventory" $T.token (@{ action = $step[0]; id = $pick } | ConvertTo-Json -Compress)).Body
+                    Note ("{0} {1}: submitted={2} code={3}" -f $step[0], $pick, $r.submitted, $r.code)
+                    $t1 = Get-Date; $rebaked = $false
+                    while (((Get-Date) - $t1).TotalSeconds -lt 40) {
+                        $a = Read-Avatar $O
+                        $series.Add((& $row $a ("outfit-" + $step[1]) $t1))
+                        $bakesNow = if ($a) { (@($a.bakes) | ForEach-Object { [string]$_.id }) -join ',' } else { "" }
+                        if (-not $rebaked -and $bakesNow -and $bakesNow -ne $bakesBefore -and ((Get-Date) - $t1).TotalSeconds -gt 2) { $rebaked = $true; & $burst ("rebake-" + $step[1]) }
+                        Start-Sleep -Milliseconds 500
+                    }
+                    if ($a) { [void](Shoot-Aimed -Port $O.port -Token $O.token -Dir $OutDir -Name ("{0}outfit-{1}" -f $Tag, $step[1]) -Spec @{ name = [string]$a.name; point = "body"; distance = $ViewDistance; around_deg = $CameraOffsetDeg; fov_deg = $FovDeg; min_fill = 0.01 } -SettleMs 300) }
+                }
+                $of2 = Parse (Invoke-Raw $T.port "inventory" $T.token '{"action":"outfit"}').Body
+                Note ("after the change the observed avatar wears {0} items (before {1})" -f @($of2.targets).Count, $targets.Count)
+            }
+        }
+        # logout: the observed avatar leaves while the observer watches; the burst starts at its first piece's removal
+        $a = Read-Avatar $O; if ($a) { & $aimAt $a }
+        Start-Sleep -Seconds 3
+        $piecesBefore = if ($a) { @($a.pieces).Count } else { 0 }
+        Note "observed avatar logs out ($piecesBefore pieces)"
+        $t2 = Get-Date
+        [void](Invoke-Raw $T.port "session" $T.token '{"action":"logout"}')
+        $fired = $false
+        while (((Get-Date) - $t2).TotalSeconds -lt 20) {
+            $a = Read-Avatar $O
+            if (-not $fired -and (-not $a -or @($a.pieces).Count -lt $piecesBefore)) { & $burst "logout"; $fired = $true }
+            $series.Add((& $row $a "logout" $t2))
+            if ($fired -and -not $a) { break }
+            Start-Sleep -Milliseconds 50
+        }
+        Start-Sleep -Seconds 5
+        ($series | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath (Join-Path $OutDir "${Tag}watch-series.json")
+        try { [void](Invoke-Raw $T.port "quit" $T.token) } catch { }
         return
     }
     if ($Late) {

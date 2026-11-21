@@ -107,11 +107,11 @@ public sealed class BodyUncoverDelay
     public bool Pending { get; private set; }
 
     /// <summary>The slots to hide now: <paramref name="computed"/> (what the worn meshes hide now), plus the slots of <paramref name="before"/> it leaves
-    /// out while their delay runs.</summary>
-    public IReadOnlySet<string> Next(IReadOnlySet<string> before, IReadOnlySet<string> computed, double now)
+    /// out while their delay runs. <paramref name="holding"/>: a burst of the avatar's removed pieces is still drawn; the delay starts once it is not.</summary>
+    public IReadOnlySet<string> Next(IReadOnlySet<string> before, IReadOnlySet<string> computed, double now, bool holding = false)
     {
         if (before.All(computed.Contains)) { Pending = false; _since = double.NaN; return computed; }
-        if (double.IsNaN(_since)) _since = now;
+        if (double.IsNaN(_since) || holding) _since = now;
         if (now - _since >= Seconds) { Pending = false; _since = double.NaN; return computed; }
         Pending = true;
         return computed.Union(before).ToHashSet();

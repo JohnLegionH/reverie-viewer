@@ -58,6 +58,8 @@ public sealed class AvatarEntry
     public int NameVersion { get; internal set; }
     /// <summary>The presentation's own handle for what it made for this avatar (null until made).</summary>
     public object? Handle { get; set; }
+    /// <summary>Another avatar whose look is still arriving (the presentation's fully-loaded rule): neither it nor what it wears is drawn.</summary>
+    public bool Loading { get; set; }
 }
 
 /// <summary>
@@ -112,7 +114,7 @@ public sealed partial class AvatarScene
     public bool HideSelf { get; set; }
 
     /// <summary>Whether the presentation draws this avatar (with its name and what it wears).</summary>
-    public bool Draws(AvatarEntry e) => !(HideSelf && e.IsSelf);
+    public bool Draws(AvatarEntry e) => !(HideSelf && e.IsSelf) && !e.Loading;
 
     /// <summary>The avatar of this region visit with the simulator's local id <paramref name="localId"/> (the id attachments name
     /// as their parent); null when it is not here.</summary>

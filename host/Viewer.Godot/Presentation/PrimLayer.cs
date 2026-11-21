@@ -1026,6 +1026,9 @@ public sealed partial class PrimLayer
             case WorldChangeKind.RegionReset:
                 Clear();
                 break;
+            case WorldChangeKind.AvatarRemoved when !c.Handoff:
+                ReleaseBurstOf(c.Id.LocalId);   // the wearer left: its held pieces go with it, in this frame
+                break;
             case WorldChangeKind.LegacyMaterialsReceived:
                 // the objects waiting for a material that has now arrived are drawn again with it
                 foreach (var id in _waitingLegacy.Keys.ToList())
@@ -1044,7 +1047,8 @@ public sealed partial class PrimLayer
                 if (WornFrameTrace.On && c.Kind != WorldChangeKind.ObjectMoved) TraceChange(c);
                 if (CarryMoving) _moving.Note(c.Id, c.Kind != WorldChangeKind.ObjectMoved, MovingClock());   // an update sets a carried object at once
                 if (c.Kind == WorldChangeKind.ObjectRemoved && HoldHandedOver(c)) break;   // another region took it over: it stays drawn until that region draws it
-                if (c.Kind != WorldChangeKind.ObjectRemoved) { ForgetHeld(c); ExpectHandedOver(c); NoteWearer(c); }
+                if (c.Kind == WorldChangeKind.ObjectRemoved && HoldBurstRemoval(c)) break;   // another avatar's piece removed in a burst: drawn a moment longer
+                if (c.Kind != WorldChangeKind.ObjectRemoved) { ForgetHeld(c); ForgetBurstHeld(c.Id.LocalId); ExpectHandedOver(c); NoteWearer(c); }
                 _dirty.Add(c.Id.LocalId);
                 // a moved or changed root moves its children
                 if (c.Kind != WorldChangeKind.ObjectRemoved)
@@ -1586,6 +1590,7 @@ public sealed partial class PrimLayer
     public void UpdateAttached()
     {
         PollHandoffs();
+        ReleaseDueBursts();
         if (Attachments is null) return;
         if (_rigged.Count > 0) UpdateRigged(Attachments);
         if (_worn.Count == 0) return;
