@@ -182,7 +182,7 @@ public partial class GridAddPanel : LoginOverlay
         ClearFound();
         var info = entry.Info;
         string none = _strings.Get("grid.add.found.none");
-        _found.AddChild(Line(_strings.Get("grid.add.found.name", info?.Name ?? entry.Name)));
+        _found.AddChild(Line(_strings.Get("grid.add.found.name", GridLabels.SafeName(info?.Name ?? entry.Name, GridLabels.HostOf(entry), entry.Address))));
         _found.AddChild(Line(_strings.Get("grid.add.found.signup", info?.Register?.ToString() ?? none)));
         _found.AddChild(Line(_strings.Get("grid.add.found.password", info?.Password?.ToString() ?? none)));
         _found.AddChild(Line(_strings.Get(info?.Hypergrid == true ? "grid.add.found.hypergrid_on" : "grid.add.found.hypergrid_off")));
@@ -293,7 +293,7 @@ public partial class GridManagePanel : LoginOverlay
         _list.Clear();
         foreach (var e in _grids.Entries)
         {
-            int i = _list.AddItem(_strings.Get("grid.manage.row", e.Name, e.Address));
+            int i = _list.AddItem(_strings.Get("grid.manage.row", GridLabels.NameOf(e), e.Address));
             _list.SetItemMetadata(i, e.Key);
             _list.SetItemTooltip(i, e.Address);
         }

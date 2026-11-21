@@ -759,7 +759,24 @@ public partial class LoginScreen : Control
     {
         if (_model is null)
             return;
-        _ = _model.RefreshBrandingAsync(_grids.Selected?.Address ?? "");
+        _ = KeepGridInfoCurrentAsync(_model, _grids.Selected);
+    }
+
+    /// <summary>Asks the chosen grid for its grid-info document and, when it differs from the one the list holds, keeps the new one: the
+    /// grid's currency, help and other pages are read from it at login, so a grid that sets a key later is seen without a manual refresh.
+    /// The name the person gave a grid stays.</summary>
+    private async System.Threading.Tasks.Task KeepGridInfoCurrentAsync(LoginModel model, GridEntry? chosen)
+    {
+        var info = await model.RefreshBrandingAsync(chosen?.Address ?? "");
+        if (chosen is null || chosen.BuiltIn || info is null || info == chosen.Info)
+            return;
+        Callable.From(() =>
+        {
+            if (_grids.Selected?.Key != chosen.Key)
+                return;
+            _grids.Add(chosen with { Info = info, Name = chosen.NameEdited ? chosen.Name : info.Name ?? chosen.Name, Refreshed = DateTimeOffset.Now });
+            FillGrids();
+        }).CallDeferred();
     }
 
     /// <summary>The remember-password tick: offered only where the vault can keep a hash safely (else one line says why); ticked when the
@@ -891,6 +908,7 @@ public partial class LoginScreen : Control
             grid = _grids.Selected?.Name,
             grid_address = _grids.Selected?.Address,
             grids = _grids.All.Select(e => e.Name).ToArray(),
+            grid_labels = _grids.All.Select(GridLabels.PickerLabel).ToArray(),
             grid_popup_open = popup.Visible,
             grid_popup_focused = popup.Visible ? popup.GetFocusedItem() : -1,
             grid_add_index = _grid.GetItemIndex(AddItemId),

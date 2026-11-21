@@ -78,6 +78,7 @@ public partial class Main
             location_shown = bar.Location.IsVisibleInTree(),
             status,
             time = time?.Text,
+            balance = bar.FindChild("balance", true, false) is Label bal ? new { shown = bal.Visible, text = bal.Text } : null,
             status_zone_takes_mouse = zone?.MouseFilter != Control.MouseFilterEnum.Ignore,
             dock = _shell.Dock.Buttons.Select(b => new { id = b.Key.Id, owner = b.Key.Owner, name = b.Value.Text, icon = b.Value.Icon is not null, on = b.Key.On }).ToArray(),
             dock_rows = _shell.DockRows,

@@ -45,11 +45,14 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
     /// <summary>Raised when <see cref="Branding"/> changes.</summary>
     public event Action<GridBranding>? BrandingChanged;
 
-    /// <summary>Asks the typed grid for its grid-info document and takes its branding from it.</summary>
-    public async Task RefreshBrandingAsync(string typed)
+    /// <summary>Asks the typed grid for its grid-info document and takes its branding from it. Returns the document's fields (its name,
+    /// currency, help and other pages) as they stand now, or null when the grid did not answer with one, so the grid list can keep them
+    /// current.</summary>
+    public async Task<Viewer.Shell.Grids.GridInfo?> RefreshBrandingAsync(string typed)
     {
         int mine = Interlocked.Increment(ref _brandingAsked);
         GridBranding found = GridBranding.None;
+        Viewer.Shell.Grids.GridInfo? info = null;
         if (fetcher is not null && GridAddress.Tidy(typed).Uri is { } uri && !IsSecondLife(uri))
         {
             try
@@ -57,15 +60,22 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                 var got = await fetcher(GridAddress.GridInfoOf(uri), cts.Token).ConfigureAwait(false);
                 if (got.Status is >= 200 and < 300)
+                {
                     found = GridBranding.FromGridInfo(got.Body);
+                    info = Viewer.Shell.Grids.GridInfo.Parse(got.Body);
+                }
             }
             catch (Exception ex) when (ex is not OutOfMemoryException) { /* a grid that cannot be asked has the placeholder look */ }
         }
         // only the latest question counts: a slow earlier answer must not replace a later one
-        if (mine != Volatile.Read(ref _brandingAsked) || found == Branding)
-            return;
-        Branding = found;
-        BrandingChanged?.Invoke(found);
+        if (mine != Volatile.Read(ref _brandingAsked))
+            return null;
+        if (found != Branding)
+        {
+            Branding = found;
+            BrandingChanged?.Invoke(found);
+        }
+        return info;
     }
 
     private int _brandingAsked;

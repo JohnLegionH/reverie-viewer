@@ -288,7 +288,7 @@ public partial class EditPanel : VBoxContainer
         general.AddChild(nextRow);
         var saleRow = new HFlowContainer { Name = "sale_row" };
         _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true));
-        _priceLabel = new Label { Text = strings.Get("edit.sale_price") };
+        _priceLabel = new Label { Name = "sale_price_unit", Text = strings.Get("edit.sale_price") };
         saleRow.AddChild(_priceLabel);
         _price = new SpinBox { Name = "sale_price", MinValue = 0, MaxValue = 999999999, Step = 1, Rounded = true, AllowGreater = false, CustomMinimumSize = new Vector2(120, 0) };
         _price.AccessibilityName = strings.Get("edit.sale_price");

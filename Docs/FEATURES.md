@@ -11,6 +11,8 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 - Log in to Second Life or an OpenSimulator grid. Login screen: Grid, Name, Password, then **Log in**.
 - Add or manage grids. Login screen: Grid list > **Add a grid…** or **Manage grids…**.
+- A grid can make Reverie read like its own by setting keys in its grid information: its name, its currency symbol (`currency`) and currency name (`currencyname`), and its help, about, welcome and viewer-download pages. Prices, fees and costs carry the grid's symbol; a grid that sets `currency = none` has no balance, no Buy currency and no Pay. The Help menu gets the grid's help and about pages and **Get Reverie from <grid>**, and the login screen gets **Visit <grid>'s page**; an item shows only when the grid sets its key. Every such page opens in your own browser, after a question that names its host. The grid list always shows each grid's host beside its name; a grid named "Second Life", "SL" or anything with "Linden" in it is shown under its host, as is a grid with the same name as another you saved. Second Life is unchanged: nothing a grid supplies applies there.
+- Visit another grid by Hypergrid: the top bar shows **Visiting <grid name> (<host>)**, prices there carry that grid's symbol, and your balance keeps your home grid's symbol.
 - Remember your name, or (where this computer can protect it) your password. Login screen: **Remember name**, **Remember password**.
 - Choose where you arrive: last location, home, or a named region. Login screen: **Start at**.
 - Reconnect after a dropped connection: the **Logged out** window has a **Reconnect** button. It does not start by itself.

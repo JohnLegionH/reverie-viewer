@@ -33,6 +33,21 @@ public class LoginBrandingTests
     }
 
     [Fact]
+    public async Task The_refresh_hands_back_the_documents_fields_so_the_grid_list_stays_current()
+    {
+        const string full = "<gridinfo><login>https://grid.example.org:8002/</login><gridname>Example Grid</gridname><currency>E$</currency><help>https://grid.example.org/help</help></gridinfo>";
+        var m = Model((_, _) => Task.FromResult(new GridFetch(200, full, null)));
+        var info = await m.RefreshBrandingAsync("https://grid.example.org:8002/");
+        Assert.NotNull(info);
+        Assert.Equal("E$", info!.CurrencySymbol);
+        Assert.Equal("https://grid.example.org/help", info.Help?.ToString());
+        var down = Model((_, _) => Task.FromResult(new GridFetch(null, null, "HttpRequestException")));
+        Assert.Null(await down.RefreshBrandingAsync("https://grid.example.org:8002/"));
+        var sl = Model((_, _) => Task.FromResult(new GridFetch(200, full, null)));
+        Assert.Null(await sl.RefreshBrandingAsync("https://login.agni.lindenlab.com/cgi-bin/login.cgi"));
+    }
+
+    [Fact]
     public async Task A_grid_that_does_not_answer_or_answers_with_something_else_leaves_the_placeholder_look()
     {
         var down = Model((_, _) => Task.FromResult(new GridFetch(null, null, "HttpRequestException")));

@@ -54,6 +54,15 @@ The grid is now in the list, and the viewer remembers it.
 
 To change or remove a grid later, open the **Grid** list and choose **Manage grids…**. You can refresh a grid's information, edit it or remove it there.
 
+### What a grid can show of itself
+
+A grid tells the viewer its name and, if its owner set them, its currency and some web pages. The viewer uses what the grid gives and leaves out what it does not:
+
+- The grid list shows each grid's name with its host beside it, for example `Example Grid (grid.example.org:8002)`. A grid that calls itself "Second Life", "SL" or anything with "Linden" in it is shown by its host instead, and two grids with the same name are both shown with their hosts, so you can tell them apart.
+- Prices, fees and upload costs use the grid's own currency symbol. On a grid that says it has no money there is no balance, no Buy currency and no Pay.
+- **Visit <grid>'s page** on the login screen, and **<grid> help**, **About <grid>** and **Get Reverie from <grid>** in the Help menu, appear when the grid has those pages. Choosing one first shows which host the page is on and asks before it opens in your own web browser.
+- On Second Life none of this applies: it keeps its own name, money and pages.
+
 ## Log in
 
 ![The login screen, with the grid list, name and password boxes, the Start at choices and the Log in button](../../fixtures/ui/golden-loginscreen-vulkan.png)
