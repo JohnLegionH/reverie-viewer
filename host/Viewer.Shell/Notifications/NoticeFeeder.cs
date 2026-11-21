@@ -18,18 +18,20 @@ public sealed class NoticeFeeder
     private readonly TeleportModel _teleport;
     private readonly NoticeModel _notices;
     private readonly Func<Guid, string> _nameOf;
+    private readonly Action<Guid>? _openConversation;
     private readonly Dictionary<Guid, long> _friendOffers = new();
     private readonly Dictionary<Guid, long> _teleportOffers = new();
     private readonly Dictionary<Guid, long> _teleportRequests = new();
     private readonly HashSet<Notice> _seen = new(ReferenceEqualityComparer.Instance);
 
-    public NoticeFeeder(NotificationModel model, FriendsModel friends, TeleportModel teleport, NoticeModel notices, Func<Guid, string> nameOf)
+    public NoticeFeeder(NotificationModel model, FriendsModel friends, TeleportModel teleport, NoticeModel notices, Func<Guid, string> nameOf, Action<Guid>? openConversation = null)
     {
         _model = model;
         _friends = friends;
         _teleport = teleport;
         _notices = notices;
         _nameOf = nameOf;
+        _openConversation = openConversation;
         friends.Notice += OnFriendNotice;
         friends.Changed += SyncFriendOffers;
         teleport.Changed += SyncTeleport;
@@ -55,6 +57,8 @@ public sealed class NoticeFeeder
             Kind = NotificationKind.Tip,
             Body = NoticeText.Of(key, _nameOf(notice.Friend)),
             UniqueKey = "friend:" + notice.Friend,   // a friend's newest notice replaces their last
+            // pressing the online or offline notice opens the conversation with that friend (the official viewer's friend notice does the same)
+            Clicked = notice.Kind is FriendNoticeKind.Online or FriendNoticeKind.Offline && _openConversation is { } open ? () => open(notice.Friend) : null,
         });
     }
 
@@ -173,6 +177,8 @@ public sealed class NoticeFeeder
             // words the grid sent are shown exactly as it sent them; our own wording is a string-table key
             Body = notice.Key == "notice.raw" ? NoticeText.Raw(notice.Arg ?? "") : NoticeText.Of(notice.Key, notice.Arg),
             Buttons = kind == NotificationKind.Alert ? [new NoticeButton(NoticeText.Of("button.ok"), 0)] : [],
+            DefaultButton = kind == NotificationKind.Alert ? 0 : null,   // Enter and Esc both answer an error alert
+            CancelButton = kind == NotificationKind.Alert ? 0 : null,
         };
     }
 }

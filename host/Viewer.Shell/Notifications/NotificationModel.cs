@@ -66,6 +66,18 @@ public sealed class Notification
     /// <summary>Runs once when answered. Not run when the notification is removed or replaced.</summary>
     public Action<NotificationAnswer>? Responder { get; init; }
 
+    /// <summary>The button Enter presses (its index); null: Enter does nothing.</summary>
+    public int? DefaultButton { get; init; }
+
+    /// <summary>The button Esc answers as (its index, -1 for a plain close); null: Esc does nothing.</summary>
+    public int? CancelButton { get; init; }
+
+    /// <summary>True for a question that asks the user to confirm an action (drawn as a sized, wrapping dialog, not a toast card).</summary>
+    public bool Confirmation { get; init; }
+
+    /// <summary>Runs when the toast is pressed (a friend notice opens the conversation with that friend). Null: pressing does nothing.</summary>
+    public Action? Clicked { get; init; }
+
     /// <summary>The interface sound the notification plays when it appears, where its kind does not decide it (an offer from a person
     /// plays the new conversation sound, as the official viewer's offer notifications name it). Null: the kind decides.</summary>
     public Viewer.Shell.Sound.UiSoundSlot? Sound { get; init; }
@@ -161,6 +173,41 @@ public sealed class NotificationModel
         n.Responder?.Invoke(new NotificationAnswer(button, text ?? ""));
         return true;
     }
+
+    /// <summary>How long a new alert ignores Esc, so a key already held does not answer it.</summary>
+    public const double EscapeGuardSeconds = 1;
+    /// <summary>Enter: presses the alert's default button. True when an alert is up (the key is taken, even if it has no default).</summary>
+    public bool PressEnter()
+    {
+        if (Modal is not { } alert)
+            return false;
+        if (alert.DefaultButton is { } button)
+            Answer(alert.Id, button);
+        return true;
+    }
+
+    /// <summary>Esc: answers the alert as its cancel button, but not in its first second, so a key already held does not answer it
+    /// (the official viewer's modal dialogs wait the same way). True when an alert is up: Esc is taken either way.</summary>
+    public bool PressEscape()
+    {
+        if (Modal is not { } alert)
+            return false;
+        if (_clock() - alert.CreatedAt >= EscapeGuardSeconds && alert.CancelButton is { } button)
+            Answer(alert.Id, button);
+        return true;
+    }
+
+    /// <summary>A toast was pressed: runs its action and takes it down. False when it has none (or is not up), and then nothing changes.</summary>
+    public bool ClickToast(long id)
+    {
+        var n = _live.Find(x => x.Id == id);
+        if (n is null || !n.ToastUp || n.Clicked is null)
+            return false;
+        n.Clicked();
+        CloseToast(id);
+        return true;
+    }
+
 
     /// <summary>Takes the toast off the screen. A tip is let go (it is only a toast); anything else stays in the list.</summary>
     public bool CloseToast(long id)

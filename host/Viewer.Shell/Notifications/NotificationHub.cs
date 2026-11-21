@@ -30,8 +30,8 @@ public sealed class NotificationHub
     public InventoryOffers Offers { get; }
 
     /// <summary>Shows what the friend, teleport and notice models decide as notifications (see <see cref="NoticeFeeder"/>).</summary>
-    public void Attach(FriendsModel friends, TeleportModel teleport, NoticeModel notices, Func<Guid, string> nameOf) =>
-        _feeder ??= new NoticeFeeder(Model, friends, teleport, notices, nameOf);
+    public void Attach(FriendsModel friends, TeleportModel teleport, NoticeModel notices, Func<Guid, string> nameOf, Action<Guid>? openConversation = null) =>
+        _feeder ??= new NoticeFeeder(Model, friends, teleport, notices, nameOf, openConversation);
 
     /// <summary>Any thread: queues a session event (the session's <c>Communication</c> handler).</summary>
     public void Enqueue(TransportEvent e)

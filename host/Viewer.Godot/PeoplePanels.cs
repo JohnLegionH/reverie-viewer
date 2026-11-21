@@ -133,6 +133,9 @@ public partial class PeoplePanel : VBoxContainer
     /// <summary>"Open group chat" was pressed for a group: its id and name.</summary>
     public event Action<Guid, string>? GroupChatRequested;
 
+    /// <summary>A question that must be answered in the shared dialog (giving a friend the right to edit objects). Without a listener the panel asks in its own bar.</summary>
+    public event Action<Viewer.Shell.Notifications.Notification>? ConfirmationRequested;
+
     public PeoplePanel(StringTable strings)
     {
         _strings = strings;
@@ -395,7 +398,16 @@ public partial class PeoplePanel : VBoxContainer
         if (rights.HasFlag(FriendRightsFlags.ModifyObjects) && !f.Granted.HasFlag(FriendRightsFlags.ModifyObjects))
         {
             // giving the right to edit one's objects is asked about first; until the answer the box shows what the grid has
-            _confirm = (_strings.Get("friends.rights.modify.confirm", f.Name), () => { _hub.Friends.SetRights(f.Id, rights, confirmedModify: true); _dirty = true; });
+            Guid friendId = f.Id;
+            void Grant() { _hub?.Friends.SetRights(friendId, rights, confirmedModify: true); _dirty = true; }
+            if (ConfirmationRequested is { } ask)
+            {
+                RightModify.SetPressedNoSignal(false);   // the box shows what the grid has until the answer is Yes
+                ask(Viewer.Shell.Notifications.Confirmations.GrantModifyRights(f.Name, Grant));
+                _dirty = true;
+                return;
+            }
+            _confirm = (_strings.Get("friends.rights.modify.confirm", f.Name), Grant);
             _dirty = true;
             return;
         }

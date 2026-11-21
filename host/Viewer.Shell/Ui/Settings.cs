@@ -27,6 +27,9 @@ public static class Settings
     /// <summary>Whether a friend coming online or going offline is announced in nearby chat (and in an open conversation with them).</summary>
     public static readonly Setting<bool> FriendOnlineNotices = new("friend_online_notices", true, v => v);
 
+    /// <summary>Whether a friend's online or offline notice is also written into nearby chat, with the friend's name as a link.</summary>
+    public static readonly Setting<bool> FriendOnlineInChat = new("friend_online_in_chat", true, v => v);
+
     /// <summary>The mini-map's zoom in pixels per region (32 to 4,096; the official default is 128).</summary>
     public static readonly Setting<double> MiniMapScale = new("minimap_scale", 128, v => double.IsFinite(v) ? Math.Clamp(v, 32, 4096) : null);
 

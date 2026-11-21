@@ -50,7 +50,10 @@ public partial class Main
             }
             var hub = new NotificationHub(s.Actions.Submit, () => global::Godot.Time.GetTicksMsec() / 1000.0, () => $"{Model?.FirstName} {Model?.LastName}".Trim(), id => s.Names.Get(id));
             s.Actions.LocalExecutor = LocalCommands.Executor(url => global::Godot.OS.ShellOpen(url) == global::Godot.Error.Ok);
-            hub.Attach(_comms!.Friends, _travel!.Teleport, _travel.Notices, id => s.Names.Get(id) ?? NameCache.Placeholder(id));
+            hub.Attach(_comms!.Friends, _travel!.Teleport, _travel.Notices, id => s.Names.Get(id) ?? NameCache.Placeholder(id), OpenConversationWith);
+            // Esc with an alert up answers the alert (after its one-second guard) and never closes the window behind it; shortcuts wait for the alert too
+            _shell!.Shell.Focus.ModalEscape = () => _notes?.Model.PressEscape() == true;
+            _shell.ModalUp = () => _notes?.Model.Modal is not null;
             hub.Prompts.MapDestination += OnMapDestination;
             // the grid's "notecard updated" confirmation goes to the editors' status lines, not to a pop-up
             _travel.Notices.AssetSaved += text => { _notecards?.SayStatus(text); _scripts?.SayStatus(text); };
@@ -128,6 +131,17 @@ public partial class Main
                     return new { answered = false, reason = "no_such_notification" };
                 bool done = model.Answer(n.Id, button, text ?? "");
                 return new { answered = done, id = n.Id };
+            }
+            case "toast_click":
+            {
+                // presses the toast of a friend's online or offline notice (the friend's id in token), as a click on the card does
+                if (!Guid.TryParse(token, out var friend) || _comms is not { } comms || _commsFor is not { } sess)
+                    return new { clicked = false, im_active = false };
+                string friendName = sess.Names.Get(friend) ?? NameCache.Placeholder(friend);
+                var toast = model.Toasts.FirstOrDefault(t => t.Clicked is not null && t.Body.Arg == friendName);
+                bool clicked = toast is not null && model.ClickToast(toast.Id);
+                var open = comms.Ims.OpenWith(friend);
+                return new { clicked, im_active = open is not null && comms.Ims.Active == open.SessionId };
             }
             case "open":
                 _shell?.Shell.Floaters.Open(NotificationFeature.ListId);

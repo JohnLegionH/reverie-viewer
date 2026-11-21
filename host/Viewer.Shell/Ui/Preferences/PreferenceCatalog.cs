@@ -67,6 +67,8 @@ public static class PreferenceCatalog
         P(Settings.ChatFontSize, PrefPage.Chat, PrefApply.Live, 10, 32),
         P(Settings.ChatOverlaySeconds, PrefPage.Chat, PrefApply.Live, 0, 600),
         P(Settings.ChatTimestamps, PrefPage.Chat, PrefApply.Live),
+        P(Settings.FriendOnlineNotices, PrefPage.Chat, PrefApply.Live),
+        P(Settings.FriendOnlineInChat, PrefPage.Chat, PrefApply.Live),
 
         // Move & View
         P(Settings.DoubleTapRun, PrefPage.MoveView, PrefApply.Live),

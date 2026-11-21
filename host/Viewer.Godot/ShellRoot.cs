@@ -340,9 +340,12 @@ public partial class ShellRoot : Control
             return;
         }
         // a menu shortcut with Ctrl or Alt reaches the menus before the control that holds the keyboard, so it works while typing
-        if (e is InputEventKey { Pressed: true, Echo: false } k && (k.CtrlPressed || k.AltPressed) && RunShortcut(k))
+        if (e is InputEventKey { Pressed: true, Echo: false } k && (k.CtrlPressed || k.AltPressed) && ModalUp?.Invoke() != true && RunShortcut(k))
             GetViewport().SetInputAsHandled();
     }
+
+    /// <summary>True while a modal alert is up: the menus' shortcuts wait until it is answered.</summary>
+    public Func<bool>? ModalUp { get; set; }
 
     /// <summary>The command list (Ctrl+Shift+K), once installed.</summary>
     public CommandListWindow? CommandList { get; set; }

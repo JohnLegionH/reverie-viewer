@@ -54,8 +54,12 @@ public partial class Main
             _sharing = null;
             if (attach && _shell is not null)
             {
-                _chatPanels ??= ChatFeature.Install(_shell, UserSettings(null));
-                _people ??= PeopleFeature.Install(_shell, UserSettings(null), _chatPanels.Value.Conversations);
+                _chatPanels ??= ChatFeature.Install(_shell, UserSettings(null), OnNameClicked);
+                if (_people is null)
+                {
+                    _people = PeopleFeature.Install(_shell, UserSettings(null), _chatPanels.Value.Conversations);
+                    _people.ConfirmationRequested += question => _notes?.Model.Post(question);   // giving edit rights asks in the one shared dialog
+                }
                 var s = session!;
                 _preferences?.Bind(s.AgentId.ToString("N"), null);   // this account's saved look
                 var strings = _shell.Shell.Strings;
@@ -116,6 +120,8 @@ public partial class Main
                 bool cleared = hub.Nearby.Send(text ?? "", k);
                 return new { cleared, status = hub.Nearby.Status?.Key };
             }
+            case "name_menu":
+                return NameMenuCall(agent, text);
             case "im":
             {
                 var c = hub.Ims.OpenWith(agent);

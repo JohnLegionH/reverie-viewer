@@ -4,7 +4,7 @@
 namespace Viewer.Shell;
 
 /// <summary>What the Escape key did.</summary>
-public enum EscapeResult { None, ReleasedTextEntry, ClosedFloater }
+public enum EscapeResult { None, ReleasedTextEntry, ClosedFloater, AnsweredModal }
 
 /// <summary>
 /// Who gets the keyboard: typing or the avatar. The avatar's movement keys count only while the window has focus and no text
@@ -17,6 +17,9 @@ public sealed class InputFocus
     private bool _window, _text;
 
     public InputFocus(FloaterManager floaters) => _floaters = floaters;
+
+    /// <summary>Esc while a modal alert is up: answers it and returns true. Null or false: no alert took it.</summary>
+    public Func<bool>? ModalEscape { get; set; }
 
     public bool WindowFocused => _window;
     public bool TextEntryActive => _text;
@@ -56,6 +59,9 @@ public sealed class InputFocus
     /// that answers Escape itself (a name prompt, which cancels on it) is left to do so: <paramref name="fieldTakesEscape"/>.</summary>
     public EscapeResult OnEscape(bool fieldTakesEscape = false)
     {
+        // an alert that must be answered first takes Esc: it answers the alert and never closes the window behind it
+        if (ModalEscape?.Invoke() == true)
+            return EscapeResult.AnsweredModal;
         if (_text && fieldTakesEscape)
             return EscapeResult.None;
         if (_text)

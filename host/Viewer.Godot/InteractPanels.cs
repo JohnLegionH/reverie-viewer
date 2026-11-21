@@ -140,6 +140,8 @@ public partial class ContextMenuPanel : PanelContainer
             string text = e.Literal ?? (_strings.Has(e.LabelKey) ? _strings.Get(e.LabelKey) : e.Id);
             bool sub = e.Children is { Count: > 0 };
             var b = new Button { Name = "entry_" + e.Id, Text = sub ? text + "  >" : text, Disabled = !e.Enabled, Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None };
+            if (!e.Enabled && e.ReasonKey is { } reason && _strings.Has(reason))
+                b.TooltipText = _strings.Get(reason);   // a greyed entry says why
             b.AccessibilityName = text;
             string id = e.Id;
             if (sub)

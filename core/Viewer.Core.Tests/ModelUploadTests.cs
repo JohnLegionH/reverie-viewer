@@ -633,20 +633,4 @@ public class ModelUploadTests
         Assert.Null(UploadCost.PerItem(benefitPrice: null, answerPrice: null));
     }
 
-    // ---------------- the delete question (notifications.xml) ----------------
-
-    [Theory]
-    [InlineData("ConfirmObjectDeleteLock", "At least one of the items you have selected is locked. Are you sure you want to delete these items?")]
-    [InlineData("ConfirmObjectDeleteNoCopy", "At least one of the items you have selected is not copyable. Are you sure you want to delete these items?")]
-    [InlineData("ConfirmObjectDeleteNoOwn", "You do not own at least one of the items you have selected. Are you sure you want to delete these items?")]
-    [InlineData("ConfirmObjectDeleteLockNoCopy", "At least one object is locked. At least one object is not copyable. Are you sure you want to delete these items?")]
-    [InlineData("ConfirmObjectDeleteLockNoOwn", "At least one object is locked. You do not own at least one object. Are you sure you want to delete these items?")]
-    [InlineData("ConfirmObjectDeleteNoCopyNoOwn", "At least one object is not copyable. You do not own at least one object. Are you sure you want to delete these items?")]
-    [InlineData("ConfirmObjectDeleteLockNoCopyNoOwn", "At least one object is locked. At least one object is not copyable. You do not own at least one object. Are you sure you want to delete these items?")]
-    public void The_delete_question_is_the_official_text(string name, string text) =>
-        Assert.Equal(text, StringTable.English().Get("menu.delete_confirm." + name));
-
-    [Fact]
-    public void The_delete_questions_confirm_entry_is_ok() =>
-        Assert.Equal("OK", StringTable.English().Get("menu.delete_ok"));
 }

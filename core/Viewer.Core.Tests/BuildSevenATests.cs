@@ -626,9 +626,7 @@ public class BuildSevenATests
         var plain = ContextMenus.ForObject(new ObjectMenuContext(new PrimInteraction(0, Own), new PrimInteraction(0, Own), false, false, false));
         var entry = plain.Single(e => e.Id == "return");
         Assert.True(entry.Enabled);
-        Assert.Equal(["return/question", "return/confirm"], entry.Children!.Select(c => c.Id));
-        Assert.False(entry.Children![0].Enabled);   // the question is text
-        Assert.True(entry.Children![1].Enabled);
+        Assert.Null(entry.Children);   // Return is a command: it closes the menu and opens the dialog, never a sub-menu of text
         // another's object too: the region decides
         var other = ContextMenus.ForObject(new ObjectMenuContext(new PrimInteraction(0, 0), new PrimInteraction(0, 0), false, false, false));
         Assert.True(other.Single(e => e.Id == "return").Enabled);
@@ -748,10 +746,15 @@ public class BuildSevenATests
             Interaction: new PrimInteraction(0, 0)));
         var pick = ObjectPicker.Pick(c.World, new PickRay(new Vec3(10, 10, 60), new Vec3(0, 0, -1)), null);
         c.C.RightClick(pick);
-        Assert.False(c.C.Choose("return"));
+        Viewer.Shell.Notifications.Notification? asked = null;
+        c.C.ConfirmationRequested += n => asked = n;
+        Assert.True(c.C.Choose("return"));   // the entry opens the dialog; nothing is sent yet
         Assert.DoesNotContain(c.Sent, i => i is ReturnObjectsIntent);
-        c.C.RightClick(pick);
-        Assert.True(c.C.Choose("return/confirm"));
+        Assert.NotNull(asked);
+        Assert.Equal(Viewer.Shell.Notifications.NotificationKind.Alert, asked!.Kind);
+        asked.Responder!(new Viewer.Shell.Notifications.NotificationAnswer(1, ""));   // Cancel
+        Assert.DoesNotContain(c.Sent, i => i is ReturnObjectsIntent);
+        asked.Responder!(new Viewer.Shell.Notifications.NotificationAnswer(0, ""));   // OK
         Assert.Equal([1u], Assert.IsType<ReturnObjectsIntent>(c.Sent[^1]).Roots);
     }
 }

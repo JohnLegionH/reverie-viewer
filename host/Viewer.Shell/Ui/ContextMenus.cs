@@ -8,7 +8,7 @@ namespace Viewer.Shell;
 
 /// <summary>One entry of a right-click menu. <paramref name="LabelKey"/> is also its accessible name. An entry with
 /// <paramref name="Children"/> opens a sub-menu; <paramref name="Literal"/> is a label that is not a string-table key (a worn item's name).</summary>
-public sealed record ContextEntry(string Id, string LabelKey, bool Enabled = true, IReadOnlyList<ContextEntry>? Children = null, string? Literal = null);
+public sealed record ContextEntry(string Id, string LabelKey, bool Enabled = true, IReadOnlyList<ContextEntry>? Children = null, string? Literal = null, string? ReasonKey = null);
 
 /// <summary>What the menu for an object depends on.</summary>
 public readonly record struct ObjectMenuContext(PrimInteraction? Self, PrimInteraction? Root, bool Attachment, bool SittingOnIt, bool Sitting, bool IsBlocked = false, bool CanDetach = false,
@@ -57,8 +57,8 @@ public static class ContextMenus
                 new("inspect", "menu.inspect"),
                 new("detach", "menu.detach", c.CanDetach),
                 // Drop (menu_attachment_self.xml, Attachment.Drop) asks first, as the official viewer's AttachmentDrop notification does:
-                // the entry opens a one-entry question and only its confirm entry sends the drop.
-                new("drop", "menu.drop", c.CanDetach, [new ContextEntry("drop/confirm", "menu.drop_confirm")]),
+                // choosing it closes the menu and opens the confirmation dialog; only its first button sends the drop.
+                new("drop", "menu.drop", c.CanDetach),
             ];
         }
         var list = new List<ContextEntry>
@@ -82,15 +82,8 @@ public static class ContextMenus
             if ((flags & ObjectFlagBits.Copy) != 0)
                 list.Add(new("take_copy", "menu.take_copy"));
             // Delete sends the object to the agent's Trash. It asks first, with the official question, only for an object that is locked,
-            // cannot be copied or is not the agent's own (llselectmgr.cpp, selectDelete): then the entry opens the question and only its
-            // confirm entry deletes, as Drop does.
-            bool deletable = Viewer.Core.Building.BuildRules.CanDelete(flags, c.Attachment);
-            var question = Viewer.Core.Building.BuildRules.DeleteConfirmation((flags & ObjectFlagBits.Move) == 0, (flags & ObjectFlagBits.Copy) != 0,
-                (flags & ObjectFlagBits.YouOwner) != 0);
-            list.Add(question is null
-                ? new("delete", "menu.delete", deletable)
-                // the official question (notifications.xml), shown as the submenu's text, and its OK; closing the menu cancels
-                : new("delete", "menu.delete", deletable, [new ContextEntry("delete/question", $"menu.delete_confirm.{question}", false), new ContextEntry("delete/confirm", "menu.delete_ok", deletable)]));
+            // cannot be copied or is not the agent's own (llselectmgr.cpp, selectDelete); the controller opens that dialog when the entry is chosen.
+            list.Add(new("delete", "menu.delete", Viewer.Core.Building.BuildRules.CanDelete(flags, c.Attachment)));
             // "Put on" in the official viewer's object menu (menu_object.xml): Attach and Attach HUD, each a list of points. Enabled only for an
             // object the user owns and is not sitting on (llviewermenu.cpp, object_is_wearable)
             bool wearable = (flags & ObjectFlagBits.YouOwner) != 0 && !c.SittingOnIt;
@@ -98,10 +91,9 @@ public static class ContextMenus
             list.Add(new("attach_hud", "menu.attach_hud", wearable, AttachPoints(AttachmentMenu.HudPoints, wearable)));
         }
         list.Add(c.IsBlocked ? new("unblock", "menu.unblock") : new("block", "menu.block"));
-        // Return stands with Block in the official "Manage" list (menu_object.xml); it asks first with the official question, and only its
-        // confirm entry sends the return. The region decides whether the agent may return the object.
-        bool returnable = Viewer.Core.Building.BuildRules.CanReturn(c.Attachment);
-        list.Add(new("return", "menu.return", returnable, [new ContextEntry("return/question", "menu.return_confirm", false), new ContextEntry("return/confirm", "menu.return_ok", returnable)]));
+        // Return stands with Block in the official "Manage" list (menu_object.xml); it asks first with the official question (the controller
+        // opens the dialog). The region decides whether the agent may return the object.
+        list.Add(new("return", "menu.return", Viewer.Core.Building.BuildRules.CanReturn(c.Attachment)));
         return list;
     }
 
@@ -122,6 +114,29 @@ public static class ContextMenus
         return list;
     }
 
+
+    /// <summary>The menu a resident's name in nearby chat or an instant message opens, in the official viewer's order for an avatar's name
+    /// (menu_url_agent.xml and menu_avatar_icon.xml): View Profile, IM, Offer and Request Teleport, Add Friend, Pay, Share, Block, Report Abuse,
+    /// Copy Name. What this viewer cannot do yet is greyed and carries the reason as <see cref="ContextEntry.ReasonKey"/>.</summary>
+    public static IReadOnlyList<ContextEntry> ForName(AvatarMenuContext c)
+    {
+        const string notBuilt = "menu.name.reason.not_built";
+        var list = new List<ContextEntry>();
+        list.Add(new("profile", "menu.name.profile", false, ReasonKey: notBuilt));
+        if (!c.IsSelf)
+        {
+            list.Add(new("im", "menu.im"));
+            list.Add(new("offer_teleport", "menu.offer_teleport"));
+            list.Add(new("request_teleport", "menu.request_teleport"));
+            list.Add(c.IsFriend ? new("remove_friend", "menu.name.remove_friend", false, ReasonKey: "menu.name.reason.use_people") : new("add_friend", "menu.add_friend"));
+            list.Add(new("pay", "menu.name.pay", false, ReasonKey: notBuilt));
+            list.Add(new("share", "menu.name.share", false, ReasonKey: notBuilt));
+            list.Add(c.IsBlocked ? new("unblock", "menu.unblock") : new("block", "menu.block"));
+            list.Add(new("report", "menu.name.report", false, ReasonKey: notBuilt));
+        }
+        list.Add(new("copy_name", "menu.name.copy_name"));
+        return list;
+    }
     /// <summary>The menu of the own avatar: Appearance, Inventory, Take Off (the worn items), Stand Up while seated, Fly or Stop Flying.
     /// After the official viewer's own-avatar menu (menu_avatar_self.xml), limited to what this viewer has.</summary>
     public static IReadOnlyList<ContextEntry> ForSelf(SelfMenuContext c)

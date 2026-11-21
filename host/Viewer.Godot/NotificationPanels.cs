@@ -213,6 +213,60 @@ internal static class NotificationView
 }
 
 /// <summary>
+/// The one dialog for alerts and confirmations: centred, modal (the layer behind it takes no clicks), as wide as its text wraps at
+/// <see cref="TextWidth"/> and as tall as the text needs, with a title, and buttons sized to their labels at the bottom right in one row. The
+/// default button is filled and holds the keyboard focus, so Enter answers it; Tab and the arrow keys move between the buttons; Esc is
+/// handled by <see cref="NotificationModel.PressEscape"/> (after its one-second guard). Behaviour after the official viewer's alert panel
+/// (lltoastalertpanel.cpp): its text width, default button and keys, written from the behaviour, not copied.
+/// </summary>
+internal static class AlertDialogView
+{
+    /// <summary>The width the message wraps at, as the official alert panel does.</summary>
+    public const float TextWidth = 400;
+
+    public static (PanelContainer Panel, Button? Default) Build(Notification n, StringTable strings, Action<long, int, string> answer)
+    {
+        string title = n.Title is null ? strings.Get("alert.title") : NotificationView.Words(n.Title, strings);
+        var panel = new PanelContainer { Name = "alert_" + n.Id, MouseFilter = Control.MouseFilterEnum.Stop };
+        panel.AccessibilityName = title;
+        var box = new VBoxContainer { Name = "content" };
+        box.AddThemeConstantOverride("separation", 14);
+        panel.AddChild(box);
+        var titleLabel = new Label { Name = "title", Text = title, ThemeTypeVariation = UiTheme.TitleLabel, MouseFilter = Control.MouseFilterEnum.Ignore };
+        titleLabel.AccessibilityName = title;
+        box.AddChild(titleLabel);
+        string body = NotificationView.Words(n.Body, strings);
+        var text = new Label
+        {
+            Name = "message", Text = body, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(TextWidth, 0),
+            ThemeTypeVariation = n.Caution ? UiTheme.ErrorLabel : "",
+        };
+        text.AccessibilityName = body;
+        box.AddChild(text);
+        var row = new HBoxContainer { Name = "buttons", Alignment = BoxContainer.AlignmentMode.End };
+        row.AddThemeConstantOverride("separation", 8);
+        Button? def = null;
+        foreach (var b in n.Buttons)
+        {
+            string label = NotificationView.Words(b.Label, strings);
+            var button = new Button { Name = "button_" + b.Index, Text = label, CustomMinimumSize = new Vector2(0, 32) };   // sized to the label: no fixed width, nothing clipped
+            button.AccessibilityName = label;
+            if (n.DefaultButton == b.Index)
+            {
+                button.ThemeTypeVariation = UiTheme.PrimaryButton;   // the default button is filled
+                def = button;
+            }
+            long id = n.Id;
+            int index = b.Index;
+            button.Pressed += () => answer(id, index, "");
+            row.AddChild(button);
+        }
+        box.AddChild(row);
+        return (panel, def);
+    }
+}
+
+/// <summary>
 /// The toasts at the top right (newest last, scrolling when they would run off the screen), the modal layer for an alert, and a small
 /// button that opens the list while something waits. A mouse click anywhere else passes through.
 /// </summary>
@@ -295,7 +349,17 @@ public partial class ToastStack : Control
             return;
         }
         foreach (var toast in model.Toasts)
-            Stack.AddChild(NotificationView.Build(toast, _strings, _theme, Answer, id => model.CloseToast(id)));
+        {
+            var card = NotificationView.Build(toast, _strings, _theme, Answer, id => model.CloseToast(id));
+            if (toast.Clicked is not null)
+            {
+                // pressing the card (not one of its buttons) does what the notice says: a friend notice opens the conversation with that friend
+                long toastId = toast.Id;
+                card.MouseDefaultCursorShape = Control.CursorShape.PointingHand;
+                card.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) model.ClickToast(toastId); };
+            }
+            Stack.AddChild(card);
+        }
         int unread = model.UnreadCount;
         Unread = unread;   // the toolbar's bell shows the count; this button stays for the list shortcut and is not drawn
         Badge.Visible = false;
@@ -304,10 +368,28 @@ public partial class ToastStack : Control
         var modal = model.Modal;
         Dim.Visible = ModalCentre.Visible = modal is not null;
         if (modal is not null)
-            ModalCentre.AddChild(NotificationView.Build(modal, _strings, _theme, Answer, null));
+        {
+            var (alert, def) = AlertDialogView.Build(modal, _strings, Answer);
+            ModalCentre.AddChild(alert);
+            // the default button holds the keyboard, so Enter answers it, and a newly opened alert takes focus from whatever was being typed in
+            def?.CallDeferred(Control.MethodName.GrabFocus);
+        }
     }
 
     private void Answer(long id, int button, string text) => _hub?.Model.Answer(id, button, text);
+
+    /// <summary>Enter with an alert up and the keyboard elsewhere (the focus was lost): the alert's default button answers. With the focus on one
+    /// of the alert's buttons that button takes Enter itself, so Tab and the arrow keys can choose another one first.</summary>
+    public override void _Input(InputEvent e)
+    {
+        if (_hub?.Model.Modal is null || e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter or Key.KpEnter })
+            return;
+        var owner = GetViewport().GuiGetFocusOwner();
+        if (owner is not null && ModalCentre.IsAncestorOf(owner))
+            return;
+        if (_hub.Model.PressEnter())
+            GetViewport().SetInputAsHandled();
+    }
 }
 
 /// <summary>The list floater: what waits for the user, each with its answer controls, and the last few that were answered or expired.</summary>

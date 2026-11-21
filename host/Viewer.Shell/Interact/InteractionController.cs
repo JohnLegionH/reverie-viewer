@@ -7,6 +7,7 @@ using Viewer.Core.Avatars;
 using Viewer.Core.Interaction;
 using Viewer.Core.Session;
 using Viewer.Core.World;
+using Viewer.Shell.Notifications;
 
 namespace Viewer.Shell;
 
@@ -320,6 +321,13 @@ public sealed class InteractionController
     }
     public event Action? Changed;
 
+    /// <summary>A menu choice needs the user's confirmation first: the question, to be shown as a modal dialog.</summary>
+
+    public event Action<global::Viewer.Shell.Notifications.Notification>? ConfirmationRequested;
+
+    private void Ask(global::Viewer.Shell.Notifications.Notification question) => ConfirmationRequested?.Invoke(question);
+
+
     private AvatarState? Me() => _world.FindAvatar(_self);
 
     /// <summary>True while the own avatar sits on something, or on the ground: the official viewer counts an avatar that plays the
@@ -565,8 +573,6 @@ public sealed class InteractionController
         var entry = FindEntry(Entries, entryId);
         if (entry is not { Enabled: true } || _menuPick is not { } pick)
             return false;
-        if (entry.Id is "drop" or "return" || (entry.Id == "delete" && entry.Children is not null))
-            return false;   // the question's header: only its confirm entry drops or deletes
         var kind = Menu;
         _menuChoiceKeepsSelection = kind == MenuKind.Object && entryId is "inspect" or "open" or "buy" or "pay";
         if (kind == MenuKind.Object && _selfPart.Contains(entryId))
@@ -592,22 +598,36 @@ public sealed class InteractionController
                         if (_submit(new TakeIntent(root.Id.LocalId, entryId == "take_copy")).Status == ActionStatus.Sent)
                             PlaySound?.Invoke(global::Viewer.Shell.Sound.UiSoundSlot.ObjectRezOut);
                         break;
-                    case "delete" when entry.Children is null:
-                    case "delete/confirm":
+                    case "delete":
+                    {
                         // no sound: the official viewer only preloads its delete sound and never plays it (llvieweraudio.cpp)
-                        _submit(new DeleteObjectIntent(root.Id.LocalId));
+                        uint rootId = root.Id.LocalId;
+                        uint flags = (root.Interaction ?? prim.Interaction)?.Flags ?? 0;
+                        var question = Viewer.Core.Building.BuildRules.DeleteConfirmation((flags & ObjectFlagBits.Move) == 0, (flags & ObjectFlagBits.Copy) != 0,
+                            (flags & ObjectFlagBits.YouOwner) != 0);
+                        if (question is null)
+                            _submit(new DeleteObjectIntent(rootId));
+                        else
+                            Ask(Confirmations.Delete(question, () => _submit(new DeleteObjectIntent(rootId))));
                         break;
+                    }
                     case "detach" when root.AttachItemId is { } wornItem && wornItem != Guid.Empty:
                         SelfHooks?.Detach?.Invoke(wornItem);
                         break;
-                    case "drop/confirm" when root.AttachmentPoint is not null && root.WearerAgentId == _self:
-                        _submit(new DropAttachmentIntent(root.Id.LocalId));
+                    case "drop" when root.AttachmentPoint is not null && root.WearerAgentId == _self:
+                    {
+                        uint rootId = root.Id.LocalId;
+                        Ask(Confirmations.Drop(() => _submit(new DropAttachmentIntent(rootId))));
                         break;
+                    }
                     case "block": _social.Block?.Invoke(MuteKind.Object, root.FullId); break;
                     case "unblock": _social.Unblock?.Invoke(MuteKind.Object, root.FullId); break;
-                    case "return/confirm" when Viewer.Core.Building.BuildRules.CanReturn(root.AttachmentPoint is not null):
-                        _submit(new ReturnObjectsIntent([root.Id.LocalId]));
+                    case "return" when Viewer.Core.Building.BuildRules.CanReturn(root.AttachmentPoint is not null):
+                    {
+                        uint rootId = root.Id.LocalId;
+                        Ask(Confirmations.Return(() => _submit(new ReturnObjectsIntent([rootId]))));
                         break;
+                    }
                     case var attach when attach.StartsWith("attach/", StringComparison.Ordinal) && int.TryParse(attach["attach/".Length..], out int point):
                         _submit(new AttachWorldObjectIntent(root.Id.LocalId, point));
                         break;

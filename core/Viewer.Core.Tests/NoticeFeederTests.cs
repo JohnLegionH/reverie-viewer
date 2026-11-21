@@ -126,12 +126,14 @@ public class NoticeFeederTests
     }
 
     [Fact]
-    public void A_friend_notice_goes_to_nearby_chat_unless_the_interface_shows_it_and_always_to_that_friends_conversation()
+    public void A_friend_notice_goes_to_nearby_chat_unless_the_preferences_switch_is_off_and_always_to_that_friends_conversation()
     {
         foreach (bool inChat in new[] { true, false })
         {
-            var hub = new CommsHub(Self, new NameCache(), _ => new ActionResult(ActionStatus.Sent, 1), new SettingsService(null), () => new DateTimeOffset(2026, 3, 4, 13, 5, 0, TimeSpan.Zero),
-                noticeText: n => "friend notice text") { FriendNoticesInNearbyChat = inChat };
+            var settings = new SettingsService(null);
+            settings.Set(Settings.FriendOnlineInChat, inChat);   // the Preferences switch decides; the notification toast does not replace the line
+            var hub = new CommsHub(Self, new NameCache(), _ => new ActionResult(ActionStatus.Sent, 1), settings, () => new DateTimeOffset(2026, 3, 4, 13, 5, 0, TimeSpan.Zero),
+                noticeText: n => "friend notice text");
             hub.Ims.OpenWith(Ann);
             hub.Friends.Receive(new FriendsListed([new FriendEntry(Ann, "Ann Example", false, FriendRightsFlags.SeeOnline, FriendRightsFlags.SeeOnline)]));
             hub.Friends.Receive(new FriendPresenceChanged(Ann, true));

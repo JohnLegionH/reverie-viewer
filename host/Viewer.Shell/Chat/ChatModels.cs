@@ -286,6 +286,9 @@ public sealed class NearbyChat
     /// <summary>A line from the grid itself (a system message or a message box), shown in nearby chat.</summary>
     public void AddSystem(string text) => Add(new ChatLine(_clock(), ChatLineStyle.System, Guid.Empty, "", text));
 
+    /// <summary>A friend's online or offline notice: a system line whose name is a link to that friend.</summary>
+    public void AddFriendNotice(Guid friend, string name, string text) => Add(new ChatLine(_clock(), ChatLineStyle.System, friend, name, text));
+
     private void Add(ChatLine line)
     {
         _lines.Add(line);

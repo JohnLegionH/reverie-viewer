@@ -24,17 +24,24 @@ public static class ChatFeature
     public const string ConversationsId = "conversations";
 
     /// <summary>Adds the two floaters, the Communicate menu, two toolbar buttons and their commands to a shell that is
-    /// already drawn (the menus and toolbar draw themselves again). Returns the panels, to be bound to a session's hub.</summary>
-    public static (NearbyChatPanel Nearby, ConversationsPanel Conversations) Install(ShellRoot shell, SettingsService settings)
+    /// already drawn (the menus and toolbar draw themselves again). Returns the panels, to be bound to a session's hub. <paramref name="onName"/>
+    /// is what a click on a resident's name does (the name menu); without it the click opens a conversation with that resident.</summary>
+    public static (NearbyChatPanel Nearby, ConversationsPanel Conversations) Install(ShellRoot shell, SettingsService settings, Action<Guid>? onName = null)
     {
         var s = shell.Shell;
         var nearby = new NearbyChatPanel(s.Strings, settings, s.Focus);
         var conversations = new ConversationsPanel(s.Strings, settings, s.Floaters, ConversationsId);
-        nearby.AgentClicked += agent =>
+        if (onName is not null)
         {
-            if (conversations.OpenWith(agent))
-                s.Floaters.Open(ConversationsId);
-        };
+            nearby.AgentClicked += onName;
+            conversations.AgentClicked += onName;
+        }
+        else
+            nearby.AgentClicked += agent =>
+            {
+                if (conversations.OpenWith(agent))
+                    s.Floaters.Open(ConversationsId);
+            };
         shell.AddFloater(new FloaterSpec(NearbyId, "chat.title", new UiSize(460, 300), new UiSize(320, 200)), nearby);
         shell.AddFloater(new FloaterSpec(ConversationsId, "im.title", new UiSize(460, 340), new UiSize(320, 220)), conversations);
         s.Commands.Register("floater.chat", () => s.Floaters.Toggle(NearbyId));
@@ -224,6 +231,12 @@ public partial class ConversationsPanel : VBoxContainer
     public Button OfferButton { get; }
     public Label StatusLabel { get; }
 
+    /// <summary>A resident's name in a message was clicked.</summary>
+    public event Action<Guid>? AgentClicked;
+
+    /// <summary>Clicks a link target as the mouse does (the development automation's way in).</summary>
+    internal void ClickTarget(string meta) => HistoryView.EmitSignal(RichTextLabel.SignalName.MetaClicked, meta);
+
     // the answer to the last friendship offer from this panel (shown when the conversation has no status of its own)
     private string _offerNote = "";
     private readonly PanelContainer _tabsTrack;
@@ -250,7 +263,9 @@ public partial class ConversationsPanel : VBoxContainer
         // a link in a message (an IM, group chat or an object's message) does what it does in nearby chat
         HistoryView.MetaClicked += meta =>
         {
-            if (Viewer.Shell.Links.LinkText.LinkOf(meta.AsString()) is { } link)
+            if (ChatText.AgentOf(meta.AsString()) is { } agent)
+                AgentClicked?.Invoke(agent);   // a resident's name in a message: the name menu, as in nearby chat
+            else if (Viewer.Shell.Links.LinkText.LinkOf(meta.AsString()) is { } link)
                 StatusLabel!.Text = HostLinks.Click(link) ?? "";
         };
         AddChild(HistoryView);

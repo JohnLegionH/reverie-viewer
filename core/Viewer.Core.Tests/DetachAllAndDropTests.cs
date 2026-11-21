@@ -106,7 +106,7 @@ public class DetachAllAndDropTests
         var entries = ContextMenus.ForObject(new ObjectMenuContext(Mine, Mine, Attachment: true, false, false, CanDetach: true));
         var drop = Assert.Single(entries, e => e.Id == "drop");
         Assert.True(drop.Enabled);
-        Assert.Equal([ "drop/confirm" ], drop.Children!.Select(c => c.Id).ToArray());
+        Assert.Null(drop.Children);   // a command: it opens the dialog, not a sub-menu
         Assert.False(Assert.Single(ContextMenus.ForObject(new ObjectMenuContext(Mine, Mine, Attachment: true, false, false)), e => e.Id == "drop").Enabled);
         Assert.DoesNotContain(ContextMenus.ForObject(new ObjectMenuContext(Mine, Mine, false, false, false)), e => e.Id == "drop");
     }
@@ -120,9 +120,14 @@ public class DetachAllAndDropTests
         rig.Prim(11, new Vector3(0, 0, 1.5f), Mine, parent: 10);
         rig.C.RightClick(rig.DownAtWorn());
         rig.Sent.Clear();
-        Assert.False(rig.C.Choose("drop"), "the entry itself only opens the question");
+        Viewer.Shell.Notifications.Notification? asked = null;
+        rig.C.ConfirmationRequested += n => asked = n;
+        Assert.True(rig.C.Choose("drop"), "the entry opens the question");
         Assert.DoesNotContain(rig.Sent, i => i is DropAttachmentIntent);
-        Assert.True(rig.C.Choose("drop/confirm"));
+        Assert.Equal("confirm.drop.body", asked!.Body.Key);
+        asked.Responder!(new Viewer.Shell.Notifications.NotificationAnswer(1, ""));   // No
+        Assert.DoesNotContain(rig.Sent, i => i is DropAttachmentIntent);
+        asked.Responder!(new Viewer.Shell.Notifications.NotificationAnswer(0, ""));   // Yes
         Assert.Equal(new DropAttachmentIntent(10), Assert.Single(rig.Sent.OfType<DropAttachmentIntent>()));
     }
 

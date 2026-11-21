@@ -574,11 +574,15 @@ public class BuildToolsTests
         q.C.RightClick(q.Down(10, 10));
         q.Sent.Clear();
         var asks = Assert.Single(q.C.Entries, e => e.Id == "delete");
-        Assert.Equal(["menu.delete_confirm.ConfirmObjectDeleteLock", "menu.delete_ok"], asks.Children!.Select(c => c.LabelKey));
-        Assert.False(asks.Children![0].Enabled);   // the question itself is text, not an action
-        Assert.False(q.C.Choose("delete"));
+        Assert.Null(asks.Children);   // the entry is a command; the question is a dialog, never menu text
+        Viewer.Shell.Notifications.Notification? asked = null;
+        q.C.ConfirmationRequested += n => asked = n;
+        Assert.True(q.C.Choose("delete"));
+        Assert.Empty(q.Sent);   // nothing is sent until the dialog is answered OK
+        Assert.Equal("confirm.delete.ConfirmObjectDeleteLock", asked!.Body.Key);
+        asked.Responder!(new Viewer.Shell.Notifications.NotificationAnswer(1, ""));
         Assert.Empty(q.Sent);
-        Assert.True(q.C.Choose("delete/confirm"));
+        asked.Responder!(new Viewer.Shell.Notifications.NotificationAnswer(0, ""));
         Assert.Equal(new DeleteObjectIntent(2), Assert.Single(q.Sent));
 
         // someone else's object that may not be modified: Take and Delete are greyed

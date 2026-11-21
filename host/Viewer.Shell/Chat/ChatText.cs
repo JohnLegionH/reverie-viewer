@@ -45,7 +45,9 @@ string Hex(UiColour c) => opacity >= 1f ? c.Hex : c.Hex + ((int)Math.Round(Math.
                 : strings.Get("chat.saved"));
         string body;
         if (line.Style == ChatLineStyle.System)
-            body = Fill(strings, "chat.line.system", Escape(line.Text));
+            body = line.SpeakerId != Guid.Empty && line.Name.Length > 0 && line.Text.StartsWith(line.Name, StringComparison.Ordinal)
+                ? Fill(strings, "chat.line.system", $"[url={AgentLinkPrefix}{line.SpeakerId:D}]{Escape(line.Name)}[/url]{Escape(line.Text[line.Name.Length..])}")   // a friend notice: the name is a link to that friend
+                : Fill(strings, "chat.line.system", Escape(line.Text));
         else
         {
             string shownName = line.Name.Length > 0 ? line.Name : line.Style == ChatLineStyle.Own ? strings.Get("chat.you") : NameCache.Placeholder(line.SpeakerId);
@@ -124,6 +126,7 @@ public sealed class CommsHub
     private readonly Func<DateTimeOffset> _clock;
     private readonly Func<int>? _requestNames;
     private readonly Func<Viewer.Shell.Social.FriendNotice, string?>? _noticeText;
+    private readonly SettingsService _settings;
     private readonly List<Viewer.Shell.Social.FriendNotice> _recentNotices = new();
     private DateTimeOffset _lastNameRequest = DateTimeOffset.MinValue;
 
@@ -136,6 +139,7 @@ public sealed class CommsHub
         Friends = new Viewer.Shell.Social.FriendsModel(self, names, submit, () => settings.Get(Settings.FriendOnlineNotices));
         Groups = new Viewer.Shell.Social.GroupsModel(submit, clock, requestTitles);
         _noticeText = noticeText;
+        _settings = settings;
         _clock = clock;
         _requestNames = requestNames;
         Nearby = new NearbyChat(self, submit, () => settings.Get(Settings.ChatHistoryLines), () => settings.Get(Settings.ChatSendTyping), clock);
@@ -163,10 +167,16 @@ public sealed class CommsHub
         string? text = _noticeText?.Invoke(notice);
         if (string.IsNullOrEmpty(text))
             return;
-        if (FriendNoticesInNearbyChat)
-            Nearby.AddSystem(text);
-        if (notice.Kind is Viewer.Shell.Social.FriendNoticeKind.Online or Viewer.Shell.Social.FriendNoticeKind.Offline)
+        bool presence = notice.Kind is Viewer.Shell.Social.FriendNoticeKind.Online or Viewer.Shell.Social.FriendNoticeKind.Offline;
+        if (presence)
+        {
+            // an online or offline notice is a line in nearby chat with the friend's name as a link, as the Preferences switch says (on by default)
+            if (_settings.Get(Settings.FriendOnlineInChat))
+                Nearby.AddFriendNotice(notice.Friend, Friends.Friends.FirstOrDefault(f => f.Id == notice.Friend)?.Name ?? "", text);
             Ims.AddSystemLine(notice.Friend, text);
+        }
+        else if (FriendNoticesInNearbyChat)
+            Nearby.AddSystem(text);
     }
 
     /// <summary>Main thread: sees each queued event before the models (restraints filter chat and IMs); it answers the event to
