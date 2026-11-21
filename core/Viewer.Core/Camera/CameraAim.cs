@@ -48,6 +48,7 @@ public static class CameraAim
         {
             AimPoint.Head => (soles + new Vector3(0, 0, height * ((HeadJointHeight + SkullTopHeight) / 2f / SkullTopHeight)), new Vector3(0.11f, 0.11f, 0.13f) * k),
             AimPoint.Chest => (soles + new Vector3(0, 0, height * 0.72f), new Vector3(0.2f, 0.14f, 0.25f) * k),
+            AimPoint.Feet => (soles + new Vector3(0, 0, 0.12f * k), new Vector3(0.22f, 0.22f, 0.12f) * k),   // both shoes, from the soles to above the ankles
             _ => (soles + new Vector3(0, 0, height * 0.5f), new Vector3(0.25f * k, 0.2f * k, height * 0.5f)),
         };
     }

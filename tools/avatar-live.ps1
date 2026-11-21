@@ -12,7 +12,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\avatar-live.ps1 -Sandbox <new folder> -OutDir <existing folder>
 #     [-Credentials <accounts file>] [-Account <alias>] [-Observed <alias>] [-GridInfoUrl <get_grid_info URL>] [-Start <start location>]
 #     [-Exe <development export>] [-Distances "3,15"] [-Sides "front,back,side"] [-Tag <name prefix>] [-GroundAt "x,y,z"] [-ProbeOnly]
-#     [-Point head|chest|body] [-ViewDistance 3] [-FovDeg 40] [-AboveDeg 0] [-MinFill 0] [-Shots "head:1.5:front:40,body:3:front,body:3:side"] [-ObserverGap 3]
+#     [-Point head|chest|body|feet] [-ViewDistance 3] [-FovDeg 40] [-AboveDeg 0] [-MinFill 0] [-Shots "head:1.5:front:40,body:3:front,body:3:side"] [-ObserverGap 3]
 #     [-ObservedOutFirst [-WatchLogoutSeconds 15]]
 #   -ObservedOutFirst: at the end the observed avatar logs out first while the observer keeps watching (run the observer with NV_WORN_FRAMES=1 to
 #   log the removal of each of the observed avatar's pieces and of its body).
@@ -112,7 +112,7 @@ function Shoot-Avatar($c, $a0, [string]$name, [double]$distance = -1, [double]$a
     if (-not $point) { $point = $Point }
     if ($distance -le 0) { $distance = $ViewDistance }
     if ([double]::IsNaN($around)) { $around = $CameraOffsetDeg }
-    $fill = if ($MinFill -gt 0) { $MinFill } elseif ($distance -le 6) { $(if ($point -eq "head") { 0.25 } else { 0.5 }) } else { 0.12 }
+    $fill = if ($MinFill -gt 0) { $MinFill } elseif ($distance -le 6) { $(if ($point -eq "head" -or $point -eq "feet") { 0.25 } else { 0.5 }) } else { 0.12 }
     $spec = @{ name = [string]$a0.name; point = $point; distance = $distance; around_deg = $around; above_deg = $AboveDeg; fov_deg = $fov; min_fill = $fill }
     $shot = Shoot-Aimed -Port $c.port -Token $c.token -Dir $OutDir -Name $name -Spec $spec
     Write-Host ("{0,7:N1} picture {1}: {2}" -f $clock.Elapsed.TotalSeconds, $name, $shot.Detail)

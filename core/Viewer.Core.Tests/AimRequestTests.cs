@@ -92,7 +92,7 @@ public class AimRequestTests
     [InlineData("""{"id":"11111111-2222-3333-4444-555555555555"}""", "distance")]
     [InlineData("""{"id":"11111111-2222-3333-4444-555555555555","distance":0}""", "distance")]
     [InlineData("""{"id":"11111111-2222-3333-4444-555555555555","distance":500}""", "distance")]
-    [InlineData("""{"id":"11111111-2222-3333-4444-555555555555","distance":3,"point":"feet"}""", "point")]
+    [InlineData("""{"id":"11111111-2222-3333-4444-555555555555","distance":3,"point":"knees"}""", "point")]
     [InlineData("""{"id":"11111111-2222-3333-4444-555555555555","distance":3,"above_deg":90}""", "above_deg")]
     [InlineData("""{"id":"11111111-2222-3333-4444-555555555555","distance":3,"fov_deg":3}""", "fov_deg")]
     [InlineData("""{"id":"11111111-2222-3333-4444-555555555555","distance":3,"fov_deg":170}""", "fov_deg")]

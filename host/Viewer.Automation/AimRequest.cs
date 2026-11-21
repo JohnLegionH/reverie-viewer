@@ -8,7 +8,7 @@ namespace Viewer.Automation;
 /// <summary>
 /// The body of the <c>aim</c> command (development builds): aim the camera at an avatar or an object and hold it there, report the
 /// camera pose and where the target lands on the screen, or let go of the camera. Parsed and checked here so it is tested without the engine.
-/// <para><c>{op: aim|state|release, target: avatar|object, id?, name?, local?, point: head|chest|body|centre, distance, around_deg, above_deg,
+/// <para><c>{op: aim|state|release, target: avatar|object, id?, name?, local?, point: head|chest|body|centre|feet, distance, around_deg, above_deg,
 /// fov_deg, min_fill?, max_offset?}</c>. <c>around_deg</c> is measured from the way the target faces (0 in front of it, 90 on its left,
 /// 180 behind it), <c>above_deg</c> from the horizontal; the field of view is the vertical one.</para>
 /// </summary>
@@ -60,7 +60,8 @@ public sealed record AimRequest(
             case "chest": point = AimPoint.Chest; break;
             case "body": point = AimPoint.Body; break;
             case "centre": point = AimPoint.Centre; break;
-            default: error = "point must be head, chest, body or centre"; return false;
+            case "feet": point = AimPoint.Feet; break;
+            default: error = "point must be head, chest, body, centre or feet"; return false;
         }
         if (!Number(body, "distance", float.NaN, out float distance) || float.IsNaN(distance) || distance <= 0f || distance > 200f)
         {
