@@ -1358,6 +1358,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         while (Scene.TakeDeparted(out var e))
         {
             if (e.Handle is not DrawnAvatar d) continue;
+            if (WornFrameTrace.On) Main.Log.Info("worn.avatar-gone", CoreLog.F("frame", WornFrameTrace.Frame), CoreLog.F("local", e.Id.LocalId), CoreLog.F("agent", e.AgentId), CoreLog.F("users", d.Users));
             if (_host is not null && d.Users > 1)
             {
                 // another region's entry still names this body: it stays drawn, and what it hides under worn meshes is worked out again

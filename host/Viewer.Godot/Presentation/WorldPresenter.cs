@@ -102,6 +102,9 @@ public sealed class WorldPresenter : IPresentationSink, System.IDisposable
     private string? _parcelLlsdFor;   // the parcel environment answer the environment in force was made from
     private float? _waterFor;
     private RegionEnvironment? _env;
+
+    /// <summary>The day cycle the sky is taken from now (the parcel's, the region's or the default), null before the first frame (a development readout).</summary>
+    public RegionEnvironment? CurrentEnvironment => _env;
     private double _appliedFraction = double.NaN;
 
     /// <summary>Test renders fix the time of day (deterministic goldens); null follows the region's own day cycle.</summary>

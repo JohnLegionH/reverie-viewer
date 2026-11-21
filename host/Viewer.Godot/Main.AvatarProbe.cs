@@ -60,6 +60,8 @@ public partial class Main
                         kind = part.Shape is null ? "none" : part.Shape.SculptType == PrimShape.SculptTypeMesh ? "mesh" : part.Shape.IsSculpt ? "sculpt" : "prim",
                         asset = part.Shape is { } s && (s.IsSculpt || s.SculptType == PrimShape.SculptTypeMesh) ? Short(s.SculptId) : "",
                         scale = new[] { part.Scale.X, part.Scale.Y, part.Scale.Z },
+                        // the level of detail a mesh piece is drawn at, the level wanted now, and the distance and radius it is chosen from
+                        mesh = prims.MeshReport(part.Id.LocalId) is { } mr ? new { lod = mr.Lod, available = mr.Available, wanted = mr.Wanted, distance = Math.Round(mr.Distance, 2), radius = Math.Round(mr.Radius, 3) } : null,
                         faces,
                     });
                 }
@@ -82,7 +84,28 @@ public partial class Main
                 pieces,
             });
         }
-        return new { avatars = list };
+        // the sky frame the view is lit with now: sun direction (region axes), its elevation, the sun and ambient colours and the probe ambiance
+        var sky = _presenter?.Environment?.Frame is { } f ? new
+        {
+            sun = new[] { f.SunDirection.X, f.SunDirection.Y, f.SunDirection.Z },
+            sun_elevation_deg = Math.Round(Math.Asin(Math.Clamp(System.Numerics.Vector3.Normalize(f.SunDirection).Z, -1f, 1f)) * 180 / Math.PI, 1),
+            sun_colour = new[] { f.SunColor.X, f.SunColor.Y, f.SunColor.Z },
+            ambient = new[] { f.Ambient.X, f.Ambient.Y, f.Ambient.Z },
+            probe_ambiance = f.ProbeAmbiance,
+            key = f.Key,
+            source = _presenter?.EnvironmentSource,
+            cycle = _presenter?.CurrentEnvironment is { } env ? new
+            {
+                day_length = env.DayLength, day_offset = env.DayOffset,
+                fraction_now = Math.Round(env.DayFraction(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0), 4),
+                frames = env.Sky.Select(k => new
+                {
+                    key = k.Key, sun = new[] { k.SunDirection.X, k.SunDirection.Y, k.SunDirection.Z },
+                    sun_elevation_deg = Math.Round(Math.Asin(Math.Clamp(System.Numerics.Vector3.Normalize(k.SunDirection).Z, -1f, 1f)) * 180 / Math.PI, 1),
+                }).ToArray(),
+            } : null,
+        } : null;
+        return new { avatars = list, sky };
     }
 
     /// <summary>Writes the picture of an avatar's bake in a slot, as the engine holds it, to the log folder (never anywhere else). Null when it has none or no folder is named.</summary>

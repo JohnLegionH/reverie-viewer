@@ -13,6 +13,9 @@
 #     [-Credentials <accounts file>] [-Account <alias>] [-Observed <alias>] [-GridInfoUrl <get_grid_info URL>] [-Start <start location>]
 #     [-Exe <development export>] [-Distances "3,15"] [-Sides "front,back,side"] [-Tag <name prefix>] [-GroundAt "x,y,z"] [-ProbeOnly]
 #     [-Point head|chest|body] [-ViewDistance 3] [-FovDeg 40] [-AboveDeg 0] [-MinFill 0] [-Shots "head:1.5:front:40,body:3:front,body:3:side"] [-ObserverGap 3]
+#     [-ObservedOutFirst [-WatchLogoutSeconds 15]]
+#   -ObservedOutFirst: at the end the observed avatar logs out first while the observer keeps watching (run the observer with NV_WORN_FRAMES=1 to
+#   log the removal of each of the observed avatar's pieces and of its body).
 #   -Shots lists the pictures as point:metres:side (side = front, back or side) in place of -Sides and -Distances; -ObserverGap puts the
 #   observer's own avatar that many metres from the observed one before the pictures (the camera does not depend on where it stands).
 #
@@ -59,6 +62,8 @@ param(
     [int]$EverySeconds = 5,
     [switch]$MoveObserved,
     [switch]$ProbeOnly,
+    [switch]$ObservedOutFirst,   # at the end the observed avatar logs out first and the observer keeps watching -WatchLogoutSeconds before it logs out
+    [int]$WatchLogoutSeconds = 15,
     [string]$SaveBake = "",   # a bake slot (e.g. head): the final avatar_probe also saves the picture the observer holds of the observed avatar's bake in that slot, under its log folder
     [string]$DryRunDir = ""   # a folder: the observed viewer also bakes its worn outfit here (NV_BAKE_DRYRUN_DIR) and writes each bake as a picture there, uploading and sending nothing
 )
@@ -461,7 +466,10 @@ try {
 } catch {
     Write-Output ("ERROR " + $_.Exception.Message); $exit = 5
 } finally {
-    Stop-Client $O; Stop-Client $T
+    if ($ObservedOutFirst) {
+        # the observed avatar logs out while the observer still watches (its log then holds the removals of the observed avatar's pieces and body)
+        Stop-Client $T; Start-Sleep -Seconds $WatchLogoutSeconds; Stop-Client $O
+    } else { Stop-Client $O; Stop-Client $T }
     Start-Sleep -Seconds 5
     foreach ($p in $script:procs) { try { if (-not $p.HasExited) { Wait-Process -Id $p.Id -Timeout 30 -ErrorAction SilentlyContinue } } catch { } }
     Write-Output "LIVE AVATAR RUN DONE - other work may run again"
