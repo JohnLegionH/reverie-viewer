@@ -35,6 +35,14 @@ public class AimRequestTests
     }
 
     [Fact]
+    public void An_aim_at_a_persons_feet_is_read()
+    {
+        var (ok, r, error) = Parse($$"""{"op":"aim","target":"avatar","id":"{{Person}}","point":"feet","distance":1.2}""");
+        Assert.True(ok, error);
+        Assert.Equal(AimPoint.Feet, r.Point);
+    }
+
+    [Fact]
     public void The_defaults_are_an_aim_at_a_person_from_the_front_with_a_forty_degree_view()
     {
         var (ok, r, error) = Parse($$"""{"id":"{{Person}}","distance":2}""");

@@ -93,6 +93,15 @@ public class CameraAimTests
     }
 
     [Fact]
+    public void The_feet_box_stands_at_the_ankles_and_takes_in_both_shoes()
+    {
+        var (feet, half) = CameraAim.AvatarBox(AimPoint.Feet, Soles, 1.8f);
+        Assert.Equal(25 + 0.12f, feet.Z, 2);   // the shoes: from the soles to above the ankles
+        Assert.Equal(0.12f, half.Z, 2);
+        Assert.True(half.X >= 0.2f && half.Y >= 0.2f, $"wide enough for both feet: {half}");
+    }
+
+    [Fact]
     public void The_head_point_is_above_the_head_joint_and_below_the_top_of_the_skull()
     {
         // the default skeleton: the head joint stands 1.6827 m above the soles and the skull's end 1.7947 m (avatar_skeleton.xml: the joints' positions added up the chain, the skull's end)

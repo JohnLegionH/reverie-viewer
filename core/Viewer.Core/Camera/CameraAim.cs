@@ -5,7 +5,7 @@ using System.Numerics;
 namespace Viewer.Core.Camera;
 
 /// <summary>What part of a target the camera looks at.</summary>
-public enum AimPoint { Head, Chest, Body, Centre }
+public enum AimPoint { Head, Chest, Body, Centre, Feet }
 
 /// <summary>A camera pose in region coordinates (x east, y north, z up) and its vertical field of view in degrees.</summary>
 public readonly record struct AimPose(Vector3 Eye, Vector3 Target, float FovDeg);
