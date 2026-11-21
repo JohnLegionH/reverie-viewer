@@ -7,6 +7,7 @@ namespace Viewer.Core.Inventory;
 public static class InventoryOpening
 {
     /// <summary>Notecards, textures, scripts and gestures open in their editors; the official viewer's open action for a gesture shows its
-    /// gesture editor (llinventorybridge.cpp LLGestureBridgeAction::doIt, chosen for AT_GESTURE in LLInvFVBridgeAction::createAction).</summary>
-    public static bool Opens(ItemKind kind) => kind is ItemKind.Notecard or ItemKind.Texture or ItemKind.Script or ItemKind.Gesture;
+    /// gesture editor (llinventorybridge.cpp LLGestureBridgeAction::doIt, chosen for AT_GESTURE in LLInvFVBridgeAction::createAction), and a
+    /// landmark opens its place information, from which it can be teleported to (LLLandmarkBridgeAction::doIt).</summary>
+    public static bool Opens(ItemKind kind) => kind is ItemKind.Notecard or ItemKind.Texture or ItemKind.Script or ItemKind.Gesture or ItemKind.Landmark;
 }

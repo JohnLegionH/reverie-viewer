@@ -113,15 +113,31 @@ public sealed class MenuBarState(int titles)
 /// <summary>What the location field shows in display mode: the parcel (only when it has a name of its own), the region once, and the coordinates.</summary>
 public sealed record LocationParts(string? Parcel, string Region, string Coordinates);
 
-/// <summary>A place typed into the location field: a region name, with a position when one was given.</summary>
-public sealed record LocationAddress(string Region, Vector3? Position);
+/// <summary>A place typed into the location field: a region name, with a position when one was given, and the grid it is on
+/// ("host:port") when the place names one (a Hypergrid address, or a place in the teleport history).</summary>
+public sealed record LocationAddress(string Region, Vector3? Position, string? Grid = null)
+{
+    /// <summary>The place as a travel address (<see cref="Viewer.Core.Links.TravelAddress"/>).</summary>
+    public Viewer.Core.Links.TravelAddress Travel
+    {
+        get
+        {
+            string? host = Grid is null ? null : Viewer.Core.Links.GridKeys.HostOf(Grid);
+            int? port = Grid is not null && int.TryParse(Grid[(Grid.LastIndexOf(':') + 1)..], System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out int p) ? p : null;
+            var at = Position ?? new Vector3(128, 128, 0);
+            return new Viewer.Core.Links.TravelAddress(host, port, Region, at, Position is null ? 0 : 3);
+        }
+    }
+}
 
 public static class LocationField
 {
     /// <summary>The display-mode parts, or null without a region. The position is rounded to whole metres and, while the avatar
     /// moves, to every second metre (faster than a walk's 1.5 m/s) or every fourth (faster than 6 m/s), so the numbers do not flicker
     /// (the location bar's rule, <see cref="LocationText"/>).</summary>
-    public static LocationParts? Display(string? region, string? parcel, Vector3 position, float speed)
+    /// <param name="host">The visited grid's host ("host:port") while the region is on another grid than home: the region is shown with it.</param>
+    public static LocationParts? Display(string? region, string? parcel, Vector3 position, float speed, string? host = null)
     {
         if (string.IsNullOrWhiteSpace(region))
             return null;
@@ -131,25 +147,25 @@ public static class LocationField
         string coords = $"{x}, {y}, {z}";
         string name = region.Trim();
         string? own = string.IsNullOrWhiteSpace(parcel) || string.Equals(parcel.Trim(), name, StringComparison.OrdinalIgnoreCase) ? null : parcel.Trim();
-        return new LocationParts(own, name, coords);
+        string shown = string.IsNullOrWhiteSpace(host) ? name : $"{name} ({host.Trim()})";
+        return new LocationParts(own, shown, coords);
     }
 
     /// <summary>Reads "Region name" or "Region name/x/y/z" (y and z may be left out), also as a secondlife:// or hop:// address. Null
     /// when the text is no place: empty, no region, a coordinate that is not a number or is off the region (x and y 0 to 256, z 0 to
     /// 4096), or more than three coordinates.</summary>
+    /// <remarks>A Hypergrid address (hop://host:port/Region/x/y/z, host:port:Region, host:port Region, http(s)://host:port/ Region) is
+    /// read by <see cref="Viewer.Core.Links.TravelAddressParser"/> and keeps its grid.</remarks>
     public static LocationAddress? Parse(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return null;
         string t = text.Trim();
+        if (Viewer.Core.Links.TravelAddressParser.Parse(t) is { IsHypergrid: true } hg)
+            return new LocationAddress(hg.Region, hg.Coordinates > 0 ? hg.Position : null, hg.Grid);
         if (t.StartsWith("hop://", StringComparison.OrdinalIgnoreCase))
-        {
-            int slash = t.IndexOf('/', 6);   // the grid's host and port come first
-            if (slash < 0)
-                return null;
-            t = t[(slash + 1)..];
-        }
-        else if (t.StartsWith("secondlife://", StringComparison.OrdinalIgnoreCase))
+            return null;   // a hop address the reader refused (no region, a bad port)
+        if (t.StartsWith("secondlife://", StringComparison.OrdinalIgnoreCase))
             t = t["secondlife://".Length..];
         string[] parts = t.Split('/');
         if (parts.Length > 4)

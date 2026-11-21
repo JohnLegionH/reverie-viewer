@@ -59,7 +59,7 @@ public static class RegionSize
         return region with { SizeX = Math.Max(region.SizeX, needX), SizeY = Math.Max(region.SizeY, needY) };
     }
 
-    /// <summary>Applies a map block if it is our cell on our grid: its size wins (0 = a legacy 256 m region), and its name fills a name the
+    /// <summary>Applies a map block for the region's own cell on the region's own grid: its size wins (0 = a legacy 256 m region), and its name fills a name the
     /// region did not have at connect. A block from another grid's map is about another region, whatever its cell (Hypergrid).</summary>
     public static RegionInfo FromMapBlock(RegionInfo region, MapBlockSize block)
     {

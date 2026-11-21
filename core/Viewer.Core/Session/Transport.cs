@@ -77,6 +77,16 @@ public sealed class SimRef(ulong handle, string name, string grid = "")
     public override string ToString() => $"{Name}@{GridX},{GridY}";
 }
 
+/// <summary>A transport that knows the agent's home grid among the grids it meets (Hypergrid).</summary>
+public interface IGridKeys
+{
+    /// <summary>The grid logged in to ("host:port").</summary>
+    string HomeGrid { get; }
+
+    /// <summary>Whether a grid key names the home grid (its login address, or the address its own regions gave).</summary>
+    bool IsHomeGrid(string? key);
+}
+
 /// <param name="Neighbours">Whether the session wants child circuits to the neighbouring regions the grid announces
 /// (the library's MultipleSims setting). False keeps one connected region.</param>
 public sealed record TransportLoginRequest(

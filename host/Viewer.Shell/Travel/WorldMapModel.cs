@@ -34,6 +34,8 @@ public sealed class MapLinks
     public Action<Guid> RequestFriend = _ => { };
     public Func<Guid, bool> FriendGrantsMap = _ => false;
     public Func<ulong, Vector3, bool> Teleport = (_, _) => false;
+    /// <summary>A teleport to a place on another grid by its address (the search box took a Hypergrid address).</summary>
+    public Func<Viewer.Core.Links.TravelAddress, bool> TeleportAddress = _ => false;
     public Func<bool> Home = () => false;
     public Func<(ulong Handle, Vector3 Position)?> Own = () => null;
     public Func<MapTileKey, MapTileState> RequestTile = _ => MapTileState.None;
@@ -318,6 +320,16 @@ public sealed class WorldMapModel
             Changed?.Invoke();
             return false;
         }
+        if (Viewer.Core.Links.TravelAddressParser.Parse(query) is { IsHypergrid: true } hg)
+        {
+            // another grid's region is found by that grid's map, through the region's lookup, and the teleport follows at once (as
+            // Firestorm's map search does for a Hypergrid address): no result list, the teleport's own progress and failure show instead
+            _query = null;
+            _results.Clear();
+            Status = ("map.search.hypergrid", hg.Display);
+            Changed?.Invoke();
+            return _links.TeleportAddress(hg);
+        }
         _query = query;
         _results.Clear();
         Status = null;
@@ -326,6 +338,39 @@ public sealed class WorldMapModel
         _links.RequestName(query);
         Changed?.Invoke();
         return true;
+    }
+
+    // ---------------- the grid ----------------
+
+    private string? _grid;
+
+    /// <summary>The grid the map shows ("host:port"); null until known.</summary>
+    public string? Grid => _grid;
+
+    /// <summary>The agent is on another grid (a Hypergrid arrival, or home again): that grid has its own map, so everything learned
+    /// from the old one (regions, answers, results, the chosen spot, friends found) is dropped. The same grid changes nothing.</summary>
+    public void ShowGrid(string? grid)
+    {
+        if (string.IsNullOrEmpty(grid) || string.Equals(grid, _grid, StringComparison.OrdinalIgnoreCase))
+            return;
+        bool had = _grid is not null;
+        _grid = grid;
+        if (!had)
+            return;
+        _regions.Clear();
+        _cells.Clear();
+        _answered.Clear();
+        _blocksAsked.Clear();
+        _results.Clear();
+        _friendMarks.Clear();
+        _pendingFriends.Clear();
+        _destination = null;
+        _query = null;
+        _searchStarted = null;
+        Selected = null;
+        Status = null;
+        _tiles = new();
+        Changed?.Invoke();
     }
 
     // ---------------- the chosen spot ----------------
@@ -477,6 +522,8 @@ public sealed class WorldMapModel
 
     private void Learn(MapBlockSize m)
     {
+        if (m.Grid is { } from && _grid is not null && !string.Equals(from, _grid, StringComparison.OrdinalIgnoreCase))
+            return;   // a late answer from the grid the agent left: about another map
         _answered.Add((m.GridX, m.GridY));
         SearchAnswered(m);
         if (string.IsNullOrEmpty(m.Name) || m.Access == 255)

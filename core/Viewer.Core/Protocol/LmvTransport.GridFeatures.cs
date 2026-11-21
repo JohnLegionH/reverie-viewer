@@ -8,8 +8,12 @@ using Viewer.Core.Session;
 namespace Viewer.Core.Protocol;
 
 /// <summary>The grid's own settings from the agent's region's simulator features, and the money balance.</summary>
-internal sealed partial class LmvTransport : IGridFeaturesSource
+internal sealed partial class LmvTransport : IGridFeaturesSource, IGridKeys
 {
+    public string HomeGrid => _grids.Home;
+
+    public bool IsHomeGrid(string? key) => _grids.IsHome(key);
+
     /// <summary>The grid's own settings from the agent's region's OpenSim extras, with the login reply's values behind them. Read when
     /// asked: the region's features arrive once per region and the library raises no event for them.</summary>
     public GridFeatures GridFeatures(GridLoginValues? gridInfo = null)

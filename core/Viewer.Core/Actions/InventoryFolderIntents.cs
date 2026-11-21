@@ -40,6 +40,9 @@ public sealed record LandmarkCreateIntent(Guid FolderId, string Name, string Des
 {
     public override ActionKind Kind => ActionKind.LandmarkCreate;
 
+    /// <summary>The longest name and description sent (the official viewer's inventory limits).</summary>
+    public const int MaxName = IntentRules.MaxInventoryNameChars, MaxDescription = IntentRules.MaxInventoryDescriptionChars;
+
     public override IReadOnlyList<ActionIssue> Validate()
     {
         var issues = new List<ActionIssue>();

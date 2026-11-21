@@ -13,11 +13,11 @@ public sealed class InventoryOpeningTests
     [InlineData(ItemKind.Texture)]
     [InlineData(ItemKind.Script)]
     [InlineData(ItemKind.Gesture)]
+    [InlineData(ItemKind.Landmark)]
     public void Items_with_an_editor_open_on_double_click(ItemKind kind) => Assert.True(InventoryOpening.Opens(kind));
 
     [Theory]
     [InlineData(ItemKind.Sound)]
-    [InlineData(ItemKind.Landmark)]
     [InlineData(ItemKind.Object)]
     [InlineData(ItemKind.Clothing)]
     [InlineData(ItemKind.Animation)]

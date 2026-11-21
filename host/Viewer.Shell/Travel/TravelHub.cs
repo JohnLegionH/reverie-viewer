@@ -25,6 +25,7 @@ public sealed class TravelHub
     {
         Teleport = new TeleportModel(self, names, submit, clock, here, attachments);
         links.Teleport = Teleport.ToHandle;
+        links.TeleportAddress = a => Teleport.ToAddress(a, WorldMap?.Grid);
         links.Home = Teleport.Home;
         WorldMap = new WorldMapModel(links, settings.Get(Settings.WorldMapScale), clock);
         MiniMap = new MiniMapModel { Rotate = settings.Get(Settings.MiniMapRotate) };

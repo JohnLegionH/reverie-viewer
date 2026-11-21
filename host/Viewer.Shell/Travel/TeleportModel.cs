@@ -131,9 +131,19 @@ public sealed class TeleportModel
 
     public bool ToRegion(string region, Vector3 position) => Start(new TeleportRegionIntent(region, position));
 
+    /// <summary>A teleport to a place by its travel address: a region on the grid the agent is on (<paramref name="currentGrid"/>,
+    /// "host:port") by its name, a region on another grid by the grid's map lookup of "host:port:Region" (OpenSim links it as a Hypergrid
+    /// region), then like any teleport. The grid's own refusal text is shown when the lookup or the teleport fails.</summary>
+    public bool ToAddress(Viewer.Core.Links.TravelAddress address, string? currentGrid, Vector3? fallback = null)
+    {
+        var place = address.OnGrid(currentGrid);
+        var at = place.Coordinates > 0 ? place.Position : fallback ?? new Vector3(128, 128, 30);
+        return Start(new TeleportRegionIntent(place.LookupName, at, place.Grid));
+    }
+
     public bool ToHandle(ulong handle, Vector3 position) => Start(new TeleportHandleIntent(handle, position));
 
-    public bool ToLandmark(Guid landmark) => Start(new TeleportLandmarkIntent(landmark));
+    public bool ToLandmark(Guid landmark, string? grid = null) => Start(new TeleportLandmarkIntent(landmark, grid));
 
     public bool Home() => Start(new TeleportHomeIntent());
 

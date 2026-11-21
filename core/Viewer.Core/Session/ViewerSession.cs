@@ -1076,6 +1076,15 @@ public sealed class ViewerSession : IDisposable
     public Viewer.Core.Appearance.WearableItemInfo? EditItemInfo(Guid itemId) =>
         (_transport as Viewer.Core.Appearance.IWearableTransport)?.ItemInfo(itemId);
 
+    /// <summary>The grid the agent's region is on ("host:port"; empty before a region, or when the transport does not say).</summary>
+    public string CurrentGrid => Region?.Grid ?? "";
+
+    /// <summary>The grid the agent's region is on when that is not the home grid (a Hypergrid visit); null at home.</summary>
+    public string? VisitedGrid => Region is { Grid.Length: > 0 } r && _transport is IGridKeys keys && !keys.IsHomeGrid(r.Grid) ? r.Grid : null;
+
+    /// <summary>The grid logged in to ("host:port"), as the transport keeps it; empty when it does not say.</summary>
+    public string HomeGrid => (_transport as IGridKeys)?.HomeGrid ?? "";
+
     /// <summary>The transport's notecard reading, when it has one.</summary>
     public Viewer.Core.Inventory.INotecardTransport? Notecards => _transport as Viewer.Core.Inventory.INotecardTransport;
 
