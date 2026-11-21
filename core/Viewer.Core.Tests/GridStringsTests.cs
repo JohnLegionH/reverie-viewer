@@ -50,9 +50,9 @@ public class GridStringsTests
     public void The_place_message_names_the_grid_the_person_is_on()
     {
         var s = StringTable.English();
-        Assert.Equal("Ebony is a place in Second Life, not on this grid.", s.Get("link.sl_place", "Ebony"));
+        Assert.Equal("Example Region is a place in Second Life, not on this grid.", s.Get("link.sl_place", "Example Region"));
         s.Context.Grid = "Example Grid";
-        Assert.Equal("Ebony is a place in Second Life, not on Example Grid.", s.Get("link.sl_place", "Ebony"));
+        Assert.Equal("Example Region is a place in Second Life, not on Example Grid.", s.Get("link.sl_place", "Example Region"));
     }
 
     [Fact]
