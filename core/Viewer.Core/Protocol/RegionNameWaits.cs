@@ -25,12 +25,13 @@ internal sealed class RegionNameWaits
 
     /// <summary>Waits for the region called <paramref name="name"/> (case ignored); null when the grid says there is none, when no answer names it
     /// within <paramref name="timeout"/>, or the caller cancels. A name already answered returns at once.</summary>
-    public Task<ulong?> WaitAsync(string name, TimeSpan timeout, CancellationToken ct)
+    /// <param name="fresh">Ask afresh even when the name was answered before (a Hypergrid link gets a new handle at each lookup).</param>
+    public Task<ulong?> WaitAsync(string name, TimeSpan timeout, CancellationToken ct, bool fresh = false)
     {
         var tcs = new TaskCompletionSource<ulong?>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_lock)
         {
-            if (_known.TryGetValue(name, out var handle))
+            if (!fresh && _known.TryGetValue(name, out var handle))
                 return Task.FromResult<ulong?>(handle);
             if (!_waits.TryGetValue(name, out var list))
                 _waits[name] = list = new();
@@ -84,6 +85,54 @@ internal sealed class RegionNameWaits
             }
             foreach (var w in answered)
                 w.TrySetResult(handle);
+        }
+    }
+}
+
+/// <summary>
+/// What the grid said while map lookups by name were running: OpenSim tells why a lookup found nothing in an alert (MapSearchModule,
+/// "No regions found with that name."), and a teleport whose lookup failed shows those words rather than a generic reason. Only alerts
+/// that arrive while a lookup runs count; blank ones are ignored. Thread-safe.
+/// </summary>
+internal sealed class LookupRefusals
+{
+    private readonly object _lock = new();
+    private int _open;
+    private long _count;
+    private string? _last;
+
+    /// <summary>A lookup starts; the ticket is handed back to <see cref="End"/>.</summary>
+    public long Begin()
+    {
+        lock (_lock)
+        {
+            _open++;
+            return _count;
+        }
+    }
+
+    /// <summary>The grid said something (an alert).</summary>
+    public void Heard(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+        lock (_lock)
+        {
+            if (_open == 0)
+                return;
+            _last = text.Trim();
+            _count++;
+        }
+    }
+
+    /// <summary>The lookup ended: the last words the grid said since it began, or null.</summary>
+    public string? End(long ticket)
+    {
+        lock (_lock)
+        {
+            if (_open > 0)
+                _open--;
+            return _count > ticket ? _last : null;
         }
     }
 }

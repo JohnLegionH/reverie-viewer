@@ -19,7 +19,10 @@ internal sealed partial class LmvTransport : IGridFeaturesSource
         catch (Exception ex) when (ex is not OutOfMemoryException) { _log.Warn("grid.features-unreadable", CoreLog.F("error", ex.GetType().Name)); }
         string? map = _client.Network.LoginResponseData?.MapServerUrl;
         var login = (gridInfo ?? new GridLoginValues()) with { MapServerUrl = string.IsNullOrWhiteSpace(map) ? gridInfo?.MapServerUrl : map };
-        return Session.GridFeatures.From(extras, login);
+        var features = Session.GridFeatures.From(extras, login);
+        if (features.GridUrl is { } url)
+            _grids.Learned(url);   // the region says which grid it is on
+        return features;
     }
 
     /// <summary>Asks the region for the money balance (MoneyBalanceRequest; the answer is a <see cref="BalanceChanged"/> event).</summary>

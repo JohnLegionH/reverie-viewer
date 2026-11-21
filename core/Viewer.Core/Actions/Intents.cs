@@ -17,7 +17,7 @@ public enum ActionKind
     GroupChatJoin, GroupChatLeave, GroupMessage, ActiveGroup, ActiveTitle, GroupNoticeAnswer,
     TeleportHandle, TeleportCancel, TeleportLureAnswer, TeleportOffer,
     SetHome, TeleportRequest,
-    InventoryFolderCreate, InventoryFolderRename, InventoryFolderMove, InventoryFolderTrash, OutfitChange, OutfitSave,
+    InventoryFolderCreate, LandmarkCreate, InventoryFolderRename, InventoryFolderMove, InventoryFolderTrash, OutfitChange, OutfitSave,
     WearableSave, WearableSaveAs,
     Mute, Unmute,
     Grab, Release, SitGround, ObjectProperties, Take, ParcelInfo,
@@ -58,6 +58,9 @@ internal static class IntentRules
 
     /// <summary>The most characters in an inventory item's name (the grid's database limit is 63).</summary>
     public const int MaxInventoryNameChars = 63;
+
+    /// <summary>The longest inventory description the official viewer allows (DB_INV_ITEM_DESC_STR_LEN).</summary>
+    public const int MaxInventoryDescriptionChars = 127;
 
     /// <summary>The longest region name teleport accepts.</summary>
     public const int MaxRegionNameChars = 128;
@@ -168,7 +171,9 @@ public sealed record StandIntent : ActionIntent
     internal override TransportCommand? ToCommand() => new StandCommand();
 }
 
-public sealed record TeleportRegionIntent(string RegionName, Vector3 Position) : ActionIntent
+/// <param name="Grid">The grid the region is on ("host:port") when it is another grid: <paramref name="RegionName"/> is then the map lookup name
+/// ("host:port:Region", <see cref="Viewer.Core.Links.TravelAddress.LookupName"/>). Null for the grid the agent is on.</param>
+public sealed record TeleportRegionIntent(string RegionName, Vector3 Position, string? Grid = null) : ActionIntent
 {
     public override ActionKind Kind => ActionKind.TeleportRegion;
 
@@ -188,14 +193,15 @@ public sealed record TeleportRegionIntent(string RegionName, Vector3 Position) :
         return issues;
     }
 
-    internal override TransportCommand? ToCommand() => new TeleportRegionCommand(IntentRules.Normalised(RegionName), Position);
+    internal override TransportCommand? ToCommand() => new TeleportRegionCommand(IntentRules.Normalised(RegionName), Position, Grid);
 }
 
-public sealed record TeleportLandmarkIntent(Guid Landmark) : ActionIntent
+/// <param name="Grid">The grid the landmark names ("host:port"), or null when it names none.</param>
+public sealed record TeleportLandmarkIntent(Guid Landmark, string? Grid = null) : ActionIntent
 {
     public override ActionKind Kind => ActionKind.TeleportLandmark;
     public override IReadOnlyList<ActionIssue> Validate() => Landmark == Guid.Empty ? [new("teleport.no_landmark")] : [];
-    internal override TransportCommand? ToCommand() => new TeleportLandmarkCommand(Landmark);
+    internal override TransportCommand? ToCommand() => new TeleportLandmarkCommand(Landmark, Grid);
 }
 
 public sealed record TeleportHomeIntent : ActionIntent

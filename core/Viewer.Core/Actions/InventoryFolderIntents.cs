@@ -33,6 +33,28 @@ public sealed record InventoryFolderCreateIntent(Guid ParentId, string Name) : A
     internal override TransportCommand? ToCommand() => new CreateInventoryFolderCommand(ParentId, InventoryNames.Clean(Name));
 }
 
+/// <summary>Makes a landmark of where the agent stands, in <paramref name="FolderId"/> (the Landmarks folder), as the official viewer's
+/// Create Landmark does (llpanellandmarkinfo.cpp createLandmark: create_inventory_item with AT_LANDMARK and IT_LANDMARK, full next-owner
+/// permissions). The region writes the landmark itself, from where the agent stands; on a Hypergrid grid it adds the grid's address.</summary>
+public sealed record LandmarkCreateIntent(Guid FolderId, string Name, string Description) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.LandmarkCreate;
+
+    public override IReadOnlyList<ActionIssue> Validate()
+    {
+        var issues = new List<ActionIssue>();
+        if (FolderId == Guid.Empty)
+            issues.Add(new("inventory.no_folder"));
+        if (!InventoryNames.Ok(Name))
+            issues.Add(new("inventory.bad_name"));
+        if ((Description ?? "").Length > IntentRules.MaxInventoryDescriptionChars || IntentRules.HasControlChars(Description ?? "", false))
+            issues.Add(new("inventory.bad_description"));
+        return issues;
+    }
+
+    internal override TransportCommand? ToCommand() => new CreateLandmarkCommand(FolderId, InventoryNames.Clean(Name), IntentRules.Normalised(Description ?? ""));
+}
+
 /// <summary>Renames a folder. <paramref name="ParentId"/> and <paramref name="KindNumber"/> are the folder's own, sent back unchanged.</summary>
 public sealed record InventoryFolderRenameIntent(Guid FolderId, Guid ParentId, int KindNumber, string NewName) : ActionIntent
 {

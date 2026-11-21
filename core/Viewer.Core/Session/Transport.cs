@@ -63,10 +63,15 @@ public interface IAgentAnimationTransport
 /// <summary>
 /// A simulator, by reference identity (one instance per simulator per transport). Carries no LibreMetaverse type.
 /// </summary>
-public sealed class SimRef(ulong handle, string name)
+/// <param name="grid">The grid the simulator is on, as "host:port" (empty when not known). Two grids have their own maps, so a
+/// region is known by its grid and its handle together: a region visited over Hypergrid can have a home region's handle.</param>
+public sealed class SimRef(ulong handle, string name, string grid = "")
 {
     public ulong Handle { get; } = handle;
     public string Name { get; } = name;
+    public string Grid { get; } = grid ?? "";
+    /// <summary>Whether <paramref name="other"/> is the same map spot on the same grid (not necessarily the same circuit).</summary>
+    public bool SamePlace(SimRef? other) => other is not null && other.Handle == Handle && string.Equals(other.Grid, Grid, StringComparison.OrdinalIgnoreCase);
     public int GridX => (int)((Handle >> 32) / 256);
     public int GridY => (int)((Handle & 0xFFFFFFFF) / 256);
     public override string ToString() => $"{Name}@{GridX},{GridY}";
@@ -201,7 +206,8 @@ public sealed record RegionWindReceived(SimRef? Sim, float[] X, float[] Y) : Tra
 /// is the region's name as the map knows it (at SimConnected the library may not have the name yet).</summary>
 /// <param name="MapImageId">: the region's map tile texture (a J2K asset), when the grid names one.</param>
 /// <param name="Access">: the region's access level byte (13 PG, 21 mature, 42 adult, 255 for a cell with no region).</param>
-public sealed record MapBlockSize(int GridX, int GridY, int SizeX, int SizeY, string? Name = null, Guid? MapImageId = null, int Access = 0) : TransportEvent;
+/// <param name="Grid">The grid whose map answered ("host:port"); null when not known, which matches any region as before.</param>
+public sealed record MapBlockSize(int GridX, int GridY, int SizeX, int SizeY, string? Name = null, Guid? MapImageId = null, int Access = 0, string? Grid = null) : TransportEvent;
 
 /// <summary>The hover height an AvatarAppearance message states for an avatar (its AppearanceHover block, in metres), or null when the
 /// message has no such block. Raised beside the <see cref="AvatarAppearanceReceived"/> of the same message.</summary>

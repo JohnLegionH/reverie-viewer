@@ -1417,7 +1417,7 @@ public sealed class ViewerSession : IDisposable
             // the login reply's size is the login region's: a later landing (a teleport) is sized by its own message, as Firestorm sizes
             // each region from the message that brings it (llviewermessage.cpp, process_teleport_finish)
             _loginSim ??= c.Sim;
-            bool loginRegion = _loginSim.Handle == c.Sim.Handle;
+            bool loginRegion = _loginSim.SamePlace(c.Sim);   // the same map spot on another grid is another region (Hypergrid)
             region = RegionSize.AtConnect(c.Sim, c.SimSizeX, c.SimSizeY, loginRegion ? _loginSizeX : 0, loginRegion ? _loginSizeY : 0) with { Terrain = c.Terrain, WaterHeight = c.WaterHeight, IsEstateManager = c.IsEstateManager ?? false };
             _region = region;
             if (!ReferenceEquals(_currentSim, c.Sim) || _originSim is null)

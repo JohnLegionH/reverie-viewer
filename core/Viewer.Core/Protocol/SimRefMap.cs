@@ -14,7 +14,7 @@ internal sealed class SimRefMap<T> where T : class
     /// reference, the new one. Not called when a reference is first made.</summary>
     public Action<T, SimRef, SimRef>? OnReplaced { get; set; }
 
-    public SimRef Get(T sim, ulong handle, string name)
+    public SimRef Get(T sim, ulong handle, string name, string grid = "")
     {
         SimRef? old = null;
         SimRef made;
@@ -23,7 +23,7 @@ internal sealed class SimRefMap<T> where T : class
             if (!_refs.TryGetValue(sim, out var r) || r.Handle != handle)
             {
                 old = r;
-                _refs[sim] = r = new SimRef(handle, name);
+                _refs[sim] = r = new SimRef(handle, name, r?.Grid ?? grid);   // a simulator stays on the grid it was first met on
             }
             made = r;
         }

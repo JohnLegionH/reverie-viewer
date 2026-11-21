@@ -635,12 +635,14 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 if (_client.Network.CurrentSim is { } parcelSim) _client.Parcels.RequestParcelProperties(parcelSim, parcel.Y + 1f, parcel.X + 1f, parcel.Y, parcel.X, ParcelInfoSequence, false);
                 break;
             case TeleportRegionCommand tp:
-                Run("teleport", () => TeleportToNamedRegionAsync(tp.RegionName, L(tp.Position)));
+                Run("teleport", () => TeleportToNamedRegionAsync(tp.RegionName, L(tp.Position), tp.Grid));
                 break;
             case TeleportLandmarkCommand lm:
+                _grids.Leaving(lm.Grid);   // a landmark that names its grid leads there (OpenSim's HG landmark, "gatekeeper" line)
                 self.RequestTeleport(new UUID(lm.Landmark));
                 break;
             case TeleportHomeCommand:
+                _grids.Leaving(_grids.Home);   // home is on the home grid, wherever the agent is
                 Run("teleport-home", () => self.GoHomeAsync(CancellationToken.None));
                 break;
             case TeleportHandleCommand handle:
@@ -651,6 +653,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 break;
             case TeleportCancelCommand:
                 _namedTeleport.Cancel();
+                _grids.Failed();
                 _client.Network.SendPacket(new TeleportCancelPacket { Info = { AgentID = self.AgentID, SessionID = self.SessionID } });
                 break;
             case TeleportLureAnswerCommand lure:
@@ -699,7 +702,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 });
                 break;
             }
-            case CreateInventoryFolderCommand or RenameInventoryFolderCommand or MoveInventoryFolderCommand:
+            case CreateInventoryFolderCommand or CreateLandmarkCommand or RenameInventoryFolderCommand or MoveInventoryFolderCommand:
                 ExecuteFolderCommand(command);
                 break;
             case ChangeOutfitCommand or SaveOutfitCommand or RebuildLookCommand:
@@ -1035,7 +1038,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         or FriendshipOfferCommand or FriendshipAnswerCommand or FriendshipEndCommand or FriendRightsCommand
         or GroupChatJoinCommand or GroupChatLeaveCommand or GroupMessageCommand or ActiveGroupCommand or ActiveTitleCommand or GroupNoticeAnswerCommand
         or GrabCommand or ReleaseCommand or SitGroundCommand or RequestObjectPropertiesCommand or TakeObjectCommand or RequestParcelCommand
-        or CreateInventoryFolderCommand or RenameInventoryFolderCommand or MoveInventoryFolderCommand or ChangeOutfitCommand or SaveOutfitCommand or RebuildLookCommand or SaveWearableCommand or SaveWearableAsCommand
+        or CreateInventoryFolderCommand or CreateLandmarkCommand or RenameInventoryFolderCommand or MoveInventoryFolderCommand or ChangeOutfitCommand or SaveOutfitCommand or RebuildLookCommand or SaveWearableCommand or SaveWearableAsCommand
         or MuteAddCommand or MuteRemoveCommand
         or ScriptDialogReplyCommand or ScriptPermissionAnswerCommand
         or InventoryOfferAnswerCommand or AttachWorldObjectCommand or DropAttachmentCommand
@@ -1122,8 +1125,11 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         return blocks;
     }
 
-    private void OnAlertMessage(object? sender, AlertMessageEventArgs e) =>
+    private void OnAlertMessage(object? sender, AlertMessageEventArgs e)
+    {
+        _refusals.Heard(e.Message);
         Raise(ToServerAlert(e.Message, e.NotificationId, modal: false));
+    }
 
     /// <summary>The sequence number of a parcel request made for About Land: the reply carries it back, so other parcel replies are not mistaken for it.</summary>
     internal const int ParcelInfoSequence = 4242;
@@ -1274,28 +1280,60 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
 
     private readonly PendingNamedTeleport _namedTeleport = new();
 
+    /// <summary>The flags a map lookup by name is sent with: the official viewer's LAYER_FLAG (llworldmapmessage.cpp, sendNamedRegionRequest).
+    /// OpenSim answers a lookup sent with them that names another grid ("host:port:Region") with a block carrying the name as asked, and
+    /// says in an alert when it found nothing (MapSearchModule.OnMapNameRequestHandler).</summary>
+    internal const uint NamedLookupFlags = 2;
+
+    /// <summary>A map lookup by name, as the official viewer sends it.</summary>
+    internal static MapNameRequestPacket ToMapNameRequest(UUID agent, UUID session, string name) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session, Flags = NamedLookupFlags, EstateID = 0, Godlike = false },
+        NameData = { Name = Utils.StringToBytes(name) },
+    };
+
+    /// <summary>Whether a lookup name names another grid: a Hypergrid link is made afresh by the grid at each lookup, with a map handle
+    /// of its own choosing, so an earlier answer for it is never reused.</summary>
+    internal static bool IsHypergridLookup(string name) => name.IndexOfAny([':', '|', '!', '+', '%']) >= 0;
+
+    private readonly LookupRefusals _refusals = new();
+
     /// <summary>Teleports to the region with this name: the map is asked which region it is (the answers also reach the world map), then the
     /// library teleports by handle and follows the teleport through to its end. The library's own lookup by name waits a fixed five seconds
     /// for a first answer and then another five, which made the first teleport by name slow; a name the map does not know is reported at once
-    /// as a destination that was not found.</summary>
-    private async Task TeleportToNamedRegionAsync(string regionName, Vector3 position)
+    /// as a destination that was not found, in the grid's own words when it said why (an alert while the lookup ran). A name on another grid
+    /// (<paramref name="grid"/>, a Hypergrid address) moves the current grid there as the teleport is sent, and back if it fails.</summary>
+    private async Task TeleportToNamedRegionAsync(string regionName, Vector3 position, string? grid = null)
     {
         var token = _namedTeleport.Begin(_mapFetches.Token);
-        _client.Grid.RequestMapRegion(regionName, GridLayerType.Objects);
-        var handle = await _regionNames.WaitAsync(regionName, RegionNameTimeout, token).ConfigureAwait(false);
+        bool hypergrid = grid is not null || IsHypergridLookup(regionName);
+        var heard = _refusals.Begin();
+        _client.Network.SendPacket(ToMapNameRequest(_client.Self.AgentID, _client.Self.SessionID, regionName));
+        var handle = await _regionNames.WaitAsync(regionName, RegionNameTimeout, token, fresh: hypergrid).ConfigureAwait(false);
         _namedTeleport.End(token);
+        string? said = _refusals.End(heard);
         if (_disposed || token.IsCancellationRequested)
             return;   // the user cancelled while the region was being found (or the session ended): nothing is sent, nothing is reported
         if (handle is not { } found)
         {
-            Raise(new TeleportProgressed(TeleportPhase.Failed, "no_host", true));
+            Raise(new TeleportProgressed(TeleportPhase.Failed, said ?? "no_host", true));
             return;
         }
+        _grids.Leaving(grid);
         await _client.Self.TeleportAsync(found, position, CancellationToken.None).ConfigureAwait(false);
     }
 
     private void OnTeleportProgress(object? sender, TeleportEventArgs e)
     {
+        switch (e.Status)
+        {
+            case TeleportStatus.Failed or TeleportStatus.Cancelled:
+                _grids.Failed();
+                break;
+            case TeleportStatus.Finished:
+                _grids.Arrived();
+                break;
+        }
         if (ToTeleportProgress(e) is { } progress)
             Raise(progress);
     }
@@ -1305,13 +1343,19 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     private void OnTeleportFailedPacket(object? sender, PacketReceivedEventArgs e)
     {
         if (e.Packet is TeleportFailedPacket p)
+        {
+            _grids.Failed();
             Raise(ToTeleportFailed(p));
+        }
     }
 
     private void OnTeleportFailedEvent(string capsKey, IMessage message, Simulator simulator)
     {
         if (message is TeleportFailedMessage m)
+        {
+            _grids.Failed();
             Raise(new TeleportProgressed(TeleportPhase.Failed, string.IsNullOrEmpty(m.MessageKey) ? m.Reason ?? "" : m.MessageKey, true, RegionNameOf(m.ExtraParams ?? "")));
+        }
     }
 
     private void OnCoarseLocations(object? sender, CoarseLocationUpdateEventArgs e) => Raise(ToCoarse(MapOrNull(e.Simulator), e.Positions));
@@ -1494,6 +1538,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         ApplyNeighbours(_client, request.Neighbours);
         TakeOverCrossing(request.Neighbours);
         string loginHost = Uri.TryCreate(request.LoginUri, UriKind.Absolute, out var loginUri) ? loginUri.Host : "";
+        _grids = new GridTracker(Links.GridKeys.OfUri(request.LoginUri) ?? loginHost);
         _certificates.Clear(loginHost);
         var lp = BuildLoginParams(_client, request);
         _loginTap.Begin();
@@ -1526,7 +1571,13 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
 
     private readonly SimRefMap<Simulator> _simRefs = new();
 
-    private SimRef Map(Simulator sim) => _simRefs.Get(sim, sim.Handle, sim.Name ?? "");
+    private SimRef Map(Simulator sim) => _simRefs.Get(sim, sim.Handle, sim.Name ?? "", _grids.Current);
+
+    /// <summary>Which grid the agent is on: every simulator reference is made with it, so a region is known by grid and handle together.</summary>
+    private GridTracker _grids = new("");
+
+    /// <summary>The grid the agent logged in to and the one it is on now ("host:port").</summary>
+    public (string Home, string Current) Grids => (_grids.Home, _grids.Current);
 
     /// <summary>A neighbour made from an agent-communication message has no region handle until its handshake: the library creates it with
     /// handle 0. The session placed it from that handle (at the corner of the world, with an empty world) and every later event carried a
@@ -2183,7 +2234,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     {
         if (e.Packet is not MapBlockReplyPacket p)
             return;
-        var blocks = ToMapBlocks(p);
+        string grid = e.Simulator is { } from ? Map(from).Grid : _grids.Current;
+        var blocks = ToMapBlocks(p).Select(b => b with { Grid = grid }).ToList();
         _regionNames.Offer(blocks);
         foreach (var block in blocks)
             Raise(block);

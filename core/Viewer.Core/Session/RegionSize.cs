@@ -6,6 +6,8 @@ namespace Viewer.Core.Session;
 /// <summary>The session's current region: name, grid cell and size in metres.</summary>
 public sealed record RegionInfo(string Name, int GridX, int GridY, int SizeX, int SizeY, bool SizeAuthoritative)
 {
+    /// <summary>The grid the region is on ("host:port"; empty when not known).</summary>
+    public string Grid { get; init; } = "";
     /// <summary>The region's terrain texturing settings from its handshake (null when unknown).</summary>
     public Viewer.Core.World.RegionTerrain? Terrain { get; init; }
     /// <summary>The region's water height in metres from its handshake (null when unknown).</summary>
@@ -42,7 +44,7 @@ public static class RegionSize
     {
         int x = Math.Max(simSizeX, loginSizeX);
         int y = Math.Max(simSizeY, loginSizeY);
-        return new(sim.Name, sim.GridX, sim.GridY, x > 0 ? x : Step, y > 0 ? y : Step, SizeAuthoritative: false);
+        return new(sim.Name, sim.GridX, sim.GridY, x > 0 ? x : Step, y > 0 ? y : Step, SizeAuthoritative: false) { Grid = sim.Grid };
     }
 
     /// <summary>Returns the region grown to cover patch (x, y), or the same instance if it already does or is authoritative.</summary>
@@ -57,11 +59,13 @@ public static class RegionSize
         return region with { SizeX = Math.Max(region.SizeX, needX), SizeY = Math.Max(region.SizeY, needY) };
     }
 
-    /// <summary>Applies a map block if it is our cell: its size wins (0 = a legacy 256 m region), and its name fills a name the
-    /// region did not have at connect.</summary>
+    /// <summary>Applies a map block if it is our cell on our grid: its size wins (0 = a legacy 256 m region), and its name fills a name the
+    /// region did not have at connect. A block from another grid's map is about another region, whatever its cell (Hypergrid).</summary>
     public static RegionInfo FromMapBlock(RegionInfo region, MapBlockSize block)
     {
         if (block.GridX != region.GridX || block.GridY != region.GridY)
+            return region;
+        if (block.Grid is { } grid && region.Grid.Length > 0 && !string.Equals(grid, region.Grid, StringComparison.OrdinalIgnoreCase))
             return region;
         return region with
         {

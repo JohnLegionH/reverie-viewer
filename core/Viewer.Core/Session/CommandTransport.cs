@@ -43,9 +43,11 @@ public sealed record SitCommand(Guid ObjectId, Vector3 Offset) : TransportComman
 
 public sealed record StandCommand : TransportCommand;
 
-public sealed record TeleportRegionCommand(string RegionName, Vector3 Position) : TransportCommand;
+/// <param name="Grid">The grid the region is on ("host:port") when it is another grid (a Hypergrid address); null for the grid the agent is on.</param>
+public sealed record TeleportRegionCommand(string RegionName, Vector3 Position, string? Grid = null) : TransportCommand;
 
-public sealed record TeleportLandmarkCommand(Guid Landmark) : TransportCommand;
+/// <param name="Grid">The grid the landmark names ("host:port", its gatekeeper line), or null when it names none.</param>
+public sealed record TeleportLandmarkCommand(Guid Landmark, string? Grid = null) : TransportCommand;
 
 public sealed record TeleportHomeCommand : TransportCommand;
 
@@ -117,6 +119,7 @@ public sealed record TeleportRequestCommand(Guid Target, string Message) : Trans
 /// <summary>Makes a new folder of the plain kind under <paramref name="ParentId"/>. The grid's folder contents are the
 /// authority afterwards: the caller reconciles with a read.</summary>
 public sealed record CreateInventoryFolderCommand(Guid ParentId, string Name) : TransportCommand;
+public sealed record CreateLandmarkCommand(Guid FolderId, string Name, string Description) : TransportCommand;
 
 /// <summary>Renames a folder (the grid's folder update carries the folder's parent and kind too, which stay as they are).</summary>
 public sealed record RenameInventoryFolderCommand(Guid FolderId, Guid ParentId, int KindNumber, string NewName) : TransportCommand;
