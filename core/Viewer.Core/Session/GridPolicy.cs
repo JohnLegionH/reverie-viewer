@@ -35,10 +35,6 @@ public enum ViewerFeature
     /// <summary>The viewer statistics report posted to the region's ViewerStats capability (llviewerstats.cpp send_viewer_stats). The
     /// Third-Party Viewer Policy 2.h asks that it is not left out on Second Life; elsewhere it is not sent.</summary>
     ViewerStatistics = 6,
-
-    /// <summary>This viewer's own interface sounds, made by its generator. The official viewer plays the grid's sound assets by their
-    /// ids (its UISnd* settings).</summary>
-    OwnInterfaceSounds = 7,
 }
 
 /// <summary>Where a feature may run.</summary>
@@ -78,7 +74,6 @@ public static class GridPolicy
         [ViewerFeature.Addons] = FeatureReach.Everywhere,
         [ViewerFeature.Restrictions] = FeatureReach.Everywhere,
         [ViewerFeature.ViewerStatistics] = FeatureReach.SecondLifeOnly,
-        [ViewerFeature.OwnInterfaceSounds] = FeatureReach.OpenSimOnly,
     };
 
     /// <summary>The kind of grid a login address belongs to: Second Life when its host is one of Linden Lab's.</summary>

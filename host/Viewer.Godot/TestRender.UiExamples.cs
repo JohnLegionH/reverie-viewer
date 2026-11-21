@@ -132,13 +132,6 @@ public partial class TestRender
         ModelFeature.Install(shell, () => null, () => Guid.Empty, () => Guid.Empty);
     }
 
-    /// <summary>The Sound Tuner with the shipped sounds and no saved tuning.</summary>
-    private static void ExampleSoundTuner(ShellRoot shell, StringTable strings)
-    {
-        var tuner = new SoundTunerPanel(strings, new Viewer.Shell.Sound.UiSoundTuning(null), _ => { });
-        shell.AddFloater(new FloaterSpec(SoundTunerPanel.FloaterId, "tuner.title", new UiSize(560, 600), new UiSize(400, 320)), tuner);
-    }
-
     /// <summary>An unknown-authority certificate for a reserved example host.</summary>
     private static Viewer.Core.Net.CertificateRefusal ExampleCertificate() =>
         new("grid.example.org", "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF", "UntrustedRoot", "CN=grid.example.org", new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero))

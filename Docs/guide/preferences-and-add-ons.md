@@ -54,9 +54,8 @@ Shadows, anti-aliasing and other advanced graphics settings are not in Reverie y
 
 - **Master volume**, **Mute all sounds**, and **Mono audio** (the same sound in both ears).
 - **Sounds (objects in the world)** and **Ambient (footsteps)**, each with a volume and a mute.
-- Whether collisions and gestures make sounds, and whether Reverie plays its own footstep where the grid has none.
-- **Tune…** opens the Sound Tuner, for changing how a sound is made.
-- **Interface sounds.** A volume, a mute, and a mute for while the viewer is minimized. Below them, each event has a row: for example Alert, Click, Region restart and Teleport. Each row has a **Play** button and a choice of **Ours**, **Grid's** or **Off**. **Set all to Ours** and **Set all to Grid's** change every row.
+- Whether collisions and gestures make sounds. A footstep the grid has no sound for is silent.
+- **Interface sounds.** A volume, a mute, and a mute for while the viewer is minimized. Below them, each event has a row: for example Alert, Click, Region restart and Teleport. Each row has a **Play** button and a choice of **Grid's** or **Off**. **Set all to Grid's** changes every row back. Reverie plays each grid's own interface sounds: it fetches them from the grid you are connected to when you log in, by the same sound ids the official viewer uses, and keeps them for that grid only, so one grid's sounds never play on another. A sound the grid does not have is silent (the row says "not on this grid"). On the login screen, the sounds of the grid chosen there play if you have connected to it before; otherwise nothing plays.
 
 Music, media and voice are not in Reverie yet. The page says so.
 

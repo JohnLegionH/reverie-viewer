@@ -1,9 +1,0 @@
-# The chosen candidate of each fitted interface sound (A or B), closer to its target by measurement.
-# The numbers after # are each candidate's distance to its target (smaller is closer).
-# The other interface sounds are recordings (host/Viewer.Shell/Sound/UiSoundRecordings.cs), so they have no chosen candidate.
-UISndChatPing=A  # A 1.86, B 3.08, no SL reference (UISndNewIncomingIMSession)
-UISndHealthReductionF=B  # A 2.66, B 2.65, no SL reference (UISndHealthReductionM)
-UISndHealthReductionM=B  # A 2.94, B 2.82
-UISndRestart=A  # A 3.80, B 4.12, no SL reference (UISndInvalidOp)
-UISndSnapshot=B  # A 3.37, B 2.76
-UISndTyping=A  # A 3.47, B 10.80

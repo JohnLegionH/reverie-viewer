@@ -53,9 +53,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\core\Viewer.Motion\Viewer.Motion.csproj" />
     <ProjectReference Include="..\..\core\Viewer.Overrider\Viewer.Overrider.csproj" />
-    <!-- The interface sound generator: it compiles the shell's own synthesizer files, so the tests use the shell's types and only build
-         the generator (its types would otherwise be there twice). -->
-    <ProjectReference Include="..\..\tools\ui-sounds\UiSoundGen.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\addons\Viewer.Addon.Ao\Viewer.Addon.Ao.csproj" />
     <ProjectReference Include="..\..\addons\Viewer.Addon.Rlv\Viewer.Addon.Rlv.csproj" />
     <None Include="..\..\addons\Viewer.Addon.Ao\add-on.json" Link="addons-ao\add-on.json" CopyToOutputDirectory="PreserveNewest" />

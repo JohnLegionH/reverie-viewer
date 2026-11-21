@@ -9,15 +9,12 @@ namespace Viewer.Shell.Sound;
 /// <summary>What plays a sound: the engine side (the UI audio bus). Main thread only.</summary>
 public interface IUiSoundOutput
 {
-    /// <summary>Plays our file for the slot at a linear gain (the interface level times the slot's level).</summary>
-    void PlayOurs(UiSoundSlot slot, float gain);
-
     /// <summary>Plays the grid's Ogg Vorbis sound. False when the bytes do not decode (nothing is played).</summary>
     bool PlayGrid(UiSoundSlot slot, Guid id, byte[] ogg, float gain);
 }
 
 /// <summary>What a request to play a slot came to.</summary>
-public enum UiSoundOutcome { PlayedOurs, PlayedGrid, MutedAll, MutedMinimized, Disabled, Off, NotOnGrid, NoGridSound, Fetching }
+public enum UiSoundOutcome { PlayedGrid, MutedAll, MutedMinimized, Disabled, Off, NotOnGrid, NoGridSound, Fetching }
 
 /// <summary>What the Preferences page says beside a slot.</summary>
 public enum UiSoundStatus { Fine, NotOnGrid, NoGridSound, Fetching }
@@ -34,7 +31,7 @@ public enum GridSoundState { Unknown, Fetching, Ready, NotOnGrid, Undecodable, F
 /// stream are not a sound this viewer can play (a headless check may say what else its own fake grid plays). Fetches finish on any thread;
 /// <see cref="Pump"/> applies them on the main thread.
 /// </summary>
-public sealed class GridSounds(Func<Guid, CancellationToken, Task<AssetFetchResult>> fetch, Func<byte[], bool>? playable = null)
+public sealed class GridSounds(Func<Guid, CancellationToken, Task<AssetFetchResult>> fetch, Func<byte[], bool>? playable = null, Action<string>? log = null)
 {
     /// <summary>The largest sound asset accepted (the official viewer's upload limit is ten seconds of audio, far under this).</summary>
     public const int MaxBytes = 2 * 1024 * 1024;
@@ -43,6 +40,7 @@ public sealed class GridSounds(Func<Guid, CancellationToken, Task<AssetFetchResu
     private readonly Dictionary<Guid, byte[]> _bytes = new();
     private readonly ConcurrentQueue<(Guid Id, AssetFetchResult Result)> _done = new();
     private readonly CancellationTokenSource _stop = new();
+    private readonly HashSet<Guid> _logged = new();
 
     /// <summary>Raised on the main thread when a sound's state changed after a fetch.</summary>
     public event Action<Guid>? Changed;
@@ -75,6 +73,7 @@ public sealed class GridSounds(Func<Guid, CancellationToken, Task<AssetFetchResu
         _bytes.Remove(id);
         _state[id] = GridSoundState.Undecodable;
         _why[id] = "undecodable";
+        LogOnce(id, "undecodable");
     }
 
     /// <summary>Main thread: applies the fetches that finished.</summary>
@@ -88,9 +87,19 @@ public sealed class GridSounds(Func<Guid, CancellationToken, Task<AssetFetchResu
             if (why is null)
                 _why.Remove(d.Id);
             else
+            {
                 _why[d.Id] = why;
+                LogOnce(d.Id, why);
+            }
             Changed?.Invoke(d.Id);
         }
+    }
+
+    // a sound the grid does not serve plays nothing: one line per id for the session, however often it is asked for
+    private void LogOnce(Guid id, string why)
+    {
+        if (_logged.Add(id))
+            log?.Invoke("ui sound " + id + " is not played: " + why);
     }
 
     /// <summary>Whether bytes start as an Ogg stream (its capture pattern).</summary>
@@ -127,13 +136,15 @@ public sealed class GridSounds(Func<Guid, CancellationToken, Task<AssetFetchResu
 
     /// <summary>Stops fetches going on (the session ended).</summary>
     public void Cancel() => _stop.Cancel();
+
 }
 
 /// <summary>
 /// The interface sounds service: one call per event, <see cref="Play"/>, and the Preferences page's <see cref="Audition"/>. It reads the
 /// settings at every play (so a change in Preferences counts at once) and decides: mute all, minimized, the slot's switch and source,
-/// then our file or the grid's sound. The grid's sound plays only in the world; on the login screen a slot set to the grid plays our
-/// file. A grid sound the grid does not have plays nothing, and the page shows it as not on this grid. A first play of a grid sound
+/// then the grid's sound. In the world the grid's sound is fetched through the asset path; on the login screen the sound is read from
+/// the cache of the grid chosen there (<see cref="LoginCache"/>), and plays only if that grid has been connected to before. A sound the
+/// grid does not have plays nothing, and the page shows it as not on this grid. A first play of a grid sound
 /// that is still being fetched plays when it arrives, if that is within <see cref="PendingWindowSeconds"/>. Main thread only.
 /// </summary>
 public sealed class UiSounds
@@ -178,8 +189,8 @@ public sealed class UiSounds
             grid.Changed += OnGridChanged;
     }
 
-    /// <summary>The kind of grid the session is on: on Second Life every slot plays the grid's sound (see <see cref="UiSoundSettings.SourceOn"/>).</summary>
-    public Viewer.Core.Session.GridKind Grid { get; set; }
+    /// <summary>The cached sounds of the grid chosen on the login screen (by sound id), or null when none is chosen.</summary>
+    public Func<Guid, byte[]?>? LoginCache { get; set; }
 
     /// <summary>Whether a session is in the world (the grid's sounds can be fetched). False on the login screen.</summary>
     public bool InWorld { get; set; }
@@ -204,7 +215,7 @@ public sealed class UiSounds
     /// <summary>What the Preferences page shows beside a slot set to the grid.</summary>
     public UiSoundStatus StatusOf(UiSoundSlot slot)
     {
-        if (UiSoundSettings.SourceOn(_settings, slot, Grid) != UiSoundSource.Grid)
+        if (UiSoundSettings.Source(_settings, slot) != UiSoundSource.Grid)
             return UiSoundStatus.Fine;
         var id = UiSoundCatalog.Of(slot).GridId;
         if (id == Guid.Empty)
@@ -217,13 +228,20 @@ public sealed class UiSounds
         };
     }
 
+    /// <summary>Where the slot's grid sound stands (for checks): its id, its state, why it is not played, and its bytes when it is ready.</summary>
+    public (Guid Id, GridSoundState State, string? Why, byte[]? Bytes) GridSoundOf(UiSoundSlot slot)
+    {
+        var id = UiSoundCatalog.Of(slot).GridId;
+        return _grid is null || id == Guid.Empty ? (id, GridSoundState.Unknown, null, null) : (id, _grid.StateOf(id), _grid.WhyOf(id), _grid.BytesOf(id));
+    }
+
     /// <summary>Asks for every grid sound a slot is set to, as the official viewer preloads its interface sounds (in the world only).</summary>
     public void Preload()
     {
         if (!InWorld || _grid is null)
             return;
         foreach (var info in UiSoundCatalog.All)
-            if (UiSoundSettings.SourceOn(_settings, info.Slot, Grid) == UiSoundSource.Grid)
+            if (UiSoundSettings.Source(_settings, info.Slot) == UiSoundSource.Grid)
                 _grid.Request(info.GridId);
     }
 
@@ -246,19 +264,19 @@ public sealed class UiSounds
             return UiSoundOutcome.MutedAll;
         if (_settings.Get(UiSoundSettings.MuteWhenMinimized) && _minimized())
             return UiSoundOutcome.MutedMinimized;
-        var source = UiSoundSettings.SourceOn(_settings, slot, Grid);
-        if (source == UiSoundSource.Off)
+        if (UiSoundSettings.Source(_settings, slot) == UiSoundSource.Off)
             return UiSoundOutcome.Off;
         if (!audition && !_settings.Get(UiSoundSettings.EnabledOf(slot)))
             return UiSoundOutcome.Disabled;
-        if (source == UiSoundSource.Ours || !InWorld || _grid is null)
-        {
-            _output.PlayOurs(slot, GainOf(slot));
-            return UiSoundOutcome.PlayedOurs;
-        }
         var id = UiSoundCatalog.Of(slot).GridId;
         if (id == Guid.Empty)
             return UiSoundOutcome.NoGridSound;
+        if (!InWorld || _grid is null)
+        {
+            // the login screen: the chosen grid's cached sound, or nothing
+            return LoginCache?.Invoke(id) is { Length: > 0 } cached && _output.PlayGrid(slot, id, cached, GainOf(slot))
+                ? UiSoundOutcome.PlayedGrid : UiSoundOutcome.NotOnGrid;
+        }
         switch (_grid.StateOf(id))
         {
             case GridSoundState.Ready:

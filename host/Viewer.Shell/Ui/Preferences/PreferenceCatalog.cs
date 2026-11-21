@@ -57,7 +57,6 @@ public static class PreferenceCatalog
         P(Sound.AudioLevels.MuteAmbient, PrefPage.Sound, PrefApply.Live),
         P(Sound.AudioLevels.CollisionSounds, PrefPage.Sound, PrefApply.Live),
         P(Sound.AudioLevels.GestureSounds, PrefPage.Sound, PrefApply.Live),
-        P(Sound.AudioLevels.FootstepFallback, PrefPage.Sound, PrefApply.Live),
         P(Sound.UiSoundSettings.Volume, PrefPage.Sound, PrefApply.Live, 0, 1),
         P(Sound.UiSoundSettings.MuteAll, PrefPage.Sound, PrefApply.Live),
         P(Sound.UiSoundSettings.MuteWhenMinimized, PrefPage.Sound, PrefApply.Live),

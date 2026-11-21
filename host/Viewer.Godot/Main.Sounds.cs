@@ -24,7 +24,6 @@ public partial class Main
     private object? _soundNotesFor, _soundChatFor, _soundTravelFor;
     private ViewerSession? _soundGridFor;
     private bool _soundDimHooked;
-    private SoundTunerPanel? _soundTuner;
 
     /// <summary>The interface sounds service (null until the shell is made).</summary>
     public UiSounds? UiSounds => _uiSounds;
@@ -53,30 +52,17 @@ public partial class Main
             return;
         InstallWorldSounds(settings);
         ApplyMono(settings);
-        _uiSoundPlayer = new UiSoundPlayer(settings) { Tuning = _tuning };
+        _uiSoundPlayer = new UiSoundPlayer(settings);
         AddChild(_uiSoundPlayer);
         _uiSounds = new UiSounds(settings, _uiSoundPlayer, null,
             () => DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Minimized, () => Time.GetTicksMsec() / 1000.0);
+        _uiSounds.LoginCache = LoginSound;
         AddChild(new UiSoundClicks(() => _uiSounds));
         UiSoundWiring.Floaters(_shell.Shell.Floaters, _uiSounds);   // for the viewer's whole life
         if (_loginScreen is not null)
             _loginScreen.Dialogs.Shown += d => _uiSounds?.Play(UiSoundRules.LoginDialog(d.Kind));
-        // the Sound Tuner: a window of its own, opened from Preferences > Sound > Tune; it plays our file for the slot (tuned or shipped)
-        var shell = _shell.Shell;
-        var tuner = new SoundTunerPanel(shell.Strings, _tuning!, file =>
-        {
-            if (UiSoundCatalog.All.FirstOrDefault(i => i.File == file) is { } info)
-                _uiSoundPlayer?.PlayOurs(info.Slot, _uiSounds?.GainOf(info.Slot) ?? 0.5f);
-            else
-                _uiSoundPlayer?.PlayFile(file, 0.5f);
-        });
-        _shell.AddFloater(new FloaterSpec(SoundTunerPanel.FloaterId, "tuner.title", new UiSize(560, 600), new UiSize(400, 320)), tuner);
-        _soundTuner = tuner;
         if (_preferences is not null)
-        {
             _preferences.Sounds = _uiSounds;
-            _preferences.OpenTuner = () => _shell?.Shell.Floaters.Open(SoundTunerPanel.FloaterId);
-        }
     }
 
     /// <summary>Every frame: follows the session (in the world or not, its grid sounds, its models) and applies finished grid fetches.</summary>
@@ -88,17 +74,13 @@ public partial class Main
         bool inWorld = session is not null && !session.IsEnded && session.AgentId != Guid.Empty;
         if (sounds.InWorld != inWorld)
             sounds.InWorld = inWorld;
-        // the per-grid switch: on Second Life the interface plays the grid's own sounds by their ids
-        var gridKind = inWorld ? session!.Grid : Viewer.Core.Session.GridKind.OpenSim;
-        if (sounds.Grid != gridKind)
-            sounds.Grid = gridKind;
+        // on the login screen the sounds are the chosen grid's cached ones, if it has been connected to before
         if (_soundGridFor != (inWorld ? session : null))
         {
             _soundGridFor = inWorld ? session : null;
             var transport = _soundTransport;
-            var fetch = transport is null ? null
-                : _contentView is { } view ? view.Caching("sound", transport.FetchSoundAsync) : transport.FetchSoundAsync;
-            sounds.UseGrid(_soundGridFor is not null && fetch is not null ? new GridSounds(fetch) : null);
+            var fetch = transport is null || _soundGridFor is null ? null : GridSoundFetch(_soundGridFor, transport);
+            sounds.UseGrid(fetch is not null ? new GridSounds(fetch, null, line => Log.Info("sound.ui.missing", Viewer.Core.Diagnostics.CoreLog.F("what", line))) : null);
             sounds.Preload();
         }
         Rewire(ref _soundNotes, ref _soundNotesFor, _notes, () => UiSoundWiring.Notifications(_notes!.Model, _travel?.Notices, sounds));
@@ -116,6 +98,23 @@ public partial class Main
         }
         sounds.Pump();
         UpdateWorldSounds();
+    }
+
+    /// <summary>The content-store view that holds a grid's sounds: its own scope per grid (<see cref="GridSoundCache"/>), so a sound cached
+    /// from one grid is never read for another.</summary>
+    private Viewer.Core.Assets.ContentView GridSoundView(string loginUri, string sessionKey) =>
+        ContentStore().View(GridSoundCache.Scope(loginUri), sessionKey);
+
+    /// <summary>The fetch of a session's sounds: the grid's own cache first, then the grid's asset path.</summary>
+    private Func<Guid, System.Threading.CancellationToken, System.Threading.Tasks.Task<Viewer.Core.Assets.AssetFetchResult>> GridSoundFetch(
+        ViewerSession session, Viewer.Core.Assets.ISoundTransport transport) =>
+        GridSoundView(session.LoginUri, session.LogTag).Caching(GridSoundCache.Kind, transport.FetchSoundAsync);
+
+    /// <summary>What the login screen plays: the cached sound of the grid chosen there, null when none is chosen or it was never cached.</summary>
+    private byte[]? LoginSound(Guid id)
+    {
+        string? uri = _gridList?.Selected?.Address;
+        return !string.IsNullOrEmpty(uri) && GridSoundView(uri, "login").TryGet(GridSoundCache.Kind, id, out var bytes) ? bytes : null;
     }
 
     // connects the models of a new hub (or none) once, and drops the last hub's connections
@@ -142,6 +141,7 @@ public partial class Main
                 {
                     in_world = sounds.InWorld,
                     started = _uiSoundPlayer?.Started ?? 0,
+                    played = _uiSoundPlayer?.Played.Select(p => new { slot = p.Slot.ToString(), id = p.Id, md5 = p.Md5 }).ToArray(),
                     events = sounds.Recent.Select(e => new { slot = e.Slot.ToString(), outcome = e.Outcome.ToString() }).ToArray(),
                 };
             case "clear":
@@ -155,8 +155,13 @@ public partial class Main
                     in_world = sounds.InWorld,
                     slots = UiSoundCatalog.All.Select(i => new
                     {
-                        slot = i.Slot.ToString(), source = UiSoundSettings.IdOf(UiSoundSettings.SourceOn(UserSettings(null), i.Slot, sounds.Grid)),
+                        slot = i.Slot.ToString(), source = UiSoundSettings.IdOf(UiSoundSettings.Source(UserSettings(null), i.Slot)),
                         status = sounds.StatusOf(i.Slot).ToString(),
+                        id = sounds.GridSoundOf(i.Slot).Id,
+                        grid_state = sounds.GridSoundOf(i.Slot).State.ToString(),
+                        why = sounds.GridSoundOf(i.Slot).Why,
+                        served_md5 = sounds.GridSoundOf(i.Slot).Bytes is { } b ? GridSoundCache.ContentKey(b).ToString("N") : null,
+                        served_bytes = sounds.GridSoundOf(i.Slot).Bytes?.Length,
                     }).ToArray(),
                 };
             case "find" when name is not null:

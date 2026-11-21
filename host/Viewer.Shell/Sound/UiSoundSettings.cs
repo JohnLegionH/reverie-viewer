@@ -35,30 +35,21 @@ public static class UiSoundSettings
     /// <summary>Whether the slot's event plays it (the slot's Play button plays it either way).</summary>
     public static Setting<bool> EnabledOf(UiSoundSlot slot) => new(Prefix + UiSoundCatalog.Of(slot).KeyName + "_enabled", UiSoundCatalog.Of(slot).DefaultEnabled, v => v);
 
-    /// <summary>The key of the slot's source (text: ours, grid or off).</summary>
+    /// <summary>The key of the slot's source (text: grid or off).</summary>
     public static string SourceKey(UiSoundSlot slot) => Prefix + UiSoundCatalog.Of(slot).KeyName + "_source";
 
     /// <summary>The ids a source is stored as.</summary>
-    private static readonly string[] Ids = ["ours", "grid", "off"];
+    private static readonly string[] Ids = ["grid", "off"];
     public static IReadOnlyList<string> SourceIds => Ids;
 
     public static string IdOf(UiSoundSource source) => SourceIds[(int)source];
 
     public static UiSoundSource? Parse(string? id) => Array.IndexOf(Ids, id ?? "") is var i and >= 0 ? (UiSoundSource)i : null;
 
-    /// <summary>The slot's source now (a preview counts); the default when nothing, or something unknown, is stored.</summary>
+    /// <summary>The slot's source now (a preview counts): the grid's sound unless the slot is switched off. A stored source this viewer
+    /// does not know (an older viewer's "ours") reads as the grid's.</summary>
     public static UiSoundSource Source(SettingsService settings, UiSoundSlot slot) =>
-        Parse(settings.GetText(SourceKey(slot))) ?? UiSoundCatalog.Of(slot).DefaultSource;
-
-    /// <summary>The source a slot plays from on this kind of grid. Where the per-grid switch does not allow this viewer's own sounds
-    /// (Second Life), every slot that is not switched off plays the grid's sound by its official id, as the official viewer does;
-    /// elsewhere the slot's chosen source.</summary>
-    public static UiSoundSource SourceOn(SettingsService settings, UiSoundSlot slot, Viewer.Core.Session.GridKind grid)
-    {
-        var source = Source(settings, slot);
-        return source == UiSoundSource.Ours && !Viewer.Core.Session.GridPolicy.Allows(Viewer.Core.Session.ViewerFeature.OwnInterfaceSounds, grid)
-            ? UiSoundSource.Grid : source;
-    }
+        Parse(settings.GetText(SourceKey(slot))) ?? UiSoundSource.Grid;
 
     public static bool SetSource(SettingsService settings, UiSoundSlot slot, UiSoundSource source) => settings.SetText(SourceKey(slot), IdOf(source));
 

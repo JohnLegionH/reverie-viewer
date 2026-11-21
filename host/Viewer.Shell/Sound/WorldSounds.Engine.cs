@@ -53,10 +53,6 @@ public sealed partial class WorldSounds
     /// <summary>The typing sound: the grid's id and, when it plays our file, its bytes.</summary>
     public Func<(Guid Id, byte[]? Ours)> TypingSound { get; set; } = () => (Guid.Empty, null);
 
-    /// <summary>Our own step sound (WAV bytes), played for a step whose official sound the grid does not have, while
-    /// <see cref="AudioLevels.FootstepFallback"/> is on. Never played for a step the grid has.</summary>
-    public Func<byte[]?> StepFallback { get; set; } = () => null;
-
     /// <summary>The sources now.</summary>
     public IReadOnlyList<WorldSoundView> Sources => _attached.Values.Concat(_shots).Select(s => s.View()).ToArray();
 
@@ -192,18 +188,9 @@ public sealed partial class WorldSounds
             s.FinalGain = WorldSoundMath.ChannelGain(s.Gain, level, false) * WorldSoundMath.DistanceGain(distance, underwater);
             if (s.Ours is null && _grid.StateOf(s.SoundId) is GridSoundState.NotOnGrid or GridSoundState.Undecodable)
             {
-                // a step the grid lacks plays our step in its place, when that is switched on; anything else goes silent
-                if (s.Origin == WorldSoundOrigin.Step && _settings.Get(AudioLevels.FootstepFallback) && StepFallback() is { Length: > 0 } ours)
-                {
-                    Decide(s.Origin, s.ObjectId, s.SoundId, "fallback");
-                    s.Ours = ours;
-                    s.SoundId = new Guid(System.Security.Cryptography.MD5.HashData(ours));   // our bytes under their own id, never the grid's
-                }
-                else
-                {
-                    s.State = WorldSoundState.Done;
-                    Decide(s.Origin, s.ObjectId, s.SoundId, "not on grid");
-                }
+                // a sound the grid lacks, a step included, plays nothing
+                s.State = WorldSoundState.Done;
+                Decide(s.Origin, s.ObjectId, s.SoundId, "not on grid");
             }
         }
 

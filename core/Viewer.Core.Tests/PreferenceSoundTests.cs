@@ -25,7 +25,7 @@ public class PreferenceSoundTests
     public void The_sound_page_holds_the_master_sounds_and_ambient_levels_and_mutes_then_the_interface_level_the_two_mutes_and_the_two_thresholds()
     {
         Assert.Equal(["audio_level_master", "audio_mute_master", "audio_mono", "audio_level_sounds", "audio_mute_sounds", "audio_level_ambient", "audio_mute_ambient",
-            "audio_collision_sounds", "audio_gesture_sounds", "audio_footstep_fallback", "ui_sound_volume", "ui_sound_mute_all", "ui_sound_mute_minimized", "ui_sound_money_threshold", "ui_sound_health_threshold"],
+            "audio_collision_sounds", "audio_gesture_sounds", "ui_sound_volume", "ui_sound_mute_all", "ui_sound_mute_minimized", "ui_sound_money_threshold", "ui_sound_health_threshold"],
             PreferenceCatalog.OfPage(PrefPage.Sound).Select(d => d.Key));
         Assert.All(PreferenceCatalog.OfPage(PrefPage.Sound), d => Assert.Equal(PrefApply.Live, d.Apply));
     }
@@ -36,16 +36,16 @@ public class PreferenceSoundTests
         var store = new MemoryStore();
         var settings = new SettingsService(store);
         var model = new PreferencesModel(settings, null);
-        Assert.True(model.EditSlotSource(UiSoundSlot.Click, UiSoundSource.Grid));
+        Assert.True(model.EditSlotSource(UiSoundSlot.Click, UiSoundSource.Off));
         Assert.True(model.EditSlotVolume(UiSoundSlot.Click, 0.4));
         Assert.True(model.EditSlotEnabled(UiSoundSlot.Alert, false));
-        Assert.Equal(UiSoundSource.Grid, model.SlotSource(UiSoundSlot.Click));    // in force at once (the sounds read it)
+        Assert.Equal(UiSoundSource.Off, model.SlotSource(UiSoundSlot.Click));    // in force at once (the sounds read it)
         Assert.Equal(0.4, model.SlotVolume(UiSoundSlot.Click));
         Assert.False(model.SlotEnabled(UiSoundSlot.Alert));
         Assert.True(model.IsChanged(PrefPage.Sound));
         Assert.DoesNotContain("ui_sound_click_source", store.Text ?? "");          // not written yet
         model.Cancel(PrefPage.Sound);
-        Assert.Equal(UiSoundSource.Ours, model.SlotSource(UiSoundSlot.Click));
+        Assert.Equal(UiSoundSource.Grid, model.SlotSource(UiSoundSlot.Click));
         Assert.Equal(1.0, model.SlotVolume(UiSoundSlot.Click));
         Assert.True(model.SlotEnabled(UiSoundSlot.Alert));
         Assert.False(model.IsChanged(PrefPage.Sound));
@@ -73,7 +73,7 @@ public class PreferenceSoundTests
         model.EditSlotVolume(UiSoundSlot.Typing, 0.1);
         model.Edit(PreferenceCatalog.Find("ui_sound_volume")!, 0.9);
         model.Reset(PrefPage.Sound);
-        Assert.All(UiSoundCatalog.All, i => Assert.Equal(i.DefaultSource, model.SlotSource(i.Slot)));
+        Assert.All(UiSoundCatalog.All, i => Assert.Equal(UiSoundSource.Grid, model.SlotSource(i.Slot)));
         Assert.Equal(1.0, model.SlotVolume(UiSoundSlot.Typing));
         Assert.Equal(0.5, model.Value(PreferenceCatalog.Find("ui_sound_volume")!));
         Assert.False(model.SlotEnabled(UiSoundSlot.ChatMention));
@@ -86,8 +86,8 @@ public class PreferenceSoundTests
         Assert.True(strings.Has("prefs.category.sound"));
         foreach (var info in UiSoundCatalog.All)
             Assert.True(strings.Has("prefs.sound.slot." + info.KeyName), info.KeyName);
-        foreach (var key in new[] { "prefs.sound.play", "prefs.sound.source.ours", "prefs.sound.source.grid", "prefs.sound.source.off",
-                     "prefs.sound.all_ours", "prefs.sound.all_grid", "prefs.sound.status.not_on_grid", "prefs.sound.status.no_grid_sound",
+        foreach (var key in new[] { "prefs.sound.play", "prefs.sound.source.grid", "prefs.sound.source.off",
+                     "prefs.sound.all_grid", "prefs.sound.status.not_on_grid", "prefs.sound.status.no_grid_sound",
                      "prefs.sound.status.fetching", "prefs.sound.heading", "prefs.sound.enabled", "prefs.sound.volume", "prefs.sound.note.grid" })
             Assert.True(strings.Has(key), key);
     }

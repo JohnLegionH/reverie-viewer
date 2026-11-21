@@ -44,18 +44,3 @@ public static class WavFile
         return null;
     }
 }
-
-/// <summary>Our interface sound files, shipped inside this assembly (made by tools/ui-sounds).</summary>
-public static class UiSoundFiles
-{
-    /// <summary>The file's bytes, or null when the viewer ships no such file.</summary>
-    public static byte[]? Read(string file)
-    {
-        using var stream = typeof(UiSoundFiles).Assembly.GetManifestResourceStream("Viewer.Shell.Sounds." + file);
-        if (stream is null)
-            return null;
-        using var copy = new MemoryStream();
-        stream.CopyTo(copy);
-        return copy.ToArray();
-    }
-}

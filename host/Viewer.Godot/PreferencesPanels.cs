@@ -70,8 +70,6 @@ public sealed partial class PreferencesPanel : VBoxContainer
     /// <summary>The interface sounds, for the Sound page's Play buttons and the grid's answers (null: none yet).</summary>
     public Viewer.Shell.Sound.UiSounds? Sounds { get; set; }
 
-    /// <summary>Opens the Sound Tuner (the Sound page's Tune button).</summary>
-    public Action? OpenTuner { get; set; }
 
     /// <summary>The page logic for the ordinary pages.</summary>
     public PreferencesModel Model => _model;
@@ -159,7 +157,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         _interfaceScroll = scroll;
         foreach (var pageId in Enum.GetValues<PrefPage>())
         {
-            var view = new PrefPageView(strings, pageId, () => _model, Say, clearCache, clearNames, () => Sounds, () => OpenTuner?.Invoke()) { Visible = false };
+            var view = new PrefPageView(strings, pageId, () => _model, Say, clearCache, clearNames, () => Sounds) { Visible = false };
             content.AddChild(view);
             _views[pageId] = view;
         }

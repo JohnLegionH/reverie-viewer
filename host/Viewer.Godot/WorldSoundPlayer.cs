@@ -89,8 +89,9 @@ public sealed partial class WorldSoundPlayer : Node3D, IWorldSoundOutput
 
     public bool Start(int voice, Guid soundId, byte[] bytes, bool loop)
     {
-        if (!_streams.TryGetValue((soundId, loop), out var stream))
-            _streams[(soundId, loop)] = stream = Decode(bytes, loop);
+        var key = (GridSoundCache.ContentKey(bytes), loop);   // by the bytes: the same id holds other audio on another grid
+        if (!_streams.TryGetValue(key, out var stream))
+            _streams[key] = stream = Decode(bytes, loop);
         if (stream is null)
             return false;
         var p = _free.Count > 0 ? _free.Pop() : MakePlayer();

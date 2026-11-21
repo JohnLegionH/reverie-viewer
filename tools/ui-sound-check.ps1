@@ -3,7 +3,9 @@
 
 # =====================================================================================
 # ui-sound-check.ps1 - the interface sounds through the automation interface, on the development export, offline (the login screen
-# is enough). Each step does one thing and checks that the viewer played exactly the slot it should, once, and nothing else:
+# is enough). The viewer ships no sound: on the login screen it plays the cached sounds of the grid chosen there, and this check runs
+# on a fresh settings folder, so nothing is cached. Each step does one thing and checks that the viewer decided exactly the slot it
+# should, once, and nothing else, and that it stayed silent (outcome NotOnGrid, the engine asked to play nothing):
 #   window open    Preferences opens                                      -> WindowOpen
 #   button         a category button of Preferences is pressed and let go
 #                  through the engine's input path (a real mouse click)   -> ClickRelease
@@ -11,7 +13,7 @@
 #   notification   a login-flow alert (the update notice) appears         -> Alert
 #   play button    a sound is played as its Play button plays it          -> that slot, even while it is switched off
 # A step waits for the sound to be decided (polling, with a cap), then keeps watching for a short window so that a second or a wrong
-# sound would be seen. It also checks the engine was asked to play each sound (the player's count).
+# sound would be seen. The sounds that do play, from the grid's own assets, are checked by sound-live.ps1.
 # Output: the sandbox folder (ui-sound-check.txt, ui-sound-check.json, the viewer's log). Exit 0 all passed, 1 a step failed, 3 blocked.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\ui-sound-check.ps1 -Sandbox <new folder> [-Exe <viewer>]
 # Needs the development export (tools\s1.ps1 makes it) and a granted lane claim.
@@ -89,10 +91,11 @@ try {
         Start-Sleep -Milliseconds ([int]($QuietSeconds * 1000))   # a wrong or second sound would arrive in this window
         $l = Api $v "ui_sounds" '{"action":"log"}'
         $got = @($l.events | ForEach-Object { "$($_.slot):$($_.outcome)" })
-        $played = @($l.events | Where-Object { $_.outcome -like "Played*" } | ForEach-Object { $_.slot })
+        $decided = @($l.events | ForEach-Object { $_.slot })
+        $silent = @($l.events | Where-Object { $_.outcome -ne "NotOnGrid" }).Count -eq 0
         $started = [int]$l.started - [int]$before
-        $ok = ($played.Count -eq $want.Count) -and (@(Compare-Object $played $want -SyncWindow 0).Count -eq 0) -and ($got.Count -eq $want.Count) -and ($started -eq $want.Count)
-        Record $name $ok ("wanted [{0}], decided [{1}], engine asked to play {2}" -f ($want -join ","), ($got -join ","), $started)
+        $ok = ($decided.Count -eq $want.Count) -and (@(Compare-Object $decided $want -SyncWindow 0).Count -eq 0) -and $silent -and ($started -eq 0)
+        Record $name $ok ("wanted [{0}], decided [{1}], engine asked to play {2} (none expected)" -f ($want -join ","), ($got -join ","), $started)
     }
 
     Step "window open" { [void](Api $v "open_window" '{"name":"preferences"}') } @("WindowOpen")

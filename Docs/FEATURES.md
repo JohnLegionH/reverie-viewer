@@ -14,7 +14,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Remember your name, or (where this computer can protect it) your password. Login screen: **Remember name**, **Remember password**.
 - Choose where you arrive: last location, home, or a named region. Login screen: **Start at**.
 - Reconnect after a dropped connection: the **Logged out** window has a **Reconnect** button. It does not start by itself.
-- The reconnect notice, the login dialogs (terms, certificates, updates), the four upload windows, the Sound Tuner, About and Licences draw in the same new look as the other windows.
+- The reconnect notice, the login dialogs (terms, certificates, updates), the four upload windows, About and Licences draw in the same new look as the other windows.
 
 ## Moving and the camera
 
@@ -76,7 +76,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - The cache folder (Preferences > Cache) has a **Choose...** button that opens a folder picker.
 - Graphics presets, draw distance, texture size, frame-rate limit, vertical sync, clouds, neighbour regions, graphics backend (Vulkan or Direct3D 12), window mode: Preferences > Graphics.
 - **How the window opens**: Preferences > Graphics > **Window at startup** is **Maximized window** (the default), **Last size and position** or **Full screen**. The window is a normal one with a title bar and a taskbar button, and can be minimized at any time, on the login screen too. **Me > Full screen** (Ctrl+Alt+F) switches between full screen and a window, and **Me > Minimize** sends the window to the taskbar. The viewer remembers whether the window was maximized, its size, its position and its screen; if that screen is gone, it opens maximized on the main screen.
-- Sounds and interface sounds, with levels, mute and a mono option: Preferences > Sound.
+- Sounds and interface sounds, with levels, mute and a mono option: Preferences > Sound. Reverie ships no interface sounds of its own: it plays the sounds of the grid it is connected to, by the sound ids the official viewer uses, so each grid plays its own defaults. A sound the grid does not have is silent. On the login screen the sounds of the grid chosen there play if you connected to it before; otherwise the login screen is silent.
 - Add-ons window: **Me > Add-ons**. The animation overrider and RLV are built in; add-ons from outside are off until you turn them on. RLV is off until you turn it on, and its switch takes effect at your next login. An add-on from outside goes in the `Addons` folder of the viewer's settings folder, and asks you to accept what it may do when you turn it on.
 - Check for updates, About: Reverie menu, **Help > About this viewer**.
 

@@ -22,12 +22,11 @@ public static class AudioLevels
     public static readonly Setting<bool> MuteAmbient = new("audio_mute_ambient", false, v => v);
     public static readonly Setting<bool> CollisionSounds = new("audio_collision_sounds", true, v => v);
     public static readonly Setting<bool> GestureSounds = new("audio_gesture_sounds", true, v => v);
-    public static readonly Setting<bool> FootstepFallback = new("audio_footstep_fallback", true, v => v);
     /// <summary>Mono: both ears get the same mix (for one-sided hearing or one earphone). Off by default.</summary>
     public static readonly Setting<bool> Mono = new("audio_mono", false, v => v);
 
     public static IReadOnlyList<string> Keys { get; } = [Master.Key, MuteMaster.Key, Sounds.Key, MuteSounds.Key, Ambient.Key, MuteAmbient.Key,
-        CollisionSounds.Key, GestureSounds.Key, FootstepFallback.Key, Mono.Key];
+        CollisionSounds.Key, GestureSounds.Key, Mono.Key];
 
     /// <summary>The level of a kind of world sound (0 when it is muted), master not included.</summary>
     public static float KindLevel(SettingsService settings, WorldSoundKind kind) => kind switch

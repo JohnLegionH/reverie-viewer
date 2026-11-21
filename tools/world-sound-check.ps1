@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # =====================================================================================
-# world-sound-check.ps1 - sounds in the world and the Sound Tuner through the automation interface, on the development export, offline
+# world-sound-check.ps1 - sounds in the world through the automation interface, on the development export, offline
 # (the login screen is enough). The world_sounds command's feed puts sound messages, as the protocol adapter reads them, into a sound
 # service made for the check (its sounds all play the viewer's own click file), with an object and the listener placed by the check.
 # Each step feeds one message and checks, through world_sounds state, which sources play, where, and at what gain (the official
@@ -110,19 +110,6 @@ try {
     $gone = Wait-Until { $s = Api $v "world_sounds" '{"action":"state"}'; if (@($s.sources | Where-Object { $_.obj -eq $box }).Count -eq 0) { $s } } 10
     $outcomes = @((Api $v "world_sounds" '{"action":"state"}').recent | ForEach-Object { $_.outcome }) -join ","
     Record "stop" ([bool]$gone) ("decisions: " + $outcomes)
-
-    # the Sound Tuner: the typing sound's length to 900 ms (the sound is made again and played), saved to the user folder, then reset;
-    # the click is a recording, so the tuner has nothing to show for it
-    $tc = Api $v "sound_tuner" '{"action":"choose","slot":"Click"}'
-    $t0 = Api $v "sound_tuner" '{"action":"choose","slot":"Typing"}'
-    $t1 = Api $v "sound_tuner" '{"action":"set","key":"Ms","value":900}'
-    $ms = @($t1.numbers | Where-Object { $_.key -eq "Ms" })[0].value
-    $saved = Api $v "sound_tuner" '{"action":"save"}'
-    $file = Get-ChildItem -LiteralPath $appdata -Recurse -Filter "ui-sounds-tuned.json" -ErrorAction SilentlyContinue | Select-Object -First 1
-    $t2 = Api $v "sound_tuner" '{"action":"reset"}'
-    $msAfter = @($t2.numbers | Where-Object { $_.key -eq "Ms" })[0].value
-    Record "tuner" ($tc.error -and $t1 -and (Near $ms 900) -and ($t1.tuned -contains "ui-typing.wav") -and ([int]$t1.started -gt [int]$t0.started) -and $saved.saved -and $file -and (Near $msAfter 1050) -and (@($t2.tuned).Count -eq 0)) `
-        ("click: {8}; length {0} ms, tuned [{1}], played {2} -> {3}, saved {4} ({5}), after reset {6} ms, tuned [{7}]" -f $ms, ($t1.tuned -join ","), $t0.started, $t1.started, $saved.saved, $(if ($file) { "file written" } else { "no file" }), $msAfter, (@($t2.tuned) -join ","), $tc.error)
 }
 catch { Say "stopped: $($_.Exception.Message)" }
 finally {
@@ -132,5 +119,5 @@ finally {
 $results | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Sandbox "world-sound-check.json") -Encoding utf8
 $failed = @($results | Where-Object { -not $_.pass }).Count
 Say ("world-sound-check: {0} steps, {1} failed" -f $results.Count, $failed)
-if ($failed -gt 0 -or $results.Count -lt 6) { exit 1 }
+if ($failed -gt 0 -or $results.Count -lt 5) { exit 1 }
 exit 0

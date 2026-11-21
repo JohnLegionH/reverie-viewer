@@ -452,10 +452,30 @@ public class WorldSoundTests
         Assert.Equal(2, r.Out.Starts.Count);
     }
 
+    // a 20 ms 16-bit mono 44.1 kHz WAV of silence: a sound that is not an Ogg stream
+    private static byte[] TestWav()
+    {
+        const int samples = 882;
+        var b = new byte[44 + samples * 2];
+        "RIFF"u8.CopyTo(b);
+        BitConverter.GetBytes(36 + samples * 2).CopyTo(b, 4);
+        "WAVEfmt "u8.CopyTo(b.AsSpan(8));
+        BitConverter.GetBytes(16).CopyTo(b, 16);
+        BitConverter.GetBytes((short)1).CopyTo(b, 20);
+        BitConverter.GetBytes((short)1).CopyTo(b, 22);
+        BitConverter.GetBytes(44100).CopyTo(b, 24);
+        BitConverter.GetBytes(88200).CopyTo(b, 28);
+        BitConverter.GetBytes((short)2).CopyTo(b, 32);
+        BitConverter.GetBytes((short)16).CopyTo(b, 34);
+        "data"u8.CopyTo(b.AsSpan(36));
+        BitConverter.GetBytes(samples * 2).CopyTo(b, 40);
+        return b;
+    }
+
     [Fact]
     public void Grid_sounds_take_only_ogg_unless_a_check_says_what_it_plays()
     {
-        var wav = UiSoundFiles.Read("ui-click.wav")!;
+        var wav = TestWav();
         var plain = new GridSounds((id, ct) => Task.FromResult(AssetFetchResult.Ok(wav)));
         plain.Request(Bell);
         plain.Pump();
@@ -470,7 +490,7 @@ public class WorldSoundTests
     [Fact]
     public void Grid_sounds_say_why_a_sound_is_not_played()
     {
-        var wav = UiSoundFiles.Read("ui-click.wav")!;
+        var wav = TestWav();
         var answers = new Dictionary<Guid, AssetFetchResult>
         {
             [Bell] = AssetFetchResult.Of(AssetFetchStatus.NotFound),
@@ -495,34 +515,23 @@ public class WorldSoundTests
     }
 
     [Fact]
-    public void A_step_plays_our_step_only_when_the_grid_lacks_the_official_one()
+    public void A_step_the_grid_lacks_plays_nothing_and_a_step_it_has_plays_the_grids_sound()
     {
         var stone = StepSounds.For(onLand: false, 0);
-        var ours = UiSoundFiles.Read("world-footstep.wav");
-        Assert.NotNull(ours);
         var r = new Rig(id => id == stone ? AssetFetchResult.Of(AssetFetchStatus.NotFound) : AssetFetchResult.Ok(Ogg));
-        r.Sounds.StepFallback = () => ours;
-        Assert.True(r.Settings.Get(AudioLevels.FootstepFallback));   // on by default
-        // the grid has the land step: its own sound plays, never ours
+        // the grid has the land step: its own sound plays
         r.Sounds.Step(Ann, new SoundPlace(RegionA, new Vector3(128, 129, 24)), onLand: true, 0);
         r.Frame();
         r.Frame();
         Assert.Single(r.Out.Starts);
         Assert.Equal(StepSounds.OnLand, r.Out.Starts[0].Sound);
-        // the grid answers "not found" for the stone step: our step plays in its place, under its own id
+        // the grid answers "not found" for the stone step: nothing plays in its place
         r.Sounds.Step(Ann, new SoundPlace(RegionA, new Vector3(128, 129, 24)), onLand: false, 0);
         r.Frame();
         r.Frame();
-        Assert.Equal(2, r.Out.Starts.Count);
-        Assert.NotEqual(stone, r.Out.Starts[1].Sound);
-        Assert.Contains(r.Sounds.Recent, d => d.Origin == WorldSoundOrigin.Step && d.SoundId == stone && d.Outcome == "fallback");
-        // switched off: a step the grid lacks plays nothing
-        r.Settings.Set(AudioLevels.FootstepFallback, false);
-        r.Sounds.Step(Ann, new SoundPlace(RegionA, new Vector3(128, 129, 24)), onLand: false, 0);
-        r.Frame();
-        r.Frame();
-        Assert.Equal(2, r.Out.Starts.Count);
-        Assert.Contains(r.Sounds.Recent, d => d.Origin == WorldSoundOrigin.Step && d.Outcome == "not on grid");
+        Assert.Single(r.Out.Starts);
+        Assert.Contains(r.Sounds.Recent, d => d.Origin == WorldSoundOrigin.Step && d.SoundId == stone && d.Outcome == "not on grid");
+        Assert.DoesNotContain(r.Sounds.Recent, d => d.Outcome == "fallback");
     }
 
     [Fact]

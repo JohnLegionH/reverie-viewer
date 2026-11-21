@@ -73,7 +73,7 @@ public class FootstepSoundTests
     public void Bytes_that_are_not_an_ogg_vorbis_stream_have_no_vorbis_header()
     {
         Assert.Null(OggVorbis.Read([]));
-        Assert.Null(OggVorbis.Read(UiSoundFiles.Read("ui-click.wav")));
+        Assert.Null(OggVorbis.Read("RIFF\0\0\0\0WAVEfmt "u8.ToArray()));   // a WAV file is not an Ogg stream
         Assert.Null(OggVorbis.Read("OggS\0\u0002"u8.ToArray()));
     }
 
@@ -283,17 +283,5 @@ public class FootstepSoundTests
             PrimData = new LibreMetaverse.Primitive.ConstructionData { Material = LibreMetaverse.Material.Glass, PCode = LibreMetaverse.PCode.Prim },
         };
         Assert.Equal(2, LmvTransport.ToPrimData(p).Material);
-    }
-
-    // ---------------- our fallback step ----------------
-
-    [Fact]
-    public void Our_step_is_one_soft_short_recipe_in_the_generator_and_the_tuner_and_the_shipped_file_is_its_output()
-    {
-        var recipe = UiSoundSynth.Recipes.SingleOrDefault(r => r.File == "world-footstep.wav");
-        Assert.NotNull(recipe);
-        Assert.InRange(recipe!.Ms, 40, 200);
-        Assert.Contains("world-footstep.wav", SoundTunerList.Files);
-        Assert.Equal(UiSoundSynth.Wav(UiSoundSynth.Render(recipe)), UiSoundFiles.Read("world-footstep.wav"));
     }
 }

@@ -56,7 +56,7 @@ public partial class TestRender
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
-        "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "soundtuner", "about", "licences", "login-dialog",
+        "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "about", "licences", "login-dialog",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -425,8 +425,6 @@ public partial class TestRender
                     ExampleAddons(shell, strings, scene);
                 if (scene.StartsWith("upload-", StringComparison.Ordinal))
                     ExampleUploads(shell);
-                if (scene == "soundtuner")
-                    ExampleSoundTuner(shell, strings);
                 if (scene == "takefolder")
                     takeFolder = ExampleTakeFolder(shell, strings);
                 if (scene is "objectcontents" or "buy")
@@ -459,7 +457,6 @@ public partial class TestRender
                     "upload-bulk" => BuildFeature.BulkFloaterId,
                     "upload-model" => ModelFeature.ModelFloaterId,
                     "upload-bulk-models" => ModelFeature.BulkModelsFloaterId,
-                    "soundtuner" => SoundTunerPanel.FloaterId,
                     "about" => ShellController.AboutFloaterId,
                     "licences" => ShellController.LicencesFloaterId,
                     "commandlist" or "commandlist-search" or "commandlist-setting" => "",

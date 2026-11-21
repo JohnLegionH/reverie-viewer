@@ -29,7 +29,6 @@ public sealed partial class PrefPageView : ScrollContainer
     private readonly List<Label> _accountNotes = new();
     private readonly Dictionary<string, Control> _controls = new();
     private readonly Func<UiSounds?> _sounds;
-    private readonly Action? _tune;
     private readonly Dictionary<UiSoundSlot, Label> _soundStatus = new();
     private double _statusAge;
     private bool _syncing;
@@ -40,11 +39,10 @@ public sealed partial class PrefPageView : ScrollContainer
     public Control? ControlFor(string key) => _controls.GetValueOrDefault(key);
 
     public PrefPageView(StringTable strings, PrefPage page, Func<PreferencesModel> model, Action<string, bool> say,
-        Func<int>? clearCache, Func<bool>? clearNames, Func<UiSounds?>? sounds = null, Action? tune = null)
+        Func<int>? clearCache, Func<bool>? clearNames, Func<UiSounds?>? sounds = null)
     {
         _strings = strings;
         _sounds = sounds ?? (() => null);
-        _tune = tune;
         _model = model;
         _say = say;
         Page = page;
@@ -260,7 +258,7 @@ public sealed partial class PrefPageView : ScrollContainer
 
     // ---------------- Sound: every interface sound, to hear and to choose ----------------
 
-    private static readonly UiSoundSource[] Sources = [UiSoundSource.Ours, UiSoundSource.Grid, UiSoundSource.Off];
+    private static readonly UiSoundSource[] Sources = [UiSoundSource.Grid, UiSoundSource.Off];
 
     /// <summary>A 0 to 1 level slider kept in step with the model under <paramref name="syncKey"/>.</summary>
     private HSlider Slider(string name, string label, Func<double> read, Action<double> write, string syncKey)
@@ -277,22 +275,17 @@ public sealed partial class PrefPageView : ScrollContainer
     }
 
     /// <summary>The list under the page's own settings: for each sound its name, a Play button (the source chosen now, even with the sound
-    /// switched off), its level, its source (Ours, Grid's, Off), its switch and what the grid said about it; and Set all to Ours or Grid's.</summary>
+    /// switched off), its level, its source (Grid's, Off), its switch and what the grid said about it; and Set all to Grid's.</summary>
     private void AddSoundList(VBoxContainer box)
     {
         // music streams, media and voice have no player yet: said once, as the official page's sliders for them would be
         box.AddChild(Caption(_strings.Get("prefs.sound.not_built"), "sound_not_built"));
-        // the Sound Tuner, for our own interface sounds, kept out of the way behind one button
-        var tune = new Button { Name = "sound_tune", Text = _strings.Get("prefs.sound.tune"), SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
-        tune.AccessibilityName = _strings.Get("tuner.title");
-        tune.Pressed += () => _tune?.Invoke();
-        box.AddChild(tune);
         var heading = new Label { Name = "sound_heading", Text = _strings.Get("prefs.sound.heading"), ThemeTypeVariation = UiTheme.TitleLabel };
         heading.AccessibilityName = heading.Text;
         box.AddChild(heading);
         box.AddChild(Caption(_strings.Get("prefs.sound.note.grid"), "sound_note"));
         var all = new HBoxContainer { Name = "sound_all" };
-        foreach (var (source, key) in new[] { (UiSoundSource.Ours, "prefs.sound.all_ours"), (UiSoundSource.Grid, "prefs.sound.all_grid") })
+        foreach (var (source, key) in new[] { (UiSoundSource.Grid, "prefs.sound.all_grid") })
         {
             var button = new Button { Name = "sound_all_" + UiSoundSettings.IdOf(source), Text = _strings.Get(key) };
             button.AccessibilityName = button.Text;

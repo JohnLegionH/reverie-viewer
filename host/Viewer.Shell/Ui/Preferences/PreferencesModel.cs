@@ -28,7 +28,7 @@ public sealed class PreferencesModel(SettingsService settings, string? account)
     public bool EditSlotVolume(UiSoundSlot slot, double volume) => settings.SetPreview(UiSoundSettings.VolumeOf(slot), volume);
     public bool EditSlotEnabled(UiSoundSlot slot, bool enabled) => settings.SetPreview(UiSoundSettings.EnabledOf(slot), enabled);
 
-    /// <summary>Set all to ours, or to the grid's: every slot's source as a preview.</summary>
+    /// <summary>Set all to the grid's (or off): every slot's source as a preview.</summary>
     public void EditAllSlotSources(UiSoundSource source)
     {
         foreach (var info in UiSoundCatalog.All)
@@ -118,7 +118,7 @@ public sealed class PreferencesModel(SettingsService settings, string? account)
         if (page == PrefPage.Sound)
             foreach (var info in UiSoundCatalog.All)
             {
-                EditSlotSource(info.Slot, info.DefaultSource);
+                EditSlotSource(info.Slot, UiSoundSource.Grid);
                 EditSlotVolume(info.Slot, UiSoundSettings.VolumeOf(info.Slot).Default);
                 EditSlotEnabled(info.Slot, info.DefaultEnabled);
             }

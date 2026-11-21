@@ -19,7 +19,7 @@
 ^tools/[A-Za-z0-9-]+-live\.ps1$|^tools/live-smoke\.ps1$	none
 ^tools/(live-env|live-check|live-takeback|live-driver|other-clients|aim-lib|aim-check|automation|soak-live|login-proof|login-dialogs|prefs-auto-check|ui-checks|ui-sound-check|world-sound-check|window-check|window-record|contact-sheets|close-cycles|package|ship-export|rebuild-corej2k|nupkg-fixed-time|assert-[a-z-]+|boot-logo-check)\.ps1$	none
 ^tools/(select-checks\.ps1|CheckSelector\.cs|check-map\.tsv|check-areas\.tsv|test\.sh)$	none
-^tools/(capture|laptop-kit|release|ui-sounds)/	none
+^tools/(capture|laptop-kit|release)/	none
 # The check scripts themselves: a change to how checks run is proven by the full set.
 ^tools/(render|render-serve|godot|s1|test|test-launch|claim-guard|job-guard|own-processes|temp-root|fixtures-local|crash-watch|job-guard)\.ps1$	full
 ^tools/TestWindowPlacement\.cs$	full

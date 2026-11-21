@@ -39,7 +39,6 @@ public class UiSoundTests
     {
         public readonly List<(UiSoundSlot Slot, string Route, float Gain, int Bytes)> Plays = new();
         public bool DecodeOk = true;
-        public void PlayOurs(UiSoundSlot slot, float gain) => Plays.Add((slot, "ours", gain, 0));
         public bool PlayGrid(UiSoundSlot slot, Guid id, byte[] ogg, float gain)
         {
             if (!DecodeOk)
@@ -85,6 +84,16 @@ public class UiSoundTests
         }
 
         public void SetSource(UiSoundSlot slot, UiSoundSource source) => UiSoundSettings.SetSource(Settings, slot, source);
+
+        /// <summary>The grid serves every sound and the session is in the world with its sounds fetched.</summary>
+        public void ServeAll()
+        {
+            foreach (var info in UiSoundCatalog.All.Where(i => i.GridId != Guid.Empty))
+                Grid[info.GridId] = AssetFetchResult.Ok(Ogg);
+            Sounds.InWorld = true;
+            Sounds.Preload();
+            Pump();
+        }
 
         /// <summary>The main-thread pump: applies the fetches that have finished (the fakes finish at once or when a test says).</summary>
         public void Pump() => Sounds.Pump();
@@ -137,18 +146,6 @@ public class UiSoundTests
     }
 
     [Fact]
-    public void Every_slot_defaults_to_our_file_off_second_life_including_the_two_pain_sounds()
-    {
-        Assert.Equal(23, UiSoundCatalog.All.Count);
-        foreach (var info in UiSoundCatalog.All)
-        {
-            var want = UiSoundSource.Ours;
-            Assert.Equal(want, info.DefaultSource);
-            Assert.Equal(want, UiSoundSettings.Source(new SettingsService(new MemoryStore()), info.Slot));
-        }
-    }
-
-    [Fact]
     public void The_mention_sound_starts_switched_off_as_the_official_one_does_and_every_other_slot_on()
     {
         var s = new SettingsService(new MemoryStore());
@@ -163,12 +160,14 @@ public class UiSoundTests
     }
 
     [Fact]
-    public void Each_slot_has_its_own_wav_file()
+    public void Each_slot_has_its_own_settings_key_and_the_keys_older_viewers_saved_are_kept()
     {
-        var files = UiSoundCatalog.All.Select(i => i.File).ToList();
-        Assert.Equal(23, files.Distinct().Count());
-        Assert.All(files, f => Assert.Matches("^ui-[a-z0-9-]+\\.wav$", f));
-        Assert.Equal("ui-new-incoming-im-session.wav", UiSoundCatalog.Of(UiSoundSlot.NewIncomingIMSession).File);
+        var keys = UiSoundCatalog.All.Select(i => i.KeyName).ToList();
+        Assert.Equal(23, keys.Distinct().Count());
+        Assert.All(keys, k => Assert.Matches("^[a-z0-9_]+$", k));
+        Assert.Equal("new_incoming_im_session", UiSoundCatalog.Of(UiSoundSlot.NewIncomingIMSession).KeyName);
+        Assert.Equal("health_reduction_f", UiSoundCatalog.Of(UiSoundSlot.HealthReductionF).KeyName);
+        Assert.Equal("ui_sound_click_release_source", UiSoundSettings.SourceKey(UiSoundSlot.ClickRelease));
     }
 
     [Fact]
@@ -200,7 +199,7 @@ public class UiSoundTests
         Assert.False(again.Get(UiSoundSettings.EnabledOf(UiSoundSlot.Click)));
         Assert.Equal(0.8, again.Get(UiSoundSettings.Volume));
         Assert.Equal(5.0, again.Get(UiSoundSettings.MoneyThreshold));
-        Assert.Equal(UiSoundSource.Ours, UiSoundSettings.Source(again, UiSoundSlot.Alert));   // the others untouched
+        Assert.Equal(UiSoundSource.Grid, UiSoundSettings.Source(again, UiSoundSlot.Alert));   // the others untouched
         Assert.Contains("ui_sound_click_source", store.Text);
     }
 
@@ -208,7 +207,7 @@ public class UiSoundTests
     public void A_source_the_viewer_does_not_know_and_a_volume_out_of_range_are_not_kept()
     {
         var s = new SettingsService(new MemoryStore("{\"ui_sound_click_source\": \"loud\", \"ui_sound_alert_volume\": 7}"));
-        Assert.Equal(UiSoundSource.Ours, UiSoundSettings.Source(s, UiSoundSlot.Click));
+        Assert.Equal(UiSoundSource.Grid, UiSoundSettings.Source(s, UiSoundSlot.Click));
         Assert.Equal(1.0, s.Get(UiSoundSettings.VolumeOf(UiSoundSlot.Alert)));
         Assert.True(s.Set(UiSoundSettings.Volume, 3.0));
         Assert.Equal(1.0, s.Get(UiSoundSettings.Volume));
@@ -226,20 +225,21 @@ public class UiSoundTests
         Assert.Equal(0, r.Store.Writes);
         Assert.Equal(256, r.Settings.Get(Viewer.Shell.Settings.DrawDistance));
         Assert.False(r.Settings.Get(Viewer.Shell.Settings.ChatTimestamps));
-        Assert.Single(r.Out.Plays);
+        Assert.Empty(r.Out.Plays);   // the login screen has no cached sound to play
     }
 
     // ---------------- routing ----------------
 
     [Fact]
-    public void Our_source_plays_our_file_at_the_ui_level_times_the_slots_level()
+    public void The_grids_sound_plays_at_the_ui_level_times_the_slots_level()
     {
         var r = new Rig();
+        r.ServeAll();
         r.Settings.Set(UiSoundSettings.Volume, 0.5);
         r.Settings.Set(UiSoundSettings.VolumeOf(UiSoundSlot.WindowOpen), 0.5);
-        Assert.Equal(UiSoundOutcome.PlayedOurs, r.Sounds.Play(UiSoundSlot.WindowOpen));
+        Assert.Equal(UiSoundOutcome.PlayedGrid, r.Sounds.Play(UiSoundSlot.WindowOpen));
         var p = Assert.Single(r.Out.Plays);
-        Assert.Equal((UiSoundSlot.WindowOpen, "ours"), (p.Slot, p.Route));
+        Assert.Equal((UiSoundSlot.WindowOpen, "grid"), (p.Slot, p.Route));
         Assert.Equal(0.25f, p.Gain, 4);
     }
 
@@ -247,25 +247,15 @@ public class UiSoundTests
     public void Off_plays_nothing_and_a_switched_off_slot_plays_nothing_on_an_event_but_its_play_button_still_plays()
     {
         var r = new Rig();
+        r.ServeAll();
         r.SetSource(UiSoundSlot.Alert, UiSoundSource.Off);
         Assert.Equal(UiSoundOutcome.Off, r.Sounds.Play(UiSoundSlot.Alert));
         Assert.Equal(UiSoundOutcome.Off, r.Sounds.Audition(UiSoundSlot.Alert));
         r.Settings.Set(UiSoundSettings.EnabledOf(UiSoundSlot.Click), false);
         Assert.Equal(UiSoundOutcome.Disabled, r.Sounds.Play(UiSoundSlot.Click));
         Assert.Empty(r.Out.Plays);
-        Assert.Equal(UiSoundOutcome.PlayedOurs, r.Sounds.Audition(UiSoundSlot.Click));
+        Assert.Equal(UiSoundOutcome.PlayedGrid, r.Sounds.Audition(UiSoundSlot.Click));
         Assert.Equal(UiSoundSlot.Click, Assert.Single(r.Out.Plays).Slot);
-    }
-
-    [Fact]
-    public void On_the_login_screen_the_grids_source_falls_back_to_our_file()
-    {
-        var r = new Rig();
-        r.SetSource(UiSoundSlot.Click, UiSoundSource.Grid);
-        Assert.False(r.Sounds.InWorld);
-        Assert.Equal(UiSoundOutcome.PlayedOurs, r.Sounds.Play(UiSoundSlot.Click));
-        Assert.Equal("ours", Assert.Single(r.Out.Plays).Route);
-        Assert.Empty(r.Fetched);
     }
 
     [Fact]
@@ -382,8 +372,6 @@ public class UiSoundTests
         Assert.Equal(23, UiSoundCatalog.All.Count);
         UiSoundSettings.SetAll(r.Settings, UiSoundSource.Grid);
         Assert.All(UiSoundCatalog.All, i => Assert.Equal(UiSoundSource.Grid, UiSoundSettings.Source(r.Settings, i.Slot)));
-        UiSoundSettings.SetAll(r.Settings, UiSoundSource.Ours);
-        Assert.All(UiSoundCatalog.All, i => Assert.Equal(UiSoundSource.Ours, UiSoundSettings.Source(r.Settings, i.Slot)));
         UiSoundSettings.SetAll(r.Settings, UiSoundSource.Off);
         Assert.Equal(UiSoundOutcome.Off, r.Sounds.Play(UiSoundSlot.Click));
     }
@@ -405,13 +393,14 @@ public class UiSoundTests
     public void A_minimized_window_silences_the_sounds_while_mute_when_minimized_is_on()
     {
         var r = new Rig { Minimized = true };
+        r.ServeAll();
         Assert.Equal(UiSoundOutcome.MutedMinimized, r.Sounds.Play(UiSoundSlot.Alert));
         Assert.Empty(r.Out.Plays);
         r.Settings.Set(UiSoundSettings.MuteWhenMinimized, false);
-        Assert.Equal(UiSoundOutcome.PlayedOurs, r.Sounds.Play(UiSoundSlot.Alert));
+        Assert.Equal(UiSoundOutcome.PlayedGrid, r.Sounds.Play(UiSoundSlot.Alert));
         r.Minimized = false;
         r.Settings.Set(UiSoundSettings.MuteWhenMinimized, true);
-        Assert.Equal(UiSoundOutcome.PlayedOurs, r.Sounds.Play(UiSoundSlot.Alert));
+        Assert.Equal(UiSoundOutcome.PlayedGrid, r.Sounds.Play(UiSoundSlot.Alert));
         Assert.Equal(2, r.Out.Plays.Count);
     }
 
@@ -419,10 +408,11 @@ public class UiSoundTests
     public void Every_decision_is_kept_in_the_recent_list_for_checks()
     {
         var r = new Rig();
+        r.ServeAll();
         r.SetSource(UiSoundSlot.Alert, UiSoundSource.Off);
         r.Sounds.Play(UiSoundSlot.Click);
         r.Sounds.Play(UiSoundSlot.Alert);
-        Assert.Equal([(UiSoundSlot.Click, UiSoundOutcome.PlayedOurs), (UiSoundSlot.Alert, UiSoundOutcome.Off)],
+        Assert.Equal([(UiSoundSlot.Click, UiSoundOutcome.PlayedGrid), (UiSoundSlot.Alert, UiSoundOutcome.Off)],
             r.Sounds.Recent.Select(e => (e.Slot, e.Outcome)));
         r.Sounds.ClearRecent();
         Assert.Empty(r.Sounds.Recent);
@@ -434,6 +424,7 @@ public class UiSoundTests
     public void Money_plays_only_past_the_threshold_and_never_for_the_first_balance()
     {
         var r = new Rig();
+        r.ServeAll();
         Assert.Null(r.Sounds.Balance(1000));    // the first balance known
         Assert.Null(r.Sounds.Balance(950));     // 50 is not more than the threshold
         Assert.Equal(UiSoundSlot.MoneyChangeDown, r.Sounds.Balance(899));
@@ -489,6 +480,7 @@ public class UiSoundTests
     public void Opening_a_closed_window_plays_window_open_once_and_closing_it_window_close_once()
     {
         var r = new Rig();
+        r.ServeAll();
         var floaters = new FloaterManager();
         floaters.Register(new FloaterSpec("one", "t", new UiSize(100, 100), new UiSize(50, 50)));
         floaters.Register(new FloaterSpec("two", "t", new UiSize(100, 100), new UiSize(50, 50)));
@@ -512,6 +504,7 @@ public class UiSoundTests
     public void After_the_wiring_is_disposed_windows_play_nothing()
     {
         var r = new Rig();
+        r.ServeAll();
         var floaters = new FloaterManager();
         floaters.Register(new FloaterSpec("one", "t", new UiSize(100, 100), new UiSize(50, 50)));
         var wiring = UiSoundWiring.Floaters(floaters, r.Sounds);
@@ -548,6 +541,7 @@ public class UiSoundTests
             Notices = new NoticeModel(() => Now);
             Feeder = new NoticeFeeder(Model, Friends, Teleport, Notices, id => "Ann Example");
             Offers = new InventoryOffers(Model, Pipeline.Submit);
+            Sound.ServeAll();
             Wiring = UiSoundWiring.Notifications(Model, Notices, Sound.Sounds);
         }
     }
@@ -592,6 +586,7 @@ public class UiSoundTests
             Pipeline = new ActionPipeline(() => Transport, () => true, new CoreLog(new ListSink(), "test"));
             Conversations = new Conversations(Self, new NameCache(), Pipeline.Submit, () => 100, () => true, () => Now, _ => { });
             Nearby = new NearbyChat(Self, Pipeline.Submit, () => 100, () => true, () => Now);
+            Sound.ServeAll();
             Wiring = UiSoundWiring.Chat(Nearby, Conversations, Sound.Sounds);
         }
 
@@ -637,6 +632,7 @@ public class UiSoundTests
     public void A_teleport_plays_teleport_out_once_when_asked_and_once_when_the_grid_starts_one_unasked()
     {
         var r = new Rig();
+        r.ServeAll();
         var transport = new FakeTransport();
         var pipeline = new ActionPipeline(() => transport, () => true, new CoreLog(new ListSink(), "test"));
         var now = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
@@ -655,6 +651,7 @@ public class UiSoundTests
     public void A_map_teleport_with_nothing_chosen_plays_invalid_op()
     {
         var r = new Rig();
+        r.ServeAll();
         var map = new WorldMapModel(new MapLinks());
         var transport = new FakeTransport();
         var pipeline = new ActionPipeline(() => transport, () => true, new CoreLog(new ListSink(), "test"));

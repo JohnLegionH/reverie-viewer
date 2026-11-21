@@ -38,20 +38,12 @@ public partial class Main
     private readonly WalkSummary _selfWalk = new();
     private Dictionary<Guid, ObjectState>? _soundObjects;
     private WorldSnapshot? _soundSnapshot;
-    private UiSoundTuning? _tuning;
 
     /// <summary>The sounds in the world (null until the shell is made, or between sessions).</summary>
     public WorldSounds? WorldSounds => _worldSounds;
 
-    /// <summary>The Sound Tuner's saved values (null until the shell is made).</summary>
-    public UiSoundTuning? Tuning => _tuning;
-
     private void InstallWorldSounds(SettingsService settings)
     {
-        string? folder = null;
-        try { folder = Viewer.Core.Platform.DataDirectories.ForCurrentUser().Settings; }
-        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException) { folder = null; }
-        _tuning = new UiSoundTuning(folder is null ? null : System.IO.Path.Combine(folder, UiSoundTuning.FileName));
         _worldPlayer = new WorldSoundPlayer(settings, () => DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Minimized);
         AddChild(_worldPlayer);
     }
@@ -204,6 +196,22 @@ public partial class Main
             playback.PushFrame(new Vector2(_windLeft[i], _windRight[i]));
     }
 
+#if NV_AUTOMATION
+    /// <summary>A 50 ms 1 kHz tone as a 16-bit mono 44.1 kHz WAV: what the headless check's grid serves for every sound.</summary>
+    private static byte[] CheckTone()
+    {
+        const int rate = 44100, samples = rate / 20;
+        var bytes = new byte[44 + samples * 2];
+        void Put(int at, string text) { for (int i = 0; i < text.Length; i++) bytes[at + i] = (byte)text[i]; }
+        void Int(int at, int v, int n) { for (int i = 0; i < n; i++) bytes[at + i] = (byte)(v >> 8 * i); }
+        Put(0, "RIFF"); Int(4, 36 + samples * 2, 4); Put(8, "WAVEfmt "); Int(16, 16, 4); Int(20, 1, 2); Int(22, 1, 2); Int(24, rate, 4);
+        Int(28, rate * 2, 4); Int(32, 2, 2); Int(34, 16, 2); Put(36, "data"); Int(40, samples * 2, 4);
+        for (int i = 0; i < samples; i++)
+            Int(44 + i * 2, (short)(Math.Sin(2 * Math.PI * 1000 * i / rate) * 8000), 2);
+        return bytes;
+    }
+#endif
+
     private void FollowSession(ViewerSession? session, WorldSoundPlayer player)
     {
         if (_worldSoundsFor is { } old && _worldSoundHandler is { } h)
@@ -215,7 +223,7 @@ public partial class Main
         _worldSoundsFor = session;
         if (session is null || _soundTransport is not { } transport)
             return;
-        var fetch = _contentView is { } view ? view.Caching("sound", transport.FetchSoundAsync) : transport.FetchSoundAsync;
+        var fetch = GridSoundFetch(session, transport);
         var settings = UserSettings(null);
         _worldSounds = new WorldSounds(settings, player, new GridSounds(fetch), new ParcelSoundMap(), () => Time.GetTicksMsec() / 1000.0)
         {
@@ -226,9 +234,7 @@ public partial class Main
             ObjectMuted = id => session.Mutes.IsMuted(id, null),
             RegionWidth = handle => session.Worlds.FirstOrDefault(w => w.Sim.Handle == handle)?.Region.SizeX ?? 256,
             OwnerSoundsMuted = id => session.Mutes.IsMuted(id, null, MuteFlag.ObjectSounds),
-            TypingSound = () => TypingSound(settings, session.Grid),
-            // our footstep (tuned or shipped), for a step whose official sound the grid lacks
-            StepFallback = () => _tuning?.WavFor(SoundTunerList.Footstep) ?? UiSoundFiles.Read(SoundTunerList.Footstep),
+            TypingSound = () => TypingSound(settings),
         };
         _worldSoundHandler = e => _worldSoundEvents.Enqueue(e);
         session.Sound += _worldSoundHandler;
@@ -270,21 +276,11 @@ public partial class Main
         return null;
     }
 
-    // the typing sound plays the interface slot's choice on this grid: the grid's sound, our file (tuned or shipped), or nothing;
-    // on Second Life the grid's, by the per-grid switch
-    private (Guid, byte[]?) TypingSound(SettingsService settings, Viewer.Core.Session.GridKind grid)
+    // the typing sound plays the interface slot's choice: the grid's sound by its official id, or nothing when the slot is switched off
+    private (Guid, byte[]?) TypingSound(SettingsService settings)
     {
         var info = UiSoundCatalog.Of(UiSoundSlot.Typing);
-        switch (UiSoundSettings.SourceOn(settings, UiSoundSlot.Typing, grid))
-        {
-            case UiSoundSource.Grid:
-                return (info.GridId, null);
-            case UiSoundSource.Ours when (_tuning?.WavFor(info.File) ?? UiSoundFiles.Read(info.File)) is { } wav:
-                // our bytes go under an id made from them, so a tuned file is not taken for the shipped one
-                return (new Guid(System.Security.Cryptography.MD5.HashData(wav)), wav);
-            default:
-                return (Guid.Empty, null);
-        }
+        return UiSoundSettings.Source(settings, UiSoundSlot.Typing) == UiSoundSource.Grid ? (info.GridId, null) : (Guid.Empty, null);
     }
 
     // each drawn avatar's feet against the ground under them, while it plays a walk, run or landing (llvoavatar.cpp updateFootstepSounds):
@@ -345,52 +341,9 @@ public partial class Main
     private readonly Dictionary<Guid, System.Numerics.Vector3> _fedObjects = new();
 
 #if NV_AUTOMATION
-    /// <summary>The automation's sound_tuner command: the sound shown and its numbers, the tuned sounds; open the window; choose a sound by
-    /// its slot; move one slider (as a drag moves it: the sound is made again and played); save; reset the sound shown.</summary>
-    public object? SoundTunerCall(string action, string? slot, string? key, float value)
-    {
-        if (_soundTuner is not { } t || _tuning is not { } tuning)
-            return null;
-        switch (action)
-        {
-            case "open":
-                _shell?.Shell.Floaters.Open(SoundTunerPanel.FloaterId);
-                break;
-            case "choose" when slot == "Footstep":
-                t.Choose(SoundTunerList.Files.ToList().IndexOf(SoundTunerList.Footstep));
-                break;
-            case "choose" when Enum.TryParse<UiSoundSlot>(slot, out var s):
-                int index = SoundTunerList.Files.ToList().IndexOf(UiSoundCatalog.Of(s).File);
-                if (index < 0)
-                    return new { error = "this sound is a recording; it has no recipe to tune" };
-                t.Choose(index);
-                break;
-            case "set" when key is not null && float.IsFinite(value):
-                if (!t.Set(key, value))
-                    return new { error = "no such number in this sound" };
-                break;
-            case "save":
-                return new { saved = t.Save(), tuned = tuning.Tuned.Keys.Order().ToArray() };
-            case "reset":
-                t.Reset();
-                break;
-            case "state":
-                break;
-            default:
-                return new { error = "action must be state, open, choose (slot), set (key, value), save or reset" };
-        }
-        return new
-        {
-            slot = t.Slot?.ToString() ?? "Footstep", file = t.Current.File, tuned = tuning.Tuned.Keys.Order().ToArray(),
-            numbers = UiSoundParams.Of(t.Current).Select(p => new { key = p.Key, value = p.Value }).ToArray(),
-            started = _uiSoundPlayer?.Started ?? 0,
-            open = _shell?.Shell.Floaters.IsOpen(SoundTunerPanel.FloaterId) ?? false,
-        };
-    }
-
     /// <summary>The automation's world_sounds command. state: the sources (where, at what gain, why silent), the decisions and the voices
     /// started; clear: forgets the decisions. Without a session (headless checks), feed puts a list of sound events (the messages as the
-    /// adapter reads them) into a service made for the check, whose sounds all play our click file, with objects and the listener placed by
+    /// adapter reads them) into a service made for the check, whose sounds all play a short test tone, with objects and the listener placed by
     /// the check: {events: [{kind: trigger|attached|gain|preload, sound, object, owner, gain, flags, x, y, z}], objects: [{id, x, y, z}],
     /// listener: [x, y, z]}. Answers ids, numbers and states, never sound bytes.</summary>
     public object? WorldSoundsCall(string action, System.Text.Json.JsonElement body)
@@ -481,8 +434,8 @@ public partial class Main
                 if (!_soundsFed)
                 {
                     _soundsFed = true;
-                    var click = UiSoundFiles.Read(UiSoundCatalog.Of(UiSoundSlot.Click).File) ?? [];
-                    var grid = new GridSounds((id, ct) => System.Threading.Tasks.Task.FromResult(Viewer.Core.Assets.AssetFetchResult.Ok(click)), b => WavFile.Parse(b) is not null);   // the check's grid plays our WAV
+                    var click = CheckTone();
+                    var grid = new GridSounds((id, ct) => System.Threading.Tasks.Task.FromResult(Viewer.Core.Assets.AssetFetchResult.Ok(click)), b => WavFile.Parse(b) is not null);   // the check's grid serves a WAV test tone
                     _worldSounds = new WorldSounds(UserSettings(null), player, grid, new ParcelSoundMap(), () => Time.GetTicksMsec() / 1000.0)
                     {
                         LocateObject = id => _fedObjects.TryGetValue(id, out var p) ? new SoundPlace(0, p) : null,

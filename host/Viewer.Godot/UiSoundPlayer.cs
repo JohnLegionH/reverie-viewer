@@ -12,8 +12,7 @@ namespace Viewer.Godot;
 
 /// <summary>
 /// The engine side of the interface sounds: a "UI" audio bus whose level is the interface sound level from the settings, a few
-/// players on it (so a click does not cut off an alert), our files turned into engine streams once, and the grid's Ogg Vorbis bytes
-/// decoded once per sound id. Main thread only.
+/// players on it (so a click does not cut off an alert), and the grid's Ogg Vorbis bytes decoded once per sound id. Main thread only.
 /// </summary>
 public sealed partial class UiSoundPlayer : Node, IUiSoundOutput
 {
@@ -24,37 +23,16 @@ public sealed partial class UiSoundPlayer : Node, IUiSoundOutput
 
     private readonly SettingsService _settings;
     private readonly List<AudioStreamPlayer> _players = new();
-    private readonly Dictionary<UiSoundSlot, AudioStreamWav?> _ours = new();
-    private readonly Dictionary<Guid, AudioStream?> _grid = new();
+    private readonly Dictionary<Guid, AudioStream?> _grid = new();   // by the bytes' content key
+
+    /// <summary>The grid sounds started, newest last: slot, id and the MD5 of the bytes played (for checks).</summary>
+    public List<(UiSoundSlot Slot, Guid Id, string Md5)> Played { get; } = new();
     private int _next;
 
     public UiSoundPlayer(SettingsService settings)
     {
         _settings = settings;
         Name = "ui_sounds";
-    }
-
-    /// <summary>The Sound Tuner's values: a tuned sound plays its tuned recipe (null: the shipped files only).</summary>
-    public UiSoundTuning? Tuning
-    {
-        get => _tuning;
-        set
-        {
-            if (_tuning is not null)
-                _tuning.Changed -= Forget;
-            _tuning = value;
-            if (value is not null)
-                value.Changed += Forget;
-        }
-    }
-
-    private UiSoundTuning? _tuning;
-
-    // a sound whose recipe changed is made again at its next play
-    private void Forget(string file)
-    {
-        foreach (var info in UiSoundCatalog.All.Where(i => i.File == file))
-            _ours.Remove(info.Slot);
     }
 
     /// <summary>How many sounds the engine was asked to play (for checks).</summary>
@@ -106,17 +84,13 @@ public sealed partial class UiSoundPlayer : Node, IUiSoundOutput
         return own > 0 ? (float)Mathf.LinearToDb(own) : -80f;
     }
 
-    public void PlayOurs(UiSoundSlot slot, float gain)
-    {
-        if (!_ours.TryGetValue(slot, out var stream))
-            _ours[slot] = stream = Load(slot);
-        if (stream is not null)
-            Start(stream, gain);
-    }
-
     public bool PlayGrid(UiSoundSlot slot, Guid id, byte[] ogg, float gain)
     {
-        if (!_grid.TryGetValue(id, out var stream))
+        var key = GridSoundCache.ContentKey(ogg);   // by the bytes: the same id holds other audio on another grid
+        Played.Add((slot, id, key.ToString("N")));
+        if (Played.Count > UiSounds.RecentLimit)
+            Played.RemoveAt(0);
+        if (!_grid.TryGetValue(key, out var stream))
         {
             AudioStreamOggVorbis? decoded = null;
             try { decoded = AudioStreamOggVorbis.LoadFromBuffer(ogg); }
@@ -139,27 +113,5 @@ public sealed partial class UiSoundPlayer : Node, IUiSoundOutput
         p.VolumeDb = PlayerDb(gain);
         p.Play();
         Started++;
-    }
-
-    /// <summary>Plays one of our files that is not an interface slot (the Sound Tuner's footstep), tuned or shipped, at a gain.</summary>
-    public void PlayFile(string file, float gain)
-    {
-        if (Load(file) is { } stream)
-            Start(stream, gain);
-    }
-
-    private AudioStreamWav? Load(UiSoundSlot slot) => Load(UiSoundCatalog.Of(slot).File);
-
-    private AudioStreamWav? Load(string file)
-    {
-        if ((_tuning?.WavFor(file) ?? UiSoundFiles.Read(file)) is not { } bytes || WavFile.Parse(bytes) is not { Bits: 16 } wav)
-            return null;
-        return new AudioStreamWav
-        {
-            Data = wav.Pcm,
-            Format = AudioStreamWav.FormatEnum.Format16Bits,
-            MixRate = wav.Rate,
-            Stereo = wav.Channels == 2,
-        };
     }
 }

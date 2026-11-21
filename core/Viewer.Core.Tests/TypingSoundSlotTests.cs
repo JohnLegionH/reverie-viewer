@@ -8,7 +8,7 @@ namespace Viewer.Core.Tests;
 
 /// <summary>
 /// Every typing sound, the own avatar's (interface sounds) and other avatars' (world sounds), plays the one typing slot, so a change
-/// of the typing sound's file changes all of them. A source scan: only the catalog names the slot's file and grid id. Reads
+/// of the typing slot changes all of them. A source scan: only the catalog names the slot's grid id. Reads
 /// committed source only, so the class runs in parallel.
 /// </summary>
 public class TypingSoundSlotTests
@@ -22,16 +22,16 @@ public class TypingSoundSlotTests
     }
 
     [Fact]
-    public void Only_the_catalog_and_the_generator_name_the_typing_sounds_file_or_grid_id()
+    public void Only_the_catalog_names_the_typing_sounds_grid_id()
     {
         var info = UiSoundCatalog.Of(UiSoundSlot.Typing);
-        string[] allowed = ["UiSoundCatalog.cs", "UiSoundSynth.cs"];   // the catalog's row; the generator's recipe for the same file
+        string[] allowed = ["UiSoundCatalog.cs"];   // the catalog's row
         var hits = Directory.EnumerateFiles(Path.Combine(Root(), "host"), "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
             .Where(f =>
             {
                 var text = File.ReadAllText(f);
-                return text.Contains(info.File, StringComparison.Ordinal) || text.Contains(info.GridId.ToString(), StringComparison.OrdinalIgnoreCase);
+                return text.Contains(info.GridId.ToString(), StringComparison.OrdinalIgnoreCase);
             })
             .Select(Path.GetFileName)
             .Where(n => !allowed.Contains(n))

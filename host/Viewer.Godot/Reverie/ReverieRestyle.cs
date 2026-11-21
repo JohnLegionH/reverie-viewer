@@ -28,7 +28,7 @@ public static class ReverieRestyle
         ColourPickerWindow.FloaterId, FacePickerWindows.ItemPickerId, FolderPickPanel.FloaterId, GridPanel.FloaterId,
         InteractFeature.ContentsId, InteractFeature.BuyId, NotificationFeature.ObjectId,
         GesturePanel.FloaterId, AddonsPanel.FloaterId, PersonalLightingFeature.FloaterId,
-        BuildFeature.ImageFloaterId, BuildFeature.BulkFloaterId, ModelFeature.ModelFloaterId, ModelFeature.BulkModelsFloaterId, SoundTunerPanel.FloaterId,
+        BuildFeature.ImageFloaterId, BuildFeature.BulkFloaterId, ModelFeature.ModelFloaterId, ModelFeature.BulkModelsFloaterId,
     };
 
     private static readonly StringName Restyled = "reverie_restyled";
