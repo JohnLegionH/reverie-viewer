@@ -81,6 +81,19 @@ public class WindowMemoryTests
     private static bool OnScreen(WindowStart plan, WindowRect screen) =>
         plan.Rect is { } r && r.X >= screen.X && r.Y >= screen.Y && r.X < screen.X + screen.Width && r.Y < screen.Y + screen.Height;
 
+    [Theory]
+    [InlineData(WindowStartMode.Maximized)]
+    [InlineData(WindowStartMode.Last)]
+    public void A_first_run_opens_on_the_primary_screen_even_when_it_is_not_the_one_at_the_origin(WindowStartMode mode)
+    {
+        // the engine counts screen places from the top left of the whole desktop, so the primary screen can be the right one of two
+        var primary = new WindowRect(2560, 0, 2560, 1440);
+        var left = new WindowRect(0, 0, 2560, 1440);
+        var plan = WindowMemory.Plan(Fresh(), [primary, left], mode);
+        Assert.True(plan.Maximized);
+        Assert.True(OnScreen(plan, primary));
+    }
+
     [Fact]
     public void A_maximized_window_comes_back_maximized_on_the_screen_it_was_on()
     {

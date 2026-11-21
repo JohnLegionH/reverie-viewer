@@ -85,7 +85,8 @@ public partial class Main
         _windowSeenScreen = ScreenOf(window);
         _windowPending = !settings.Contains(WindowMemory.MaximizedKey);   // a first run is kept at once
         Log.Info("startup.window", CoreLog.F("choice", plan.Start.ToString()), CoreLog.F("maximized", maximized),
-            CoreLog.F("fullscreen", plan.Fullscreen), CoreLog.F("frames-drawn", Engine.GetFramesDrawn()));
+            CoreLog.F("fullscreen", plan.Fullscreen), CoreLog.F("frames-drawn", Engine.GetFramesDrawn()),
+            CoreLog.F("screen", _windowSeenScreen.ToString()), CoreLog.F("place", _windowSeenRect.ToString()), CoreLog.F("primary", ScreenRects()[0].ToString()));
     }
 
     /// <summary>The choice changed in Preferences: full screen is entered or left now; a window choice leaves the window as it is.</summary>

@@ -50,6 +50,8 @@ public static class WindowMemory
         if (screens.Count == 0)
             return new WindowStart(maximized, wanted);
         var primary = screens[0];
+        if (!sizeKept)
+            wanted = new WindowRect(primary.X + DefaultX, primary.Y + DefaultY, DefaultWidth, DefaultHeight);   // nothing kept: the default place on the primary screen
         var home = HomeOf(wanted, screens);
         if (!maximized)
             return home is { } here ? new WindowStart(false, CutTo(wanted, here)) : new WindowStart(true, DefaultOn(primary, wanted));
