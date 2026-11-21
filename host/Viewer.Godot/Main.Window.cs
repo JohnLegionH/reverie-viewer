@@ -24,6 +24,7 @@ public partial class Main
     private bool _windowPending;
     private ulong _windowChangedAtMs;
     private Window.ModeEnum _modeBeforeFullscreen = Window.ModeEnum.Maximized;
+    private bool _choiceFullscreen;   // whether the saved choice is Full screen, so a later change acts only when that changes
 
     /// <summary>The screens' whole areas, the primary screen first.</summary>
     private static List<WindowRect> ScreenRects()
@@ -63,8 +64,14 @@ public partial class Main
             return;
         var plan = DisplayPlan.For(settings.GetText(Settings.WindowModeKey));
         bool maximized = false;
+        _choiceFullscreen = plan.Fullscreen;
         if (plan.Fullscreen)
+        {
+            // full screen opens on the screen the window was kept on (the engine fills the screen the window is on)
+            if (WindowMemory.Plan(settings, ScreenRects(), WindowStartMode.Maximized).Rect is { } screenRect)
+                window.Position = new Vector2I(screenRect.X, screenRect.Y);
             window.Mode = Window.ModeEnum.Fullscreen;
+        }
         else
         {
             var start = WindowMemory.Plan(settings, ScreenRects(), plan.Start);
@@ -80,7 +87,7 @@ public partial class Main
             maximized = start.Maximized;
         }
         _windowSettings = settings;
-        _windowSeenMaximized = window.Mode == Window.ModeEnum.Maximized;
+        _windowSeenMaximized = plan.Fullscreen || window.Mode == Window.ModeEnum.Maximized;   // leaving full screen goes to maximized: that is not a change to the kept window
         _windowSeenRect = PlaceOf(window);
         _windowSeenScreen = ScreenOf(window);
         _windowPending = !settings.Contains(WindowMemory.MaximizedKey);   // a first run is kept at once
@@ -98,6 +105,9 @@ public partial class Main
         if (window.Mode == Window.ModeEnum.Minimized)
             return;
         bool wantsFullscreen = DisplayPlan.For(settings.GetText(Settings.WindowModeKey)).Fullscreen;
+        if (wantsFullscreen == _choiceFullscreen)
+            return;   // between the two window kinds: the window stays as it is, in full screen too
+        _choiceFullscreen = wantsFullscreen;
         if (wantsFullscreen != (window.Mode == Window.ModeEnum.Fullscreen))
             ToggleFullscreen();
     }

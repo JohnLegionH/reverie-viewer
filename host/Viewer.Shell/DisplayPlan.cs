@@ -14,8 +14,6 @@ public readonly record struct DisplayPlan(WindowStartMode Start)
     /// <summary>Whether the window's size, place and screen are kept between runs (every choice but full screen).</summary>
     public bool Remembers => !Fullscreen;
 
-    /// <summary>The plan for a saved choice: maximized when none is saved (or it is not understood). "windowed" and "borderless" are the
-    /// values earlier versions kept: the window as it was left, and the full screen.</summary>
     /// <summary>Rewrites a value earlier versions kept ("windowed", "borderless") as the choice it stands for, so Preferences shows what the window does. True when it wrote.</summary>
     public static bool Migrate(SettingsService settings)
     {
@@ -23,6 +21,8 @@ public readonly record struct DisplayPlan(WindowStartMode Start)
         return now is not null && settings.SetText(Settings.WindowModeKey, now);
     }
 
+    /// <summary>The plan for a saved choice: maximized when none is saved (or it is not understood). "windowed" and "borderless" are the
+    /// values earlier versions kept: the window as it was left, and the full screen.</summary>
     public static DisplayPlan For(string? saved) => new(saved switch
     {
         "last" or "windowed" => WindowStartMode.Last,

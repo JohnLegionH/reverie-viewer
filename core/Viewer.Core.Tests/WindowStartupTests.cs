@@ -133,6 +133,33 @@ public class WindowStartupTests
         Assert.Contains("Engine.GetFramesDrawn()", window);
     }
 
+
+    [Fact]
+    public void Changing_the_choice_in_Preferences_acts_only_when_full_screen_is_added_or_taken_away()
+    {
+        // a window put into full screen with Ctrl+Alt+F stays there when the person changes the choice between the two window kinds
+        string window = Host("Main.Window.cs");
+        Assert.Contains("private bool _choiceFullscreen;", window);
+        Assert.Contains("if (wantsFullscreen == _choiceFullscreen)", window);
+        Assert.Contains("_choiceFullscreen = plan.Fullscreen;", window);
+    }
+
+    [Fact]
+    public void A_full_screen_start_does_not_count_leaving_full_screen_as_a_change_to_the_kept_window()
+    {
+        string window = Host("Main.Window.cs");
+        Assert.Contains("_windowSeenMaximized = plan.Fullscreen || window.Mode == Window.ModeEnum.Maximized;", window);
+    }
+
+    [Fact]
+    public void A_full_screen_start_opens_on_the_screen_the_window_was_kept_on()
+    {
+        string window = Host("Main.Window.cs");
+        int fullscreen = window.IndexOf("if (plan.Fullscreen)", StringComparison.Ordinal);
+        int place = window.IndexOf("WindowMemory.Plan(", fullscreen, StringComparison.Ordinal);
+        int mode = window.IndexOf("window.Mode = Window.ModeEnum.Fullscreen", fullscreen, StringComparison.Ordinal);
+        Assert.True(fullscreen > 0 && place > fullscreen && place < mode, "the kept screen is chosen before the window goes full screen");
+    }
     [Fact]
     public void Full_screen_is_the_borderless_kind_and_never_the_exclusive_one()
     {
