@@ -207,6 +207,14 @@ if ($kind -and $kind -ne [NvTools.TestWindowKind]::Untouched) {
     }
 }
 
+# A test or automation launch plays no sound: the engine's dummy audio driver still mixes, so the players run as usual and the sound checks
+# still prove, by the fingerprint of the stream each player was asked to play, what would play. This covers the runs the window policy leaves
+# untouched too (-FullSizeWindow). A normal start by a person does not go through this script.
+if ($policyLoaded) {
+    $silent = [NvTools.TestWindowPlacement]::SilentArguments($ArgLine, [bool]$exportedBuild, [bool]$PlaceWindow)
+    if ($silent -and $ArgLine -notmatch '--audio-driver') { $ArgLine = "$silent $ArgLine" }
+}
+
 # A measuring run's frame times must describe the scene, not how long presents waited on the display or a driver limit.
 # The harness checks the path's frames against the display's refresh interval and fails the run, with the reason, instead
 # of reporting capped figures (core\Viewer.Core\Diagnostics\FramePacingGuard.cs).

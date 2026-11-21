@@ -179,6 +179,27 @@ public class TestWindowPlacementTests
         Assert.Equal("--resolution 576x324 --position 3264,1776", TestWindowPlacement.EngineArguments(new PixelRect(-576, 1776, 576, 324), both));
     }
 
+    [Theory]
+    [InlineData("--path x -- --test-render=a", false, false, true)]      // a test-harness run
+    [InlineData("-- --s1-render", false, false, true)]                   // an S-1 run
+    [InlineData("-- --automation", true, false, true)]                   // an automation start of the exported viewer
+    [InlineData("--minimized", true, false, true)]                       // a shipping-start check
+    [InlineData("", false, true, true)]                                  // a plain start the launcher is asked to place
+    [InlineData("--headless --test-render=a", false, false, false)]      // no window, no audio device needed
+    [InlineData("--path x --editor", false, false, false)]               // the editor itself
+    public void Test_and_automation_launches_play_no_sound_and_other_launches_are_left_alone(string args, bool exported, bool placeWindow, bool silent)
+    {
+        string result = TestWindowPlacement.SilentArguments(args, exported, placeWindow);
+        Assert.Equal(silent ? "--audio-driver Dummy" : "", result);
+    }
+
+    [Fact]
+    public void The_launcher_adds_the_silent_argument_for_every_launch_the_policy_names_including_the_full_size_window()
+    {
+        string script = File.ReadAllText(Path.Combine(RepoRoot(), "tools", "godot.ps1"));
+        Assert.Contains("[NvTools.TestWindowPlacement]::SilentArguments(", script);
+    }
+
     [Fact]
     public void The_origin_is_the_top_left_of_the_monitors_together_including_one_above_the_primary()
     {

@@ -101,6 +101,21 @@ namespace NvTools
             return onScreen ? TestWindowKind.Corner : TestWindowKind.OffScreen;
         }
 
+        /// <summary>
+        /// The engine argument that gives a test or automation launch no sound device (the engine's dummy audio driver: it still mixes,
+        /// so the player runs as usual, but nothing reaches the speakers). Applies to every harness run (<c>--test-render</c>,
+        /// <c>--s1-*</c>), every start of the exported viewer through the launcher, and a plain start the launcher is asked to place;
+        /// a run with no window (<c>--headless</c>) and the editor are left alone. A normal start by a person does not go through
+        /// the launcher and is unchanged.
+        /// </summary>
+        public static string SilentArguments(string argLine, bool exportedViewer, bool placeWindow)
+        {
+            if (argLine == null) argLine = "";
+            if (Regex.IsMatch(argLine, "--headless")) return "";
+            bool harness = Regex.IsMatch(argLine, "--test-render|--s1-");
+            return harness || exportedViewer || placeWindow ? "--audio-driver Dummy" : "";
+        }
+
         /// <summary>The viewer's argument naming the off-screen place (desktop pixels) a minimised test window is brought back to.</summary>
         public static string OffScreenArgument(PixelRect window)
         {
