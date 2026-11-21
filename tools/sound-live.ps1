@@ -8,27 +8,120 @@
 # bytes). Then it makes a window open, a click (through the engine's input path) and typing, and shows by MD5 that the bytes the
 # engine was handed for each are the ones the grid served for that slot's id. A sound the grid does not serve must be silent.
 #
-#   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\sound-live.ps1 -Sandbox <new folder>
-#     [-Credentials <accounts file>] [-Account <alias>] [-GridInfoUrl <get_grid_info URL>] [-Start <start location>] [-Exe <development export>]
+#   A grid test region (accounts file, grid address and account come from live.env and the avatar claim; -Start is the test region's start):
+#     powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\sound-live.ps1 -Sandbox <new folder> -Start <start location> [-Exe <development export>]
+#   Stock standalone (accounts file, first stock account, grid-info address, region and server control come from the stock smoke's
+#   settings file named by NV_STOCK_SETTINGS or -Settings; the run takes its own avatar and build claims and starts and stops the
+#   stock server around itself, as the stock smoke does):
+#     powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\sound-live.ps1 -Sandbox <new folder> -Stock [-Settings <settings file>]
+#   No accounts file path goes on a command line: it is read from the run's settings, never from an argument.
 #
-# Settings come from the parameters or the environment as in movement-live.ps1. Run it under a live-login claim and an avatar
-# claim on the account. Output: sound-report.json in the sandbox (one row per slot, the checks). Exit: 0 all checks passed, 1 a check
+# Outside -Stock, run it under an avatar claim on the account (its name is in CLAIM_AVATAR), a live-test claim naming the region and
+# a live-login claim. Output: sound-report.json in the sandbox (one row per slot, the checks). Exit: 0 all checks passed, 1 a check
 # failed, 3 blocked, 5 the viewer or the login did not come up.
 # =====================================================================================
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Sandbox,
     [string]$Credentials = $env:NV_TEST_ACCOUNTS,
-    [string]$Account = $(if ($env:NV_LIVE_ACCOUNT) { $env:NV_LIVE_ACCOUNT } else { "viewer1" }),
+    [string]$Account = $(if ($env:CLAIM_AVATAR) { $env:CLAIM_AVATAR } elseif ($env:NV_LIVE_ACCOUNT) { $env:NV_LIVE_ACCOUNT } else { "" }),
     [string]$GridInfoUrl = $env:NV_GRID_INFO_URL,
     [string]$Start = $env:NV_LIVE_START,
     [string]$Exe = "",
-    [int]$StartSeconds = 90
+    [int]$StartSeconds = 90,
+    [switch]$Stock,
+    [string]$Settings = ""
 )
-if (-not $Credentials) { $Credentials = & "$PSScriptRoot\live-env.ps1" NV_TEST_ACCOUNTS }
-if (-not $GridInfoUrl) { $GridInfoUrl = & "$PSScriptRoot\live-env.ps1" NV_GRID_INFO_URL }
-if (-not $Start) { $Start = & "$PSScriptRoot\live-env.ps1" NV_LIVE_START }
 $ErrorActionPreference = "Stop"
+$serverControl = ""
+if ($Stock) {
+    # the stock standalone: every setting comes from the stock smoke's settings file
+    . (Join-Path $PSScriptRoot "stock-settings.ps1")
+    $loaded = Read-StockSettings $Settings
+    $Credentials = Resolve-StockSetting "" "NV_TEST_ACCOUNTS" $loaded
+    $Account = Resolve-StockSetting "" "NV_STOCK_ACCOUNT_A" $loaded
+    $GridInfoUrl = Resolve-StockSetting "" "NV_STOCK_GRID_INFO_URL" $loaded
+    $serverControl = Resolve-StockSetting "" "NV_STOCK_SERVER_CONTROL" $loaded
+    $region = Resolve-StockSetting "" "NV_STOCK_REGION" $loaded
+    if ($region) { $Start = "uri:" + $region + "&128&128&25" }
+    Set-StockOptionalEnvironment $loaded
+    $miss = @()
+    if (-not $Credentials) { $miss += "NV_TEST_ACCOUNTS" }
+    if (-not $Account) { $miss += "NV_STOCK_ACCOUNT_A" }
+    if (-not $GridInfoUrl) { $miss += "NV_STOCK_GRID_INFO_URL" }
+    if (-not $region) { $miss += "NV_STOCK_REGION" }
+    if (-not $serverControl -or -not (Test-Path -LiteralPath $serverControl -PathType Leaf)) { $miss += "NV_STOCK_SERVER_CONTROL (a file)" }
+    if ($miss.Count -gt 0) { Write-Output ("BLOCKED: -Stock needs these settings (NV_STOCK_SETTINGS, -Settings or the environment): " + ($miss -join ", ")); exit 3 }
+}
+else {
+    # a grid test region: accounts file and grid address from the run's settings (live.env), the account from the avatar claim
+    if (-not $Credentials) { $Credentials = & "$PSScriptRoot\live-env.ps1" NV_TEST_ACCOUNTS }
+    if (-not $GridInfoUrl) { $GridInfoUrl = & "$PSScriptRoot\live-env.ps1" NV_GRID_INFO_URL }
+    if (-not $Start) { $Start = & "$PSScriptRoot\live-env.ps1" NV_LIVE_START }
+    if (-not $Account) { Write-Output "BLOCKED: no account: run under an avatar claim (CLAIM_AVATAR) or set NV_LIVE_ACCOUNT"; exit 3 }
+}
+
+# -Stock, outer run: take the avatar and build claims (as the stock smoke does), start the stock server, run this script again
+# inside the claims against it, and stop the server on every way out. The inner run is everything below this block.
+if ($Stock -and -not $env:NV_SOUND_LIVE_INNER) {
+    function ToUnixPath([string]$p) { $u = $p -replace '\\', '/'; if ($u -match '^([A-Za-z]):(.*)$') { $u = "/" + $Matches[1].ToLower() + $Matches[2] }; return $u }
+    $bash = $null
+    foreach ($candidate in @((Get-Command bash.exe -ErrorAction SilentlyContinue | ForEach-Object { $_.Source }),
+                             (Join-Path $env:ProgramFiles "Git\bin\bash.exe"), (Join-Path $env:ProgramFiles "Git\usr\bin\bash.exe"))) {
+        if (-not $bash -and $candidate -and (Test-Path -LiteralPath $candidate)) { $bash = $candidate }
+    }
+    $passOn = @("-Sandbox", $Sandbox, "-Stock", "-StartSeconds", "$StartSeconds")
+    if ($loaded.File) { $passOn += @("-Settings", $loaded.File) }
+    if ($Exe) { $passOn += @("-Exe", $Exe) }
+    if ($env:NV_CLAIM_WRAPPER -and -not $env:NV_SOUND_LIVE_CLAIMED) {
+        $lane = if ($env:NV_CLAIM_LANE) { $env:NV_CLAIM_LANE } else { "viewer" }
+        $order = if ($env:NV_CLAIM_ORDER) { @("--order", $env:NV_CLAIM_ORDER, "--label", "sound-live") } else { @() }
+        $wrapper = ToUnixPath $env:NV_CLAIM_WRAPPER
+        $cmd = @($wrapper) + $order + @("--resource", $Account, $lane, "avatar", "sound live", "--",
+                "bash", $wrapper) + $order + @("--resource", (ToUnixPath (Split-Path -Parent $PSScriptRoot)), $lane, "build", "sound live", "--",
+                "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath) + $passOn
+        $env:NV_SOUND_LIVE_CLAIMED = "1"
+        if (-not $env:CLAIM_WAIT) { $env:CLAIM_WAIT = "30" }
+        if (-not $bash) { Write-Output "BLOCKED: bash not found, so the claim wrapper cannot run"; exit 3 }
+        & $bash @cmd
+        $code = $LASTEXITCODE
+        if ($code -eq 125) { Write-Output "SKIPPED: a claim was not granted within CLAIM_WAIT minutes; nothing was started" }
+        exit $code
+    }
+    . (Join-Path $PSScriptRoot "claim-guard.ps1")
+    Assert-ClaimGranted
+    if (Test-Path -LiteralPath $Sandbox) { Write-Output "BLOCKED: -Sandbox exists (a fresh sandbox is required): $Sandbox"; exit 3 }
+    $serverScript = Join-Path $PSScriptRoot "stock-server.ps1"
+    $serverLogs = $Sandbox + "-server"
+    New-Item -ItemType Directory -Force -Path $serverLogs | Out-Null
+    # the server script runs with its output in files: the server it starts inherits the output handles, and a pipe would stay open
+    # until the server ended (this call would never return)
+    function Invoke-StockServer([string]$action) {
+        $o = Join-Path $serverLogs "server-$action.out"; $e = Join-Path $serverLogs "server-$action.err"
+        $lane = if ($env:NV_CLAIM_LANE) { $env:NV_CLAIM_LANE } else { "viewer" }
+        $sp = Start-Process -FilePath "powershell" -NoNewWindow -PassThru -RedirectStandardOutput $o -RedirectStandardError $e -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$serverScript`"", "-Action", $action, "-Control", "`"$serverControl`"",
+            "-GridInfoUrl", "`"$GridInfoUrl`"", "-Lane", $lane, "-LogFolder", "`"$serverLogs`"")
+        $null = $sp.Handle
+        $sp.WaitForExit()
+        return $sp.ExitCode
+    }
+    $started = $false; $runCode = 3
+    try {
+        $c = Invoke-StockServer "start"
+        $started = ($c -ne 1)   # exit 1 is a refusal: the server is someone else's and is not stopped here
+        Write-Output "stock server start exit $c"
+        if ($c -eq 0) {
+            $env:NV_SOUND_LIVE_INNER = "1"
+            & powershell @(@("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath) + $passOn)
+            $runCode = $LASTEXITCODE
+        }
+    }
+    finally {
+        if ($started) { Write-Output ("stock server stop exit " + (Invoke-StockServer "stop")) }
+    }
+    exit $runCode
+}
 . (Join-Path $PSScriptRoot "claim-guard.ps1")
 Assert-ClaimGranted
 trap {
@@ -41,9 +134,9 @@ if (-not $Exe) { $Exe = Join-Path (Split-Path -Parent $PSScriptRoot) "host\Viewe
 
 $problems = New-Object System.Collections.Generic.List[string]
 if (Test-Path -LiteralPath $Sandbox) { $problems.Add("-Sandbox exists (a fresh sandbox is required): $Sandbox") }
-if (-not $Credentials -or -not (Test-Path -LiteralPath $Credentials -PathType Leaf)) { $problems.Add("-Credentials (or NV_TEST_ACCOUNTS) is not a file") }
+if (-not $Credentials -or -not (Test-Path -LiteralPath $Credentials -PathType Leaf)) { $problems.Add("the accounts file (NV_TEST_ACCOUNTS) is not a file") }
 if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) { $problems.Add("-Exe not found: $Exe") }
-if (-not $Start) { $problems.Add("-Start (or NV_LIVE_START) is required") }
+if (-not $Start) { $problems.Add("a start location is required (-Start, NV_LIVE_START or the stock region)") }
 if (-not $GridInfoUrl) { $problems.Add("-GridInfoUrl (or NV_GRID_INFO_URL) is required") }
 $viewers = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like "Reverie*.exe" -and $_.CommandLine -match "--automation" })
 if ($viewers.Count -gt 0) { $problems.Add("a viewer that can log in is already running ($($viewers.Count))") }
@@ -156,9 +249,10 @@ if ($o) {
     }
     Prove "3 window open plays the grid's WindowOpen asset" @("WindowOpen") { [void](Invoke-Raw $port "open_window" $token '{"name":"preferences"}') }
     $pos = Wait-Until { $f = Sounds @{ action = "find"; name = "category_graphics" }; if ($f.found) { $f } } 10
-    if (-not $pos) { Check "4 click plays the grid's Click asset" $false "the Preferences category button was not found" }
+    if (-not $pos) { Check "4 a button click plays the grid's ClickRelease asset" $false "the Preferences category button was not found" }
     else {
-        Prove "4 a click plays the grid's Click and ClickRelease asset" @("Click", "ClickRelease") {
+        # a button plays ClickRelease when a press ends inside it (UiSoundRules.Clicks); Click and ClickRelease share one sound id, so one MD5 covers both
+        Prove "4 a button click plays the grid's ClickRelease asset" @("ClickRelease") {
             [void](Invoke-Raw $port "input" $token (@{ kind = "mouse"; x = $pos.x; y = $pos.y } | ConvertTo-Json -Compress))
             Start-Sleep -Milliseconds 100
             [void](Invoke-Raw $port "input" $token (@{ kind = "mouse"; button = "left"; down = $true; x = $pos.x; y = $pos.y } | ConvertTo-Json -Compress))

@@ -4,7 +4,7 @@
 # =====================================================================================
 # world-sound-check.ps1 - sounds in the world through the automation interface, on the development export, offline
 # (the login screen is enough). The world_sounds command's feed puts sound messages, as the protocol adapter reads them, into a sound
-# service made for the check (its sounds all play the viewer's own click file), with an object and the listener placed by the check.
+# service made for the check (the sounds it feeds are made up by the check, not the grid's), with an object and the listener placed by the check.
 # Each step feeds one message and checks, through world_sounds state, which sources play, where, and at what gain (the official
 # fall-off: gain x the Sounds level 0.5 x 1/distance), and that the engine was asked to play:
 #   trigger       a one-shot 10 m north of the listener at gain 0.8        -> playing at that point, gain 0.04
