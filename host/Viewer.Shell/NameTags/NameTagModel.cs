@@ -85,6 +85,8 @@ public sealed class NameTagModel
         {
             0 => "",
             1 => parts[0].ToLowerInvariant(),
+            // a visitor's last name is "@host:port"; the account name is already dotted ("first.last") and the grid stays after a space
+            _ when parts[1].StartsWith('@') => (parts[0] + " " + parts[1]).ToLowerInvariant(),
             _ => string.Equals(parts[1], "Resident", StringComparison.OrdinalIgnoreCase) ? parts[0].ToLowerInvariant() : (parts[0] + "." + parts[1]).ToLowerInvariant(),
         };
     }

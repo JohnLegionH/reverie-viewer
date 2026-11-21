@@ -85,9 +85,21 @@ public sealed class FriendsModel
         switch (e)
         {
             case FriendsListed list:
+                var wasOnline = _friends.Values.Where(x => x.Online).Select(x => x.Id).ToHashSet();
                 _friends.Clear();
+                var cameOnline = new List<Guid>();
                 foreach (var f in list.Friends)
-                    _friends[f.Id] = new Entry(f.Id, f.Name, f.Granted, f.Received) { Online = f.Online || _onlineBeforeListed.Contains(f.Id) };
+                {
+                    bool online = f.Online || _onlineBeforeListed.Contains(f.Id);
+                    _friends[f.Id] = new Entry(f.Id, f.Name, f.Granted, f.Received) { Online = online };
+                    if (online && !wasOnline.Contains(f.Id) && !_onlineBeforeListed.Contains(f.Id))
+                        cameOnline.Add(f.Id);
+                }
+                // A friend the list already shows online was online before the interface attached (the grid tells who is online a moment
+                // after login): the official viewer tells the user at login, so each such friend gets the online notice.
+                if (_noticesOn())
+                    foreach (var id in cameOnline)
+                        Notice?.Invoke(new FriendNotice(FriendNoticeKind.Online, id));
                 Changed?.Invoke();
                 break;
             case FriendPresenceChanged p:

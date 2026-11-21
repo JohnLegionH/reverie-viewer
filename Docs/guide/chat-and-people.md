@@ -119,6 +119,7 @@ It has four tabs: **Friends**, **Groups**, **Notices** and **Blocked**.
 ### Friends
 
 The list shows your friends. A friend who is online is marked "(online)".
+A friend who was already online when you logged in gets the same online notice as one who comes online later. A friend from another grid (a Hypergrid friend) is listed under the name their home grid gives, such as "First.Last @grid.example.org:8002".
 
 Pick a friend to see the buttons:
 
