@@ -40,6 +40,16 @@ public class WornRemovalHoldTests
     }
 
     [Fact]
+    public void A_removal_well_after_the_bursts_latest_one_applies_at_once_even_while_the_burst_is_held()
+    {
+        var h = new WornRemovalHold();
+        h.Removed(A, 1, 10.00);
+        Assert.True(h.Removed(A, 2, 10.02));
+        Assert.False(h.Removed(A, 3, 10.40));   // 0.38 s after the latest: not part of the burst
+        Assert.Equal([2u], h.Due(10.53));
+    }
+
+    [Fact]
     public void A_burst_is_never_held_longer_than_the_cap()
     {
         var h = new WornRemovalHold();

@@ -1024,6 +1024,7 @@ public sealed partial class PrimLayer
         switch (c.Kind)
         {
             case WorldChangeKind.RegionReset:
+                ClearBurstHold();
                 Clear();
                 break;
             case WorldChangeKind.AvatarRemoved when !c.Handoff:

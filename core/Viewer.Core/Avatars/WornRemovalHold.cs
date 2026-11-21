@@ -42,13 +42,13 @@ public sealed class WornRemovalHold
     {
         bool burst = _lastRemoval.TryGetValue(wearer, out var last) && now - last <= BurstGapSeconds;
         _lastRemoval[wearer] = now;
+        if (!burst) return false;
         if (_held.TryGetValue(wearer, out var b))
         {
             b.Pieces.Add(piece);
             b.Latest = now;
             return true;
         }
-        if (!burst) return false;
         b = new Burst { First = now, Latest = now };
         b.Pieces.Add(piece);
         _held[wearer] = b;
@@ -58,6 +58,9 @@ public sealed class WornRemovalHold
     /// <summary>The held pieces whose hold has ended by <paramref name="now"/>: remove them now.</summary>
     public IReadOnlyList<uint> Due(double now)
     {
+        if (_lastRemoval.Count > 0)
+            foreach (var (wearer, at) in _lastRemoval.ToList())
+                if (now - at > MaxHoldSeconds && !_held.ContainsKey(wearer)) _lastRemoval.Remove(wearer);   // long past any burst
         if (_held.Count == 0) return [];
         List<uint>? due = null;
         foreach (var (wearer, b) in _held.ToList())
@@ -86,6 +89,13 @@ public sealed class WornRemovalHold
                 return true;
             }
         return false;
+    }
+
+    /// <summary>Forgets everything (the region was reset); the caller removes what it still draws.</summary>
+    public void Clear()
+    {
+        _held.Clear();
+        _lastRemoval.Clear();
     }
 
     /// <summary>Whether a burst of <paramref name="wearer"/> is held now.</summary>

@@ -58,6 +58,8 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         public readonly HashSet<string> SkippedForWorn = new();   // body bake slots left without a texture because a worn mesh draws their bake; loaded if the mesh goes
         public readonly Dictionary<string, (Guid Id, Texture2D Texture)> LastGood = new();   // another avatar's last drawn bake per slot, kept on the part while a new one arrives (BaseBodyRule)
         public AvatarArrivalGate? Gate;                // another avatar is drawn only once it is fully loaded (made at its first frame)
+        public bool Loading;                           // the gate's last answer: every entry naming this body (one per region) takes it
+        public AvatarEntry? BakesFrom;                 // the entry whose bakes the body has (a crossing hands the body to another region's entry)
         public readonly BodyUncoverDelay Uncover = new();   // a part a removed worn mesh stopped hiding is uncovered only after a moment (other avatars)
         public string PartsDrawn = "all=D";               // what each body part was last given, for the NV_BODY_FRAMES trace: slot=B (bake), L (last good bake), D (default skin), H (not drawn)
         public string LastBodyTrace = "";              // the last state the NV_BODY_FRAMES trace wrote for it
@@ -375,6 +377,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 d.Users = 1;
                 _host?.Share(e.AgentId, d);
             }
+            if (!e.IsSelf && OfficialBodyRules) e.Loading = d.Loading;   // the body's loading state, for this region's pieces too
             if (_host is not null && d.Id >= 0 && !Drives(e, d)) continue;   // another region's entry places and poses this body; this one only names it
             if ((all || !d.WornChecked || dirty.Contains(e.Id.LocalId)) && _layer is not null && d.Id >= 0 && !Scene.IsHeld(e))
             {
@@ -391,9 +394,9 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                 else _recheck.Retry(e.Id.LocalId);   // next frame
             }
             // a new set of bakes is a unit of arrival work (the fetches and materials for its slots); the avatars not reached this frame are next frame's
-            if (d.BakesVersion == e.BakesVersion || MayStartArrivalUnit(UnitBakes))
+            if (!NewBakes(e, d) || MayStartArrivalUnit(UnitBakes))
             {
-                bool bakesUnit = d.BakesVersion != e.BakesVersion;
+                bool bakesUnit = NewBakes(e, d);
                 if (bakesUnit) _arrivalUnitsThisFrame++;
                 long bakesAt = System.Diagnostics.Stopwatch.GetTimestamp();
                 using (FrameProbe.Begin(FrameProbe.AvBakes)) UpdateBakes(e, d);
@@ -909,10 +912,13 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
     private bool ArrivalGateOpen(AvatarEntry e, DrawnAvatar d, double now)
     {
         d.Gate ??= new AvatarArrivalGate(now);
-        bool missing = e.VisualParams is not { Count: > 0 } || !e.Bakes.ContainsKey("head") || !e.Bakes.ContainsKey("upper") || !e.Bakes.ContainsKey("lower");
-        bool pending = d.BakesVersion != e.BakesVersion
-            || e.Bakes.Keys.Any(slot => Slots.Contains(slot) && !(d.Bakes.TryGetValue(slot, out var b) && (b.Texture is not null || b.Done)));
-        return d.Gate.Update(now, missing, pending);
+        // a body shown before that crossed into a region which has sent no look for it yet keeps the look it has (see NewBakes): nothing is missing
+        bool carried = d.Gate.EverShown && e.Bakes.Count == 0 && d.BakesFrom is not null && !ReferenceEquals(d.BakesFrom, e);
+        bool missing = !carried && (e.VisualParams is not { Count: > 0 } || !e.Bakes.ContainsKey("head") || !e.Bakes.ContainsKey("upper") || !e.Bakes.ContainsKey("lower"));
+        bool pending = !carried && (NewBakes(e, d)
+            || e.Bakes.Keys.Any(slot => Slots.Contains(slot) && !(d.Bakes.TryGetValue(slot, out var b) && (b.Texture is not null || b.Done))));
+        d.Loading = !d.Gate.Update(now, missing, pending);
+        return !d.Loading;
     }
 
     /// <summary>The body parts the avatar's worn meshes hide (<see cref="BodyVisibility"/>); true when the set changed.</summary>
@@ -1132,10 +1138,19 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             : AvatarBakeSizing.ClaimFor(cam, centre, size);
     }
 
+    /// <summary>Whether the entry names bakes the body does not have yet. A body shown before keeps its look while the region it crossed into has sent
+    /// none for it yet (the official viewer's avatar keeps its textures across a crossing; one object moves from region to region).</summary>
+    private bool NewBakes(AvatarEntry e, DrawnAvatar d)
+    {
+        if (!e.IsSelf && OfficialBodyRules && e.Bakes.Count == 0 && d.Gate is { EverShown: true } && d.BakesFrom is not null && !ReferenceEquals(d.BakesFrom, e)) return false;
+        return d.BakesVersion != e.BakesVersion || (d.BakesFrom is not null && !ReferenceEquals(d.BakesFrom, e));
+    }
+
     private void UpdateBakes(AvatarEntry e, DrawnAvatar d)
     {
-        if (d.BakesVersion != e.BakesVersion)
+        if (NewBakes(e, d))
         {
+            d.BakesFrom = e;
             // the new set: slots whose bake is unchanged keep their texture; the rest are asked for
             var keep = new Dictionary<string, (Guid, Texture2D?, bool)>();
             foreach (var slot in Slots)
@@ -1343,6 +1358,9 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         }
         _layer.SetBakes(d.Id, textures, hidden);
         if (drawn is not null) d.PartsDrawn = string.Join(" ", drawn);
+        // a last good bake the part no longer draws (its new bake is drawn, or the part is hidden) goes now that no material names it
+        foreach (var slot in d.LastGood.Keys.ToList())
+            if (!(textures.TryGetValue(slot, out var t) && ReferenceEquals(t, d.LastGood[slot].Texture))) FreeLastGood(d, slot);
     }
 
     /// <summary>Lets go of another avatar's last good bake of a slot (its new bake is drawn, or hides the part); the materials no longer name it.</summary>

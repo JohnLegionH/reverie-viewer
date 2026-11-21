@@ -213,6 +213,12 @@ public sealed partial class PrimLayer
         return true;
     }
 
+    private void ClearBurstHold()
+    {
+        _burstHeld.Clear();
+        _removalHold.Clear();
+    }
+
     private void ForgetBurstHeld(uint local)
     {
         if (_burstHeld.Remove(local)) _removalHold.Forget(local);
