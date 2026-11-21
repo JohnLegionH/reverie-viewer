@@ -212,6 +212,15 @@ Reverie draws the world as the grid sends it. That includes:
 
 Turn the neighbouring regions off in **Preferences > Graphics** (see [Preferences and add-ons](preferences-and-add-ons.md)).
 
+### Other people
+
+Other people are drawn the way the official viewer draws them.
+
+- Someone who has just arrived appears once their look is complete: their shape, their skin and clothing layers, and what they wear. That takes a few seconds after they arrive.
+- Parts of a person's body that their outfit hides are never drawn. An alpha layer, or a mesh body, hides the body under it.
+- When someone changes clothes, you see their last finished look until the new one has arrived.
+- When someone leaves, what they wear does not come off piece by piece in front of you: it goes with them.
+
 ### Parcels that keep you out
 
 When a parcel does not let you in, you get a notice that says why: you are banned, you are not on its access list, or it is open only to a group.

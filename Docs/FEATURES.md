@@ -72,6 +72,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Sun, sky and water: **World > Environment**. Sunrise (Ctrl+Shift+O), Midday (Ctrl+Shift+Y), Midday (Legacy) (Ctrl+Shift+T), Sunset (Ctrl+Shift+N), Midnight (Ctrl+Shift+Z), Use Shared Environment, Personal Lighting…, Pause Clouds. F9 steps through Use Shared Environment, Sunrise, Midday, Sunset and Midnight (it skips Midday (Legacy)); an active gesture on F9 takes the key instead. Preferences > Graphics can keep the choice for the next login and put the region's sky back after a teleport (both off).
 - About Land: **World > About Land**, or right-click the ground.
 - Region and parcel sky settings, terrain, water, prims, sculpties, mesh, glow, projected lights and the neighbouring regions are drawn as the grid sends them.
+- Other people are drawn as the official viewer draws them: a person appears once their look has arrived (about three seconds after it is complete), the parts of their body their outfit hides (alpha layers, a mesh body) are never drawn, and the last finished look stays while a new one arrives. When someone leaves, what they wear goes with them instead of coming off piece by piece.
 - Parcel ban lines (a wall at the edge of a parcel that refuses you; no setting for it yet) and region restart notices (with the Region restart sound).
 
 ## Settings and add-ons
