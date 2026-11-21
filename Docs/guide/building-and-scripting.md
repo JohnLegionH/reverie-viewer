@@ -247,17 +247,17 @@ Which engine runs a script depends on the grid. The engine row sits in the bar a
 
 On OpenSimulator and its relatives the row shows where the region lists one or more engines, or runs Lua. Until you ask for a choice, it only tells you what runs the script. The drop-down is greyed and names the engine and why: a choice you saved, the engine the script's first line asks for (for example `//YEngine:`), or the region's default.
 
-![The engine row on a region that lists YEngine and Alpha, the tick clear](../../fixtures/ui/golden-ui-script-engine-classic-vulkan.png)
+![The engine row on a region that lists YEngine and Phlox, the tick clear](../../fixtures/ui/golden-ui-script-engine-classic-vulkan.png)
 
 To choose the engine yourself:
 
 1. Open the script and look at the bar. If **Choose engine myself** is not there, the region offers no choice and nothing more is needed.
 2. Tick **Choose engine myself**. The drop-down turns on.
-3. Open the drop-down and pick an engine, for example **Alpha (LSL)**.
+3. Open the drop-down and pick an engine, for example **Phlox (LSL)**.
 4. Press **Save** (or Ctrl+S). The script is saved and compiled for that engine.
 5. To go back, clear the tick. The region then uses the script's first line, or its own default again. You can also right-click a script in the Contents list and use **Engine**, where **Use the first line or region default** clears your choice.
 
-![The tick set and Alpha chosen](../../fixtures/ui/golden-ui-script-engine-on-classic-vulkan.png)
+![The tick set and Phlox chosen](../../fixtures/ui/golden-ui-script-engine-on-classic-vulkan.png)
 
 Where the region runs Lua, the list also has **SLua (LSL)** and **SLua (Lua)**. Pick **SLua (Lua)** for a script written in Lua; the editor then colours it as Lua. **SLua (LSL)** runs an LSL script on the Lua engine.
 
