@@ -56,6 +56,23 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         public HashSet<string> Worn = new();          // body bake slots whose parts a worn mesh hides (its faces name that bake)
         public readonly HashSet<string> Transparent = new();   // body bake slots whose own bake has no drawn pixel (BakeAlphaMask)
         public readonly HashSet<string> SkippedForWorn = new();   // body bake slots left without a texture because a worn mesh draws their bake; loaded if the mesh goes
+        public string PartsDrawn = "all=D";               // what each body part was last given, for the NV_BODY_FRAMES trace: slot=B (bake), L (last good bake), D (default skin), H (not drawn)
+        public string LastBodyTrace = "";              // the last state the NV_BODY_FRAMES trace wrote for it
+    }
+
+    /// <summary>NV_BODY_FRAMES=1: a development aid that writes a <c>body.frame</c> line, with the engine's frame number, whenever what is drawn of another
+    /// avatar's system body changes: whether the avatar is shown, and what each body part is drawn with. Off by default; nothing is built without it.</summary>
+    private static readonly bool s_bodyFrames = System.Environment.GetEnvironmentVariable("NV_BODY_FRAMES") == "1";
+
+    private void TraceBody(AvatarEntry e, DrawnAvatar d)
+    {
+        if (!s_bodyFrames || e.IsSelf || _layer is null || d.Id < 0) return;
+        bool shown = _layer.IsVisible(d.Id);
+        string state = (shown ? "shown " : "not-shown ") + d.PartsDrawn;
+        if (state == d.LastBodyTrace) return;
+        d.LastBodyTrace = state;
+        Main.Log.Info("body.frame", CoreLog.F("frame", WornFrameTrace.Frame), CoreLog.F("local", e.Id.LocalId), CoreLog.F("agent", WornFrameTrace.Short(e.AgentId)),
+            CoreLog.F("shown", shown ? 1 : 0), CoreLog.F("parts", d.PartsDrawn), CoreLog.F("bakes", e.Bakes.Count));
     }
 
     /// <summary>Where one bake slot's texture is: the discard level on the GPU (-1: none yet), the full picture's size and level count once a decode has told
@@ -403,6 +420,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             {
                 _layer.SetVisible(d.Id, shown);
                 if (placed) { _layer.Move(d.Id, soles, yaw, Scene.GroundGap(e, soles)); if (e.IsSelf) SelfDrawnSoles = soles; }
+                TraceBody(e, d);
             }
         }
         if (poseLayer) FrameLayer();
@@ -1256,7 +1274,10 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
     {
         if (_layer is null || d.Id < 0) return;
         using var probe = FrameProbe.Begin(FrameProbe.AvApplyBakes);
-        _layer.SetBakes(d.Id, d.Bakes.Where(kv => kv.Value.Texture is not null).ToDictionary(kv => kv.Key, kv => kv.Value.Texture!), d.Worn.Union(d.Transparent).ToHashSet());
+        var textures = d.Bakes.Where(kv => kv.Value.Texture is not null).ToDictionary(kv => kv.Key, kv => kv.Value.Texture!);
+        var hidden = d.Worn.Union(d.Transparent).ToHashSet();
+        _layer.SetBakes(d.Id, textures, hidden);
+        if (s_bodyFrames) d.PartsDrawn = string.Join(" ", Slots.Select(slot => slot + "=" + (hidden.Contains(slot) ? "H" : textures.ContainsKey(slot) ? "B" : "D")));
     }
 
     private void FreeBake(Guid id, Texture2D? texture)
