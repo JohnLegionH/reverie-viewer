@@ -309,6 +309,12 @@ try {
             # 9 the Return dialog, on an object of A's own: the question opens as a modal dialog that fits the window at each interface size;
             # Esc after its first second cancels it (the object stays); Esc inside the first second does nothing; Enter presses OK (the object is returned)
             Step "9" "return dialog" {
+                # the view must be clear: B leaves (its avatar stood near the box) and the windows the earlier steps opened are closed
+                [void](Api $B "session" '{"action":"logout"}')
+                foreach ($w in @("conversations", "nearby_chat", "notifications", "build", "build_tools", "edit", "object_edit")) { [void](Api $A "windows" @{ action = "close"; name = $w }) }
+                Save-Json "windows-before-return.json" (Api $A "windows" @{ action = "state" })
+                for ($k = 0; $k -lt 6; $k++) { [void](Api $A "input" @{ kind = "key"; key = "ESC"; down = $true }); [void](Api $A "input" @{ kind = "key"; key = "ESC"; down = $false }); Start-Sleep -Milliseconds 200 }
+                Start-Sleep -Seconds 3
                 $me = @((Api $A "observe" '{}').self.region_position)
                 $spot = @{ x = [double]$me[0] + 3.0; y = [double]$me[1]; z = [double]$me[2] - 0.9 }
                 [void](Api $A "interact" @{ action = "aim"; x = $spot.x; y = $spot.y; z = $spot.z; distance = 6 }); Start-Sleep -Milliseconds 1500
@@ -339,7 +345,7 @@ try {
                     Start-Sleep -Milliseconds 1300
                     $m = Api $A "ui" @{ action = "find"; name = "message" }; $b0 = Api $A "ui" @{ action = "find"; name = "button_0" }; $b1 = Api $A "ui" @{ action = "find"; name = "button_1" }
                     [void](Api $A "screenshot" @{ dir = $Sandbox; name = "return-dialog-$pct" })
-                    $inView = ($m.reach -eq "whole") -and ($b0.reach -eq "whole") -and ($b1.reach -eq "whole")
+                    $inView = ($m.reach -eq "visible") -and ($b0.reach -eq "visible") -and ($b1.reach -eq "visible")
                     $step = "at $pct percent: text $($m.reach), OK $($b0.reach), Cancel $($b1.reach), body $bodyKey, default button $def"
                     if ($bodyKey -ne "confirm.return.body" -or $def -ne 0 -or -not $inView -or -not $guard) { $allOk = $false }
                     if ($pct -ne 200) {

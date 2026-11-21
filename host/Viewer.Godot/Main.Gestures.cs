@@ -199,7 +199,7 @@ public partial class Main
     /// start_chat, start_gesture), as the key table binds them in the current mode. Returns whether the key was taken.</summary>
     private bool ChatKey(InputEventKey k)
     {
-        if (_shell?.Chat is not { Visible: true } chat || GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit)
+        if (_shell?.Chat is not { Visible: true } chat || GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit || _notes?.Model.Modal is not null)   // not while an alert holds the keyboard: Enter answers it
             return false;
         var mode = _mouseLook.Active ? Viewer.Motion.KeyMode.FirstPerson : _interact is { Sitting: true } ? Viewer.Motion.KeyMode.Sitting : Viewer.Motion.KeyMode.ThirdPerson;
         string name = k.Keycode == Key.KpDivide ? "DIVIDE" : "ENTER";
