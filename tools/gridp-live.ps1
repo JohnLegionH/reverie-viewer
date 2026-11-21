@@ -184,6 +184,24 @@ try {
                detail = "grid list shows '$label'; welcome link shown $($s.links.visit) reading '$($s.links.visit_text)' (wanted '$wantVisit')" }
         }
 
+        if ($Variant -eq "full") {
+            # the login screen with the grid's pages and the question before a page opens, at each interface size (UI-BASICS lines D3, D4, D12, L7)
+            Step "2b" "interface sizes" {
+                $names = @()
+                foreach ($pct in 100, 150, 200) {
+                    [void](Api $V "interface_size" @{ percent = $pct }); Start-Sleep -Milliseconds 800
+                    Shot $V "login-$pct"
+                    [void](Api $V "login_dialog" @{ action = "show"; kind = "open_link" }); Start-Sleep -Milliseconds 800
+                    $st = Api $V "login_dialog" @{ action = "state" }
+                    Shot $V "open-link-$pct"
+                    [void](Api $V "login_dialog" @{ action = "close" }); Start-Sleep -Milliseconds 300
+                    $names += "$pct%: dialog $([string]$st.kind)"
+                }
+                [void](Api $V "interface_size" @{ percent = 100 })
+                @{ pass = $true; detail = ("pictures login-N.png and open-link-N.png for 100, 150 and 200 percent; " + ($names -join "; ")) }
+            }
+        }
+
         Step "3" "world" {
             $l = Invoke-Api $V "session" @{ action = "login"; accounts_file = $Credentials; account = $Account; login_uri = $loginUri; start = ("uri:" + $Region + "&128&128&25") }
             $st = Wait-Until { $s = State $V; if ($s -and $s.has_session -and $s.stage -eq "InWorld") { $s } } 150

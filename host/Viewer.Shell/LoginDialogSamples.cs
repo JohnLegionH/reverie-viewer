@@ -39,6 +39,7 @@ public static class LoginDialogSamples
         "certificate_error" => LoginDialogs.CertificateError(s, SampleCertificate(CertificateProblem.Expired)),
         "certificate_unreadable" => LoginDialogs.CertificateError(s, new CertificateRefusal("grid.example.org", "", "RemoteCertificateNotAvailable", "", null) { Kind = CertificateProblem.Unreadable }),
         "unknown" => LoginDialogs.Unknown(s),
+        "open_link" => LoginDialogs.OpenLink(s, new Uri("https://grid.example.org/welcome")),
         "disclosure_first_run" => Disclosures.FirstRun(s),
         "disclosure_second_life" => Disclosures.BeforeSecondLife(s),
         _ => null,
