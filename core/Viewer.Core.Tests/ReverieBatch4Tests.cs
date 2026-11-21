@@ -17,10 +17,10 @@ public class ReverieBatch4Tests
     private static string Host(params string[] path) => File.ReadAllText(Path.Combine([TestPaths.RepoRoot, "host", "Viewer.Godot", .. path]));
 
     [Fact]
-    public void The_upload_windows_and_the_sound_tuner_are_on_the_restyle_list_by_their_ids()
+    public void The_upload_windows_are_on_the_restyle_list_by_their_ids()
     {
         string restyle = Host("Reverie", "ReverieRestyle.cs");
-        foreach (var id in new[] { "BuildFeature.ImageFloaterId", "BuildFeature.BulkFloaterId", "ModelFeature.ModelFloaterId", "ModelFeature.BulkModelsFloaterId", "SoundTunerPanel.FloaterId" })
+        foreach (var id in new[] { "BuildFeature.ImageFloaterId", "BuildFeature.BulkFloaterId", "ModelFeature.ModelFloaterId", "ModelFeature.BulkModelsFloaterId" })
             Assert.Contains(id, restyle);
     }
 

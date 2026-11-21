@@ -11,8 +11,6 @@
 #   loop          a loop on an object 10 m east, gain 1                   -> playing at the object, gain 0.05, looping
 #   gain change   the object's sound to gain 0.2                          -> gain 0.01
 #   stop          a null sound for the object                             -> the object's source is gone
-#   tuner         the Sound Tuner: the typing sound's length moved, saved, reset -> tuned and played, then back to the committed recipe;
-#                 the click, a recording, has no recipe to choose
 # Output: the sandbox folder (world-sound-check.txt, world-sound-check.json, the viewer's log). Exit 0 all passed, 1 a step failed, 3 blocked.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\world-sound-check.ps1 -Sandbox <new folder> [-Exe <viewer>]
 # Needs the development export (tools\s1.ps1 makes it) and a granted lane claim.

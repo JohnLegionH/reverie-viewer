@@ -125,7 +125,7 @@ public class GridUiSoundTests
     [Fact]
     public void A_sound_cached_from_one_grid_is_never_read_for_another_in_the_content_store()
     {
-        var root = Path.Combine(Path.GetTempPath(), "gridsound-" + Guid.NewGuid().ToString("N"));
+        var root = TestTemp.NewFolderPath("gridsound");
         var store = new ContentStore(new ContentStoreOptions { Root = root, KeyProtector = new OwnerOnlyFileKeyProtector() });
         var id = UiSoundCatalog.Of(UiSoundSlot.Click).GridId;
         var viewA = store.View(GridSoundCache.Scope("http://grid-a.example.org:9000/"), "s1");
