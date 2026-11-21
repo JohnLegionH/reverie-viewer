@@ -31,6 +31,8 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Nearby chat: **Communicate > Nearby chat** (Ctrl+H), or the dock's Chat button. Press Enter in the world (or click the chat bar) to type; the number pad's / starts a line with a / typed. In a chat line, Enter says, Shift+Enter whispers, Ctrl+Enter shouts, `/5 text` speaks on channel 5.
 - Instant messages and group chat, in tabs with unread counts: **Communicate > Conversations** (Ctrl+T). Select several friends to start one conference.
 - People window: **Communicate > People** (Ctrl+Shift+A), with Friends, Groups, Notices and Blocked tabs. Friend offers, your active group and title, group notices.
+- Click a resident's name in nearby chat or in a message for the name menu (IM, Offer Teleport, Request Teleport, Add Friend, Copy Name and the rest; what is not built is greyed with the reason). A friend coming online or going offline shows a notice (press it to open a conversation) and a line in nearby chat; both can be switched off in Preferences > Chat.
+- Return, Delete (for a locked, no-copy or not-yours object), Drop (for a worn object) and giving a friend the right to edit your objects each ask in one dialog: OK or Yes with Enter, Cancel or No with Esc.
 - Friend offers, teleport offers and teleport requests: right-click an avatar (**Add Friend**, **Offer Teleport**, **Request Teleport**), or **World > Teleport…** for a friend. Answer incoming ones in the notice that appears, or in People > Friends and the Teleport window.
 - Notifications and offers: **Communicate > Notifications** (Alt+Shift+N), or the dock's Notices button.
 - Gestures, with chat triggers and function keys (F2 to F12): **Me > Gestures…** (Ctrl+G).

@@ -182,8 +182,9 @@ Right-click an object in the world. The menu has:
 
 - **Take**: puts the object into your inventory (in the Objects folder) and removes it from the world.
 - **Take Copy**: puts a copy into your inventory and leaves the object where it is. It shows only for an object you may copy.
-- **Return**: sends the object back to its owner. A question asks first; choose its **OK** entry to go on. It is greyed for something you wear. Whether you may return the object is decided by the region: your own objects, and objects on land you own or have the rights to manage.
-- **Delete**: moves the object to your Trash. For an object that is locked, cannot be copied, or is not yours, a question asks first. Choose its **OK** entry to go on. Closing the menu cancels.
+- **Return**: sends the object back to its owner. A dialog asks first and warns that no-transfer deeded objects will be deleted. Press **OK** (or Enter) to go on, or **Cancel** (or Esc). It is greyed for something you wear. Whether you may return the object is decided by the region: your own objects, and objects on land you own or have the rights to manage.
+- **Delete**: moves the object to your Trash. For an object that is locked, cannot be copied, or is not yours, a dialog says which and asks first. Press **OK** (or Enter) to go on, or **Cancel** (or Esc).
+- **Drop**: on an object you wear, drops it on the ground. A dialog asks first. Press **Yes** (or Enter) to go on, or **No** (or Esc).
 
 When an object is for sale and is not yours, **Buy** takes the place of **Take**. For your own worn objects, see [Inventory, outfits and appearance](inventory-and-appearance.md).
 

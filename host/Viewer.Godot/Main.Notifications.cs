@@ -156,6 +156,8 @@ public partial class Main
                     unread = model.UnreadCount,
                     toasts = model.Toasts.Count,
                     modal = model.Modal is not null,
+                    modal_body = model.Modal?.Body.Key,
+                    modal_default = model.Modal?.DefaultButton,
                     history = model.History.Count,
                     throttled = hub.Prompts.Throttled, unknown = hub.Prompts.Unknown, muted = hub.Prompts.Muted,
                     waiting = model.List.Select(n => new

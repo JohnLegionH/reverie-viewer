@@ -13,8 +13,9 @@
 #   6 toast      (-Full) pressing the online toast opens the instant-message conversation with B
 #   7 name menu  (-Full) the name in the chat line offers Offer Teleport, and choosing it sends B a teleport offer
 #   8 chat line  (-Full) "<name> is online" is in A's nearby chat while the Preferences switch is on, and not after it is turned off
-#   9 logout     both accounts log out and both viewers exit
-#   10 server    the server is stopped and reported down
+#   9 return dialog (-Full) Return on an object of A's own opens the modal dialog; it fits the window at interface size 100, 150 and 200 percent; Esc after a second cancels, Esc inside the first second does nothing, Enter presses OK
+#   10 logout    both accounts log out and both viewers exit
+#   11 server    the server is stopped and reported down
 # Exit: 0 every step passed; 1 a step failed; 3 blocked (an input is missing); 4 skipped (a lane claim was not granted).
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\friend-live.ps1 -Sandbox <new evidence folder> [-Exe <development export>] [-Full]
@@ -304,6 +305,61 @@ try {
                 [void](Api $A "prefs" @{ action = "set"; key = "friend_online_in_chat"; value = $true })
                 @{ pass = ($on -ge 1 -and $off -eq $on); detail = "lines holding the word with the switch on $on; after B came online again with it off $off" }
             }
+
+            # 9 the Return dialog, on an object of A's own: the question opens as a modal dialog that fits the window at each interface size;
+            # Esc after its first second cancels it (the object stays); Esc inside the first second does nothing; Enter presses OK (the object is returned)
+            Step "9" "return dialog" {
+                $me = @((Api $A "observe" '{}').self.region_position)
+                $spot = @{ x = [double]$me[0] + 3.0; y = [double]$me[1]; z = [double]$me[2] - 0.9 }
+                [void](Api $A "interact" @{ action = "aim"; x = $spot.x; y = $spot.y; z = $spot.z; distance = 6 }); Start-Sleep -Milliseconds 1500
+                $before = @((Api $A "build" @{ action = "state" }).own_objects | ForEach-Object { $_.id })
+                [void](Api $A "build" @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z })
+                $box = Wait-Until { $b = Api $A "build" @{ action = "state" }; @($b.own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
+                if (-not $box) { return @{ pass = $false; detail = "no box was made" } }
+                $script:box = $box
+                $detail = @()
+                $allOk = $true
+                foreach ($pct in @(100, 150, 200)) {
+                    [void](Api $A "interface_size" @{ percent = $pct }); Start-Sleep -Milliseconds 700
+                    [void](Api $A "interact" @{ action = "aim"; x = [double]$box.x; y = [double]$box.y; z = [double]$box.z; distance = 2.2 }); Start-Sleep -Milliseconds 1200
+                    $rc = Api $A "interact" @{ action = "rightclick"; x = [double]$box.x; y = [double]$box.y; z = ([double]$box.z + [double]$box.sz / 2) }
+                    $ret = @($rc.entries | Where-Object { $_.Id -eq "return" }) | Select-Object -First 1
+                    $ch = if ($ret -and $ret.Enabled) { (Api $A "interact" @{ action = "choose"; entry = "return" }).chosen } else { $false }
+                    $up = Wait-Until { $d = Api $A "dialog" @{}; if ($d.modal) { $d } } 10
+                    if (-not $up) { $detail += "at $pct percent: entry $([bool]$ret), chosen $ch, no dialog"; $allOk = $false; continue }
+                    $bodyKey = [string]$up.modal_body; $def = $up.modal_default
+                    $guard = $true
+                    if ($pct -eq 200) {
+                        # Esc at once (inside the first second) must not answer it
+                        [void](Api $A "input" @{ kind = "key"; key = "ESC"; down = $true }); [void](Api $A "input" @{ kind = "key"; key = "ESC"; down = $false })
+                        $guard = [bool](Api $A "dialog" @{}).modal
+                    }
+                    Start-Sleep -Milliseconds 1300
+                    $m = Api $A "ui" @{ action = "find"; name = "message" }; $b0 = Api $A "ui" @{ action = "find"; name = "button_0" }; $b1 = Api $A "ui" @{ action = "find"; name = "button_1" }
+                    [void](Api $A "screenshot" @{ dir = $Sandbox; name = "return-dialog-$pct" })
+                    $inView = ($m.reach -eq "whole") -and ($b0.reach -eq "whole") -and ($b1.reach -eq "whole")
+                    $step = "at $pct percent: text $($m.reach), OK $($b0.reach), Cancel $($b1.reach), body $bodyKey, default button $def"
+                    if ($bodyKey -ne "confirm.return.body" -or $def -ne 0 -or -not $inView -or -not $guard) { $allOk = $false }
+                    if ($pct -ne 200) {
+                        # Esc after the first second cancels: the dialog closes and the object stays
+                        [void](Api $A "input" @{ kind = "key"; key = "ESC"; down = $true }); [void](Api $A "input" @{ kind = "key"; key = "ESC"; down = $false })
+                        $closed = [bool](Wait-Until { if (-not (Api $A "dialog" @{}).modal) { $true } } 5)
+                        $stays = @((Api $A "build" @{ action = "state" }).own_objects | Where-Object { $_.id -eq $box.id }).Count -eq 1
+                        $step += "; Esc closed it $closed, object stays $stays"
+                        if (-not ($closed -and $stays)) { $allOk = $false }
+                    } else {
+                        $step += "; Esc inside the first second left it up $guard"
+                        [void](Api $A "input" @{ kind = "key"; key = "ENTER"; down = $true }); [void](Api $A "input" @{ kind = "key"; key = "ENTER"; down = $false })
+                        $gone = [bool](Wait-Until { $b = Api $A "build" @{ action = "state" }; if (@($b.own_objects | Where-Object { $_.id -eq $box.id }).Count -eq 0) { $true } } 20)
+                        $closed = -not [bool](Api $A "dialog" @{}).modal
+                        $step += "; Enter returned the object $gone and closed the dialog $closed"
+                        if (-not ($gone -and $closed)) { $allOk = $false }
+                    }
+                    $detail += $step
+                }
+                [void](Api $A "interface_size" @{ percent = 100 })
+                @{ pass = $allOk; detail = ($detail -join "; ") }
+            }
         }
     }
 }
@@ -318,9 +374,9 @@ finally {
         $code = if ($exited) { $v.Proc.ExitCode } else { "still running" }
         if ($v.Label -eq "A") { $exA = $code } else { $exB = $code }
     }
-    $pass9 = ($null -ne $A) -and ($null -ne $B) -and ($exA -eq 0) -and ($exB -eq 0)
-    Record "9" "logout" ([bool]$pass9) ("viewer A exit {0}, viewer B exit {1}" -f $exA, $exB)
-    $allPass = $allPass -and [bool]$pass9
+    $pass10 = ($null -ne $A) -and ($null -ne $B) -and ($exA -eq 0) -and ($exB -eq 0)
+    Record "10" "logout" ([bool]$pass10) ("viewer A exit {0}, viewer B exit {1}" -f $exA, $exB)
+    $allPass = $allPass -and [bool]$pass10
     foreach ($vp in $startedViewers) {
         if ($vp.HasExited) { continue }
         $stopped = Stop-Tree $vp.Id
@@ -330,10 +386,10 @@ finally {
     if ($serverStarted) {
         $stopCode = Server "stop"
         $statusCode = Server "status"
-        $pass10 = ($stopCode -eq 0) -and ($statusCode -ne 0)
-        Record "10" "server stopped" $pass10 "stop exit $stopCode, status exit $statusCode (1 means down)"
-    } else { $pass10 = $false; Record "10" "server stopped" $false "the server was not started by this run (refused), so it was left alone" }
-    $allPass = $allPass -and $pass10
+        $pass11 = ($stopCode -eq 0) -and ($statusCode -ne 0)
+        Record "11" "server stopped" $pass11 "stop exit $stopCode, status exit $statusCode (1 means down)"
+    } else { $pass11 = $false; Record "11" "server stopped" $false "the server was not started by this run (refused), so it was left alone" }
+    $allPass = $allPass -and $pass11
     $report.finished_utc = (Get-Date).ToUniversalTime().ToString("o")
     $report.pass = [bool]$allPass
     $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Sandbox "friend-live.json") -Encoding utf8

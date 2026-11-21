@@ -30,7 +30,9 @@ Reverie has **no key binding editor yet**. You cannot change a key from inside t
 | Ctrl+Alt+F | Switch between full screen and a window |
 | Ctrl+Q | Quit |
 
-Esc closes the window that has the focus. If you are typing in a text box, the first Esc lets go of the box, and a second one closes the window.
+Esc closes the window that has the focus. If you are typing in a text box, the first Esc lets go of the box, and a second one closes the window. While a dialog asks a question, Esc answers the dialog (as Cancel or No, after a second) and never closes a window behind it; Enter presses the dialog's default button.
+
+While you type in a text box, it keeps Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y and Ctrl+D, so they never run a menu shortcut. For example, Ctrl+D in a script does not duplicate the selected object.
 
 ## Moving and the camera
 
@@ -106,7 +108,7 @@ These are the shortcuts of the **Build** menu. Some need something selected, and
 | Ctrl+3 | Edit tool |
 | Ctrl+4 | Create tool |
 | Esc | Leave build mode, clear the selection and close the Build window. Build mode only |
-| Ctrl+D | Duplicate the selected objects (Build > Object > Duplicate). Greyed unless a selected object may be copied |
+| Ctrl+D | Duplicate the selected objects (Build > Object > Duplicate). Greyed unless a selected object may be copied. Not while you type in a text box |
 | Ctrl+L | Link the selected objects |
 | Ctrl+Shift+L | Unlink |
 | Ctrl+. | Select the next part of a linked object |

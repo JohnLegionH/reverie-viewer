@@ -62,7 +62,7 @@ A line that starts with `/me` is an emote. `/me waves` shows your name followed 
 
 ### Names and links
 
-Click a person's name in the history. It opens a private conversation with them. Click an object's name to see its owner and where it is.
+Click a person's name in nearby chat or in a message. A menu opens with **View Profile**, **IM**, **Offer Teleport**, **Request Teleport**, **Add Friend** (or **Remove Friend** for a friend), **Pay**, **Share**, **Block** (or **Unblock**), **Report Abuse** and **Copy Name**. Choose **IM** to start a private conversation. An entry that is not built yet is greyed; point at it to see why. Click an object's name to see its owner and where it is.
 
 ### What else you see
 
@@ -78,7 +78,7 @@ There is one tab for each conversation. A tab shows how many messages you have n
 ### Send a private message
 
 1. Open a conversation. You can do it three ways:
-   - Click the person's name in nearby chat.
+   - Click the person's name in nearby chat and choose **IM**.
    - Right-click their avatar and choose **IM**.
    - In **People > Friends**, pick a friend and press **Message**.
 2. Type in the line at the bottom.
@@ -130,7 +130,7 @@ Under the buttons are three boxes. They say what the picked friend may do:
 
 - They can see when I am online.
 - They can see me on the map.
-- They can edit my objects. The viewer asks you to confirm this one, because they could change or delete your objects.
+- They can edit my objects. A dialog asks you to confirm this one. It warns that the friend could change, delete or take any of your objects. Answer **Yes** or **No**; Enter answers **Yes**, and Esc answers **No**.
 
 Below them, the window also tells you what that friend allows you to do.
 

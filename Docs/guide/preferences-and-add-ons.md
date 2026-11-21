@@ -64,6 +64,8 @@ Music, media and voice are not in Reverie yet. The page says so.
 - **Chat text size (pixels).** From 10 to 32.
 - **Seconds nearby chat stays over the view.** 0 keeps lines until newer ones push them out.
 - **Show the time on chat and instant messages.**
+- **Tell me when a friend comes online or goes offline.** On by default. It shows a notice for a few seconds; press the notice to open a conversation with that friend.
+- **Also show that in nearby chat.** On by default. It adds a line such as "Ann Example is online." to nearby chat. The name in the line is a link: click it for the name menu.
 
 ### Move & View
 
