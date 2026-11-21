@@ -52,7 +52,7 @@ public sealed partial class PrimLayer
     // mesh LOD surface data prepared off the main thread; the objects waiting for each (asset, LOD)
     // (where they are, to tell whether they still want it when it is ready), and the ready ones not handed over yet
     private readonly MeshLodPreparer? _preparer;
-    private readonly Dictionary<(Guid Asset, int Lod), Dictionary<uint, (Vector3 Origin, float Radius)>> _lodWaiting = new();
+    private readonly Dictionary<(Guid Asset, int Lod), Dictionary<uint, (Vector3 Origin, float Radius, uint Wearer)>> _lodWaiting = new();   // Wearer: the avatar a worn piece hangs from (0: not worn), so the level is judged again from the same distance it was asked for
     private readonly HashSet<(Guid Asset, int Lod)> _handoverPending = new();
     // when each asset's decoded geometry was last needed to build a LOD; the assets let go
     // this frame (reused); the busy test (made once); the keeper's frame count (its deterministic clock in test renders)
@@ -902,11 +902,13 @@ public sealed partial class PrimLayer
 
     /// <summary>From the LODs the asset has (known once it was decoded, also after its geometry was let go); starts
     /// no fetch or decode.</summary>
-    private int? WantedLod(Guid asset, Vector3 origin, float radius, uint local)
+    /// <param name="wearer">The avatar the piece hangs from when the caller knows it (a waiter records it: a first build is removed while it
+    /// waits, which forgets the piece's worn record); 0: look it up.</param>
+    private int? WantedLod(Guid asset, Vector3 origin, float radius, uint local, uint wearer = 0)
     {
         if (_meshSource is null || !_meshSource.TryGetLods(asset, out var lods))
             return null;
-        return MeshGeometry.Resolve(lods, DetailFor(asset, MeshLodDistance(local, origin), radius));
+        return MeshGeometry.Resolve(lods, DetailFor(asset, wearer != 0 ? WearerLodDistance(wearer, origin) : MeshLodDistance(local, origin), radius));
     }
 
     /// <summary>The distance a mesh object's level of detail is chosen with: a worn piece takes its wearer's box (as a rigged one does,
@@ -1108,7 +1110,7 @@ public sealed partial class PrimLayer
             bool wanted = false;
             if (_lodWaiting.Remove(ready, out var waiters))
                 foreach (var (w, at) in waiters)
-                    if (_world.Object(new ObjectId(_world.Epoch, w)) is { Shape: { } sh } && sh.SculptId == ready.Asset && WantedLod(ready.Asset, _meshObjects.TryGetValue(w, out var mo) ? mo.Origin : at.Origin, at.Radius, w) == ready.Lod)
+                    if (_world.Object(new ObjectId(_world.Epoch, w)) is { Shape: { } sh } && sh.SculptId == ready.Asset && WantedLod(ready.Asset, _meshObjects.TryGetValue(w, out var mo) ? mo.Origin : at.Origin, at.Radius, w, at.Wearer) == ready.Lod)
                     {
                         _dirty.Add(w);
                         wanted = true;
@@ -1316,7 +1318,7 @@ public sealed partial class PrimLayer
                 // it has until the new one is ready; a first build shows the object once its data is ready.
                 _preparer.Request(key, g.Lods[lod]!.Faces);   // (marked needed above, with the request)
                 if (!_lodWaiting.TryGetValue(key, out var waiters)) _lodWaiting[key] = waiters = new();
-                waiters[local] = (xf.Origin, radius);
+                waiters[local] = (xf.Origin, radius, att?.WearerLocalId ?? 0u);
                 if (_instances.TryGetValue(local, out var cur) && cur.Shape == o.Shape && _meshObjects.TryGetValue(local, out var was) && was.Asset == asset
                     && _meshAssets.TryGetValue((asset, cur.Lod), out var previous))
                 {

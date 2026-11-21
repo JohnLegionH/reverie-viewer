@@ -88,7 +88,7 @@ public partial class Main
         var sky = _presenter?.Environment?.Frame is { } f ? new
         {
             sun = new[] { f.SunDirection.X, f.SunDirection.Y, f.SunDirection.Z },
-            sun_elevation_deg = Math.Round(Math.Asin(Math.Clamp(System.Numerics.Vector3.Normalize(f.SunDirection).Z, -1f, 1f)) * 180 / Math.PI, 1),
+            sun_elevation_deg = Elevation(f.SunDirection),
             sun_colour = new[] { f.SunColor.X, f.SunColor.Y, f.SunColor.Z },
             ambient = new[] { f.Ambient.X, f.Ambient.Y, f.Ambient.Z },
             probe_ambiance = f.ProbeAmbiance,
@@ -98,14 +98,21 @@ public partial class Main
             {
                 day_length = env.DayLength, day_offset = env.DayOffset,
                 fraction_now = Math.Round(env.DayFraction(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0), 4),
-                frames = env.Sky.Select(k => new
+                frames = (env.Sky.IsDefault ? [] : env.Sky).Select(k => new
                 {
                     key = k.Key, sun = new[] { k.SunDirection.X, k.SunDirection.Y, k.SunDirection.Z },
-                    sun_elevation_deg = Math.Round(Math.Asin(Math.Clamp(System.Numerics.Vector3.Normalize(k.SunDirection).Z, -1f, 1f)) * 180 / Math.PI, 1),
+                    sun_elevation_deg = Elevation(k.SunDirection),
                 }).ToArray(),
             } : null,
         } : null;
         return new { avatars = list, sky };
+    }
+
+    /// <summary>A sun direction's elevation in degrees, rounded; 0 for a direction of no length (so the readout never carries a value JSON cannot hold).</summary>
+    private static double Elevation(System.Numerics.Vector3 d)
+    {
+        float len = d.Length();
+        return len > 1e-6f && float.IsFinite(len) ? Math.Round(Math.Asin(Math.Clamp(d.Z / len, -1f, 1f)) * 180 / Math.PI, 1) : 0;
     }
 
     /// <summary>Writes the picture of an avatar's bake in a slot, as the engine holds it, to the log folder (never anywhere else). Null when it has none or no folder is named.</summary>

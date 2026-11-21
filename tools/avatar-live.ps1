@@ -63,7 +63,7 @@ param(
     [switch]$MoveObserved,
     [switch]$ProbeOnly,
     [switch]$ObservedOutFirst,   # at the end the observed avatar logs out first and the observer keeps watching -WatchLogoutSeconds before it logs out
-    [int]$WatchLogoutSeconds = 15,
+    [ValidateRange(0, 300)][int]$WatchLogoutSeconds = 15,
     [string]$SaveBake = "",   # a bake slot (e.g. head): the final avatar_probe also saves the picture the observer holds of the observed avatar's bake in that slot, under its log folder
     [string]$DryRunDir = ""   # a folder: the observed viewer also bakes its worn outfit here (NV_BAKE_DRYRUN_DIR) and writes each bake as a picture there, uploading and sending nothing
 )
