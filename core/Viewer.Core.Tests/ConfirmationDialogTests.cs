@@ -166,7 +166,7 @@ public class ConfirmationDialogTests
     public void A_text_field_takes_its_editing_chords_before_any_menu(string key)
     {
         Assert.True(MenuShortcuts.TextFieldFirst(new KeyChord(key, Control: true)));
-        Assert.True(MenuShortcuts.TextFieldFirst(new KeyChord(key, Control: true, Shift: true)) || key != "Z");   // redo is Ctrl+Shift+Z
+        Assert.Equal(key == "Z", MenuShortcuts.TextFieldFirst(new KeyChord(key, Control: true, Shift: true)));   // only redo, Ctrl+Shift+Z, keeps Shift
     }
 
     [Theory]

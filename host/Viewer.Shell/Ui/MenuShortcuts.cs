@@ -53,7 +53,7 @@ public static class MenuShortcuts
     /// (Select All, Copy, Paste, Cut, Undo, Redo, and Ctrl+D, which would otherwise duplicate the Build selection while a script is typed).
     /// The official viewer gives the Edit menu's Copy, Paste, Select All, Undo and Redo to whatever holds the keyboard, a line editor while it has
     /// it (llviewermenu.cpp, gEditMenuHandler).</summary>
-    public static bool TextFieldFirst(KeyChord chord) => chord.Control && !chord.Alt && (chord.Key is "A" or "C" or "V" or "X" or "Y" or "Z" || (chord.Key == "D" && !chord.Shift));
+    public static bool TextFieldFirst(KeyChord chord) => chord.Control && !chord.Alt && (chord.Key == "Z" || (!chord.Shift && chord.Key is "A" or "C" or "V" or "X" or "Y" or "D"));   // Ctrl+Shift+Z is redo
 
     /// <summary>The entry a chord runs now, or null: none has it, it is disabled, or a text field takes it.</summary>
     public static TopMenuEntryView? Route(IReadOnlyList<TopMenuView> menus, KeyChord chord, bool textEntry)

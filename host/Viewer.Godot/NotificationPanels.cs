@@ -277,6 +277,10 @@ public partial class ToastStack : Control
     private NotificationHub? _hub;
     private bool _dirty = true;
 
+    /// <summary>The draw order of the modal layer: over every window (the right-click menu is at 100).</summary>
+    private const int ModalZ = 200;
+    private long _modalShown;   // the id of the alert drawn now (0: none)
+
     public ScrollContainer Scroll { get; }
     public VBoxContainer Stack { get; }
     public Button Badge { get; }
@@ -312,9 +316,11 @@ public partial class ToastStack : Control
 
         Dim = new ColorRect { Name = "modal_dim", Color = ShellTheme.C(UiTheme.Tokens.Scrim), Visible = false, MouseFilter = MouseFilterEnum.Stop };
         Dim.SetAnchorsPreset(LayoutPreset.FullRect);
+        Dim.ZIndex = ModalZ;   // above the windows and the menus: an alert is answered first
         AddChild(Dim);
         ModalCentre = new CenterContainer { Name = "modal_centre", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
         ModalCentre.SetAnchorsPreset(LayoutPreset.FullRect);
+        ModalCentre.ZIndex = ModalZ + 1;
         AddChild(ModalCentre);
     }
 
@@ -336,7 +342,13 @@ public partial class ToastStack : Control
         if (!_dirty)
             return;
         _dirty = false;
-        foreach (var child in Stack.GetChildren().Concat(ModalCentre.GetChildren()).ToArray())
+        // the alert already on screen stays as it is while other notifications come and go: rebuilding it would put the keyboard back on
+        // its default button after the user had moved to another one
+        long modalNow = _hub?.Model.Modal?.Id ?? 0;
+        var stale = Stack.GetChildren().ToList();
+        if (modalNow != _modalShown)
+            stale.AddRange(ModalCentre.GetChildren());
+        foreach (var child in stale)
         {
             child.GetParent().RemoveChild(child);
             child.QueueFree();
@@ -345,6 +357,7 @@ public partial class ToastStack : Control
         if (model is null)
         {
             Badge.Visible = Dim.Visible = ModalCentre.Visible = false;
+            _modalShown = 0;
             Unread = 0;
             return;
         }
@@ -367,13 +380,14 @@ public partial class ToastStack : Control
         Badge.AccessibilityName = Badge.Text;
         var modal = model.Modal;
         Dim.Visible = ModalCentre.Visible = modal is not null;
-        if (modal is not null)
+        if (modal is not null && modal.Id != _modalShown)
         {
             var (alert, def) = AlertDialogView.Build(modal, _strings, Answer);
             ModalCentre.AddChild(alert);
             // the default button holds the keyboard, so Enter answers it, and a newly opened alert takes focus from whatever was being typed in
             def?.CallDeferred(Control.MethodName.GrabFocus);
         }
+        _modalShown = modal?.Id ?? 0;
     }
 
     private void Answer(long id, int button, string text) => _hub?.Model.Answer(id, button, text);
