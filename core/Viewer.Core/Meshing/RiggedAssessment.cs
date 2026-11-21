@@ -63,6 +63,12 @@ public static class RiggedAssessment
         return Math.Max(0.01f, MathF.Floor(offset.Length() / 0.01f + 0.5f) * 0.01f);
     }
 
+    /// <summary>The distance any worn piece (rigged or not) takes its level of detail from. The official viewer gives every volume worn on an avatar the
+    /// camera's distance to its wearer's box (lldrawable.cpp LLDrawable::updateDistance, the volume->getAvatar() branch), not to the piece itself, so a
+    /// shoe at the feet is as near as the avatar; a piece whose wearer's box is not known (<paramref name="wearerCentre"/> null) takes its own.</summary>
+    public static float WornDistance(Vector3 camera, Vector3 ownCentre, Vector3? wearerCentre, Vector3 wearerSize) =>
+        Vector3.Distance(camera, ownCentre);
+
     private static float Outside(float from, float half) => from > half ? from - half : from < -half ? from + half : 0f;
 
     /// <summary>Whether level <paramref name="lod"/> of <paramref name="g"/> can be skinned from what the decoder read.</summary>

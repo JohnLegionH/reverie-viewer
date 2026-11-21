@@ -109,6 +109,20 @@ public class RiggedDrawRulesTests
     }
 
     [Fact]
+    public void A_worn_piece_that_is_not_rigged_takes_its_distance_from_the_wearers_box_not_from_itself()
+    {
+        // a shoe at the feet of a standing avatar, the camera 3 m in front of it at chest height: the official viewer measures to the avatar's box (2.78 m),
+        // not to the shoe (3.2 m)
+        var centre = new Vector3(100f, 100f, 21f);
+        var size = new Vector3(0.45f, 0.6f, 1.9f);
+        var shoe = centre + new Vector3(0f, 0f, -0.85f);
+        var camera = centre + new Vector3(3f, 0f, 0.2f);
+        Assert.Equal(2.78f, RiggedAssessment.WornDistance(camera, shoe, centre, size), 0.011f);
+        // the wearer's box not known yet: the piece's own distance
+        Assert.Equal(Vector3.Distance(camera, shoe), RiggedAssessment.WornDistance(camera, shoe, null, size), 0.0001f);
+    }
+
+    [Fact]
     public void The_distance_of_a_rigged_mesh_is_the_camera_to_the_wearers_box_and_never_less_than_a_centimetre()
     {
         var centre = new Vector3(100f, 100f, 21f);
