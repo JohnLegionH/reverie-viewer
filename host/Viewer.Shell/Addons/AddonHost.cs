@@ -619,9 +619,9 @@ public sealed class AddonHost : IActionVeto, IDisposable
         }
         try
         {
-            File.WriteAllText(Path.Combine(SettingsFolderOf(id), "settings.json"), JsonSerializer.Serialize(settings, Indented));
+            WriteWhole(Path.Combine(SettingsFolderOf(id), "settings.json"), JsonSerializer.Serialize(settings, Indented));
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.Warn("addon.settings_unwritable", CoreLog.F("id", id), CoreLog.F("error", ex.GetType().Name));
         }
@@ -638,6 +638,24 @@ public sealed class AddonHost : IActionVeto, IDisposable
     }
 
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
+
+    /// <summary>Writes a file so that it is either the old one or the whole new one: the text goes to a temporary file beside it, which then
+    /// replaces it by a rename. A viewer ended in the middle of the write (a forced end at exit, a crash) leaves the old file, never a cut
+    /// one. The temporary file is removed when the write fails.</summary>
+    private static void WriteWhole(string path, string text)
+    {
+        string temp = path + ".new";
+        try
+        {
+            File.WriteAllText(temp, text);
+            File.Move(temp, path, overwrite: true);
+        }
+        catch
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            throw;
+        }
+    }
 
     private sealed record StateFile(Dictionary<string, bool>? Enabled, Dictionary<string, string[]>? Granted);
 
@@ -669,9 +687,9 @@ public sealed class AddonHost : IActionVeto, IDisposable
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_stateFile))!);
-            File.WriteAllText(_stateFile, JsonSerializer.Serialize(new StateFile(_savedEnabled, _savedGranted), Indented));
+            WriteWhole(_stateFile, JsonSerializer.Serialize(new StateFile(_savedEnabled, _savedGranted), Indented));
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.Warn("addon.state_unwritable", CoreLog.F("error", ex.GetType().Name));
         }

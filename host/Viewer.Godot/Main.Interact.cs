@@ -94,6 +94,7 @@ public partial class Main
                     Unblock: (kind, id) => s.Unblock(id, BlockName(s, kind, id)),
                     IsBlocked: (kind, id) => s.Mutes.Find(id) is not null);
                 _interact = new InteractionController(s.World, s.Actions.Submit, s.AgentId, hooks, a => Friends().Any(f => f.Id == a));
+                _interact.NoMoney = () => s.GridFeatures.NoCurrency;   // no Pay on a grid with no money
                 _interact.ConfirmationRequested += question => _notes?.Model.Post(question);   // Return, Delete and Drop ask in the one shared dialog
                 // the camera when a click is made, in the pick ray's frame: a sit request's offset is taken from it as the official viewer does
                 _interact.Camera = () =>

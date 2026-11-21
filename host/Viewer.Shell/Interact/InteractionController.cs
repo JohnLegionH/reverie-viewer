@@ -66,6 +66,9 @@ public sealed class InteractionController
         _isFriend = isFriend;
     }
 
+    /// <summary>Whether the grid has no money (its currency is none): Pay is left out of the object menu.</summary>
+    public Func<bool>? NoMoney { get; set; }
+
     /// <summary>Plays an interface sound (the object sounds of creating, rezzing, taking and deleting).</summary>
     public Action<global::Viewer.Shell.Sound.UiSoundSlot>? PlaySound { get; set; }
 
@@ -543,7 +546,7 @@ public sealed class InteractionController
         return ContextMenus.ForObject(new ObjectMenuContext(prim.Interaction, root.Interaction, worn, SittingOn(root), Sitting,
             _social.IsBlocked?.Invoke(MuteKind.Object, root.FullId) == true, CanDetach: worn && SelfHooks?.Detach is not null && root.AttachItemId is { } item && item != Guid.Empty
                 && (SelfHooks.CanDetachItem?.Invoke(item) ?? true),
-            ForSale: sale is not null && ObjectSale.IsForSale(sale), CanBuy: sale is not null && ObjectSale.CanBuy(sale)));
+            ForSale: sale is not null && ObjectSale.IsForSale(sale), CanBuy: sale is not null && ObjectSale.CanBuy(sale), NoMoney: NoMoney?.Invoke() == true));
     }
 
     /// <summary>An object's menu: its own entries and, for an own worn object, the own avatar's part after them, Take Off and its Clothes

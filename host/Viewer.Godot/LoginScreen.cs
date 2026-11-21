@@ -59,6 +59,8 @@ public partial class LoginScreen : Control
     private readonly HBoxContainer _links;
     private readonly LinkButton _register;
     private readonly LinkButton _forgot;
+    private readonly LinkButton _visit;
+    private Uri? _registerPage, _forgotPage, _visitPage;
     private GridBranding _branding = GridBranding.None;
     private LoginOverlay? _overlay;
 
@@ -266,12 +268,18 @@ public partial class LoginScreen : Control
         _register.AccessibilityName = _register.Text;
         _forgot = new LinkButton { Name = "forgot", Text = strings.Get("login.forgot"), Visible = false };
         _forgot.AccessibilityName = _forgot.Text;
+        _visit = new LinkButton { Name = "visit_grid", Visible = false };
         _links.AddChild(_register);
         _links.AddChild(_forgot);
+        _links.AddChild(_visit);
+        // every page opens in the person's own browser, after a question that names its host
+        _register.Pressed += () => OpenPage(_registerPage);
+        _forgot.Pressed += () => OpenPage(_forgotPage);
+        _visit.Pressed += () => OpenPage(_visitPage);
         box.AddChild(_links);
         // a link button draws its underline below its own text rect; the form scrolls inside the card, and the scroll area clips what
         // its children draw outside their rects, so the links row keeps room under the text for the underline (in the link's font)
-        foreach (var link in new[] { _register, _forgot })
+        foreach (var link in new[] { _register, _forgot, _visit })
             link.SizeFlagsVertical = SizeFlags.ShrinkBegin;
         _register.ThemeChanged += FitLinkRoom;
         FitLinkRoom();
@@ -412,6 +420,21 @@ public partial class LoginScreen : Control
     /// <summary>The status area is as tall as its text, up to <see cref="StatusMaxHeight"/>; a longer text scrolls inside it.</summary>
     /// <summary>The links row's height: the link text and, below its baseline, the underline as the link button draws it (its theme's
     /// underline spacing, the font's underline position and thickness), plus one pixel.</summary>
+    /// <summary>Opens a page the grid names in the person's own browser, after the question that shows which host it is on.</summary>
+    public void OpenPage(Uri? page)
+    {
+        if (page is null)
+            return;
+        _ = AskThenOpenAsync(page);
+    }
+
+    private async System.Threading.Tasks.Task AskThenOpenAsync(Uri page)
+    {
+        var answer = await Dialogs.AskAsync(LoginDialogs.OpenLink(_strings, page), System.Threading.CancellationToken.None);
+        if (answer.Confirmed)
+            Callable.From(() => OS.ShellOpen(page.ToString())).CallDeferred();
+    }
+
     private void FitLinkRoom()
     {
         var font = _register.GetThemeFont("font");
@@ -455,7 +478,7 @@ public partial class LoginScreen : Control
         for (int i = 0; i < grids.Count; i++)
         {
             var e = grids[i];
-            _grid.AddIconItem(ReverieIcons.Get(LucideIcons.Grid), e.Name, i);
+            _grid.AddIconItem(ReverieIcons.Get(LucideIcons.Grid), GridLabels.PickerLabel(e), i);
             _grid.SetItemMetadata(_grid.ItemCount - 1, e.Key);
             _grid.SetItemTooltip(_grid.ItemCount - 1, e.Address);
             if (e.Key == _grids.Selected?.Key)
@@ -465,7 +488,7 @@ public partial class LoginScreen : Control
         _grid.AddItem(_strings.Get("login.grid.add"), AddItemId);
         _grid.AddItem(_strings.Get("login.grid.manage"), ManageItemId);
         _grid.Select(selected);
-        _grid.AccessibilityName = _strings.Get("login.grid.label") + ": " + (_grids.Selected?.Name ?? _strings.Get("login.grid.none"));
+        _grid.AccessibilityName = _strings.Get("login.grid.label") + ": " + (_grids.Selected is { } chosen ? GridLabels.PickerLabel(chosen) : _strings.Get("login.grid.none"));
         if (_model is not null)
             _model.LoginUri = _grids.Selected?.Address ?? "";
         ShowLinks();
@@ -668,11 +691,25 @@ public partial class LoginScreen : Control
         var info = _grids.Selected?.Info;
         var register = info?.Register ?? _branding.Register;
         var forgot = info?.Password ?? _branding.ForgotPassword;
+        // the grid's welcome page, as "Visit <grid>'s page" (never on Second Life, where nothing a grid supplies applies)
+        var selected = _grids.Selected;
+        bool secondLife = selected is not null && Viewer.Core.Session.GridPolicy.KindOf(selected.Address) == Viewer.Core.Session.GridKind.SecondLife;
+        var visit = selected is null ? null : GridLinks.Welcome(info, GridLabels.NameOf(selected), secondLife);
+        _registerPage = register;
+        _forgotPage = forgot;
+        _visitPage = visit?.Page;
         _register.Visible = register is not null;
-        _register.Uri = register?.ToString() ?? "";
+        _register.TooltipText = register is null ? "" : GridLinks.HostText(register);
         _forgot.Visible = forgot is not null;
-        _forgot.Uri = forgot?.ToString() ?? "";
-        _links.Visible = _register.Visible || _forgot.Visible;
+        _forgot.TooltipText = forgot is null ? "" : GridLinks.HostText(forgot);
+        _visit.Visible = visit is not null;
+        if (visit is not null)
+        {
+            _visit.Text = _strings.Get(visit.LabelKey, visit.LabelArg);
+            _visit.AccessibilityName = _visit.Text;
+            _visit.TooltipText = GridLinks.HostText(visit.Page);
+        }
+        _links.Visible = _register.Visible || _forgot.Visible || _visit.Visible;
     }
 
     public override void _EnterTree()
@@ -868,7 +905,7 @@ public partial class LoginScreen : Control
             overlay = Overlay?.Name.ToString(),
             add = (Overlay as GridAddPanel)?.State(),
             manage = (Overlay as GridManagePanel)?.State(),
-            links = new { register = _register.Visible, forgot = _forgot.Visible },
+            links = new { register = _register.Visible, forgot = _forgot.Visible, visit = _visit.Visible, visit_text = _visit.Visible ? _visit.Text : null },
         };
     }
 

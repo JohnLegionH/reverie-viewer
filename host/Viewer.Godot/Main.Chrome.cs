@@ -5,6 +5,7 @@ using System;
 using System.Globalization;
 using Godot;
 using Viewer.Shell;
+using Viewer.Shell.Grids;
 
 namespace Viewer.Godot;
 
@@ -45,9 +46,17 @@ public partial class Main
     /// <summary>The grid's name goes in the menu bar; its accent is offered on the Interface page and used if the person chose it.</summary>
     private void ApplyBranding(GridBranding branding)
     {
-        _shell?.SetBrand(branding.Name);
-        _gridName = branding.Name;
-        UpdateWindowTitle();
+        // in the world the top bar shows the grid of the region (Main.GridPresentation.cs); here, the grid chosen on the login screen, shown
+        // safely (a name that poses as Second Life shows its host, two saved grids with one name both show theirs)
+        if (_commsFor is null)
+        {
+            string? shown = branding.Name;
+            if (shown is not null && _gridList?.Selected is { } chosen)
+                shown = GridLabels.Brand(chosen with { Name = shown }, _gridList.All);
+            _shell?.SetBrand(shown);
+            _gridName = shown;
+            UpdateWindowTitle();
+        }
         _loginScreen?.ApplyBranding(branding);
         _gridAccent = branding.Accent;
         _preferences?.SetGridAccent(branding.Accent);

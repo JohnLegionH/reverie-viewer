@@ -7,6 +7,7 @@ using Viewer.Core.Diagnostics;
 using Viewer.Core.Session;
 using Viewer.Shell;
 using Viewer.Shell.Chat;
+using Viewer.Shell.Grids;
 
 namespace Viewer.Godot;
 
@@ -67,8 +68,9 @@ public partial class Main
                     notice => PeopleFeature.NoticeText(notice, strings, s.Names), s.RequestGroupTitles);
                 _comms.Incoming = RlvIncomingFilter;
                 // the grid's own grid-info document (the grid list keeps it for the grid logged in to): its search page and currency helper
-                if (_gridList?.Selected?.Info is { } info)
-                    s.GridInfoValues = new Viewer.Core.Session.GridLoginValues(SearchUrl: info.Search?.ToString(), CurrencyHelper: info.Economy?.ToString());
+                _homeGrid = _gridList?.Selected;
+                if (s.Grid != GridKind.SecondLife)   // nothing a grid supplies applies on Second Life
+                    s.GridInfoValues = HomeGridValues(_homeGrid, _homeGrid?.Info, s.LoginUri);
                 // chat from beyond the grid's say range is dimmed; chat places are in the speaker's region, as the agent's own is
                 _comms.Nearby.IsBeyondSayRange = at => s.World.LastSelfMotion is { } me
                     && s.GridFeatures.BeyondSayRange(System.Numerics.Vector3.Distance(at, me.Motion.Position - s.World.OriginOffset));
@@ -101,6 +103,7 @@ public partial class Main
         if (key == _balanceShown)
             return;
         _balanceShown = key;
+        UpdateGridPresentation(s);
         _shell?.TopBar.SetBalance(s is not null && key.Item1 is { } b ? s.GridFeatures.BalanceText(b) : null);
     }
 

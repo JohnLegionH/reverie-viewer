@@ -29,7 +29,7 @@ public partial class Main
     {
         if (_commsFor is not { } s || _comms is not { } hub)
             return [];
-        return ContextMenus.ForName(new AvatarMenuContext(agent == s.AgentId, hub.Friends.Friends.Any(f => f.Id == agent), s.Mutes.Find(agent) is not null));
+        return ContextMenus.ForName(new AvatarMenuContext(agent == s.AgentId, hub.Friends.Friends.Any(f => f.Id == agent), s.Mutes.Find(agent) is not null, s.GridFeatures.NoCurrency));
     }
 
     /// <summary>Runs one entry of the name menu. False when it is not an enabled entry of that menu.</summary>

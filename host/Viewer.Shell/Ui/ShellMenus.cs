@@ -30,7 +30,7 @@ public sealed class ShellCommands
 /// <summary>One entry of a menu. <paramref name="LabelKey"/> is also its accessible name.</summary>
 /// <param name="Shortcut">The entry's keyboard shortcut as the official menus write it ("control|U"), or none.</param>
 public sealed record MenuEntry(string Id, string LabelKey, string CommandId, Func<bool>? Enabled = null, int Order = 100,
-    Func<bool>? Checked = null, IReadOnlyList<MenuEntry>? Children = null, string? Shortcut = null)
+    Func<bool>? Checked = null, IReadOnlyList<MenuEntry>? Children = null, string? Shortcut = null, string? LabelArg = null)
 {
     public bool IsEnabled => Enabled?.Invoke() ?? true;
 

@@ -275,7 +275,7 @@ public partial class Main : Node
         CommandListFeature.Install(_shell, startSettings, _preferences);   // Ctrl+Shift+K and the top bar's search box
         _loginScreen.PreferencesRequested += () => _shell.Shell.Floaters.Open(PreferencesFeature.FloaterId);
         // Help: the chosen grid's own help page when it publishes one, else About
-        _loginScreen.HelpRequested += page => { if (page is not null) OS.ShellOpen(page.ToString()); else _shell.Shell.Floaters.Open(ShellController.AboutFloaterId); };
+        _loginScreen.HelpRequested += page => { if (page is not null) _loginScreen.OpenPage(page); else _shell.Shell.Floaters.Open(ShellController.AboutFloaterId); };
         InstallSounds(startSettings);   // the interface sounds: clicks, windows, notifications, chat and travel events
         WireChrome(model, strings);
         // the screen is up; says whether the grid field came filled in and from where (never the address itself)

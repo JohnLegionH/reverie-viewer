@@ -125,6 +125,51 @@ public class AddonHostTests
     }
 
     [Fact]
+    public void An_add_ons_settings_are_written_to_a_temporary_file_and_renamed_so_a_failed_write_keeps_the_old_file()
+    {
+        string folder = TestTemp.NewFolder("addon-settings-atomic");
+        try
+        {
+            var (host, _, sink) = NewHost();
+            host.SettingsRoot = folder;
+            host.SaveSettings("one", new Dictionary<string, string> { ["k"] = "old" });
+            string file = Path.Combine(host.SettingsFolderOf("one"), "settings.json");
+            Assert.Contains("old", File.ReadAllText(file));
+            Assert.False(File.Exists(file + ".new"));   // the rename leaves no temporary file behind
+
+            // the temporary file cannot be made (a folder holds its name): the write fails, and the file already there is untouched
+            Directory.CreateDirectory(file + ".new");
+            host.SaveSettings("one", new Dictionary<string, string> { ["k"] = "new" });
+            Assert.Contains("old", File.ReadAllText(file));
+            Assert.DoesNotContain("new", File.ReadAllText(file));
+            Assert.Contains("addon.settings_unwritable", sink.Text);
+        }
+        finally { TestTemp.Delete(folder); }
+    }
+
+    [Fact]
+    public void The_on_and_off_state_is_written_to_a_temporary_file_and_renamed_so_a_failed_write_keeps_the_old_file()
+    {
+        string folder = TestTemp.NewFolder("addon-state-atomic");
+        try
+        {
+            string state = Path.Combine(folder, AddonHost.StateFileName);
+            var (host, _, sink) = NewHost(state);
+            host.Register(Manifest("inside"), () => new Probe(), builtIn: true);
+            host.StartEnabled();
+            Assert.True(host.SetEnabled("inside", false));
+            string before = File.ReadAllText(state);
+            Assert.False(File.Exists(state + ".new"));
+
+            Directory.CreateDirectory(state + ".new");
+            Assert.True(host.SetEnabled("inside", true));
+            Assert.Equal(before, File.ReadAllText(state));
+            Assert.Contains("addon.state_unwritable", sink.Text);
+        }
+        finally { TestTemp.Delete(folder); }
+    }
+
+    [Fact]
     public void Switching_off_is_kept_between_runs_and_a_built_in_add_on_stays_off_after_a_restart()
     {
         string folder = TestTemp.NewFolder("addon-state");

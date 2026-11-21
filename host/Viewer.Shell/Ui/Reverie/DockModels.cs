@@ -6,7 +6,7 @@ namespace Viewer.Shell;
 /// <summary>One entry of a top-bar dropdown, read from the menu model each time the menu opens.</summary>
 /// <param name="CommandId">What choosing it runs (a command of <see cref="ShellCommands"/>); none for an entry that only opens a submenu.</param>
 public sealed record TopMenuEntryView(string Id, string LabelKey, string? CommandId, string? Icon, string? Shortcut, bool Enabled, bool? Checked,
-    IReadOnlyList<TopMenuEntryView>? Children);
+    IReadOnlyList<TopMenuEntryView>? Children, string? LabelArg = null);
 
 /// <summary>One menu of the top bar: the app menu first, then the official top-level menus.</summary>
 public sealed record TopMenuView(string Id, string TitleKey, bool IsApp, IReadOnlyList<TopMenuEntryView> Entries);
@@ -45,8 +45,8 @@ public static class TopBarMenuMap
 
     private static TopMenuEntryView View(MenuEntry e, ShellCommands commands) =>
         e.Children is { } kids
-            ? new TopMenuEntryView(e.Id, e.LabelKey, null, IconFor(e.Id), e.Shortcut, e.IsEnabled, null, kids.Select(k => View(k, commands)).ToArray())
-            : new TopMenuEntryView(e.Id, e.LabelKey, e.CommandId, IconFor(e.Id), e.Shortcut, e.IsEnabled && commands.Has(e.CommandId), e.Checked is null ? null : e.IsChecked, null);
+            ? new TopMenuEntryView(e.Id, e.LabelKey, null, IconFor(e.Id), e.Shortcut, e.IsEnabled, null, kids.Select(k => View(k, commands)).ToArray(), e.LabelArg)
+            : new TopMenuEntryView(e.Id, e.LabelKey, e.CommandId, IconFor(e.Id), e.Shortcut, e.IsEnabled && commands.Has(e.CommandId), e.Checked is null ? null : e.IsChecked, null, e.LabelArg);
 
     private static readonly Dictionary<string, string> Icons = new()
     {

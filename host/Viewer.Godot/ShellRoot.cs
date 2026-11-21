@@ -562,7 +562,7 @@ public partial class ShellRoot : Control
     }
 
     private RvMenuEntry ToEntry(TopMenuEntryView e) =>
-        new(_strings.Get(e.LabelKey), e.Icon, ShortcutText(e.Shortcut), e.CommandId is { } c ? () => Shell.Commands.Execute(c) : null, e.Enabled, e.Checked,
+        new(e.LabelArg is null ? _strings.Get(e.LabelKey) : _strings.Get(e.LabelKey, e.LabelArg), e.Icon, ShortcutText(e.Shortcut), e.CommandId is { } c ? () => Shell.Commands.Execute(c) : null, e.Enabled, e.Checked,
             e.Children?.Select(ToEntry).ToArray(), false, e.Id);
 
     /// <summary>A shortcut as the official menus write it ("control|U") in the engine's key text ("Ctrl+U"), or none.</summary>
