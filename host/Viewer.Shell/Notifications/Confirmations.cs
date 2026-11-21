@@ -26,6 +26,10 @@ public static class Confirmations
     /// <summary>Give a friend the right to edit the agent's objects: Yes or No.</summary>
     public static Notification GrantModifyRights(string friendName, Action confirm) => Ask("confirm.grant_modify.title", "confirm.grant_modify.body", friendName, "button.yes", "button.no", confirm);
 
+    /// <summary>Open a web page in the person's own browser: it names the page's host, and only the first button opens it.</summary>
+    public static Notification OpenLink(Uri page, Action open) =>
+        Ask("link.open.title", "link.open.body", Grids.GridLinks.HostText(page), "link.open.button", "button.cancel", open);
+
     private static Notification Ask(string titleKey, string bodyKey, string? arg, string yesKey, string noKey, Action confirm) => new()
     {
         Kind = NotificationKind.Alert,

@@ -23,6 +23,25 @@ public class ContextMenusTests
     }
 
     [Fact]
+    public void An_object_that_takes_money_offers_Pay_and_a_grid_with_no_money_does_not()
+    {
+        var payable = I(flags: ObjectFlagBits.TakesMoney);
+        Assert.Contains("pay", Ids(ContextMenus.ForObject(new(payable, payable, false, false, false))));
+        Assert.DoesNotContain("pay", Ids(ContextMenus.ForObject(new(payable, payable, false, false, false, NoMoney: true))));
+        // an object for sale is still bought: the price of an item for 0 still matters on a grid with no money
+        var sale = ContextMenus.ForObject(new(I(), I(), false, false, false, ForSale: true, CanBuy: true, NoMoney: true));
+        Assert.Contains("buy", Ids(sale));
+    }
+
+    [Fact]
+    public void The_name_menu_has_Pay_and_a_grid_with_no_money_leaves_it_out()
+    {
+        Assert.Contains("pay", Ids(ContextMenus.ForName(new AvatarMenuContext(false, false))));
+        Assert.DoesNotContain("pay", Ids(ContextMenus.ForName(new AvatarMenuContext(false, false, NoMoney: true))));
+        Assert.Contains("im", Ids(ContextMenus.ForName(new AvatarMenuContext(false, false, NoMoney: true))));
+    }
+
+    [Fact]
     public void Touch_is_enabled_only_for_an_object_with_a_touch_handler()
     {
         Assert.False(Entry(ContextMenus.ForObject(new(I(), I(), false, false, false)), "touch").Enabled);

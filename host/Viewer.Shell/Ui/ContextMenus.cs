@@ -12,10 +12,11 @@ public sealed record ContextEntry(string Id, string LabelKey, bool Enabled = tru
 
 /// <summary>What the menu for an object depends on.</summary>
 public readonly record struct ObjectMenuContext(PrimInteraction? Self, PrimInteraction? Root, bool Attachment, bool SittingOnIt, bool Sitting, bool IsBlocked = false, bool CanDetach = false,
-    bool ForSale = false, bool CanBuy = false);
+    bool ForSale = false, bool CanBuy = false, bool NoMoney = false);
 
 /// <summary>What the menu for an avatar depends on.</summary>
-public readonly record struct AvatarMenuContext(bool IsSelf, bool IsFriend, bool IsBlocked = false);
+/// <param name="NoMoney">The grid has no money: there is no Pay.</param>
+public readonly record struct AvatarMenuContext(bool IsSelf, bool IsFriend, bool IsBlocked = false, bool NoMoney = false);
 
 /// <summary>An item the own avatar wears: its id in inventory and its name.</summary>
 public readonly record struct WornEntry(Guid Id, string Name, Viewer.Core.Inventory.WearableType Type = Viewer.Core.Inventory.WearableType.None, int Layer = 0, bool IsObject = false);
@@ -70,7 +71,7 @@ public static class ContextMenus
         };
         uint flags = root?.Flags ?? 0;
         // Pay only for an object that takes money (a script with a money handler); with no currency on the grid none does
-        if ((flags & ObjectFlagBits.TakesMoney) != 0 || ((c.Self?.Flags ?? 0) & ObjectFlagBits.TakesMoney) != 0)
+        if (!c.NoMoney && ((flags & ObjectFlagBits.TakesMoney) != 0 || ((c.Self?.Flags ?? 0) & ObjectFlagBits.TakesMoney) != 0))
             list.Insert(2, new("pay", "menu.pay"));
         if (!c.Attachment)
         {
@@ -129,7 +130,8 @@ public static class ContextMenus
             list.Add(new("offer_teleport", "menu.offer_teleport"));
             list.Add(new("request_teleport", "menu.request_teleport"));
             list.Add(c.IsFriend ? new("remove_friend", "menu.name.remove_friend", false, ReasonKey: "menu.name.reason.use_people") : new("add_friend", "menu.add_friend"));
-            list.Add(new("pay", "menu.name.pay", false, ReasonKey: notBuilt));
+            if (!c.NoMoney)
+                list.Add(new("pay", "menu.name.pay", false, ReasonKey: notBuilt));
             list.Add(new("share", "menu.name.share", false, ReasonKey: notBuilt));
             list.Add(c.IsBlocked ? new("unblock", "menu.unblock") : new("block", "menu.block"));
             list.Add(new("report", "menu.name.report", false, ReasonKey: notBuilt));

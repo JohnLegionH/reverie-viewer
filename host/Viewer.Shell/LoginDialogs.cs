@@ -8,7 +8,7 @@ using Viewer.Core.Session;
 
 namespace Viewer.Shell;
 
-public enum LoginDialogKind { Terms, Critical, Update, Token, TrustCertificate, CertificateError, Unknown, Disclosure }
+public enum LoginDialogKind { Terms, Critical, Update, Token, TrustCertificate, CertificateError, Unknown, Disclosure, OpenLink }
 
 /// <summary>One labelled line of a dialog (a certificate's subject, a fingerprint).</summary>
 public sealed record DialogField(string Label, string Value);
@@ -87,6 +87,11 @@ public static class LoginDialogs
         string body = reply.Message.Trim().Length > 0 ? head + "\n\n" + reply.Message.Trim() : head;
         return new(LoginDialogKind.Update, s.Get("login.update.title"), body, [], "", null, null, null, s.Get("login.button.ok"), null);
     }
+
+    /// <summary>The question before a web page opens in the person's own browser: it names the page's host. The first button opens it.</summary>
+    public static LoginDialog OpenLink(StringTable s, Uri page) =>
+        new(LoginDialogKind.OpenLink, s.Get("link.open.title"), s.Get("link.open.body", Grids.GridLinks.HostText(page)), [], "", null, null, null,
+            s.Get("link.open.button"), s.Get("login.button.cancel"));
 
     public static LoginDialog Unknown(StringTable s) =>
         new(LoginDialogKind.Unknown, s.Get("login.unknown.title"), s.Get("login.unknown.body"), [], "", null, null, null, s.Get("login.button.ok"), null);
