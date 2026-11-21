@@ -53,6 +53,48 @@ public class GridInfoParseTests
     }
 
     [Fact]
+    public void The_grids_own_currency_symbol_and_name_and_viewer_page_are_read()
+    {
+        var info = GridInfo.Parse("<gridinfo><gridname>G</gridname><currency>I'z</currency><currencyname>Example Dollars</currencyname><viewerurl>https://grid.example.org/viewer</viewerurl></gridinfo>");
+        Assert.NotNull(info);
+        Assert.Equal("I'z", info!.CurrencySymbol);
+        Assert.Equal("Example Dollars", info.CurrencyName);
+        Assert.Equal("https://grid.example.org/viewer", info.ViewerUrl?.ToString());
+        Assert.True(info.Currency);
+        Assert.False(info.NoMoney);
+    }
+
+    [Fact]
+    public void A_currency_of_none_is_a_grid_without_money_even_with_an_economy_address()
+    {
+        var info = GridInfo.Parse("<gridinfo><gridname>G</gridname><currency>None</currency><economy>http://grid.example.org:8008/</economy></gridinfo>");
+        Assert.NotNull(info);
+        Assert.True(info!.NoMoney);
+        Assert.False(info.Currency);
+    }
+
+    [Fact]
+    public void A_currency_symbol_over_six_characters_or_a_name_over_forty_is_ignored_and_a_viewer_page_must_be_a_web_address()
+    {
+        var info = GridInfo.Parse("<gridinfo><gridname>G</gridname><currency>1234567</currency><currencyname>" + new string('n', 41) + "</currencyname><viewerurl>javascript:alert(1)</viewerurl></gridinfo>");
+        Assert.NotNull(info);
+        Assert.Null(info!.CurrencySymbol);
+        Assert.Null(info.CurrencyName);
+        Assert.Null(info.ViewerUrl);
+        Assert.NotNull(GridInfo.Parse("<gridinfo><currency>123456</currency></gridinfo>")!.CurrencySymbol);
+    }
+
+    [Fact]
+    public void A_grid_that_sets_none_of_the_new_keys_reads_as_before()
+    {
+        var info = GridInfo.Parse(Full);
+        Assert.Null(info!.CurrencySymbol);
+        Assert.Null(info.CurrencyName);
+        Assert.Null(info.ViewerUrl);
+        Assert.True(info.Currency);   // its economy address
+    }
+
+    [Fact]
     public void Helperuri_stands_for_economy_and_web_profile_url_for_profileuri()
     {
         var info = GridInfo.Parse("<gridinfo><gridname>G</gridname><helperuri>http://grid.example.org:8008/</helperuri><web_profile_url>http://grid.example.org/p</web_profile_url></gridinfo>");

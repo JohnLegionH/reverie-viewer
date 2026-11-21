@@ -65,6 +65,7 @@ public partial class EditPanel : VBoxContainer
     // For sale, when left-clicked and the land impact (the official General tab and status line)
     private readonly CheckBox _forSale;
     private readonly SpinBox _price;
+    private readonly Label _priceLabel;
     private readonly OptionButton _saleType, _clickAction;
     private readonly Label _impact;
     /// <summary>Raised when Keep Tool selected is ticked or cleared (the viewer remembers it).</summary>
@@ -287,7 +288,8 @@ public partial class EditPanel : VBoxContainer
         general.AddChild(nextRow);
         var saleRow = new HFlowContainer { Name = "sale_row" };
         _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true));
-        saleRow.AddChild(new Label { Text = strings.Get("edit.sale_price") });
+        _priceLabel = new Label { Text = strings.Get("edit.sale_price") };
+        saleRow.AddChild(_priceLabel);
         _price = new SpinBox { Name = "sale_price", MinValue = 0, MaxValue = 999999999, Step = 1, Rounded = true, AllowGreater = false, CustomMinimumSize = new Vector2(120, 0) };
         _price.AccessibilityName = strings.Get("edit.sale_price");
         _price.ValueChanged += _ => { if (!_filling && _forSale.ButtonPressed) SendSale(false); };
@@ -693,6 +695,9 @@ public partial class EditPanel : VBoxContainer
     public void Refresh()
     {
         var e = _edit();
+        // the price's unit is the grid's currency symbol, which is only known once the person is on a grid (empty on a grid with no money)
+        _priceLabel.Text = _s.Get("edit.sale_price");
+        _price.AccessibilityName = _priceLabel.Text.Length > 0 ? _priceLabel.Text : _s.Get("edit.sale_price.name");
         _filling = true;
         try
         {

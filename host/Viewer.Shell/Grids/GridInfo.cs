@@ -15,7 +15,8 @@ namespace Viewer.Shell.Grids;
 /// </summary>
 public sealed record GridInfo(
     string? Name, string? Nick, Uri? Login, Uri? Welcome, Uri? Register, Uri? Password, string? Gatekeeper, Uri? Economy,
-    Uri? Help, Uri? About, Uri? Search, Uri? Profile, string? Platform, string? Message)
+    Uri? Help, Uri? About, Uri? Search, Uri? Profile, string? Platform, string? Message, string? CurrencySymbol = null, string? CurrencyName = null,
+    Uri? ViewerUrl = null)
 {
     /// <summary>The longest text kept from any one field.</summary>
     public const int MaxText = 200;
@@ -24,7 +25,16 @@ public sealed record GridInfo(
     public bool Hypergrid => Gatekeeper is not null;
 
     /// <summary>Whether the grid names a currency helper (its economy address).</summary>
-    public bool Currency => Economy is not null;
+    public bool Currency => !NoMoney && (Economy is not null || CurrencySymbol is not null);
+
+    /// <summary>Whether the grid says it has no money (its currency is the word none).</summary>
+    public bool NoMoney => CurrencySymbol is not null && CurrencySymbol.Equals(NoCurrencyWord, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The word a grid sets as its currency to say it has no money.</summary>
+    public const string NoCurrencyWord = "none";
+
+    /// <summary>The longest currency symbol and currency name kept; a longer one is ignored.</summary>
+    public const int MaxSymbol = 6, MaxCurrencyName = 40;
 
     /// <summary>The grid-info document's fields, or null when the text is not a grid-info document.</summary>
     public static GridInfo? Parse(string? body)
@@ -47,8 +57,11 @@ public sealed record GridInfo(
         Uri? Link(params string[] names) => names.Select(n => WebAddress(Text(n))).FirstOrDefault(u => u is not null);
         string? gatekeeper = WebAddress(Text("gatekeeper")) is { } gk ? (gk.IsDefaultPort ? gk.Host : gk.Host + ":" + gk.Port) : null;
         return new GridInfo(Text("gridname"), Text("gridnick"), Link("login"), Link("welcome"), Link("register"), Link("password"), gatekeeper,
-            Link("economy", "helperuri"), Link("help"), Link("about"), Link("search"), Link("web_profile_url", "profileuri"), Text("platform"), Text("message"));
+            Link("economy", "helperuri"), Link("help"), Link("about"), Link("search"), Link("web_profile_url", "profileuri"), Text("platform"), Text("message"),
+            Short(Text("currency"), MaxSymbol), Short(Text("currencyname"), MaxCurrencyName), Link("viewerurl"));
     }
+
+    private static string? Short(string? text, int max) => text is not null && text.Length <= max ? text : null;
 
     private static string? Clean(string? text)
     {

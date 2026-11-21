@@ -17,6 +17,29 @@ namespace Viewer.Shell;
 /// </summary>
 public readonly record struct Counted(string Noun, double N, string? Shown = null);
 
+/// <summary>
+/// Two words the texts take from the grid the person is on: the currency symbol (token <c>{currency}</c>) and the grid's name (token
+/// <c>{grid}</c>). They start as Second Life's symbol and "this grid", and the interface sets them when the grid is known. The tables
+/// of one viewer share one instance, so the pseudo-localised table follows the English one.
+/// </summary>
+public sealed class StringContext
+{
+    /// <summary>The currency symbol written where a text names money; empty on a grid with no money.</summary>
+    public string Currency { get; set; } = "L$";
+
+    /// <summary>The name written where a text names the grid the person is on.</summary>
+    public string Grid { get; set; } = "this grid";
+
+    internal string Apply(string text)
+    {
+        if (text.IndexOf('{') < 0)
+            return text;
+        if (Currency.Length == 0)
+            text = text.Replace("{currency} ", "", StringComparison.Ordinal);
+        return text.Replace("{currency}", Currency, StringComparison.Ordinal).Replace("{grid}", Grid, StringComparison.Ordinal);
+    }
+}
+
 /// <summary>The plural categories of the Unicode CLDR plural rules (the language plural rules in the CLDR specification).</summary>
 public enum PluralCategory { Zero, One, Two, Few, Many, Other }
 
@@ -44,8 +67,12 @@ public sealed class StringTable
 
     private readonly PluralRule _plural;
 
-    private StringTable(IReadOnlyDictionary<string, string> strings, string locale, PluralRule? plural = null)
+    /// <summary>The grid's currency symbol and name as the texts show them.</summary>
+    public StringContext Context { get; }
+
+    private StringTable(IReadOnlyDictionary<string, string> strings, string locale, PluralRule? plural = null, StringContext? context = null)
     {
+        Context = context ?? new StringContext();
         _strings = strings;
         Locale = locale;
         _plural = plural ?? PluralRules.For(locale);
@@ -72,7 +99,7 @@ public sealed class StringTable
     public static StringTable Pseudo()
     {
         var en = English();
-        return new StringTable(en._strings.ToDictionary(kv => kv.Key, kv => Pseudolocalize(kv.Value)), "en-XA");
+        return new StringTable(en._strings.ToDictionary(kv => kv.Key, kv => Pseudolocalize(kv.Value)), "en-XA", null, en.Context);
     }
 
     public static StringTable Load(string locale)
@@ -129,6 +156,7 @@ public sealed class StringTable
             return own;
         if (!_strings.TryGetValue(key, out var text))
             return "[[" + key + "]]";
+        text = Context.Apply(text);
         if (args.Length == 0)
             return text;
         // a count is written with its noun in the form English needs
