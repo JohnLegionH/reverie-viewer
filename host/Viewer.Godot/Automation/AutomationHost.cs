@@ -328,19 +328,19 @@ public partial class AutomationHost : Node
                 if (action is not ("start" or "start_all" or "take" or "stop")) return AutomationReply.Error(400, "action must be start, start_all, take or stop");
                 return AutomationReply.Ok(m.MotionTraceCall(action));
             }
-            case "chat":   // {action: say|im|find, text?, kind?, agent?, token?}: nearby chat and conversations (answers counts, never text)
+            case "chat":   // {action: say|im|find|name_menu, text?, kind?, agent?, token?}: nearby chat and conversations (answers counts, never text); name_menu: the menu a resident's name opens, and with text an entry id run as a click on it
             {
                 string action = Str(call.Body, "action") ?? "find";
-                if (action is not ("say" or "im" or "find")) return AutomationReply.Error(400, "action must be say, im or find");
+                if (action is not ("say" or "im" or "find" or "name_menu")) return AutomationReply.Error(400, "action must be say, im, find or name_menu");
                 Guid agent = Guid.TryParse(Str(call.Body, "agent"), out var a) ? a : Guid.Empty;
                 return m.ChatCall(action, Str(call.Body, "text"), Str(call.Body, "kind"), agent, Str(call.Body, "token")) is { } done
                     ? AutomationReply.Ok(done) : AutomationReply.Error(409, "no session");
             }
-            case "dialog":   // {action: find|answer|open, nth?, button?, text?, token?, labels?}: what scripts asked and the notifications waiting (answers ids, kinds, counts and layout; text only compared with a token)
+            case "dialog":   // {action: find|answer|open|toast_click, nth?, button?, text?, token?, labels?}: what scripts asked and the notifications waiting (answers ids, kinds, counts and layout; text only compared with a token)
             {
                 string action = Str(call.Body, "action") ?? "find";
-                if (action is not ("find" or "answer" or "open"))
-                    return AutomationReply.Error(400, "action must be find, answer or open");
+                if (action is not ("find" or "answer" or "open" or "toast_click"))
+                    return AutomationReply.Error(400, "action must be find, answer, open or toast_click");
                 string[]? labels = call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty("labels", out var ls) && ls.ValueKind == JsonValueKind.Array
                     ? ls.EnumerateArray().Select(x => x.GetString() ?? "").ToArray() : null;
                 return m.DialogCall(action, (int)Num(call.Body, "nth", 0), (int)Num(call.Body, "button", 0), Str(call.Body, "text"), Str(call.Body, "token"), labels) is { } done

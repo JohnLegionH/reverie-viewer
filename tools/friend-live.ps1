@@ -322,7 +322,9 @@ try {
                 foreach ($pct in @(100, 150, 200)) {
                     [void](Api $A "interface_size" @{ percent = $pct }); Start-Sleep -Milliseconds 700
                     [void](Api $A "interact" @{ action = "aim"; x = [double]$box.x; y = [double]$box.y; z = [double]$box.z; distance = 2.2 }); Start-Sleep -Milliseconds 1200
+                    [void](Api $A "screenshot" @{ dir = $Sandbox; name = "before-click-$pct" })
                     $rc = Api $A "interact" @{ action = "rightclick"; x = [double]$box.x; y = [double]$box.y; z = ([double]$box.z + [double]$box.sz / 2) }
+                    Save-Json "return-rightclick-$pct.json" @{ box = $box; rc = $rc }
                     $ret = @($rc.entries | Where-Object { $_.Id -eq "return" }) | Select-Object -First 1
                     $ch = if ($ret -and $ret.Enabled) { (Api $A "interact" @{ action = "choose"; entry = "return" }).chosen } else { $false }
                     $up = Wait-Until { $d = Api $A "dialog" @{}; if ($d.modal) { $d } } 10
