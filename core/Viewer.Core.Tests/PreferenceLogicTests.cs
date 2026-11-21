@@ -209,27 +209,4 @@ public class PreferenceLogicTests
         Assert.Null(BackendRelaunch.Plan("d3d12", "vulkan", Engine, ["--test-render"]));                      // test and render runs choose their own
         Assert.Null(BackendRelaunch.Plan("d3d12", "vulkan", Engine, ["--s1-tag=check"]));
     }
-
-    // ---------------- window mode ----------------
-
-    [Theory]
-    [InlineData("windowed", false, false)]
-    [InlineData("borderless", false, true)]
-    [InlineData("fullscreen", true, false)]
-    [InlineData("nonsense", false, false)]
-    [InlineData(null, true, false)]
-    public void Each_window_mode_asks_for_the_right_window(string? mode, bool fullscreen, bool borderless)
-    {
-        Assert.Equal(new DisplayPlan(fullscreen, borderless), DisplayPlan.For(mode));
-    }
-
-    [Theory]
-    [InlineData("borderless", true)]
-    [InlineData("windowed", false)]
-    [InlineData("fullscreen", false)]   // the engine's own fullscreen fills the screen
-    [InlineData(null, false)]
-    public void Only_a_borderless_window_is_placed_to_fill_its_screen_by_the_viewer(string? mode, bool fills)
-    {
-        Assert.Equal(fills, DisplayPlan.For(mode).FillsScreen);
-    }
 }

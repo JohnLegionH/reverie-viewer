@@ -378,12 +378,13 @@ public class TestWindowPlacementTests
     {
         // the remembered window maximises a first run; on a start that opened minimised (S-1's quiet starts) that would bring the
         // window onto a monitor and make it the active one, so such a start leaves the window as it opened
-        string code = File.ReadAllText(Path.Combine(RepoRoot(), "host", "Viewer.Godot", "Main.Prefs.cs"));
-        int start = code.IndexOf("private void StartWindowMemory(", StringComparison.Ordinal);
+        string code = File.ReadAllText(Path.Combine(RepoRoot(), "host", "Viewer.Godot", "Main.Window.cs"));
+        int start = code.IndexOf("private void ApplyStartupWindow(", StringComparison.Ordinal);
         Assert.True(start > 0);
-        int guard = code.IndexOf("GetWindow().Mode == Window.ModeEnum.Minimized", start, StringComparison.Ordinal);
+        int guard = code.IndexOf("window.Mode == Window.ModeEnum.Minimized", start, StringComparison.Ordinal);
+        int fullscreen = code.IndexOf("window.Mode = Window.ModeEnum.Fullscreen", start, StringComparison.Ordinal);
         int maximise = code.IndexOf("window.Mode = Window.ModeEnum.Maximized", start, StringComparison.Ordinal);
-        Assert.True(guard > start && guard < maximise, "StartWindowMemory returns for a window that opened minimised before it maximises anything");
+        Assert.True(guard > start && guard < fullscreen && guard < maximise, "ApplyStartupWindow returns for a window that opened minimised before it maximises or fills the screen");
     }
 
     [Fact]

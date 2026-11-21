@@ -15,12 +15,14 @@ public readonly record struct WindowStart(bool Maximized, WindowRect? Rect);
 /// llappviewer.cpp, LLAppViewer::initWindow and the saving of the window place at exit): the size and place are kept while the window
 /// is not maximized, and the maximized state always. The official defaults are a 1,024 by 738 window at 10, 10. The official viewer
 /// opens maximized on a first run; so does this one, and a first run is a settings file that has no maximized entry yet.
-/// A kept place that no screen shows (a screen was unplugged) would leave the window out of reach, so the official default place
-/// replaces it; the official source does not check this, the operating system's window code does there.
+/// The screen the window is on is kept too. A kept screen that is gone, or a kept place that no screen shows (a screen was unplugged),
+/// would leave the window out of reach, so it opens maximized on the primary screen; the official source does not check this, the
+/// operating system's window code does there.
 /// </summary>
 public static class WindowMemory
 {
-    public const string MaximizedKey = "window_maximized", XKey = "window_x", YKey = "window_y", WidthKey = "window_width", HeightKey = "window_height";
+    public const string MaximizedKey = "window_maximized", XKey = "window_x", YKey = "window_y", WidthKey = "window_width", HeightKey = "window_height",
+        MonitorXKey = "window_monitor_x", MonitorYKey = "window_monitor_y";
 
     /// <summary>The official defaults (settings.xml: WindowX, WindowY, WindowWidth, WindowHeight).</summary>
     public const int DefaultX = 10, DefaultY = 10, DefaultWidth = 1024, DefaultHeight = 738;
@@ -31,26 +33,52 @@ public static class WindowMemory
     // the part of the title bar that has to show on a screen for the window to be movable
     private const int ReachableWidth = 64, ReachableHeight = 16, TitleBarHeight = 32;
 
-    public static WindowStart Plan(SettingsService settings, IReadOnlyList<WindowRect> screens)
+    /// <summary>
+    /// How the window opens, for the startup choice. <paramref name="screens"/> are the screens' whole areas, the primary screen first.
+    /// Maximized window: always maximized. Last size and position: as it was left. In both, the window opens on the screen it was kept on;
+    /// when that screen is gone, or a window left small was kept at a place no screen shows, it opens maximized on the primary screen.
+    /// </summary>
+    public static WindowStart Plan(SettingsService settings, IReadOnlyList<WindowRect> screens, WindowStartMode mode)
     {
-        bool maximized = settings.Contains(MaximizedKey) ? settings.Get(Settings.WindowMaximized) : true;
+        bool kept = settings.Contains(MaximizedKey) ? settings.Get(Settings.WindowMaximized) : true;
+        bool maximized = mode != WindowStartMode.Last || kept;
         int w = settings.Get(Settings.WindowWidth), h = settings.Get(Settings.WindowHeight);
         bool sizeKept = w >= MinWidth && h >= MinHeight;
         var wanted = sizeKept
             ? new WindowRect(settings.Get(Settings.WindowX), settings.Get(Settings.WindowY), w, h)
             : new WindowRect(DefaultX, DefaultY, DefaultWidth, DefaultHeight);
-        return new WindowStart(maximized, screens.Count == 0 ? wanted : Fit(wanted, screens));
+        if (screens.Count == 0)
+            return new WindowStart(maximized, wanted);
+        var primary = screens[0];
+        var home = HomeOf(wanted, screens);
+        if (!maximized)
+            return home is { } here ? new WindowStart(false, CutTo(wanted, here)) : new WindowStart(true, DefaultOn(primary, wanted));
+        WindowRect target;
+        if (settings.Contains(MonitorXKey) && settings.Contains(MonitorYKey))
+        {
+            int mx = settings.Get(Settings.WindowMonitorX), my = settings.Get(Settings.WindowMonitorY);
+            target = screens.FirstOrDefault(s => s.X == mx && s.Y == my) is { Width: > 0 } found ? found : primary;
+        }
+        else
+            target = home ?? primary;
+        return new WindowStart(true, Shows(wanted, target) ? CutTo(wanted, target) : DefaultOn(target, wanted));
     }
 
     /// <summary>Keeps what the settings hold. True when something was written; false when it all was kept already.
-    /// While maximized only the maximized state is kept (the size and place stay those of the window before it was maximized).</summary>
-    public static bool Record(SettingsService settings, bool maximized, WindowRect rect)
+    /// While maximized only the maximized state and the screen are kept (the size and place stay those of the window before it was maximized).
+    /// <paramref name="monitor"/> is the whole area of the screen the window is on, when known.</summary>
+    public static bool Record(SettingsService settings, bool maximized, WindowRect rect, WindowRect? monitor = null)
     {
         bool wrote = false;
         if (!settings.Contains(MaximizedKey) || settings.Get(Settings.WindowMaximized) != maximized)
         {
             settings.Store(Settings.WindowMaximized, maximized);
             wrote = true;
+        }
+        if (monitor is { } screen)
+        {
+            wrote |= Keep(settings, Settings.WindowMonitorX, screen.X);
+            wrote |= Keep(settings, Settings.WindowMonitorY, screen.Y);
         }
         if (maximized)
             return wrote;
@@ -69,7 +97,8 @@ public static class WindowMemory
         return true;
     }
 
-    private static WindowRect Fit(WindowRect wanted, IReadOnlyList<WindowRect> screens)
+    /// <summary>The screen that shows the window's title bar well enough to move it (the one showing most of it), or null when none does.</summary>
+    private static WindowRect? HomeOf(WindowRect wanted, IReadOnlyList<WindowRect> screens)
     {
         var strip = new WindowRect(wanted.X, wanted.Y, wanted.Width, TitleBarHeight);
         WindowRect? home = null;
@@ -83,13 +112,17 @@ public static class WindowMemory
                 home = screen;
             }
         }
-        var primary = screens[0];
-        var onto = home ?? primary;
-        int width = Math.Min(wanted.Width, onto.Width), height = Math.Min(wanted.Height, onto.Height);
-        return home is null
-            ? new WindowRect(primary.X + DefaultX, primary.Y + DefaultY, width, height)
-            : new WindowRect(wanted.X, wanted.Y, width, height);
+        return home;
     }
+
+    private static bool Shows(WindowRect wanted, WindowRect screen) => HomeOf(wanted, [screen]) is not null;
+
+    private static WindowRect CutTo(WindowRect wanted, WindowRect screen) =>
+        new(wanted.X, wanted.Y, Math.Min(wanted.Width, screen.Width), Math.Min(wanted.Height, screen.Height));
+
+    /// <summary>The official default place and the kept size (cut to the screen), on a screen: where a window is put when it has no place that shows.</summary>
+    private static WindowRect DefaultOn(WindowRect screen, WindowRect wanted) =>
+        new(screen.X + DefaultX, screen.Y + DefaultY, Math.Min(wanted.Width, screen.Width), Math.Min(wanted.Height, screen.Height));
 
     private static (int Width, int Height) Overlap(WindowRect a, WindowRect b)
     {

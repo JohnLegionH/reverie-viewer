@@ -29,72 +29,12 @@ public partial class Main
     private void StartPreferences(SettingsService settings)
     {
         _interactive = true;
+        DisplayPlan.Migrate(settings);   // before the Changed handler: a value of an earlier version becomes the choice it stands for
         MouseLookSetting.Source = settings;
         StartFrameTimeLog(settings);
         settings.Changed += OnPreferenceChanged;
         ApplyDisplay(settings);
-        StartWindowMemory(settings);
-    }
-
-    private SettingsService? _windowSettings;
-    private bool _windowSeenMaximized;
-    private WindowRect _windowSeenRect;
-    private bool _windowPending;
-    private ulong _windowChangedAtMs;
-
-    private static bool WindowModeIsWindowed(SettingsService s) => DisplayPlan.For(s.GetText(Settings.WindowModeKey)) is { Fullscreen: false, Borderless: false };
-
-    /// <summary>Opens the window as it was left (size, place, maximized), or maximized on a first run; see <see cref="WindowMemory"/>.
-    /// Only in a normal run in the windowed mode: a test run, a command-line choice, borderless and fullscreen leave the window alone.</summary>
-    private void StartWindowMemory(SettingsService settings)
-    {
-        if (!_interactive || DisplayChosenOnCommandLine() || !WindowModeIsWindowed(settings))
-            return;
-        if (GetWindow().Mode == Window.ModeEnum.Minimized)
-            return;   // a start that opened minimised stays so: maximising it would put it on a monitor and make it the active window
-        var window = GetWindow();
-        var screens = new List<WindowRect>();
-        for (int i = 0; i < DisplayServer.GetScreenCount(); i++)
-        {
-            var area = DisplayServer.ScreenGetUsableRect(i);
-            screens.Add(new WindowRect(area.Position.X, area.Position.Y, area.Size.X, area.Size.Y));
-        }
-        var plan = WindowMemory.Plan(settings, screens);
-        if (plan.Rect is { } rect)
-        {
-            window.Position = new Vector2I(rect.X, rect.Y);
-            window.Size = new Vector2I(rect.Width, rect.Height);
-        }
-        if (plan.Maximized)
-            window.Mode = Window.ModeEnum.Maximized;
-        _windowSettings = settings;
-        _windowSeenMaximized = window.Mode == Window.ModeEnum.Maximized;
-        _windowSeenRect = new WindowRect(window.Position.X, window.Position.Y, window.Size.X, window.Size.Y);
-        _windowPending = !settings.Contains(WindowMemory.MaximizedKey);   // a first run is kept at once
-    }
-
-    /// <summary>Keeps the window's size, place and maximized state once it has stopped changing for half a second (and at once on close).</summary>
-    private void UpdateWindowMemory(bool now = false)
-    {
-        if (_windowSettings is not { } settings)
-            return;
-        var window = GetWindow();
-        if (!WindowModeIsWindowed(settings) || window.Mode is Window.ModeEnum.Fullscreen or Window.ModeEnum.ExclusiveFullscreen or Window.ModeEnum.Minimized)
-            return;
-        bool maximized = window.Mode == Window.ModeEnum.Maximized;
-        var rect = new WindowRect(window.Position.X, window.Position.Y, window.Size.X, window.Size.Y);
-        if (maximized != _windowSeenMaximized || (!maximized && rect != _windowSeenRect))
-        {
-            _windowSeenMaximized = maximized;
-            _windowSeenRect = rect;
-            _windowPending = true;
-            _windowChangedAtMs = Time.GetTicksMsec();
-        }
-        if (_windowPending && (now || Time.GetTicksMsec() - _windowChangedAtMs >= 500))
-        {
-            _windowPending = false;
-            WindowMemory.Record(settings, maximized, rect);
-        }
+        ApplyStartupWindow(settings);
     }
 
     private DeviceReport? _deviceReport;
@@ -217,7 +157,8 @@ public partial class Main
         else if (key == Settings.MaxTextureResolution.Key) ApplyTextureCap(s);
         else if (key == Settings.CloudsEnabled.Key) ApplyClouds(s);
         else if (key == Viewer.Shell.Sound.AudioLevels.Mono.Key) ApplyMono(s);
-        else if (key == Settings.FpsLimit.Key || key == Settings.Vsync.Key || key == Settings.WindowModeKey) ApplyDisplay(s);
+        else if (key == Settings.FpsLimit.Key || key == Settings.Vsync.Key) ApplyDisplay(s);
+        else if (key == Settings.WindowModeKey) ApplyWindowChoice(s);
         else if (key == Settings.DoubleTapRun.Key || key == Settings.AutomaticFly.Key) ApplyMovement(s);
         else if (key == Settings.ArrowKeysAlwaysMove.Key) ApplyArrowKeys(s);
         else if (key == Settings.CameraSmoothing.Key) _follow.Smoothing = (float)s.Get(Settings.CameraSmoothing);
@@ -291,8 +232,6 @@ public partial class Main
             _crosshair.Visible = _mouseLook.Active && MouseLookSetting.ShowCrosshairs();
     }
 
-    private Rect2I? _windowedRect;
-
     private static readonly string[] DisplayFlags = ["--disable-vsync", "--fixed-fps", "--max-fps", "--fullscreen", "--windowed", "--maximized", "--position", "--resolution"];
 
     /// <summary>Whether the command line already chose how the window is shown (an engine flag, or a harness placing the window).</summary>
@@ -300,8 +239,8 @@ public partial class Main
         TestWindow.FullSize(OS.GetCmdlineUserArgs()) is not null
         || OS.GetCmdlineArgs().Any(a => DisplayFlags.Any(f => a == f || a.StartsWith(f + "=", StringComparison.Ordinal)));
 
-    /// <summary>Frame-rate limit, vertical sync and window mode, in a normal run: only what differs from the window as it is, and nothing when
-    /// the command line chose the display itself.</summary>
+    /// <summary>Frame-rate limit and vertical sync, in a normal run: only what differs from the window as it is, and nothing when
+    /// the command line chose the display itself. The window's own mode is <see cref="ApplyStartupWindow"/> and <see cref="ApplyWindowChoice"/>.</summary>
     private void ApplyDisplay(SettingsService s)
     {
         if (!_interactive || DisplayChosenOnCommandLine())
@@ -312,29 +251,6 @@ public partial class Main
         var vsync = s.Get(Settings.Vsync) ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled;
         if (DisplayServer.WindowGetVsyncMode() != vsync)
             DisplayServer.WindowSetVsyncMode(vsync);
-        var plan = DisplayPlan.For(s.GetText(Settings.WindowModeKey));
-        var window = GetWindow();
-        var mode = plan.Fullscreen ? Window.ModeEnum.Fullscreen : Window.ModeEnum.Windowed;
-        if (window.Borderless != plan.Borderless)
-            window.Borderless = plan.Borderless;
-        if (plan.FillsScreen && window.Mode == Window.ModeEnum.Windowed)
-        {
-            // a borderless window covers the screen it is on, not the size it had with its border
-            int screen = window.CurrentScreen;
-            var area = (Position: DisplayServer.ScreenGetPosition(screen), Size: DisplayServer.ScreenGetSize(screen));
-            if (_windowedRect is null)
-                _windowedRect = new Rect2I(window.Position, window.Size);
-            window.Position = area.Position;
-            window.Size = area.Size;
-        }
-        else if (!plan.FillsScreen && _windowedRect is { } before && window.Mode == Window.ModeEnum.Windowed)
-        {
-            window.Position = before.Position;   // back to the window it was before it covered the screen
-            window.Size = before.Size;
-            _windowedRect = null;
-        }
-        if (window.Mode != mode && (plan.Fullscreen || window.Mode == Window.ModeEnum.Fullscreen))
-            window.Mode = mode;   // a window the person maximised stays maximised unless fullscreen is asked for or left
     }
 
     /// <summary>A session's friend list is now watched so that "show my online status to friends" holds for every friend, also those who arrive later.</summary>

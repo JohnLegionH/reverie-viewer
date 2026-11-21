@@ -46,7 +46,7 @@ public class PreferenceCatalogTests
         new("SwitchToSharedEnvAfterTeleport", PrefPage.Graphics, PrefKind.Switch, Live, PrefScope.Global, false),
         new("neighbours", PrefPage.Graphics, PrefKind.Switch, Next, PrefScope.Global, true),
         new("graphics_backend", PrefPage.Graphics, PrefKind.Choice, Restart, PrefScope.Global, "auto"),
-        new("window_mode", PrefPage.Graphics, PrefKind.Choice, Live, PrefScope.Global, "fullscreen"),
+        new("window_mode", PrefPage.Graphics, PrefKind.Choice, Live, PrefScope.Global, "maximized"),
 
         new("audio_level_master", PrefPage.Sound, PrefKind.Real, Live, PrefScope.Global, 1.0, 0, 1),
         new("audio_mute_master", PrefPage.Sound, PrefKind.Switch, Live, PrefScope.Global, false),
@@ -271,7 +271,7 @@ public class PreferenceCatalogTests
         Assert.Equal(["default", "en"], PreferenceCatalog.Languages);
         Assert.Equal(["low", "lowmid", "mid", "midhigh", "high", "highultra", "ultra", "custom"], PreferenceCatalog.Presets);
         Assert.Equal(["auto", "vulkan", "d3d12"], PreferenceCatalog.Backends);
-        Assert.Equal(["windowed", "borderless", "fullscreen"], PreferenceCatalog.WindowModes);
+        Assert.Equal(["maximized", "last", "fullscreen"], PreferenceCatalog.WindowModes);
         Assert.Equal(["last", "home"], PreferenceCatalog.StartLocations);
         Assert.Equal(PreferenceCatalog.Languages, Def("ui_language").Choices);
         Assert.Equal(PreferenceCatalog.Presets, Def("graphics_preset").Choices);

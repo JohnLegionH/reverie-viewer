@@ -46,7 +46,7 @@ You do not need to know the page. Press **Ctrl+Shift+K**, type the setting's nam
 - **Vertical sync**, **Clouds** and **Show neighbouring regions**. The last one applies at your next login.
 - **Keep my sky choice for the next login** and **Use the region's sky again after a teleport**. Both start off (see the sky section of the world guide).
 - **Rendering backend.** **Automatic**, **Vulkan** or **Direct3D 12**. Needs a restart. If a backend will not start, choose **Automatic** and start the viewer again (see [Fixing problems](fixing-problems.md#switch-the-graphics-backend)).
-- **Window.** **Windowed**, **Borderless** or **Fullscreen**.
+- **Window at startup.** How the viewer opens: **Maximized window** (the default), **Last size and position**, or **Full screen**. A change to or from **Full screen** applies at once. In a window you have the system title bar and a taskbar button and can minimize at any time. To switch between full screen and a window while the viewer runs, use **Me > Full screen** or Ctrl+Alt+F; **Me > Minimize** sends the window to the taskbar. If the screen the window was last on is gone, it opens maximized on your main screen.
 
 Shadows, anti-aliasing and other advanced graphics settings are not in Reverie yet.
 

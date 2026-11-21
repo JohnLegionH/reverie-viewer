@@ -94,6 +94,8 @@ public static class Settings
     public static readonly Setting<int> WindowY = new(WindowMemory.YKey, 0, v => v);
     public static readonly Setting<int> WindowWidth = new(WindowMemory.WidthKey, 0, v => v);
     public static readonly Setting<int> WindowHeight = new(WindowMemory.HeightKey, 0, v => v);
+    public static readonly Setting<int> WindowMonitorX = new(WindowMemory.MonitorXKey, 0, v => v);
+    public static readonly Setting<int> WindowMonitorY = new(WindowMemory.MonitorYKey, 0, v => v);
 
     // ---- Preferences pages (see PrefDef and PreferenceCatalog) ----
 

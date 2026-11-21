@@ -34,6 +34,9 @@ public partial class Main
             _shell.Shell.Commands.Register("app.logout", () => _ = LogOutFromMenu());
         if (!_shell.Shell.Commands.Has("app.check_updates"))
             _shell.Shell.Commands.Register("app.check_updates", () => _ = CheckForUpdatesFromMenu(strings));
+        WindowMenu.Install(_shell.Shell.Menus, () => GetWindow().Mode == Window.ModeEnum.Fullscreen);
+        _shell.Shell.Commands.Register(WindowMenu.FullscreenCommand, ToggleFullscreen);
+        _shell.Shell.Commands.Register(WindowMenu.MinimizeCommand, MinimizeWindow);
         _shell.RebuildMenus();
         model.BrandingChanged += branding => Callable.From(() => ApplyBranding(branding)).CallDeferred();
         ApplyBranding(model.Branding);   // a grid that answered before the bars were built

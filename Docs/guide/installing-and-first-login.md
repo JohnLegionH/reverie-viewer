@@ -29,6 +29,15 @@ To watch the viewer's log while it runs, start `Reverie.console.exe` instead.
 The [README](../../README.md) lists the packages a minimal system needs. The Linux builds have not yet been tried on a real
 Linux desktop by the developers, so please report what happens.
 
+## How the window opens
+
+Reverie opens as a normal window, maximized, with a title bar and a button on the taskbar. You can minimize it at any moment, on the login screen too.
+
+- To open full screen, or at the size and place you left it, choose **Window at startup** in **Preferences > Graphics** (see [Preferences and add-ons](preferences-and-add-ons.md#graphics)).
+- To switch between full screen and a window while the viewer runs, use **Me > Full screen** or press **Ctrl+Alt+F**. Full screen does not take over the display, so Alt+Tab and the Windows key still work.
+- To minimize from the menu, use **Me > Minimize**. In a window, the minimize box on the title bar does the same.
+- Reverie remembers whether the window was maximized, its size, its place and the screen it was on. If that screen is not there any more, it opens maximized on your main screen.
+
 ## Add your grid
 
 Second Life is already in the grid list. To use an OpenSimulator grid, add it once:

@@ -14,7 +14,7 @@ public static class PreferenceCatalog
     public static IReadOnlyList<string> Languages { get; } = ["default", .. StringTable.Available];
     public static IReadOnlyList<string> Presets { get; } = [.. GraphicsPresets.Levels, GraphicsPresets.Custom];
     public static IReadOnlyList<string> Backends { get; } = ["auto", "vulkan", "d3d12"];
-    public static IReadOnlyList<string> WindowModes { get; } = ["windowed", "borderless", "fullscreen"];
+    public static IReadOnlyList<string> WindowModes { get; } = ["maximized", "last", "fullscreen"];
     public static IReadOnlyList<string> StartLocations { get; } = ["last", "home"];
 
     private static TypedPref<T> P<T>(Setting<T> s, PrefPage page, PrefApply apply, double min = 0, double max = 0, PrefScope scope = PrefScope.Global)
@@ -44,7 +44,7 @@ public static class PreferenceCatalog
         P(Settings.SwitchToSharedEnvAfterTeleport, PrefPage.Graphics, PrefApply.Live),
         P(Settings.NeighbourRegions, PrefPage.Graphics, PrefApply.NextUse),
         new TextPref(Settings.GraphicsBackendKey, PrefPage.Graphics, PrefApply.Restart, "auto", Backends),
-        new TextPref(Settings.WindowModeKey, PrefPage.Graphics, PrefApply.Live, "fullscreen", WindowModes),
+        new TextPref(Settings.WindowModeKey, PrefPage.Graphics, PrefApply.Live, "maximized", WindowModes),
 
         // Sound (the interface sounds; each sound's own source, level and switch are listed under these, see PreferencesModel)
         // the levels over everything, object sounds in the world, and ambient sounds (footsteps), as the official Sound & Media page

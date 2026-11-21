@@ -27,6 +27,7 @@ Reverie has **no key binding editor yet**. You cannot change a key from inside t
 | Ctrl+M | World map |
 | Ctrl+Shift+M | Mini-map |
 | Ctrl+Shift+H | Go home |
+| Ctrl+Alt+F | Switch between full screen and a window |
 | Ctrl+Q | Quit |
 
 Esc closes the window that has the focus. If you are typing in a text box, the first Esc lets go of the box, and a second one closes the window.
