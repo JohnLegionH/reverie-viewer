@@ -38,13 +38,13 @@ public sealed record GridFeatures(int SayRange, int ShoutRange, int WhisperRange
         string? gridUrl = Text(extras, "GridURL");
         if (gridUrl is not null && gridUrl.IndexOf("://", StringComparison.Ordinal) is var at and >= 0)
             gridUrl = gridUrl[(at + 3)..];
-        string? regionName = Text(extras, "GridName");
+        string? regionName = Plain(Text(extras, "GridName"), MaxGridName);
         bool visiting = IsVisiting(gridUrl, regionName, login);
 
         // The login reply and the grid-info document describe the grid the person logged in to. While the region belongs to another
         // grid (a Hypergrid visit) they do not describe it, so only the region's own values stand for the visited grid.
         string? baseUri = Text(extras, "currency-base-uri") ?? (visiting ? null : NonEmpty(login.CurrencyHelper));
-        string? named = Text(extras, "currency") ?? (visiting ? null : NonEmpty(login.Currency) ?? NonEmpty(login.InfoCurrency));
+        string? named = Plain(Text(extras, "currency"), MaxSymbol) ?? (visiting ? null : NonEmpty(login.Currency) ?? NonEmpty(login.InfoCurrency));
         bool none = IsNone(named);
         string? symbol = none ? null : named ?? (baseUri is not null ? UnnamedCurrency : null);
 
@@ -69,13 +69,19 @@ public sealed record GridFeatures(int SayRange, int ShoutRange, int WhisperRange
             Text(extras, "GridStatus"),
             Text(extras, "GridStatusRSS"),
             extras is not null,
-            regionName ?? (visiting ? null : NonEmpty(login.GridName)),
+            regionName ?? (visiting ? null : Plain(NonEmpty(login.GridName), MaxGridName)),
             currencyName,
             none,
             visiting,
             home,
             visiting ? HostPort(gridUrl) : null);
     }
+
+    /// <summary>The longest grid name and currency symbol shown (the spec's limits); a longer one, or one with control characters, is ignored.</summary>
+    public const int MaxGridName = 40, MaxSymbol = 6;
+
+    private static string? Plain(string? text, int max) =>
+        text is not null && text.Length <= max && !text.Any(char.IsControl) ? text : null;
 
     /// <summary>The word a grid sets as its currency to say it has no money (compared without regard to case).</summary>
     public const string NoCurrencyWord = "none";
@@ -90,7 +96,10 @@ public sealed record GridFeatures(int SayRange, int ShoutRange, int WhisperRange
         if (regionGridUrl is not null && login.HomeHosts is { Count: > 0 } hosts)
         {
             string host = HostOnly(regionGridUrl);
-            return host.Length > 0 && !hosts.Any(h => HostOnly(h).Equals(host, StringComparison.OrdinalIgnoreCase));
+            if (host.Length == 0 || hosts.Any(h => HostOnly(h).Equals(host, StringComparison.OrdinalIgnoreCase)))
+                return false;
+            // another name for the same grid (a LAN address against a public name, an alias): a region that names the home grid is home
+            return !(regionName is not null && NonEmpty(login.GridName) is { } known && known.Equals(regionName, StringComparison.OrdinalIgnoreCase));
         }
         return regionName is not null && NonEmpty(login.GridName) is { } home && !home.Equals(regionName, StringComparison.OrdinalIgnoreCase);
     }

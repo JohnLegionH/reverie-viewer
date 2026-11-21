@@ -168,6 +168,28 @@ public class GridPersonalFeaturesTests
     }
 
     [Fact]
+    public void A_region_that_names_the_home_grid_is_not_a_visit_even_when_its_address_is_another_name_for_it()
+    {
+        var f = GridFeatures.From(Extras(("GridURL", "http://home.public.example.org:8002/"), ("GridName", "Home Grid")), HomeValues());
+        Assert.False(f.Visiting);
+        Assert.Equal("H$", f.CurrencySymbol);
+    }
+
+    [Fact]
+    public void A_name_or_symbol_a_region_sends_over_the_limits_or_with_control_characters_is_ignored()
+    {
+        var f = GridFeatures.From(Extras(("GridName", new string('n', 41)), ("currency", "1234567")), HomeValues());
+        Assert.Equal("Home Grid", f.GridName);   // the grid-info name stands
+        Assert.Equal("H$", f.CurrencySymbol);
+        var g = GridFeatures.From(Extras(("GridName", "Bad\nName"), ("currency", "E\u0007$")), new GridLoginValues());
+        Assert.Null(g.GridName);
+        Assert.Null(g.CurrencySymbol);
+        var ok = GridFeatures.From(Extras(("GridName", new string('n', 40)), ("currency", "123456")), new GridLoginValues());
+        Assert.Equal(40, ok.GridName!.Length);
+        Assert.Equal("123456", ok.CurrencySymbol);
+    }
+
+    [Fact]
     public void The_home_grids_host_is_compared_without_its_port_or_case()
     {
         var f = GridFeatures.From(Extras(("GridURL", "http://HOME.example.org:9999/"), ("GridName", "Home Grid")), HomeValues());

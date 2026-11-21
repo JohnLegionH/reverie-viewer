@@ -55,6 +55,20 @@ public class GridStringsTests
         Assert.Equal("Example Region is a place in Second Life, not on Example Grid.", s.Get("link.sl_place", "Example Region"));
     }
 
+    [Theory]
+    [InlineData("Foo {0} Bar")]
+    [InlineData("A}")]
+    [InlineData("{")]
+    public void A_grid_name_or_symbol_with_braces_is_shown_as_typed_and_never_breaks_the_formatting(string text)
+    {
+        var s = StringTable.English();
+        s.Context.Grid = text;
+        s.Context.Currency = text;
+        Assert.Equal("Ex is a place in Second Life, not on " + text + ".", s.Get("link.sl_place", "Ex"));
+        Assert.Equal("For sale: " + text + " 5", s.Get("edit.for_sale.price", 5));
+        Assert.Equal("Take money (" + text + ") from you", s.Get("script.perm.take_money"));
+    }
+
     [Fact]
     public void The_pseudo_table_keeps_the_tokens_whole()
     {

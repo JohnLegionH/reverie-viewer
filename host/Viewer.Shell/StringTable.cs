@@ -30,13 +30,16 @@ public sealed class StringContext
     /// <summary>The name written where a text names the grid the person is on.</summary>
     public string Grid { get; set; } = "this grid";
 
-    internal string Apply(string text)
+    /// <summary>Puts the two words into a text. <paramref name="forFormat"/>: the text is formatted with arguments afterwards, so the words'
+    /// braces are doubled (a grid's name is its own and may hold any character).</summary>
+    internal string Apply(string text, bool forFormat)
     {
         if (text.IndexOf('{') < 0)
             return text;
         if (Currency.Length == 0)
             text = text.Replace("{currency} ", "", StringComparison.Ordinal);
-        return text.Replace("{currency}", Currency, StringComparison.Ordinal).Replace("{grid}", Grid, StringComparison.Ordinal);
+        string Safe(string v) => forFormat ? v.Replace("{", "{{", StringComparison.Ordinal).Replace("}", "}}", StringComparison.Ordinal) : v;
+        return text.Replace("{currency}", Safe(Currency), StringComparison.Ordinal).Replace("{grid}", Safe(Grid), StringComparison.Ordinal);
     }
 }
 
@@ -156,7 +159,7 @@ public sealed class StringTable
             return own;
         if (!_strings.TryGetValue(key, out var text))
             return "[[" + key + "]]";
-        text = Context.Apply(text);
+        text = Context.Apply(text, args.Length > 0);
         if (args.Length == 0)
             return text;
         // a count is written with its noun in the form English needs
