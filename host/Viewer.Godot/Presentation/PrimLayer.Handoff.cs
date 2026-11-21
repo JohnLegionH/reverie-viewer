@@ -187,7 +187,7 @@ public sealed partial class PrimLayer
 
 public sealed partial class PrimLayer
 {
-    // The removal hold (John's ruling for logouts): another avatar's worn pieces removed in a burst stay drawn a moment and go together, or with the
+    // The removal hold (for logouts): another avatar's worn pieces removed in a burst stay drawn a moment and go together, or with the
     // avatar if it leaves meanwhile (Viewer.Core.Avatars.WornRemovalHold). A held piece keeps its instance; the world no longer has it.
     private readonly Viewer.Core.Avatars.WornRemovalHold _removalHold = new();
     private readonly Dictionary<uint, uint> _burstHeld = new();   // local id of a held piece -> the local id of its wearer
