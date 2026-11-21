@@ -67,7 +67,7 @@ public static class RiggedAssessment
     /// camera's distance to its wearer's box (lldrawable.cpp LLDrawable::updateDistance, the volume->getAvatar() branch), not to the piece itself, so a
     /// shoe at the feet is as near as the avatar; a piece whose wearer's box is not known (<paramref name="wearerCentre"/> null) takes its own.</summary>
     public static float WornDistance(Vector3 camera, Vector3 ownCentre, Vector3? wearerCentre, Vector3 wearerSize) =>
-        Vector3.Distance(camera, ownCentre);
+        wearerCentre is { } centre ? BoxDistance(camera, centre, wearerSize) : Vector3.Distance(camera, ownCentre);
 
     private static float Outside(float from, float half) => from > half ? from - half : from < -half ? from + half : 0f;
 

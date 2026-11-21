@@ -874,7 +874,7 @@ public sealed partial class PrimLayer
         if (!_meshObjects.TryGetValue(local, out var m)) return null;
         byte mask = 0;
         _meshSource?.TryGetLods(m.Asset, out mask);
-        return (m.Asset, m.Lod, mask, WantedLod(m.Asset, m.Origin, m.Radius) ?? -1, Camera.DistanceTo(m.Origin), m.Radius);
+        return (m.Asset, m.Lod, mask, WantedLod(m.Asset, m.Origin, m.Radius, local) ?? -1, MeshLodDistance(local, m.Origin), m.Radius);
     }
 
     public IReadOnlyDictionary<uint, int> MeshLods => _meshObjects.ToDictionary(kv => kv.Key, kv => kv.Value.Lod);
@@ -885,7 +885,7 @@ public sealed partial class PrimLayer
         RenumberDirty();
         UpdateDrawDistance();
         foreach (var (local, m) in _meshObjects)
-            if ((_rigged.TryGetValue(local, out var wornRigged) ? WantedRiggedLod(m.Asset, wornRigged.Wearer) : WantedLod(m.Asset, m.Origin, m.Radius)) is int lod && lod != m.Lod && !WaitingFor(local, m.Asset, lod))
+            if ((_rigged.TryGetValue(local, out var wornRigged) ? WantedRiggedLod(m.Asset, wornRigged.Wearer) : WantedLod(m.Asset, m.Origin, m.Radius, local)) is int lod && lod != m.Lod && !WaitingFor(local, m.Asset, lod))
                 _dirty.Add(local);
         // ordinary prims: an eighth of them each frame (every prim is looked at every eight frames, the cost spread)
         int slice = _primLodSlice++ % PrimLodSlices;
@@ -902,12 +902,17 @@ public sealed partial class PrimLayer
 
     /// <summary>From the LODs the asset has (known once it was decoded, also after its geometry was let go); starts
     /// no fetch or decode.</summary>
-    private int? WantedLod(Guid asset, Vector3 origin, float radius)
+    private int? WantedLod(Guid asset, Vector3 origin, float radius, uint local)
     {
         if (_meshSource is null || !_meshSource.TryGetLods(asset, out var lods))
             return null;
-        return MeshGeometry.Resolve(lods, DetailFor(asset, Camera.DistanceTo(origin), radius));
+        return MeshGeometry.Resolve(lods, DetailFor(asset, MeshLodDistance(local, origin), radius));
     }
+
+    /// <summary>The distance a mesh object's level of detail is chosen with: a worn piece takes its wearer's box (as a rigged one does,
+    /// <see cref="RiggedAssessment.WornDistance"/>), anything else its own place.</summary>
+    private float MeshLodDistance(uint local, Vector3 origin) =>
+        _worn.TryGetValue(local, out var w) ? WearerLodDistance(w.Wearer, origin) : Camera.DistanceTo(origin);
 
     /// <summary>The level a rigged mesh wants now: from its wearer's distance and box as they are this frame (the object's own place stays where it was presented).</summary>
     private int? WantedRiggedLod(Guid asset, uint wearer)
@@ -1103,7 +1108,7 @@ public sealed partial class PrimLayer
             bool wanted = false;
             if (_lodWaiting.Remove(ready, out var waiters))
                 foreach (var (w, at) in waiters)
-                    if (_world.Object(new ObjectId(_world.Epoch, w)) is { Shape: { } sh } && sh.SculptId == ready.Asset && WantedLod(ready.Asset, _meshObjects.TryGetValue(w, out var mo) ? mo.Origin : at.Origin, at.Radius) == ready.Lod)
+                    if (_world.Object(new ObjectId(_world.Epoch, w)) is { Shape: { } sh } && sh.SculptId == ready.Asset && WantedLod(ready.Asset, _meshObjects.TryGetValue(w, out var mo) ? mo.Origin : at.Origin, at.Radius, w) == ready.Lod)
                     {
                         _dirty.Add(w);
                         wanted = true;
@@ -1209,7 +1214,7 @@ public sealed partial class PrimLayer
         {
             var asset = o.Shape.SculptId;
             float radius = MeshLodRule.Radius(o.Scale);
-            int detail = DetailFor(asset, Camera.DistanceTo(xf.Origin), radius);
+            int detail = DetailFor(asset, att is not null ? WearerLodDistance(att.WearerLocalId, xf.Origin) : Camera.DistanceTo(xf.Origin), radius);
             // a wanted LOD already on the GPU needs no decoded geometry (the asset's LODs stay known after a let-go)
             if (_meshSource!.TryGetLods(asset, out var known) && MeshGeometry.Resolve(known, detail) is int onGpu && _meshAssets.TryGetValue((asset, onGpu), out var gpu))
             {
@@ -2418,7 +2423,7 @@ public sealed partial class PrimLayer
         var centre = AttachedTransform(place, System.Numerics.Vector3.One).Origin;
         var size = _world.Avatar(new ObjectId(_world.Epoch, wearerLocalId))?.Scale ?? System.Numerics.Vector3.Zero;
         var cam = Camera;
-        return RiggedAssessment.BoxDistance(new System.Numerics.Vector3(cam.X, -cam.Z, cam.Y), new System.Numerics.Vector3(centre.X, -centre.Z, centre.Y), size);   // the region's axes
+        return RiggedAssessment.WornDistance(new System.Numerics.Vector3(cam.X, -cam.Z, cam.Y), default, new System.Numerics.Vector3(centre.X, -centre.Z, centre.Y), size);   // the region's axes
     }
 
     /// <summary>The object's mesh at the level it wants is not ready (still being prepared, or being handed to the engine a surface at a time): an

@@ -262,7 +262,7 @@ public sealed partial class PrimLayer
             bool drawn = _instances.ContainsKey(local);
             bool shown = rigged ? r!.Shown : _worn.TryGetValue(local, out var w) && w.Shown;
             int lod = _meshObjects.TryGetValue(local, out var m) ? m.Lod : -1;
-            float dist = _meshObjects.TryGetValue(local, out var mo) ? (rigged ? WearerLodDistance(r!.Wearer, mo.Origin) : Camera.DistanceTo(mo.Origin)) : -1;
+            float dist = _meshObjects.TryGetValue(local, out var mo) ? (rigged ? WearerLodDistance(r!.Wearer, mo.Origin) : MeshLodDistance(local, mo.Origin)) : -1;
             into.Add($"{a.Full.ToString("N")[..8]}:{(rigged ? "rigged" : "plain")}:{(drawn ? "drawn" : "absent")}:{(shown ? "shown" : "hidden")}:{(_held.ContainsKey(local) ? "held" : "live")}:lod={lod}:d={dist:0.#}:gate=n/a");
         }
     }
