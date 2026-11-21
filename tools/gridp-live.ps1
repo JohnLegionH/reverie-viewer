@@ -12,13 +12,14 @@
 #   4 top bar     the grid's name is in the top bar and the window title
 #   5 help menu   the Help menu has the grid's help, about and viewer pages (and says which host before opening: the question is a
 #                 notification, checked by the unit tests)
-#   6 money       the Edit window's price field carries the grid's symbol (empty with currency = none), the balance is hidden when the
-#                 grid has no money
+#   6 money       the Edit window's price field carries the grid's symbol (empty with currency = none), the balance is shown in the grid's
+#                 symbol, and hidden when the grid has no money
 #   7 logout      the account logs out and the viewer exits
 #   8 server      the server is stopped
+# "poser" is a grid that names itself "Second Life" (run with -GridName "Second Life"): its name must be shown under its host everywhere.
 # Exit: 0 every step passed; 1 a step failed; 3 blocked (an input is missing); 4 skipped (a lane claim was not granted).
 #
-#   powershell -NoProfile -File <repo>\tools\gridp-live.ps1 -Sandbox <new evidence folder> -Variant full|none -ServerControl <bash script>
+#   powershell -NoProfile -File <repo>\tools\gridp-live.ps1 -Sandbox <new evidence folder> -Variant full|none|poser -ServerControl <bash script>
 #     -GridInfoUrl <url> [-Account <alias>] [-Credentials <accounts file>] [-Region <region>] [-GridName <name>] [-Exe <development export>]
 #
 # Claims as grids-live.ps1 takes them: an avatar claim for the account and a build claim on this checkout, through NV_CLAIM_WRAPPER.
@@ -27,14 +28,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Sandbox,
-    [Parameter(Mandatory)][ValidateSet("full", "none")][string]$Variant,
+    [Parameter(Mandatory)][ValidateSet("full", "none", "poser")][string]$Variant,
     [string]$Credentials = $env:NV_TEST_ACCOUNTS,
     [string]$Account = $env:NV_STOCK_ACCOUNT_A,
     [string]$Region = $env:NV_STOCK_REGION,
     [string]$GridInfoUrl = $env:NV_STOCK_GRID_INFO_URL,
     [string]$ServerControl = $env:NV_STOCK_SERVER_CONTROL,
     [string]$GridName = "Example Grid",
-    [string]$Symbol = "I'z",
+    [string]$Symbol = "Ez",
     [string]$Exe = "",
     [string]$Settings = "",
     [int]$StartSeconds = 150
@@ -141,6 +142,7 @@ function Step([string]$n, [string]$name, [scriptblock]$body) {
 }
 
 $expectSymbol = if ($Variant -eq "none") { "" } else { $Symbol }
+$shown = $GridName
 $V = $null; $vp = $null; $loginUri = $null; $serverStarted = $false; $info = $null
 try {
     Step "1" "server" {
@@ -149,7 +151,7 @@ try {
         $keys = ""
         if ($code -eq 0) {
             try { $req = [System.Net.WebRequest]::Create($GridInfoUrl); $req.Timeout = 10000; $resp = $req.GetResponse()
-                  try { $script:info = ([xml](New-Object System.IO.StreamReader($resp.GetResponseStream())).ReadToEnd()).gridinfo; $script:loginUri = $script:info.login } finally { $resp.Close() } } catch { }
+                  try { $script:info = ([xml](New-Object System.IO.StreamReader($resp.GetResponseStream())).ReadToEnd()).gridinfo; $script:loginUri = $script:info.login; if ($Variant -eq "poser") { $script:shown = ([uri]$script:loginUri).Authority } } finally { $resp.Close() } } catch { }
         }
         $i = $script:info
         $wantCurrency = if ($Variant -eq "none") { "none" } else { $Symbol }
@@ -171,13 +173,14 @@ try {
 
         Step "2" "login screen" {
             # the screen asks the grid for its grid-info document when it comes up and keeps what it says; the link shows when it has answered
-            $s = Wait-Until { $x = Api $V "login_screen" '{"action":"state"}'; if ($x -and $x.links -and $x.links.visit) { $x } } 60
-            if (-not $s) { $s = Api $V "login_screen" '{"action":"state"}' }
+            $s = Wait-Until { $x = Api $V "login_screen" '{"action":"layout"}'; if ($x -and $x.links -and $x.links.visit) { $x } } 60
+            if (-not $s) { $s = Api $V "login_screen" '{"action":"layout"}' }
             Save-Json "login-screen.json" $s
             Shot $V "login-screen"
             $label = @($s.grid_labels) | Where-Object { $_ -like "*127.0.0.1:*" } | Select-Object -First 1
-            $wantVisit = "Visit $GridName's page"
-            @{ pass = ($s.links.visit -eq $true -and $s.links.visit_text -eq $wantVisit -and $label -like "$GridName (127.0.0.1:*)")
+            $wantVisit = "Visit $shown's page"
+            $wantLabel = if ($Variant -eq "poser") { $shown } else { "$GridName ($(([uri]$loginUri).Authority))" }
+            @{ pass = ($s.links.visit -eq $true -and $s.links.visit_text -eq $wantVisit -and $label -eq $wantLabel)
                detail = "grid list shows '$label'; welcome link shown $($s.links.visit) reading '$($s.links.visit_text)' (wanted '$wantVisit')" }
         }
 
@@ -193,7 +196,7 @@ try {
             Save-Json "topbar.json" $tb
             Shot $V "world"
             $chip = [string]$tb.status[0].text
-            @{ pass = ($chip -eq $GridName -and ([string]$tb.window_title) -like "*$GridName*"); detail = "grid chip '$chip'; window title '$($tb.window_title)'" }
+            @{ pass = ($chip -eq $shown -and ([string]$tb.window_title) -like "*$shown*"); detail = "grid chip '$chip'; window title '$($tb.window_title)'" }
         }
 
         Step "5" "help menu" {
@@ -203,7 +206,7 @@ try {
             $m = Api $V "topbar" @{ action = "click"; index = $at }
             Save-Json "help-menu.json" $m
             $items = @($m.items | ForEach-Object { [string]$_.text })
-            $need = @("$GridName help", "About $GridName", "Get Reverie from $GridName")
+            $need = @("$shown help", "About $shown", "Get Reverie from $shown")
             $missing = @($need | Where-Object { $items -notcontains $_ })
             @{ pass = ($missing.Count -eq 0); detail = "Help menu: $($items -join ' | '); missing: $($missing -join ', ')" }
         }
@@ -216,8 +219,10 @@ try {
             Shot $V "edit-window"
             $unit = if ($f) { [string]$f.text } else { "<not found>" }
             $balanceShown = [bool]$tb.balance.shown
-            # the stock server has no money module, so no balance ever arrives: the balance is hidden in both runs; the symbol on a balance is checked by the unit tests
-            @{ pass = ($f -and $unit -eq $expectSymbol -and -not $balanceShown); detail = "price unit reads '$unit' (wanted '$expectSymbol'); balance shown $balanceShown" }
+            # the stock server answers a balance of 0: with a currency the top bar shows it in the grid's symbol, with currency = none it shows none
+            $balanceText = [string]$tb.balance.text
+            $balanceOk = if ($Variant -eq "none") { -not $balanceShown } else { $balanceShown -and $balanceText -eq ($Symbol + "0") }
+            @{ pass = ($f -and $unit -eq $expectSymbol -and $balanceOk); detail = "price unit reads '$unit' (wanted '$expectSymbol'); balance shown $balanceShown reading '$balanceText'" }
         }
 
         Step "7" "logout" {
