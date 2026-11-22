@@ -71,6 +71,7 @@ public partial class Main
                 top = (int)(r.Position.Y - visible.Position.Y),
                 bottom = (int)(r.End.Y - visible.Position.Y),
                 visible = c.IsVisibleInTree() && r.Position.Y >= visible.Position.Y && r.End.Y <= visible.End.Y + 0.5f,
+                collapsed = !c.IsVisibleInTree(),   // inside a section that is closed: not meant to be seen until it is opened
             });
         }
         var window = prefs.GetGlobalRect();

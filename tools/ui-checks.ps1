@@ -221,7 +221,7 @@ try {
     # Preferences > Sound at the default size: every setting visible without scrolling
     [void](Api $v "prefs_layout" '{"page":"sound"}'); Start-Sleep -Milliseconds 1200
     $layout = Api $v "prefs_layout" '{"page":"sound"}'
-    $hidden = @($layout.controls | Where-Object { -not $_.visible } | ForEach-Object { $_.key })
+    $hidden = @($layout.controls | Where-Object { -not $_.visible -and -not $_.collapsed } | ForEach-Object { $_.key })
     $mono = @($layout.controls | Where-Object { $_.key -eq "audio_mono" })
     Record "sound_page_fits" ($layout -and $hidden.Count -eq 0 -and $mono.Count -eq 1 -and $mono[0].visible) ("window $($layout.window.w)x$($layout.window.h), page visible height $($layout.visible_height), " +
         "$(@($layout.controls).Count) settings, last bottom $(@($layout.controls)[-1].bottom), mono top $($mono[0].top); not visible: [$($hidden -join ', ')]")

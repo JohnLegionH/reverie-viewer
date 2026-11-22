@@ -17,6 +17,6 @@ public class EnvironmentPreferenceRowTests
         Assert.NotNull(def);
         Assert.Equal(PrefPage.Graphics, def!.Page);
         Assert.NotEqual(def.LabelKey, StringTable.English().Get(def.LabelKey));
-        Assert.Equal(false, Settings.EnvironmentPersistAcrossLogin.Default);   // off as before: the row only lets a person turn it on
+        Assert.Equal(true, Settings.EnvironmentPersistAcrossLogin.Default);   // on: the sky a person picks is remembered; the row lets them turn that off
     }
 }

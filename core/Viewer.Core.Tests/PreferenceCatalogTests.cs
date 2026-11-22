@@ -42,7 +42,7 @@ public class PreferenceCatalogTests
         new("fps_limit", PrefPage.Graphics, PrefKind.Whole, Live, PrefScope.Global, 0, 0, 360),
         new("vsync", PrefPage.Graphics, PrefKind.Switch, Live, PrefScope.Global, true),
         new("clouds_enabled", PrefPage.Graphics, PrefKind.Switch, Live, PrefScope.Global, true),
-        new("EnvironmentPersistAcrossLogin", PrefPage.Graphics, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("EnvironmentPersistAcrossLogin", PrefPage.Graphics, PrefKind.Switch, Live, PrefScope.Global, true),
         new("SwitchToSharedEnvAfterTeleport", PrefPage.Graphics, PrefKind.Switch, Live, PrefScope.Global, false),
         new("neighbours", PrefPage.Graphics, PrefKind.Switch, Next, PrefScope.Global, true),
         new("graphics_backend", PrefPage.Graphics, PrefKind.Choice, Restart, PrefScope.Global, "auto"),

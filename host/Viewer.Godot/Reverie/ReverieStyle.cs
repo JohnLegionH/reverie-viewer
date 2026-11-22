@@ -321,6 +321,9 @@ public static class ReverieStyle
         theme.SetColor("font_hover_pressed_color", Check, C(r["text.strong"]));
         theme.SetColor("font_disabled_color", Check, C(ControlStates.Faded(r["text.primary"])));
         theme.SetConstant("h_separation", Check, 6);
+        // the box itself: an outline that holds 3:1 against the surface (ticked: the accent with a tick; disabled: the same at 45 %)
+        foreach (var (icon, ticked, off) in new[] { ("unchecked", false, false), ("checked", true, false), ("unchecked_disabled", false, true), ("checked_disabled", true, true) })
+            theme.SetIcon(icon, Check, CheckBoxIcons.Make(r, ticked, off));
         theme.SetFontSize("font_size", Check, Type(ReverieTheme.TypeBody));
 
         // a collapsible section header: flat, a chevron icon, the label in weight 600; the window draws the thin divider under it.

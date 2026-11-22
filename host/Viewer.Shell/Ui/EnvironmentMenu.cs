@@ -8,8 +8,8 @@ namespace Viewer.Shell;
 /// <summary>
 /// The time-of-day choice made in the World > Environment menu: the region's own environment (the default), or one of four fixed
 /// skies. As in the official viewer (llviewermenu.cpp, World.EnvSettings) the choice is the viewer's own and stays when the avatar
-/// teleports; it is kept for the next login only when the setting EnvironmentPersistAcrossLogin is on (llenvironment.cpp,
-/// saveToSettings; the setting is off by default there too). Main thread only.
+/// teleports; it is kept for the next login while the setting EnvironmentPersistAcrossLogin is on (llenvironment.cpp,
+/// saveToSettings; on by default here, off by default in the official viewer). Main thread only.
 /// </summary>
 public sealed class EnvironmentChoice
 {

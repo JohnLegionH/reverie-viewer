@@ -35,6 +35,12 @@ public sealed class PreferencesModel(SettingsService settings, string? account)
             EditSlotSource(info.Slot, source);
     }
 
+    /// <summary>How many interface sounds play now: the slot takes the grid's sound and its switch is on (the Sound page's summary line).</summary>
+    public int InterfaceSoundsOn => UiSoundCatalog.All.Count(i => SlotSource(i.Slot) == UiSoundSource.Grid && SlotEnabled(i.Slot));
+
+    /// <summary>How many interface sounds there are.</summary>
+    public static int InterfaceSoundCount => UiSoundCatalog.All.Count;
+
     private bool Usable(PrefDef def) => def.Scope == PrefScope.Global || !string.IsNullOrEmpty(account);
 
     /// <summary>The value the control shows.</summary>

@@ -175,8 +175,9 @@ public static class Settings
     public static readonly Setting<float> InactiveFloaterTransparency = new("InactiveFloaterTransparency", 0.95f, v => float.IsFinite(v) ? Math.Clamp(v, 0f, 1f) : null);
 
     /// <summary>Whether the time-of-day choice made in the World > Environment menu is kept for the next login (the official viewer's
-    /// EnvironmentPersistAcrossLogin, off by default there as here).</summary>
-    public static readonly Setting<bool> EnvironmentPersistAcrossLogin = new("EnvironmentPersistAcrossLogin", false, v => v);
+    /// EnvironmentPersistAcrossLogin, which is off by default there). On by default here: the sky a person picks stays until they choose
+    /// the region's shared environment; a person can turn it off in Preferences > Graphics.</summary>
+    public static readonly Setting<bool> EnvironmentPersistAcrossLogin = new("EnvironmentPersistAcrossLogin", true, v => v);
 
     /// <summary>Whether a teleport that has ended puts the region's own environment back in place of the choice made in the Environment menu (the official
     /// viewer's SwitchToSharedEnvAfterTeleport, off by default for an existing user).</summary>

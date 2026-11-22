@@ -29,7 +29,7 @@ public sealed partial class PrefPageView : ScrollContainer
     private readonly List<Label> _accountNotes = new();
     private readonly Dictionary<string, Control> _controls = new();
     private readonly Func<UiSounds?> _sounds;
-    private readonly Dictionary<UiSoundSlot, Label> _soundStatus = new();
+    private readonly Dictionary<UiSoundSlot, (Label Note, OptionButton Source)> _soundStatus = new();
     private double _statusAge;
     private bool _syncing;
 
@@ -54,16 +54,17 @@ public sealed partial class PrefPageView : ScrollContainer
         HorizontalScrollMode = ScrollMode.Auto;
         var box = new VBoxContainer { Name = "page", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         AddChild(box);
-        foreach (var def in PreferenceCatalog.OfPage(page))
-            AddSetting(box, def);
+        if (page == PrefPage.Sound)
+            BuildSoundPage(box);
+        else
+            foreach (var def in PreferenceCatalog.OfPage(page))
+                AddSetting(box, def);
         if (page == PrefPage.Privacy && clearNames is not null)
             box.AddChild(ConfirmedAction("clear_names", "prefs.privacy.clear", "prefs.privacy.clear.ask", "prefs.privacy.clear.yes", "prefs.privacy.clear.no",
                 () => _strings.Get(clearNames() ? "prefs.privacy.cleared" : "prefs.privacy.none")));
         if (page == PrefPage.Cache && clearCache is not null)
             box.AddChild(ConfirmedAction("clear_cache", "prefs.cache.clear", "prefs.cache.clear.ask", "prefs.cache.clear.yes", "prefs.cache.clear.no",
                 () => _strings.Get("prefs.cache.cleared", new Counted("count.entries", clearCache()))));
-        if (page == PrefPage.Sound)
-            AddSoundList(box);
         Sync();
     }
 
@@ -258,8 +259,6 @@ public sealed partial class PrefPageView : ScrollContainer
 
     // ---------------- Sound: every interface sound, to hear and to choose ----------------
 
-    private static readonly UiSoundSource[] Sources = [UiSoundSource.Grid, UiSoundSource.Off];
-
     /// <summary>A 0 to 1 level slider kept in step with the model under <paramref name="syncKey"/>.</summary>
     private HSlider Slider(string name, string label, Func<double> read, Action<double> write, string syncKey)
     {
@@ -272,117 +271,6 @@ public sealed partial class PrefPageView : ScrollContainer
         };
         _sync[syncKey] = () => slider.SetValueNoSignal(read());
         return slider;
-    }
-
-    /// <summary>The list under the page's own settings: for each sound its name, a Play button (the source chosen now, even with the sound
-    /// switched off), its level, its source (Grid's, Off), its switch and what the grid said about it; and Set all to Grid's.</summary>
-    private void AddSoundList(VBoxContainer box)
-    {
-        // music streams, media and voice have no player yet: said once, as the official page's sliders for them would be
-        box.AddChild(Caption(_strings.Get("prefs.sound.not_built"), "sound_not_built"));
-        var heading = new Label { Name = "sound_heading", Text = _strings.Get("prefs.sound.heading"), ThemeTypeVariation = UiTheme.TitleLabel };
-        heading.AccessibilityName = heading.Text;
-        box.AddChild(heading);
-        box.AddChild(Caption(_strings.Get("prefs.sound.note.grid"), "sound_note"));
-        var all = new HBoxContainer { Name = "sound_all" };
-        foreach (var (source, key) in new[] { (UiSoundSource.Grid, "prefs.sound.all_grid") })
-        {
-            var button = new Button { Name = "sound_all_" + UiSoundSettings.IdOf(source), Text = _strings.Get(key) };
-            button.AccessibilityName = button.Text;
-            var chosen = source;
-            button.Pressed += () =>
-            {
-                _model().EditAllSlotSources(chosen);
-                if (chosen == UiSoundSource.Grid)
-                    _sounds()?.Preload();
-                Sync();
-                RefreshSoundStatus();
-            };
-            all.AddChild(button);
-        }
-        box.AddChild(all);
-
-        // two rows a sound (name, Play, volume; then source, on, status), so the list fits the window at its usual sizes
-        var grid = new GridContainer { Name = "sound_list", Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        string[] sourceTexts = Sources.Select(s => _strings.Get("prefs.sound.source." + UiSoundSettings.IdOf(s))).ToArray();
-        foreach (var info in UiSoundCatalog.All)
-        {
-            var slot = info.Slot;
-            string key = info.KeyName;
-            string title = _strings.Get("prefs.sound.slot." + key);
-            var name = new Label { Name = "sound_" + key + "_name", Text = title, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(120, 0) };
-            name.AccessibilityName = title;
-            grid.AddChild(name);
-
-            var play = new Button { Name = "sound_" + key + "_play", Text = _strings.Get("prefs.sound.play") };
-            play.AccessibilityName = title + " " + play.Text;
-            play.SetMeta(UiSoundClicks.SilentMeta, "silent");   // the button plays the sound itself, without a click over it
-            play.Pressed += () =>
-            {
-                _sounds()?.Audition(slot);
-                RefreshSoundStatus();
-            };
-            grid.AddChild(play);
-
-            grid.AddChild(Slider("sound_" + key + "_volume", title + " " + _strings.Get("prefs.sound.volume"),
-                () => _model().SlotVolume(slot), v => { _model().EditSlotVolume(slot, v); Sync(); }, "slot_volume_" + key));
-
-            var source = new OptionButton { Name = "sound_" + key + "_source", CustomMinimumSize = new Vector2(110, 0) };
-            source.AccessibilityName = title;
-            foreach (var text in sourceTexts)
-                source.AddItem(text);
-            source.ItemSelected += i =>
-            {
-                if (_syncing)
-                    return;
-                _model().EditSlotSource(slot, Sources[(int)i]);
-                if (Sources[(int)i] == UiSoundSource.Grid)
-                    _sounds()?.Preload();
-                Sync();
-                RefreshSoundStatus();
-            };
-            _sync["slot_source_" + key] = () => source.Select(Array.IndexOf(Sources, _model().SlotSource(slot)));
-            grid.AddChild(source);
-
-            var on = new CheckBox { Name = "sound_" + key + "_on", Text = _strings.Get("prefs.sound.enabled") };
-            on.AccessibilityName = title + " " + on.Text;
-            on.Toggled += v =>
-            {
-                if (_syncing)
-                    return;
-                _model().EditSlotEnabled(slot, v);
-                Sync();
-            };
-            _sync["slot_on_" + key] = () => on.SetPressedNoSignal(_model().SlotEnabled(slot));
-            grid.AddChild(on);
-
-            var status = new Label { Name = "sound_" + key + "_status", ThemeTypeVariation = UiTheme.CaptionLabel, CustomMinimumSize = new Vector2(110, 0) };
-            _soundStatus[slot] = status;
-            grid.AddChild(status);
-        }
-        box.AddChild(grid);
-        RefreshSoundStatus();
-    }
-
-    /// <summary>What the grid said about each sound set to it: not on this grid, silent on the grid (no official sound), or being fetched.</summary>
-    private void RefreshSoundStatus()
-    {
-        var sounds = _sounds();
-        foreach (var (slot, label) in _soundStatus)
-        {
-            string text = sounds?.StatusOf(slot) switch
-            {
-                UiSoundStatus.NotOnGrid => _strings.Get("prefs.sound.status.not_on_grid"),
-                UiSoundStatus.NoGridSound => _strings.Get("prefs.sound.status.no_grid_sound"),
-                UiSoundStatus.Fetching => _strings.Get("prefs.sound.status.fetching"),
-                _ => "",
-            };
-            if (label.Text != text)
-            {
-                label.Text = text;
-                label.AccessibilityName = text;
-            }
-        }
     }
 
     public override void _Process(double delta)
