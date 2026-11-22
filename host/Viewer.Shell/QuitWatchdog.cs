@@ -44,8 +44,15 @@ public sealed class QuitWatchdog
         _holding = holding;
     }
 
-    /// <summary>The quit entered a new stage (named in the log if the quit stalls there).</summary>
-    public void Enter(string stage) => Volatile.Write(ref _stage, stage);
+    /// <summary>The quit entered a new stage. Each stage is written to the log as it is entered, so a process that ends during its
+    /// quit (a crash in the engine's own shutdown, for example) leaves the log at the stage it had reached, which tells it apart
+    /// from a clean exit; the stage is named again if the quit stalls there.</summary>
+    public void Enter(string stage)
+    {
+        Volatile.Write(ref _stage, stage);
+        try { _log.Info("quit.stage", CoreLog.F("stage", stage)); }
+        catch (Exception) { /* the log is a convenience; the quit goes on */ }
+    }
 
     /// <summary>Starts the clock. Calling it again does nothing.</summary>
     public void Arm()
