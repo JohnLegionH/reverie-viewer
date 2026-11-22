@@ -18,6 +18,14 @@ public interface ITextureCapabilityProbe
     Task<TextureProbeResult?> ProbeTexturesAsync(IReadOnlyList<Guid> ids, int concurrency, long? to, CancellationToken ct);
 }
 
+/// <summary>A transport that can say where it fetches textures from now (a development reading).</summary>
+public interface ITextureRouteProbe
+{
+    /// <summary>The login reply's appearance service, whether the current region says it bakes avatars, the region's texture capability,
+    /// and the address each id would be fetched from.</summary>
+    (string? AppearanceService, bool RegionBakes, Uri? TextureCapability, IReadOnlyList<(Guid Id, Uri? Address)> Routes) TextureRoutes(IEnumerable<Guid> ids);
+}
+
 /// <summary>
 /// Fetches textures straight from a texture capability with a plain bounded client, at a fixed
 /// concurrency, every request timed (<see cref="RangeHttp"/>, bounded by <see cref="J2kLimits.MaxBytes"/>). It separates
