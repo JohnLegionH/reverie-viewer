@@ -39,7 +39,7 @@ public sealed partial class MaxWidthBox : Container
 }
 
 /// <summary>
-/// The Preferences > Sound page, laid out to the layout standard (UI-STANDARD): a Volume section with one row a level (name, slider, value,
+/// The Preferences > Sound page: a Volume section with one row a level (name, slider, value,
 /// mute), the Options switches, a collapsed More section for the two thresholds, and the interface sounds as a compact table in a section
 /// that is closed until opened. The settings, their keys and their saved values are the catalogue's; only the layout is here.
 /// </summary>

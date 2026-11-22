@@ -18,9 +18,10 @@ public partial class TestRender
     ];
 
     /// <summary>
-    /// The layout standard (UI-STANDARD) applied to the Preferences > Sound page as drawn: a control beside its label (U1), one row a volume (U2),
-    /// a value on every slider (U3), sections closed or open as asked and a one-line summary on a closed one (U6, U7, U8), no "not built"
-    /// wording (U9), and no control nearer the page's edge than 12 units (U10). Failures go to the case's failures.
+    /// The layout rules applied to the Preferences > Sound page as drawn: a control beside its label, one row a volume, a value on every
+    /// slider, sections closed or open as asked with a one-line summary on a closed one, one line a sound in the table, no "not built"
+    /// wording, an unticked box whose outline holds 3:1 against its inside, and no control nearer the page's edge than 12 units.
+    /// Failures go to the case's failures.
     /// </summary>
     private void SoundPageStandard(ShellRoot shell, bool open, int pct, Image img)
     {
@@ -43,18 +44,18 @@ public partial class TestRender
             var button = Find<Button>("pref_" + mute);
             if (name is null || slider is null || value is null || button is null)
             {
-                problems.Add($"U2: the {row} row lacks its name, slider, value or mute button");
+                problems.Add($"one row a volume: the {row} row lacks its name, slider, value or mute button");
                 continue;
             }
             float spread = new[] { CentreY(name), CentreY(slider), CentreY(value), CentreY(button) } is { } ys ? ys.Max() - ys.Min() : 0;
             float gap = slider.GetGlobalRect().Position.X - name.GetGlobalRect().End.X;
             rows.Add($"{row}: spread {spread:F1}, name-to-slider gap {gap:F1}, value '{value.Text}', button '{button.Text}'");
             if (spread > 4)
-                problems.Add($"U2: the {row} row's parts are {spread:F1} units apart vertically");
+                problems.Add($"one row a volume: the {row} row's parts are {spread:F1} units apart vertically");
             if (gap > 16 || gap < 0)
-                problems.Add($"U1: the {row} slider is {gap:F1} units from its name");
+                problems.Add($"label beside control: the {row} slider is {gap:F1} units from its name");
             if (!Regex.IsMatch(value.Text, @"^\d+%$"))
-                problems.Add($"U3: the {row} slider shows '{value.Text}' instead of its value");
+                problems.Add($"slider value: the {row} slider shows '{value.Text}' instead of its value");
         }
 
         // sections: closed until opened, with a one-line summary while closed
@@ -64,13 +65,13 @@ public partial class TestRender
             var summary = Find<Label>("section_" + id + "_summary");
             if (body is null || summary is null)
             {
-                problems.Add($"U7: the {id} section is missing");
+                problems.Add($"table: the {id} section is missing");
                 continue;
             }
             if (body.Visible != open)
-                problems.Add($"U6: the {id} section is {(body.Visible ? "open" : "closed")} when it should be {(open ? "open" : "closed")}");
+                problems.Add($"section state: the {id} section is {(body.Visible ? "open" : "closed")} when it should be {(open ? "open" : "closed")}");
             if (!open && !Regex.IsMatch(summary.Text, pattern))
-                problems.Add($"U8: the closed {id} section says '{summary.Text}'");
+                problems.Add($"section summary: the closed {id} section says '{summary.Text}'");
             rows.Add($"{id}: body visible {body.Visible}, summary '{summary.Text}' visible {summary.Visible}");
         }
 
@@ -88,7 +89,7 @@ public partial class TestRender
             worstLine = Math.Max(worstLine, spread);
             lines++;
             if (spread > 4)
-                problems.Add($"U7: the line of '{name.Text}' is {spread:F1} units tall across its parts");
+                problems.Add($"table: the line of '{name.Text}' is {spread:F1} units tall across its parts");
         }
         rows.Add($"table: {lines} lines visible, worst spread {worstLine:F1}");
 
@@ -100,7 +101,7 @@ public partial class TestRender
                 continue;
             string text = node switch { Label l => l.Text, Button b => b.Text, _ => "" };
             if (Regex.IsMatch(text, "not built|coming soon|TODO", RegexOptions.IgnoreCase))
-                problems.Add($"U9: '{text}' says something is not built");
+                problems.Add($"wording: '{text}' says something is not built");
             if (node is Container || node.Size.X <= 0 || node is Separator || node is ScrollBar)
                 continue;
             var r = node.GetGlobalRect();
@@ -110,9 +111,9 @@ public partial class TestRender
                 edge.Add($"{node.Name} ends {view.End.X - r.End.X:F1} from the right edge");
         }
         foreach (var e in edge.Take(6))
-            problems.Add("U10: " + e);
+            problems.Add("page edge: " + e);
 
-        // U4: an unticked box, measured on the picture: the strongest colour on the row through the box against the colour inside it
+        // unticked box: an unticked box, measured on the picture: the strongest colour on the row through the box against the colour inside it
         if (Find<CheckBox>("pref_" + Viewer.Shell.Sound.AudioLevels.Mono.Key) is { ButtonPressed: false } unticked && view.Encloses(unticked.GetGlobalRect()))
         {
             var box = unticked.GetGlobalRect();
@@ -127,10 +128,10 @@ public partial class TestRender
                 best = Math.Max(best, Viewer.Shell.UiColour.Contrast(Ui(Px(x)), Ui(inside)));
             rows.Add($"unticked box: outline against the inside {best:F2}:1");
             if (best < Viewer.Shell.CheckColours.MinContrast)
-                problems.Add($"U4: the unticked box's outline is {best:F2}:1 against its inside (needs 3:1)");
+                problems.Add($"unticked box: the unticked box's outline is {best:F2}:1 against its inside (needs 3:1)");
         }
         else if (!open)
-            problems.Add("U4: no unticked check box found to measure");   // with the sections open the page is scrolled to the table, away from the box
+            problems.Add("unticked box: no unticked check box found to measure");   // with the sections open the page is scrolled to the table, away from the box
 
         _result["sound_standard"] = new { pct, open, rows, edge_problems = edge.Count, problems };
         _failures.AddRange(problems.Select(p => "Sound page: " + p));
