@@ -364,6 +364,19 @@ public partial class RvLocationField : PanelContainer
     /// <summary>The visited grid's host as shown, for checks.</summary>
     public Label HostLabel => _host;
 
+    /// <summary>Whether the host's whole text lies inside the field's text area (left of the star), for checks.</summary>
+    public bool HostInside
+    {
+        get
+        {
+            if (!_host.IsVisibleInTree())
+                return false;
+            var area = _display.GetGlobalRect();
+            var r = _host.GetGlobalRect();
+            return r.Size.X + 0.5f >= FullWidth(_host) && r.Position.X >= area.Position.X - 0.5f && r.End.X <= area.End.X + 0.5f;
+        }
+    }
+
     /// <summary>The tooltip's text (the whole place), for checks.</summary>
     public string Tooltip => _display.TooltipText;
 

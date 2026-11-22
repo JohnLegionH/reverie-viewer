@@ -20,8 +20,11 @@ public static class DialogTarget
     /// its node name in the dialog, and whether it is the default (filled, takes Enter) or the cancel button (takes Esc).</summary>
     public sealed record AlertButton(int Index, string? Key, string Node, bool IsDefault, bool IsCancel);
 
+    /// <summary>The node name of the alert's button with this index; no toast or window uses it, so the ui command finds this one.</summary>
+    public static string NodeOf(int index) => "alert_button_" + index;
+
     /// <summary>The alert's buttons, in the order they are drawn; empty without an alert.</summary>
     public static IReadOnlyList<AlertButton> Buttons(Notification? alert) => alert is null
         ? Array.Empty<AlertButton>()
-        : alert.Buttons.Select(b => new AlertButton(b.Index, b.Label.Key, "button_" + b.Index, alert.DefaultButton == b.Index, alert.CancelButton == b.Index)).ToArray();
+        : alert.Buttons.Select(b => new AlertButton(b.Index, b.Label.Key, NodeOf(b.Index), alert.DefaultButton == b.Index, alert.CancelButton == b.Index)).ToArray();
 }

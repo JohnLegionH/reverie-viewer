@@ -343,7 +343,7 @@ try {
                         $guard = [bool](Api $A "dialog" @{}).modal
                     }
                     Start-Sleep -Milliseconds 1300
-                    $m = Api $A "ui" @{ action = "find"; name = "message" }; $b0 = Api $A "ui" @{ action = "find"; name = "button_0" }; $b1 = Api $A "ui" @{ action = "find"; name = "button_1" }
+                    $m = Api $A "ui" @{ action = "find"; name = "message" }; $b0 = Api $A "ui" @{ action = "find"; name = "alert_button_0" }; $b1 = Api $A "ui" @{ action = "find"; name = "alert_button_1" }
                     [void](Api $A "screenshot" @{ dir = $Sandbox; name = "return-dialog-$pct" })
                     $inView = ($m.reach -eq "visible") -and ($b0.reach -eq "visible") -and ($b1.reach -eq "visible")
                     $step = "at $pct percent: text $($m.reach), OK $($b0.reach), Cancel $($b1.reach), body $bodyKey, default button $def"

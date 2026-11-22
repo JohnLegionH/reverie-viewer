@@ -54,8 +54,9 @@ public class HypergridUiTests
         model.Post(Alert(new List<int>()));
         var buttons = DialogTarget.Buttons(model.Modal);
         Assert.Equal(2, buttons.Count);
-        Assert.Equal(new DialogTarget.AlertButton(0, "home.refused.relog", "button_0", true, false), buttons[0]);
-        Assert.Equal(new DialogTarget.AlertButton(1, "button.cancel", "button_1", false, true), buttons[1]);
+        // the alert's own node names: a toast's buttons are "button_N" too, and a toast under the world view is found first
+        Assert.Equal(new DialogTarget.AlertButton(0, "home.refused.relog", "alert_button_0", true, false), buttons[0]);
+        Assert.Equal(new DialogTarget.AlertButton(1, "button.cancel", "alert_button_1", false, true), buttons[1]);
     }
 
     [Fact]
@@ -103,6 +104,19 @@ public class HypergridUiTests
     }
 
     [Fact]
+    public void Where_the_alert_cannot_fit_above_the_dock_the_dock_is_hidden_while_it_shows()
+    {
+        Assert.False(ModalPlacement.HidesDock(Window200, Main200, Dock200, new UiSize(300, 120)));
+        Assert.True(ModalPlacement.HidesDock(Window200, Main200, Dock200, new UiSize(460, 200)));
+        Assert.False(ModalPlacement.HidesDock(Window200, Main200, null, new UiSize(460, 200)));
+        // with the dock hidden it is placed as if there were none, and so lies clear of where the dock was drawn
+        var r = ModalPlacement.Place(Window200, Main200, null, new UiSize(460, 200));
+        Assert.True(r.Y >= Main200.Y && r.Bottom <= Main200.Bottom);
+        string shell = Read("ShellRoot.cs");
+        Assert.Contains("public void HideDockForAlert(bool hidden)", shell);
+    }
+
+    [Fact]
     public void The_alert_is_never_taller_or_wider_than_the_window_allows()
     {
         Assert.Equal(360 - 2 * ModalPlacement.Margin, ModalPlacement.MaxHeight(Window200));
@@ -120,6 +134,8 @@ public class HypergridUiTests
         string shell = Read("ShellRoot.cs"), panels = Read("NotificationPanels.cs");
         Assert.Contains("public Control ModalLayer { get; }", shell);
         Assert.Contains("_modalLayer?.MoveToFront()", panels);
+        Assert.Contains("Name = DialogTarget.NodeOf(b.Index)", panels);       // the alert's buttons have names no toast uses
+        Assert.Contains("var row = new HFlowContainer { Name = \"buttons\"", panels);   // a narrow window wraps the buttons rather than pushing them off
         Assert.Contains("toasts.UseModalLayer(shell.ModalLayer", panels);
         Assert.DoesNotContain("Dim.ZIndex", panels);
     }

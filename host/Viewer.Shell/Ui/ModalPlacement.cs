@@ -33,6 +33,16 @@ public static class ModalPlacement
         return new UiRect(x, y, w, h);
     }
 
+    /// <summary>Whether the dialog cannot lie between the bars and the dock: the dock is then hidden while the alert shows (the dim covers it and
+    /// it takes no clicks then anyway), and the dialog is placed as if there were no dock.</summary>
+    public static bool HidesDock(UiSize window, UiRect main, UiRect? dock, UiSize size)
+    {
+        if (dock is not { } d || d.H <= 0)
+            return false;
+        float top = main.Y + Margin, bottom = Math.Min(main.Bottom - Margin, d.Y - Margin);
+        return Math.Min(size.H, MaxHeight(window)) > bottom - top;
+    }
+
     /// <summary>The tallest the dialog may be: the window's height less a margin above and below.</summary>
     public static float MaxHeight(UiSize window) => Math.Max(0, window.H - 2 * Margin);
 

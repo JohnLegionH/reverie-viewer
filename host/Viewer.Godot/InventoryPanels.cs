@@ -430,6 +430,7 @@ public partial class InventoryPanel : VBoxContainer
     private SpinBox? _hoursAgo, _daysAgo;
     private OptionButton? _dateDirection;
     private PopupMenu? _kindsMenu;
+    private const int KindsAll = 1000, KindsNone = 1001;
 
     /// <summary>The Recent tab's filter row (shown on that tab only): the official viewer's filter options, as in its inventory filter window
     /// (floater_inventory_view_finder): the kinds shown, Since Logoff, or newer or older than hours and days ago, and Reset.</summary>
@@ -450,8 +451,19 @@ public partial class InventoryPanel : VBoxContainer
         _kindsMenu.HideOnCheckableItemSelection = false;
         foreach (var k in Enum.GetValues<RecentKind>())
             _kindsMenu.AddCheckItem(strings.Get("inventory.recent.kind." + k.ToString().ToLowerInvariant()), (int)k);
+        _kindsMenu.AddSeparator();
+        _kindsMenu.AddItem(strings.Get("inventory.recent.all"), KindsAll);
+        _kindsMenu.AddItem(strings.Get("inventory.recent.none"), KindsNone);
         _kindsMenu.IdPressed += id =>
         {
+            if (id is KindsAll or KindsNone)
+            {
+                var f = _recentFilter;
+                foreach (var k in Enum.GetValues<RecentKind>())
+                    f = f.WithKind(k, id == KindsAll);
+                ApplyRecentFilter(f);
+                return;
+            }
             int index = _kindsMenu.GetItemIndex((int)id);
             ApplyRecentFilter(_recentFilter.WithKind((RecentKind)(int)id, !_kindsMenu.IsItemChecked(index)));
         };

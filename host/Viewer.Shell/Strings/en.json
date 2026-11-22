@@ -453,6 +453,8 @@
   "inventory.recent.older": "Older than",
   "inventory.recent.kinds": "Show",
   "inventory.recent.reset": "Reset",
+  "inventory.recent.all": "All",
+  "inventory.recent.none": "None",
   "inventory.recent.kind.animation": "Animations",
   "inventory.recent.kind.callingcard": "Calling cards",
   "inventory.recent.kind.clothing": "Clothing",

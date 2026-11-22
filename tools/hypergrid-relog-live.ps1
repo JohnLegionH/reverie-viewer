@@ -67,11 +67,11 @@ function LayersCheck([string]$label) {
     [void](Invoke-LiveApi "interact" @{ action = "aim"; x = 0; y = 0; z = 0; distance = 0 })
     Start-Sleep -Seconds 1
 }
-# The modal alert up now (its body key), answered by a real click on one of its buttons (button_0 is its first: the confirmation's yes).
+# The modal alert up now (its body key), answered by a real click on one of its buttons (alert_button_0 is its first: the confirmation's yes).
 function ModalBody { (Invoke-LiveApi "dialog" @{ action = "find" }).modal_body }
 function ClickModal([int]$button) {
     Start-Sleep -Milliseconds 1500
-    $c = Invoke-LiveClick ("button_" + $button)
+    $c = Invoke-LiveClick ("alert_button_" + $button)
     Start-Sleep -Seconds 1
     return $c
 }

@@ -68,7 +68,17 @@ public partial class ShellRoot : Control
     /// <summary>The part of the window the alert is placed in: the world view between the bars, and the dock's rectangle while it shows.</summary>
     public (UiRect Main, UiRect? Dock) ModalSpace() =>
         (new UiRect(MainArea.Position.X, MainArea.Position.Y, MainArea.Size.X, MainArea.Size.Y),
-         Dock.Visible ? new UiRect(Dock.Position.X, Dock.Position.Y, Dock.Size.X, Dock.Size.Y) : null);
+         _inWorld ? new UiRect(Dock.Position.X, Dock.Position.Y, Dock.Size.X, Dock.Size.Y) : null);
+
+    private bool _inWorld, _dockHiddenForAlert;
+
+    /// <summary>Hides the dock while an alert that has no room above it shows (the dim covers the dock then, and it takes no clicks), and
+    /// shows it again after.</summary>
+    public void HideDockForAlert(bool hidden)
+    {
+        _dockHiddenForAlert = hidden;
+        Dock.Visible = _inWorld && !hidden;
+    }
 
     /// <summary>The part of the window the bars leave (interface units, as laid out last): what a picture of the world shows between the menu rows and the chat row and toolbar.</summary>
     public Rect2 MainArea { get; private set; }
@@ -132,8 +142,9 @@ public partial class ShellRoot : Control
     /// <summary>Shows the world's parts of the frame (Back, Home, the location field and the chat bar) while a session is in the world.</summary>
     public void ShowWorldRows(bool inWorld)
     {
+        _inWorld = inWorld;
         Chat.Visible = inWorld;
-        Dock.Visible = inWorld;
+        Dock.Visible = inWorld && !_dockHiddenForAlert;
         TopBar.ShowPlace(inWorld);
         Shell.Chrome = new ChromeRows(Toolbar: false, NavBar: false, ChatBar: inWorld);
         if (IsInsideTree())

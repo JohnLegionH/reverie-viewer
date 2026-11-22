@@ -43,7 +43,7 @@ public static class NotificationFeature
         toasts.OpenList = () => s.Floaters.Open(ListId);
         // the alert lives in the shell's own top layer, not under the world view: the engine gives a click to the last control in the tree
         // under the pointer, so only there do the dock, the top bar and the windows stop taking the alert's clicks
-        toasts.UseModalLayer(shell.ModalLayer, shell.ModalSpace);
+        toasts.UseModalLayer(shell.ModalLayer, shell.ModalSpace, shell.HideDockForAlert);
         return new Panels(toasts, list, obj);
     }
 }
@@ -249,13 +249,14 @@ internal static class AlertDialogView
         var scroll = new ScrollContainer { Name = "message_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         scroll.AddChild(text);
         box.AddChild(scroll);
-        var row = new HBoxContainer { Name = "buttons", Alignment = BoxContainer.AlignmentMode.End };
-        row.AddThemeConstantOverride("separation", 8);
+        var row = new HFlowContainer { Name = "buttons", Alignment = FlowContainer.AlignmentMode.End };   // wraps in a narrow window
+        row.AddThemeConstantOverride("h_separation", 8);
+        row.AddThemeConstantOverride("v_separation", 8);
         Button? def = null;
         foreach (var b in n.Buttons)
         {
             string label = NotificationView.Words(b.Label, strings);
-            var button = new Button { Name = "button_" + b.Index, Text = label, CustomMinimumSize = new Vector2(0, 32) };   // sized to the label: no fixed width, nothing clipped
+            var button = new Button { Name = DialogTarget.NodeOf(b.Index), Text = label, CustomMinimumSize = new Vector2(0, 32) };   // sized to the label: no fixed width, nothing clipped
             button.AccessibilityName = label;
             if (n.DefaultButton == b.Index)
             {
@@ -286,6 +287,8 @@ public partial class ToastStack : Control
     private long _modalShown;   // the id of the alert drawn now (0: none)
     private Control? _modalLayer;
     private Func<(UiRect Main, UiRect? Dock)>? _modalSpace;
+    private Action<bool>? _hideDock;
+    private bool _dockHidden;
 
     public ScrollContainer Scroll { get; }
     public VBoxContainer Stack { get; }
@@ -332,10 +335,11 @@ public partial class ToastStack : Control
 
     /// <summary>Moves the dim and the alert into <paramref name="layer"/> (the shell's top layer, over the whole window), and places the alert
     /// in the part of the window <paramref name="space"/> gives: the world view between the bars, and the dock's rectangle when it shows.</summary>
-    public void UseModalLayer(Control layer, Func<(UiRect Main, UiRect? Dock)> space)
+    public void UseModalLayer(Control layer, Func<(UiRect Main, UiRect? Dock)> space, Action<bool>? hideDock = null)
     {
         _modalLayer = layer;
         _modalSpace = space;
+        _hideDock = hideDock;
         foreach (var c in new Control[] { Dim, ModalCentre })
         {
             RemoveChild(c);
@@ -402,6 +406,11 @@ public partial class ToastStack : Control
         Badge.AccessibilityName = Badge.Text;
         var modal = model.Modal;
         Dim.Visible = ModalCentre.Visible = modal is not null;
+        if (modal is null && _dockHidden)
+        {
+            _dockHidden = false;
+            _hideDock?.Invoke(false);   // the alert is gone: the dock comes back
+        }
         if (modal is not null && modal.Id != _modalShown)
         {
             var (alert, def) = AlertDialogView.Build(modal, _strings, Answer);
@@ -426,6 +435,9 @@ public partial class ToastStack : Control
         if (window.X <= 0 || window.Y <= 0)
             return;
         var ui = new UiSize(window.X, window.Y);
+        // a window or menu that put itself at the end of the shell after the alert opened must not take its clicks
+        if (_modalLayer is { } layer && layer.GetParent() is { } shell && layer.GetIndex() != shell.GetChildCount() - 1)
+            layer.MoveToFront();
         if (panel.FindChild("message_scroll", true, false) is ScrollContainer scroll && scroll.GetChildCount() > 0 && scroll.GetChild(0) is Label text)
         {
             float chrome = panel.GetCombinedMinimumSize().X - Math.Max(text.CustomMinimumSize.X, scroll.GetCombinedMinimumSize().X);
@@ -440,7 +452,14 @@ public partial class ToastStack : Control
         }
         var need = panel.GetCombinedMinimumSize();
         var (main, dock) = _modalSpace?.Invoke() ?? (new UiRect(0, 0, ui.W, ui.H), null);
-        var at = ModalPlacement.Place(ui, main, dock, new UiSize(need.X, need.Y));
+        var size = new UiSize(need.X, need.Y);
+        bool hide = _hideDock is not null && ModalPlacement.HidesDock(ui, main, dock, size);
+        if (hide != _dockHidden)
+        {
+            _dockHidden = hide;
+            _hideDock?.Invoke(hide);
+        }
+        var at = ModalPlacement.Place(ui, main, hide ? null : dock, size);
         panel.Position = new Vector2(at.X, at.Y);
         panel.Size = new Vector2(at.W, at.H);
     }
