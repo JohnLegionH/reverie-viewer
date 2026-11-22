@@ -165,6 +165,8 @@ function DragFromTo($from, $to) {
 }
 # the index of the first drop-down entry, not greyed, whose text matches
 function ComboIndex($s, [string]$pattern) { $items = @($s.combo_items); for ($i = 0; $i -lt $items.Count; $i++) { if ([string]$items[$i].text -match $pattern -and -not $items[$i].disabled) { return $i } }; return -1 }
+# The entry for one engine, found by its whole label. A partial match picked the first "(LSL" entry, which is YEngine on a region that loads it.
+function EngineIndex($s, [string]$label) { $items = @($s.combo_items); for ($i = 0; $i -lt $items.Count; $i++) { if ([string]$items[$i].text -ceq $label -and -not $items[$i].disabled) { return $i } }; return -1 }
 function Items($s) { (@($s.combo_items) | ForEach-Object { "{0}{1}" -f $_.text, $(if ($_.disabled) { " (greyed)" } else { "" }) }) -join " | " }
 function Rt($s) { if ($s.runtime) { "mono {0} luau {1} lua-language {2} engine '{3}' choice '{4}'" -f $s.runtime.Mono, $s.runtime.Luau, $s.runtime.LuauLanguage, $s.runtime.Engine, $s.runtime.EngineChoice } else { "no reply" } }
 # every script editor closed through the window list, so the next Open asks the region again for the running state
@@ -220,7 +222,7 @@ if ($Mode -eq "A") {
     Note ("A1 opened: row {0}; entries [{1}]; {2}" -f $s.engine_row, (Items $s), (Rt $s))
     TypeAll ("ll.Say(0, `"lua $tok`")")
     [void](ClickS "engine_choose"); Start-Sleep -Milliseconds 400
-    $i = ComboIndex (SState) '\(Lua'
+    $i = EngineIndex (SState) 'SLua (Lua)'
     $p = if ($i -ge 0) { Scr @{ action = "pick"; text = "$i" } } else { $null }
     $before = SState
     $saved = SaveNow
@@ -243,7 +245,7 @@ if ($Mode -eq "A") {
     $s = NewScriptOpened
     TypeAll ("default`n{`nstate_entry()`n{`nllSay(0, `"lsl-luau $tok`");`n}`n}")
     [void](ClickS "engine_choose"); Start-Sleep -Milliseconds 400
-    $i = ComboIndex (SState) '\(LSL'
+    $i = EngineIndex (SState) 'SLua (LSL)'
     if ($i -ge 0) { [void](Scr @{ action = "pick"; text = "$i" }) }
     $before3 = SState
     $saved3 = SaveNow
@@ -297,7 +299,7 @@ if ($Mode -eq "B") {
     # ---- B2. Choose engine myself, YEngine, saved; read back ----
     TypeAll ("default`n{`nstate_entry()`n{`nllSay(0, `"yengine $tok`");`n}`n}")
     [void](ClickS "engine_choose"); Start-Sleep -Milliseconds 400
-    $i = ComboIndex (SState) '^YEngine'
+    $i = EngineIndex (SState) 'YEngine (LSL)'
     if ($i -ge 0) { [void](Scr @{ action = "pick"; text = "$i" }) }
     $before = SState
     $saved = SaveNow
