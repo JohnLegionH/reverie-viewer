@@ -87,7 +87,7 @@ public partial class Main
                 InstallEnvironmentMenu();
                 var s = session!;
                 var tiles = _mapTiles = new MapTileCache((key, ct) => s.FetchMapTileAsync(key, ct));
-                var links = new MapLinks
+                var links = _mapLinks = new MapLinks
                 {
                     RequestBlocks = (a, b, c, d) => s.RequestMapBlocks(a, b, c, d),
                     RequestName = name => s.RequestRegionNamed(name),
@@ -101,6 +101,8 @@ public partial class Main
                     () => s.World.AvatarOf(s.AgentId) is { } me ? s.World.AttachmentRoots(me.Id.LocalId).Count : 0);
                 s.Communication += _travel.Enqueue;
                 _travel.Teleport.Arrived += () => EnvChoice.TeleportFinished();   // a finished teleport puts the region's own environment back when the setting asks for it
+                _travel.Teleport.HomeFailed += failure => OnHomeRefused(s, failure);
+                _mapGrid = null;
                 _travelFor = s;
             }
             _travelPanels?.Overlay.Bind(_travel);
@@ -108,6 +110,7 @@ public partial class Main
             _travelPanels?.Map.Bind(_travel, _mapTiles, Friends);
             _travelPanels?.Mini.Bind(_travel, MiniMapInputNow);
         }
+        FollowMapGrid();
         _travel?.Pump();
         UpdateBanWall();
     }

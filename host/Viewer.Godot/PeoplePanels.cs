@@ -118,6 +118,9 @@ public partial class PeoplePanel : VBoxContainer
     public ItemList NoticeList { get; }
     public Label NoticeHeader { get; }
     public Label NoticeBody { get; }
+
+    /// <summary>The links the notice's body holds, clickable (the body itself is shown as typed).</summary>
+    public LinkStrip NoticeLinks { get; } = new("notice_links");
     public Label AttachmentLabel { get; }
     public Button AttachmentAccept { get; }
     public Button AttachmentDecline { get; }
@@ -250,6 +253,7 @@ public partial class PeoplePanel : VBoxContainer
         NoticeBody = Note("notice_body", strings.Get("notices.body"));
         NoticeBody.SizeFlagsVertical = SizeFlags.ExpandFill;
         notices.AddChild(NoticeBody);
+        notices.AddChild(NoticeLinks);
         var attachment = new HBoxContainer { Name = "attachment" };
         AttachmentLabel = Note("attachment_label", strings.Get("notices.attachment.label"));
         AttachmentLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -538,6 +542,7 @@ public partial class PeoplePanel : VBoxContainer
         var notice = nsel >= 0 ? _noticeRows[nsel] : null;
         NoticeHeader.Text = notice is null ? "" : _strings.Get("notices.from", notice.FromName.Length > 0 ? notice.FromName : Viewer.Core.Social.NameCache.Placeholder(notice.Sender),
             notice.At.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture));
+        NoticeLinks.ShowLinksOf(notice?.Text);
         NoticeBody.Text = notice?.Text ?? "";   // a label: the text is shown as typed, never as markup
         bool offered = notice is { HasAttachment: true };
         AttachmentLabel.Visible = AttachmentAccept.Visible = AttachmentDecline.Visible = offered;

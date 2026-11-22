@@ -113,8 +113,17 @@ public sealed class ReconnectModel
         Changed?.Invoke();
     }
 
+    /// <summary>Logs in again at the home location with the held login (the offer made when the home grid refused the teleport home
+    /// during a Hypergrid visit; the session has been logged out first). False, with nothing sent, when no login is held: the login screen
+    /// then asks, with its start set to home by the caller.</summary>
+    public Task<bool> HomeAsync(CancellationToken ct) => RunAsync(null, ct, [HomeStart]);
+
+    /// <summary>The login start that means the home location (the login service's "home").</summary>
+    public const string HomeStart = "home";
+
     /// <summary>One click on Reconnect. True when a session is back. A second click while one is going on does nothing.</summary>
-    public async Task<bool> RunAsync(DropInfo? drop, CancellationToken ct)
+    /// <param name="starts">The start locations to try in order; the reconnect plan's for <paramref name="drop"/> when null.</param>
+    public async Task<bool> RunAsync(DropInfo? drop, CancellationToken ct, IReadOnlyList<string>? starts = null)
     {
         LoginRecord? kept;
         lock (_gate)
@@ -132,7 +141,7 @@ public sealed class ReconnectModel
             Set(ReconnectState.Failed, _strings.Get("drop.no_credentials"));
             return false;
         }
-        var starts = ReconnectPlan.StartLocations(drop);
+        starts ??= ReconnectPlan.StartLocations(drop);
         var previous = _login.Session;
         string startBefore = _login.StartLocation;
         var began = _clock();

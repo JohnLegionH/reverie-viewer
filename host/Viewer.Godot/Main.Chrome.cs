@@ -28,9 +28,7 @@ public partial class Main
         bar.Home.Pressed += () => _shell.Shell.Commands.Execute("travel.home");
         bar.Back.Pressed += () => { if (_teleportHistory.Back() is { } back) TeleportTo(back, rememberDeparture: false); };
         bar.Location.Submitted += address => TeleportTo(address, rememberDeparture: true);
-        // the viewer cannot make a landmark yet: the star says so instead of doing nothing
-        bar.Location.Star.Disabled = true;
-        bar.Location.Star.TooltipText = strings.Get("topbar.landmark.unavailable");
+        bar.Location.Star.Pressed += MakeLandmark;
         if (!_shell.Shell.Commands.Has("app.logout"))
             _shell.Shell.Commands.Register("app.logout", () => _ = LogOutFromMenu());
         if (!_shell.Shell.Commands.Has("app.check_updates"))
@@ -73,7 +71,9 @@ public partial class Main
             return;
         if (rememberDeparture && _here is { } from)
             _teleportHistory.Departed(from);
-        _travel.Teleport.ToRegion(address.Region, address.Position ?? new System.Numerics.Vector3(128, 128, 30));
+        // a place on another grid goes through that grid's map lookup (a Hypergrid address); one on the grid the agent is on, by its name
+        string grid = _travelFor?.CurrentGrid ?? "";
+        _travel.Teleport.ToAddress(address.Travel, grid.Length > 0 ? grid : null);
     }
 
     /// <summary>Log out (the app menu): the session ends and the login screen comes back.</summary>
@@ -156,8 +156,9 @@ public partial class Main
             // (the bar's default); the region's maturity text is not known to the session yet, so it is left out
             var (where, speed) = session.World.LastSelfMotion is { } self ? (self.Motion.Position - session.World.OriginOffset, self.Motion.Velocity.Length()) : (System.Numerics.Vector3.Zero, 0f);
             // the top bar's location field: the parcel (when it has a name), the region once, and the coordinates dimmer (spec 3)
-            _shell.SetLocation(LocationField.Display(region.Name, session.AgentParcelName, where, speed));
-            _here = new LocationAddress(region.Name, where);
+            // while visiting another grid the region is shown with that grid's host; history keeps the grid of every place
+            _shell.SetLocation(LocationField.Display(region.Name, session.AgentParcelName, where, speed, session.VisitedGrid));
+            _here = new LocationAddress(region.Name, where, session.CurrentGrid.Length > 0 ? session.CurrentGrid : null);
         }
         _shell.SetUnread(_notePanels?.Toasts.Unread ?? 0);
         _shell.SetUnreadConversations(_comms?.Ims.Open.Sum(c => c.Unread) ?? 0);

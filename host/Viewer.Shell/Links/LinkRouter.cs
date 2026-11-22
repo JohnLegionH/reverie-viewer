@@ -9,12 +9,13 @@ using Viewer.Core.Links;
 
 namespace Viewer.Shell.Links;
 
-public enum LinkActionKind { ShowOnMap, OpenInventory, OpenWeb, Note }
+public enum LinkActionKind { ShowOnMap, OpenInventory, OpenWeb, Note, ConfirmTeleport }
 
 /// <summary>What a click on a link does: open the world map at a place (its Teleport button waits for the user), open the
 /// inventory, open a web address through the action pipeline, or show a note (a string-table key and its argument).</summary>
+/// <param name="Travel">For <see cref="LinkActionKind.ConfirmTeleport"/>: the place on another grid the user is asked to teleport to.</param>
 public sealed record LinkAction(LinkActionKind Kind, string Region = "", Vector3 Position = default, string? NoteKey = null, string? NoteArg = null,
-    ActionIntent? Intent = null);
+    ActionIntent? Intent = null, TravelAddress? Travel = null);
 
 /// <summary>
 /// Turns a click on a link into what the viewer does, for every place that shows text (notecards, nearby chat, conversations,
@@ -60,8 +61,10 @@ public sealed class LinkRouter(LinkGate gate, Func<string?> loginUri, Func<Guid,
         }
         if (link.Kind == ViewerLinkKind.Location)
         {
-            if (link.Scheme == ViewerLinkScheme.Hop && !SameGrid(link))
-                return new LinkAction(LinkActionKind.Note, NoteKey: "link.other_grid", NoteArg: link.Host);
+            // another grid's map cannot be shown here: the click asks first, naming the region and its grid's host, and only the answer
+            // teleports (the Hypergrid form of the official viewer's map-then-teleport for a clicked location)
+            if (link.Scheme == ViewerLinkScheme.Hop && !SameGrid(link) && TravelAddressParser.Parse(link.Raw) is { IsHypergrid: true } place)
+                return new LinkAction(LinkActionKind.ConfirmTeleport, place.Region, place.Position, NoteArg: place.Display, Travel: place);
             if (link.Scheme == ViewerLinkScheme.Maps && !OnSecondLife())
                 return new LinkAction(LinkActionKind.Note, NoteKey: "link.sl_place", NoteArg: link.Region);
             return new LinkAction(LinkActionKind.ShowOnMap, link.Region, link.Position);

@@ -22,13 +22,18 @@ public partial class RowsPanel : ScrollContainer
         AddChild(_rows);
     }
 
+    /// <summary>The links the rows' values hold (a parcel's description), clickable under the rows; the values are shown as typed.</summary>
+    public LinkStrip Links { get; } = new("row_links");
+
     /// <summary>Replaces the rows. A label or value that is a string-table key is shown in words.</summary>
-    public void Set(IEnumerable<(string LabelKey, string Value)> rows)
+    public void Set(IEnumerable<(string LabelKey, string Value)> given)
     {
+        var rows = given.ToList();
         foreach (var child in _rows.GetChildren())
         {
             _rows.RemoveChild(child);
-            child.QueueFree();
+            if (!ReferenceEquals(child, Links))
+                child.QueueFree();   // the link strip is kept and put back under the new rows
         }
         foreach (var (labelKey, value) in rows)
         {
@@ -43,6 +48,8 @@ public partial class RowsPanel : ScrollContainer
             row.AddChild(v);
             _rows.AddChild(row);
         }
+        Links.ShowLinksOf(string.Join('\n', rows.Select(r => r.Value)));
+        _rows.AddChild(Links);
     }
 
     /// <summary>The text of every row, label then value, for checks.</summary>

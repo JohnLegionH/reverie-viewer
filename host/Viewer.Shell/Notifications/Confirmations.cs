@@ -30,6 +30,21 @@ public static class Confirmations
     public static Notification OpenLink(Uri page, Action open) =>
         Ask("link.open.title", "link.open.body", Grids.GridLinks.HostText(page), "link.open.button", "button.cancel", open);
 
+    /// <summary>Teleport to a place a clicked link names on another grid: the place and its grid's host, Teleport or Cancel (the official
+    /// viewer's TeleportFromLandmark question).</summary>
+    public static Notification TeleportToPlace(string place, Action teleport) =>
+        Ask("teleport.confirm.title", "teleport.confirm.body", place, "teleport.confirm.button", "button.cancel", teleport);
+
+    /// <summary>The home grid refused the teleport home while visiting another grid: it says so, with the grid's words, and offers to log
+    /// out and log back in at home. Cancel stays where the agent is.</summary>
+    public static Notification HomeRefused(string reason, Action relog) =>
+        Ask("home.refused.title", "home.refused.body", reason, "home.refused.relog", "button.cancel", relog);
+
+    /// <summary>A landmark's place information: its name, place and the grid it names, with Teleport (the official viewer's landmark
+    /// information panel and its Teleport button) or Close.</summary>
+    public static Notification LandmarkInfo(string details, Action teleport) =>
+        Ask("landmark.info.title", "landmark.info.body", details, "teleport.confirm.button", "button.close", teleport);
+
     private static Notification Ask(string titleKey, string bodyKey, string? arg, string yesKey, string noKey, Action confirm) => new()
     {
         Kind = NotificationKind.Alert,

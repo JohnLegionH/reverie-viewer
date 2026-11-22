@@ -158,7 +158,7 @@ public class ViewerLinkTests
     // ---------------- grids ----------------
 
     [Fact]
-    public void A_hop_link_to_this_grid_is_a_local_location_and_one_to_another_grid_is_a_note()
+    public void A_hop_link_to_this_grid_is_a_local_location_and_one_to_another_grid_asks_to_teleport()
     {
         var router = Router();
         Assert.True(router.SameGrid(ViewerLinkParser.Parse("hop://GRID.example.org:8002/Example/1/2/3")!));
@@ -171,10 +171,15 @@ public class ViewerLinkTests
         Assert.Equal("Sandbox One", local.Region);
         Assert.Equal(new Vector3(10, 20, 30), local.Position);
 
+        // another grid has no map here: the click asks first, naming the region and its host, and nothing is sent until the answer
         var other = router.Click("hop://other.example.net:8002/Far%20Place/1/2/3")!;
-        Assert.Equal(LinkActionKind.Note, other.Kind);
-        Assert.Equal("link.other_grid", other.NoteKey);
-        Assert.Equal("other.example.net", other.NoteArg);
+        Assert.Equal(LinkActionKind.ConfirmTeleport, other.Kind);
+        Assert.Equal("Far Place", other.Travel!.Region);
+        Assert.Equal("other.example.net:8002", other.Travel.Grid);
+        Assert.Equal("Far Place (other.example.net:8002)", other.NoteArg);
+        Assert.Null(other.Intent);
+        // unclicked (a script, a page) it never runs
+        Assert.Equal("link.blocked", router.Click("hop://other.example.net:8002/Far%20Place", LinkNavigation.Other)!.NoteKey);
     }
 
     [Fact]

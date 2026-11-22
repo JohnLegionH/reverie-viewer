@@ -66,6 +66,16 @@ public partial class Main
                 if (action.Region.Length > 0)
                     _travel.WorldMap.ShowDestination(action.Region, action.Position);
                 return null;
+            case LinkActionKind.ConfirmTeleport:
+                // a place on another grid: asked first in the shared dialog, naming the place and its grid's host; only Teleport goes
+                if (_travel is null || action.Travel is not { } place)
+                    return strings.Get("link.no_session");
+                _notes?.Model.Post(Viewer.Shell.Notifications.Confirmations.TeleportToPlace(place.Display, () =>
+                {
+                    string grid = _travelFor?.CurrentGrid ?? "";
+                    _travel?.Teleport.ToAddress(place, grid.Length > 0 ? grid : null);
+                }));
+                return null;
             case LinkActionKind.OpenInventory:
                 _shell?.Shell.Floaters.Open(InventoryFeature.FloaterId);
                 return null;

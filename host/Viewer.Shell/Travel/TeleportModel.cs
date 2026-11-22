@@ -120,6 +120,12 @@ public sealed class TeleportModel
     /// <summary>Raised when anything shown changed.</summary>
     public event Action? Changed;
 
+    /// <summary>Raised when the teleport home the user asked for was refused, with the failure shown (the grid's words when it gave any).
+    /// While visiting another grid the interface then offers to log out and log back in at home.</summary>
+    public event Action<(string Key, string? Arg)>? HomeFailed;
+
+    private bool _homeAsked;   // the teleport going on is the user's teleport home
+
     /// <summary>Raised when a teleport begins: the user's request was sent, or the grid started one while none was going on (the
     /// moments the official viewer plays its teleport sound). Not again for the same teleport's later messages.</summary>
     public event Action? Departing;
@@ -155,6 +161,7 @@ public sealed class TeleportModel
         if (!Finish(_submit(intent)))
             return false;
         Begin(inside);
+        _homeAsked = intent is TeleportHomeIntent;
         return true;
     }
 
@@ -206,6 +213,7 @@ public sealed class TeleportModel
 
     private void ForgetArrival()
     {
+        _homeAsked = false;
         _connected = false;
         _movedEarly = false;
         _moving = false;
@@ -458,8 +466,13 @@ public sealed class TeleportModel
                 ArriveInside();
                 break;
             case TeleportPhase.Failed:
+            {
+                bool home = _homeAsked && Busy;
                 Fail(ErrorText(p.Message, p.RegionName));
+                if (home)
+                    HomeFailed?.Invoke(Failure!.Value);
                 break;
+            }
             case TeleportPhase.Cancelled when Busy && _arrivedAt is null:
                 Reset();
                 break;
