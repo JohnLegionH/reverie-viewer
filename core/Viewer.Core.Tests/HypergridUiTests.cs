@@ -314,6 +314,14 @@ public class HypergridUiTests
     }
 
     [Fact]
+    public void Every_label_of_the_recent_filter_row_has_an_accessible_name()
+    {
+        // S-1 checks every control of the inventory window for an accessible name; the spin boxes' labels are built in one place
+        string panels = Read("InventoryPanels.cs");
+        Assert.Contains("var label = new Label { Text = strings.Get(labelKey), VerticalAlignment = VerticalAlignment.Center };\n            label.AccessibilityName = label.Text;", panels);
+    }
+
+    [Fact]
     public void Kinds_can_be_left_out_and_follow_the_official_windows_groups()
     {
         var f = RecentFilter.Default.WithKind(RecentKind.Landmark, false);

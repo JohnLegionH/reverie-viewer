@@ -485,7 +485,9 @@ public partial class InventoryPanel : VBoxContainer
             var spin = new SpinBox { Name = name, MinValue = 0, MaxValue = max, Step = 1, Rounded = true };
             spin.GetLineEdit().AccessibilityName = strings.Get(labelKey);
             box.AddChild(spin);
-            box.AddChild(new Label { Text = strings.Get(labelKey), VerticalAlignment = VerticalAlignment.Center });
+            var label = new Label { Text = strings.Get(labelKey), VerticalAlignment = VerticalAlignment.Center };
+            label.AccessibilityName = label.Text;
+            box.AddChild(label);
             row.AddChild(box);
             spin.ValueChanged += _ => ApplyRecentFilter(_recentFilter.WithTimeAgo((int)(_hoursAgo?.Value ?? 0), (int)(_daysAgo?.Value ?? 0)));
             return spin;
