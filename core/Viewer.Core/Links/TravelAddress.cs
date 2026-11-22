@@ -90,11 +90,12 @@ public static class GridKeys
 }
 
 /// <summary>Reads a travel address (see <see cref="TravelAddress"/>).</summary>
-public static partial class TravelAddressParser
+public static class TravelAddressParser
 {
     // host:port:Region, host:port Region, host:Region: a host with a dot (OpenSim's RegionURI needs one) or an IPv6 literal in brackets
-    [GeneratedRegex(@"^(?<host>\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)(?::(?<port>[0-9]{1,6}))?(?:(?<sep>[: +])(?<rest>.*))?$")]
-    private static partial Regex HostForm();
+    private static readonly Regex HostFormRegex = new(@"^(?<host>\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)(?::(?<port>[0-9]{1,6}))?(?:(?<sep>[: +])(?<rest>.*))?$", RegexOptions.CultureInvariant);
+
+    private static Regex HostForm() => HostFormRegex;
 
     public static TravelAddress? Parse(string? text) => Parse(text, out _);
 

@@ -62,7 +62,7 @@ public class LocationBarTests
         Assert.Equal(LocationFormat.Full, LocationText.BarFormat(showCoordinates: true));
         // the Reverie top bar's location field follows its own rule instead (the parcel, the region once, the coordinates dimmer)
         string chrome = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "Main.Chrome.cs"));
-        Assert.Contains("_shell.SetLocation(LocationField.Display(region.Name, session.AgentParcelName, where, speed))", chrome);
+        Assert.Contains("_shell.SetLocation(LocationField.Display(region.Name, session.AgentParcelName, where, speed, session.VisitedGrid))", chrome);
     }
 
     [Theory]
