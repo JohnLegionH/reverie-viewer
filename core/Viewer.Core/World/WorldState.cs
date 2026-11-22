@@ -65,6 +65,7 @@ public sealed class WorldState : IDisposable
     private readonly PositionGate _selfGate = new();
     private SelfMotionSample? _lastSelf;
     private AppearanceMode _appearanceMode;
+    private (object? Sim, AvatarAppearanceData Data, Guid Self)? _heldSelfAppearance;   // the latest appearance for us refused in server mode (see ApplyAppearance)
     private object? _sim;
     private RegionInfo? _region;
     private int _epoch;
@@ -942,18 +943,27 @@ public sealed class WorldState : IDisposable
     {
         var next = serverBaked ? AppearanceMode.Server : AppearanceMode.Client;
         AppearanceMode previous;
+        (object? Sim, AvatarAppearanceData Data, Guid Self)? held;
         lock (_lock)
         {
             if (_disposed)
                 return;
             previous = _appearanceMode;
             _appearanceMode = next;
+            held = _heldSelfAppearance;
+            _heldSelfAppearance = null;
         }
         if (previous == next)
             _log.Info("appearance.mode", CoreLog.F("region", regionName), CoreLog.F("mode", next), CoreLog.F("staying", true));
         else
             _log.Info("appearance.mode", CoreLog.F("region", regionName), CoreLog.F("bit0", serverBaked ? "set" : "clear"),
                 CoreLog.F("mode", next), CoreLog.F("was", previous));
+        // the appearance for us refused under the region left's server mode is this region's ordinary shape when it does not bake
+        if (next == AppearanceMode.Client && held is { } h)
+        {
+            _log.Info("appearance.self-held-applied", CoreLog.F("region", regionName));
+            ApplyAppearance(h.Sim, h.Data, h.Self);
+        }
     }
 
     /// <summary>One AvatarAppearance as it arrived: when, its versions, and the texture id on each bake face (the raw id, including any placeholder).</summary>
@@ -1033,8 +1043,13 @@ public sealed class WorldState : IDisposable
             bool isSelf = data.AgentId == selfAgentId && selfAgentId != Guid.Empty;
             if (isSelf)
                 Self.RecordSimParams(data.VisualParams.Raw);   // the sim's stored blob for us, even from a refused message
+            if (isSelf)
+                _heldSelfAppearance = null;   // a newer appearance for us: an older one held below is no longer the one to use
             if (isSelf && AppearanceSlots.RejectsSelfAppearance(_appearanceMode, data.AppearanceVersion))
             {
+                // On a teleport the new region's first appearance for us can come before its handshake, while the mode is still the region
+                // left's. It is kept, and used if the handshake says this region does not bake avatars (ChooseAppearanceMode).
+                _heldSelfAppearance = (sim, data, selfAgentId);
                 Drop(WorldDrop.RejectedSelfAppearance);
                 _log.Info("appearance.self-rejected", CoreLog.F("reason", "server mode and appearanceVersion 0: no AppearanceData block, not the region's bake"));   // the grid's ordinary first message, not a fault
                 return;
