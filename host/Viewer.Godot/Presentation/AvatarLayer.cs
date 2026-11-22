@@ -129,6 +129,8 @@ public sealed class AvatarLayer : IDisposable
     }
 
     /// <summary>The default body's colour before any bake (a neutral skin tone, sRGB).</summary>
+    /// <summary>The colour of another avatar whose look never arrived: plain grey, as the official viewer shows a missing look.</summary>
+    public static readonly Color MissingLookGrey = new(0.6f, 0.6f, 0.6f);
     public static readonly Color SkinTone = new(0.80f, 0.66f, 0.56f);
 
     /// <summary>The body as every avatar shares it: its hands in the relaxed pose, which is the pose an avatar's hands take unless an animation asks for another (llhandmotion.cpp: with
@@ -367,14 +369,14 @@ public sealed class AvatarLayer : IDisposable
 
     /// <summary>Textures the avatar's parts with <paramref name="bakes"/> (by bake slot); a part whose slot has none keeps the
     /// default skin. The materials of its previous bakes are freed (the textures are the caller's).</summary>
-    public void SetBakes(int avatar, IReadOnlyDictionary<string, Texture2D> bakes, IReadOnlySet<string>? hidden = null)
+    public void SetBakes(int avatar, IReadOnlyDictionary<string, Texture2D> bakes, IReadOnlySet<string>? hidden = null, IReadOnlySet<string>? grey = null)
     {
         var a = _avatars[avatar];
         for (int i = 0; i < _body.Parts.Count; i++) RenderingServer.InstanceSetSurfaceOverrideMaterial(a.Instance, i, default);
         foreach (var m in a.Materials) m.Dispose();
         a.Materials.Clear();
         a.Hidden = hidden ?? new HashSet<string>();
-        ApplyBakes(a, bakes);
+        ApplyBakes(a, bakes, grey);
     }
 
     /// <summary>The render layer a body is moved to while it is drawn as a mask (<see cref="SetMask"/>): no other instance uses it.</summary>
@@ -396,7 +398,7 @@ public sealed class AvatarLayer : IDisposable
         return true;
     }
 
-    private void ApplyBakes(Avatar a, IReadOnlyDictionary<string, Texture2D> bakes)
+    private void ApplyBakes(Avatar a, IReadOnlyDictionary<string, Texture2D> bakes, IReadOnlySet<string>? grey = null)
     {
         a.Overrides = new Rid[_body.Parts.Count];
         for (int i = 0; i < _body.Parts.Count; i++)
@@ -406,6 +408,12 @@ public sealed class AvatarLayer : IDisposable
             else if (bakes.TryGetValue(_body.Parts[i].BakeSlot, out var tex))
             {
                 var m = PartMaterial(_body.Parts[i], tex, Colors.White);
+                a.Materials.Add(m);
+                a.Overrides[i] = m.GetRid();
+            }
+            else if (grey is not null && grey.Contains(_body.Parts[i].BakeSlot))
+            {
+                var m = PartMaterial(_body.Parts[i], _white, MissingLookGrey);   // the look never came: the default shape in plain grey, no skin texture
                 a.Materials.Add(m);
                 a.Overrides[i] = m.GetRid();
             }

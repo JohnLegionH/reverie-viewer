@@ -242,6 +242,23 @@ public class ClientBakePipelineTests
     }
 
     [Fact]
+    public async Task An_optional_wearable_that_cannot_be_fetched_is_left_out_and_the_rest_is_baked()
+    {
+        var e = FullOutfit(out _);
+        var shirt = e.Worn!.Single(w => w.WearableType == 4);
+        e.Assets.Remove(shirt.AssetId);   // the region answered 404 for the shirt only
+        var sink = new ListSink();
+        var c = new Compositor();
+        var r = await new ClientBakePipeline(e, c, new CoreLog(sink, "test")).RunAsync(CancellationToken.None);
+        Assert.True(r.Ok, r.Detail);
+        Assert.NotNull(r.Look);
+        Assert.Equal(4, c.Seen!.Wearables.Count);
+        Assert.DoesNotContain(r.Look!.Worn, w => w.AssetId == shirt.AssetId);   // the message names only what was baked
+        Assert.Equal(5, e.Uploads);
+        Assert.Equal(1, sink.Entries.Count(x => x.Format().Contains("bake.wearable-missing")));   // said once
+    }
+
+    [Fact]
     public async Task A_texture_that_cannot_be_fetched_gives_no_look_and_no_upload()
     {
         var e = FullOutfit(out _);

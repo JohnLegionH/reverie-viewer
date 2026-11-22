@@ -58,6 +58,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         public readonly HashSet<string> SkippedForWorn = new();   // body bake slots left without a texture because a worn mesh draws their bake; loaded if the mesh goes
         public readonly Dictionary<string, (Guid Id, Texture2D Texture)> LastGood = new();   // another avatar's last drawn bake per slot, kept on the part while a new one arrives (BaseBodyRule)
         public AvatarArrivalGate? Gate;                // another avatar is drawn only once it is fully loaded (made at its first frame)
+        public bool GreyApplied;                       // the body was last given the plain grey of a missing look (the gate's fallback)
         public bool Loading;                           // the gate's last answer: every entry naming this body (one per region) takes it
         public AvatarEntry? BakesFrom;                 // the entry whose bakes the body has (a crossing hands the body to another region's entry)
         public readonly BodyUncoverDelay Uncover = new();   // a part a removed worn mesh stopped hiding is uncovered only after a moment (other avatars)
@@ -162,6 +163,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
 
     private HandoffLedger? _handoffs;
     private readonly HashSet<Guid> _awaiting = new();
+    private readonly HashSet<Guid> _handedOver = new();   // agents another region was drawing and gave to this one: drawn here with no second arrival wait
 
     /// <summary>The ledger shared by every region's presenters: an avatar another region takes over stays drawn here until that region draws it (and the other way round).</summary>
     public HandoffLedger? Handoffs
@@ -830,6 +832,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
                  && _world.Avatar(change.Id) is { } given)
         {
             _handoffs.Expect(given.AgentId);
+            _handedOver.Add(given.AgentId);
             HandedOver?.Invoke(given.AgentId);
             _awaiting.Add(given.AgentId);
         }
@@ -912,12 +915,17 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
     private bool ArrivalGateOpen(AvatarEntry e, DrawnAvatar d, double now)
     {
         d.Gate ??= new AvatarArrivalGate(now);
+        if (_handedOver.Contains(e.AgentId)) d.Gate.TakeOver();   // it was drawn by the region it came from: it keeps its look and is not held back again
         // a body shown before that crossed into a region which has sent no look for it yet keeps the look it has (see NewBakes): nothing is missing
         bool carried = d.Gate.EverShown && e.Bakes.Count == 0 && d.BakesFrom is not null && !ReferenceEquals(d.BakesFrom, e);
         bool missing = !carried && (e.VisualParams is not { Count: > 0 } || !e.Bakes.ContainsKey("head") || !e.Bakes.ContainsKey("upper") || !e.Bakes.ContainsKey("lower"));
-        bool pending = !carried && (NewBakes(e, d)
+        // a bake that failed for good (answered, nothing to draw) leaves its part with nothing: counted as not loaded, so the look is stuck and the fallback shows
+        bool failed = e.Bakes.Any(kv => Slots.Contains(kv.Key) && kv.Value != BaseBodyRule.Invisible && d.Bakes.TryGetValue(kv.Key, out var fb) && fb.Done && fb.Texture is null
+            && !d.Transparent.Contains(kv.Key) && !d.Worn.Contains(kv.Key) && !d.LastGood.ContainsKey(kv.Key));
+        bool pending = !carried && (failed || NewBakes(e, d)
             || e.Bakes.Keys.Any(slot => Slots.Contains(slot) && !(d.Bakes.TryGetValue(slot, out var b) && (b.Texture is not null || b.Done))));
         d.Loading = !d.Gate.Update(now, missing, pending);
+        if (d.Gate.Fallback != d.GreyApplied) { d.GreyApplied = d.Gate.Fallback; ApplyBakes(e, d); }   // the look never came: parts with no bake are drawn plain grey
         return !d.Loading;
     }
 
@@ -1343,20 +1351,22 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         using var probe = FrameProbe.Begin(FrameProbe.AvApplyBakes);
         var textures = new Dictionary<string, Texture2D>();
         var hidden = new HashSet<string>();
+        var grey = new HashSet<string>();
         var drawn = s_bodyFrames ? new List<string>() : null;
         foreach (var slot in Slots)
         {
             var bake = d.Bakes.TryGetValue(slot, out var b) ? b : default;
             Guid? named = e.Bakes.TryGetValue(slot, out var id) ? id : null;
             var draw = OfficialBodyRules
-                ? BaseBodyRule.Decide(new BodyPartState(e.IsSelf, named, d.Worn.Contains(slot), d.Transparent.Contains(slot), bake.Texture is not null, d.LastGood.ContainsKey(slot)))
+                ? BaseBodyRule.Decide(new BodyPartState(e.IsSelf, named, d.Worn.Contains(slot), d.Transparent.Contains(slot), bake.Texture is not null, d.LastGood.ContainsKey(slot), d.Gate?.Fallback == true))
                 : d.Worn.Contains(slot) || d.Transparent.Contains(slot) ? BodyPartDraw.Hidden : bake.Texture is not null ? BodyPartDraw.Bake : BodyPartDraw.DefaultSkin;
             if (draw == BodyPartDraw.Hidden) hidden.Add(slot);
+            else if (draw == BodyPartDraw.Grey) grey.Add(slot);
             else if (draw == BodyPartDraw.Bake) textures[slot] = bake.Texture!;
             else if (draw == BodyPartDraw.LastGood) textures[slot] = d.LastGood[slot].Texture;
-            drawn?.Add(slot + "=" + draw switch { BodyPartDraw.Hidden => "H", BodyPartDraw.Bake => "B", BodyPartDraw.LastGood => "L", _ => "D" });
+            drawn?.Add(slot + "=" + draw switch { BodyPartDraw.Hidden => "H", BodyPartDraw.Bake => "B", BodyPartDraw.LastGood => "L", BodyPartDraw.Grey => "G", _ => "D" });
         }
-        _layer.SetBakes(d.Id, textures, hidden);
+        _layer.SetBakes(d.Id, textures, hidden, grey);
         if (drawn is not null) d.PartsDrawn = string.Join(" ", drawn);
         // a last good bake the part no longer draws (its new bake is drawn, or the part is hidden) goes now that no material names it
         foreach (var slot in d.LastGood.Keys.ToList())
@@ -1499,6 +1509,7 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             d.Bakes.Clear();
             foreach (var lg in d.LastGood.Values) FreeBake(lg.Id, lg.Texture);
             d.LastGood.Clear();
+            if (!Scene.Entries.Any(x => x.AgentId == e.AgentId && !ReferenceEquals(x, e))) _handedOver.Remove(e.AgentId);   // not while another entry of the agent (a later return) still stands
             e.Handle = null;
         }
     }

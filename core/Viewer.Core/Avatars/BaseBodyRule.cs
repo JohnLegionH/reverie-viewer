@@ -14,6 +14,8 @@ public enum BodyPartDraw
     LastGood,
     /// <summary>Drawn with the default skin.</summary>
     DefaultSkin,
+    /// <summary>Drawn plain grey: another avatar's part with no usable bake once its look has been incomplete too long (the official viewer's missing look).</summary>
+    Grey,
 }
 
 /// <summary>What is known of one bake slot of a drawn avatar.</summary>
@@ -23,7 +25,8 @@ public enum BodyPartDraw
 /// <param name="AlphaHides">The bake's alpha has no drawn pixel at the alpha cutoff (the last decided bake's, while a new one arrives).</param>
 /// <param name="TextureReady">The named bake is on the GPU.</param>
 /// <param name="HasLastGood">An earlier bake of the slot is still on the GPU.</param>
-public readonly record struct BodyPartState(bool IsSelf, Guid? Bake, bool HiddenByWornMesh, bool AlphaHides, bool TextureReady, bool HasLastGood);
+/// <param name="Fallback">The avatar look has been incomplete too long (<see cref="AvatarArrivalGate.Fallback"/>).</param>
+public readonly record struct BodyPartState(bool IsSelf, Guid? Bake, bool HiddenByWornMesh, bool AlphaHides, bool TextureReady, bool HasLastGood, bool Fallback = false);
 
 /// <summary>
 /// Whether a part of the system body is drawn, and with what. Follows the official viewer:
@@ -37,7 +40,7 @@ public readonly record struct BodyPartState(bool IsSelf, Guid? Bake, bool Hidden
 /// mesh keeps its texture until onBakedTextureLoaded switches it).</item>
 /// </list>
 /// One deviation, for safety: another avatar's part whose bake is defined but not on the GPU and has no earlier bake is not drawn (the official viewer
-/// shows such an avatar as a loading cloud and draws the part grey once loaded); it is never drawn with the default skin.
+/// shows such an avatar as a loading cloud and draws the part grey once loaded); it is never drawn with the default skin. Once its look has been incomplete for the gate wait (<see cref="AvatarArrivalGate.Fallback"/>) such a part is drawn plain grey instead, so an avatar is never invisible.
 /// The rules are facts of the official viewer's behaviour; no code is taken from it.
 /// </summary>
 public static class BaseBodyRule
@@ -49,9 +52,9 @@ public static class BaseBodyRule
     public static BodyPartDraw Decide(BodyPartState s)
     {
         if (s.HiddenByWornMesh || s.Bake == Invisible || s.AlphaHides) return BodyPartDraw.Hidden;
-        if (s.Bake is null) return s.IsSelf ? BodyPartDraw.DefaultSkin : BodyPartDraw.Hidden;
+        if (s.Bake is null) return s.IsSelf ? BodyPartDraw.DefaultSkin : s.Fallback ? BodyPartDraw.Grey : BodyPartDraw.Hidden;
         if (s.TextureReady) return BodyPartDraw.Bake;
         if (s.HasLastGood) return BodyPartDraw.LastGood;
-        return s.IsSelf ? BodyPartDraw.DefaultSkin : BodyPartDraw.Hidden;
+        return s.IsSelf ? BodyPartDraw.DefaultSkin : s.Fallback ? BodyPartDraw.Grey : BodyPartDraw.Hidden;
     }
 }
