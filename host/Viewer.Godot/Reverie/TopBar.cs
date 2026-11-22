@@ -327,9 +327,12 @@ public partial class RvLocationField : PanelContainer
     private float _fitWidth;
 
     /// <summary>The width a label's whole text takes in its own font (a shortened label's minimum size is only its ellipsis).</summary>
-    internal static float FullWidth(Label label) =>
-        label.Text.Length > 0
-            ? label.GetThemeFont("font").GetStringSize(label.Text, HorizontalAlignment.Left, -1, label.GetThemeFontSize("font_size")).X
+    internal static float FullWidth(Label label) => TextWidth(label, label.Text);
+
+    /// <summary>The width a text takes in a label's own font and style.</summary>
+    internal static float TextWidth(Label label, string text) =>
+        text.Length > 0
+            ? label.GetThemeFont("font").GetStringSize(text, HorizontalAlignment.Left, -1, label.GetThemeFontSize("font_size")).X
                 + (label.GetThemeStylebox("normal")?.GetMinimumSize().X ?? 0)
             : 0;
 
@@ -347,13 +350,17 @@ public partial class RvLocationField : PanelContainer
         _fitWidth = width;
         float room = width - Star.GetCombinedMinimumSize().X - 4 - 24;   // the star, the gap and the field's rounded ends
         _coords.Visible = true;
-        float parcel = _parts?.Parcel is null ? 0 : FullWidth(_parcel), host = _parts?.Host is null ? 0 : FullWidth(_host);
-        float region = FullWidth(_region), coords = FullWidth(_coords);
+        string parcelText = _parts?.Parcel ?? "", regionText = _parts?.Region ?? "";
+        float parcel = _parts?.Parcel is null ? 0 : TextWidth(_parcel, parcelText), host = _parts?.Host is null ? 0 : FullWidth(_host);
+        float region = TextWidth(_region, regionText), coords = FullWidth(_coords);
         var w = LocationFit.Widths(room, parcel, region, host, coords, 6);
         _coords.Visible = w.Coordinates;
         _parcel.Visible = _parts?.Parcel is not null && w.Parcel > 0;
         _parcel.CustomMinimumSize = new Vector2(w.Parcel, 0);
         _region.CustomMinimumSize = new Vector2(w.Region, 0);
+        // the names shortened here with an ellipsis, measured in their own fonts (the engine's own trimming left no ellipsis in this label)
+        _parcel.Text = LocationFit.Shorten(parcelText, w.Parcel, t => TextWidth(_parcel, t));
+        _region.Text = LocationFit.Shorten(regionText, w.Region, t => TextWidth(_region, t));
         NamesShortened = w.Parcel + 0.5f < parcel || w.Region + 0.5f < region;
         _host.CustomMinimumSize = new Vector2(host, 0);
     }

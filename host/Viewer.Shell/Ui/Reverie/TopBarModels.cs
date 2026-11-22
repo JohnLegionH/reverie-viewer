@@ -131,6 +131,21 @@ public static class LocationFit
     /// <summary>The least width a shortened name keeps (about three characters and the ellipsis).</summary>
     public const float MinName = 36;
 
+    /// <summary>The text shortened to fit <paramref name="width"/> as measured by <paramref name="measure"/>: the longest start of it that fits
+    /// with an ellipsis after it (spaces before the ellipsis dropped), never less than one character; the text itself when it fits.</summary>
+    public static string Shorten(string text, float width, Func<string, float> measure)
+    {
+        if (text.Length == 0 || measure(text) <= width)
+            return text;
+        for (int n = text.Length - 1; n > 1; n--)
+        {
+            string cut = text[..n].TrimEnd() + "\u2026";
+            if (measure(cut) <= width)
+                return cut;
+        }
+        return text[..1] + "\u2026";
+    }
+
     /// <summary>The least room the names need beside the host: the host, a gap and the region's least width (the region's least width alone
     /// at home).</summary>
     public static float LeastNames(float host, float gap) => host > 0 ? host + gap + MinName : MinName;

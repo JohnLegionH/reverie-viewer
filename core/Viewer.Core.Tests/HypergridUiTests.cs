@@ -191,6 +191,17 @@ public class HypergridUiTests
     }
 
     [Fact]
+    public void A_shortened_name_ends_with_an_ellipsis_and_fits_its_width()
+    {
+        static float Measure(string s) => s.Length * 10f;   // ten units a character
+        Assert.Equal("Visit Landing", LocationFit.Shorten("Visit Landing", 130, Measure));
+        Assert.Equal("Visit L…", LocationFit.Shorten("Visit Landing", 85, Measure));
+        Assert.Equal("Visit…", LocationFit.Shorten("Visit Landing", 70, Measure));   // no space before the ellipsis
+        Assert.Equal("V…", LocationFit.Shorten("Visit Landing", 5, Measure));        // never less than one character and the ellipsis
+        Assert.Contains("LocationFit.Shorten(", Read(Path.Combine("Reverie", "TopBar.cs")));
+    }
+
+    [Fact]
     public void The_top_bar_keeps_the_field_wide_enough_for_the_host_and_shortens_the_visiting_chip_instead()
     {
         string bar = Read(Path.Combine("Reverie", "TopBar.cs"));
