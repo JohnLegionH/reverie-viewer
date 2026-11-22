@@ -84,6 +84,12 @@ public sealed class InventoryViewModel
     /// <summary>When the account last logged out. With a value, Recent lists the items made after it; without one, every item.</summary>
     public DateTimeOffset? RecentSince { get; set; }
 
+    /// <summary>The Recent tab's filter (the official viewer's options: kinds, Since Logoff, hours and days ago).</summary>
+    public RecentFilter Recent { get; set; } = RecentFilter.Default;
+
+    /// <summary>The time the Recent tab's "hours and days ago" count from.</summary>
+    public Func<DateTimeOffset> Now { get; set; } = () => DateTimeOffset.UtcNow;
+
     public InventorySort Sort { get; set; }
     public InventoryTab Tab { get; set; }
     public string SearchText { get; set; } = "";
@@ -116,7 +122,9 @@ public sealed class InventoryViewModel
             Expand(_model.RootId);
         }
         var tokens = Tokens(SearchText);
-        if (tokens.Count > 0)
+        // a search on the tree asks for every folder not loaded yet; the Recent tab only filters what is already held, as the official viewer's
+        // Recent panel filters its loaded inventory (the background fetch, when on, brings the rest)
+        if (tokens.Count > 0 && Tab == InventoryTab.All)
             _model.EnsureAllLoaded();
         return Tab == InventoryTab.Recent ? RecentRows(tokens) : TreeRows(tokens);
     }
@@ -169,13 +177,12 @@ public sealed class InventoryViewModel
 
     private List<InventoryRow> RecentRows(List<string> tokens)
     {
+        // every item held of the agent's own inventory, the hypergrid suitcase's included, by the official viewer's Recent filter (since the
+        // last logout by default, with no count limit; with no stored logout time everything passes, as the official stored time starts at 0)
+        var now = Now();
         var own = _model.AllItems()
-            .Where(i => !_model.IsInLibrary(i.ParentId) && (tokens.Count == 0 || Matches(i.Name, tokens)));
-        if (RecentSince is { } since)
-            // items made after the account last logged out, all of them (the official viewer's date filter has no count limit)
-            own = own.Where(i => i.CreatedAt is { } at && at > since);
-        // With no stored logout time every item is listed: the official viewer's "since logoff" date filter compares with a stored time
-        // that starts at 0, so everything passes (llinventoryfilter.cpp, setDateRangeLastLogoff and the date test in checkAgainstFilterType).
+            .Where(i => !_model.IsInLibrary(i.ParentId) && (tokens.Count == 0 || Matches(i.Name, tokens)))
+            .Where(i => Recent.Passes(i.CreatedAt, i.Kind, now, RecentSince));
         return own.OrderByDescending(i => i.CreatedAt ?? DateTimeOffset.MinValue).ThenBy(i => i.Name, NameOrder).Select(i => ItemRow(i, 0)).ToList();
     }
 

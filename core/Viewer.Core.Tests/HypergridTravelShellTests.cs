@@ -63,7 +63,7 @@ public class HypergridTravelShellTests
     public void While_visiting_the_location_shows_the_region_with_its_host()
     {
         var parts = LocationField.Display("Visit Landing", null, new Vector3(10, 20, 30), 0, Visit)!;
-        Assert.Equal($"Visit Landing ({Visit})", parts.Region);
+        Assert.Equal($"Visit Landing ({Visit})", parts.Place);
         Assert.Equal("Alder", LocationField.Display("Alder", null, Vector3.Zero, 0)!.Region);
     }
 

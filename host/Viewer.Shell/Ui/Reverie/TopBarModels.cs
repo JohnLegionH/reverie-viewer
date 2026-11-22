@@ -110,8 +110,44 @@ public sealed class MenuBarState(int titles)
     public void Close() => Open = null;
 }
 
-/// <summary>What the location field shows in display mode: the parcel (only when it has a name of its own), the region once, and the coordinates.</summary>
-public sealed record LocationParts(string? Parcel, string Region, string Coordinates);
+/// <summary>What the location field shows in display mode: the parcel (only when it has a name of its own), the region once, the grid's
+/// host while visiting another grid ("(host:port)"; null at home), and the coordinates.</summary>
+public sealed record LocationParts(string? Parcel, string Region, string Coordinates, string? Host = null)
+{
+    /// <summary>The region with its grid's host after it, as one text: "Region (host:port)", or the region alone at home.</summary>
+    public string Place => Host is null ? Region : $"{Region} {Host}";
+
+    /// <summary>The whole place as the tooltip shows it: parcel, region, host and coordinates.</summary>
+    public string Full => string.Join(" ", new[] { Parcel, Region, Host, Coordinates }.Where(t => !string.IsNullOrEmpty(t)));
+}
+
+/// <summary>
+/// How the location field's display fits its width. The grid's host is never cut and the region and parcel names are shortened with an
+/// ellipsis first: the coordinates go first, then the parcel's name is shortened, then the region's (each to no less than a few
+/// characters). The full text is in the tooltip. Widths in interface units, measured by the caller.
+/// </summary>
+public static class LocationFit
+{
+    /// <summary>The least width a shortened name keeps (about three characters and the ellipsis).</summary>
+    public const float MinName = 36;
+
+    /// <summary>The widths to give each part: the parcel's and the region's (each at most its full width), whether the coordinates show,
+    /// and the host's (always its full width). <paramref name="gap"/> is the space between two parts shown.</summary>
+    public static (float Parcel, float Region, bool Coordinates, float Host) Widths(float room, float parcel, float region, float host, float coordinates, float gap)
+    {
+        // the gaps between the names and the host that show (a parcel of width 0 is not shown)
+        float nameGaps = (parcel > 0 ? gap : 0) + (host > 0 ? gap : 0);
+        if (parcel + region + host + nameGaps + gap + coordinates <= room)
+            return (parcel, region, true, host);
+        float names = Math.Max(0, room - host - nameGaps);
+        if (parcel + region <= names)
+            return (parcel, region, false, host);
+        // the parcel gives way first, then the region; each keeps a few characters and the ellipsis
+        float p = parcel > 0 ? Math.Min(parcel, Math.Max(MinName, names - region)) : 0;
+        float r = Math.Min(region, Math.Max(Math.Min(region, MinName), names - p));
+        return (p, r, false, host);
+    }
+}
 
 /// <summary>A place typed into the location field: a region name, with a position when one was given, and the grid it is on
 /// ("host:port") when the place names one (a Hypergrid address, or a place in the teleport history).</summary>
@@ -147,8 +183,7 @@ public static class LocationField
         string coords = $"{x}, {y}, {z}";
         string name = region.Trim();
         string? own = string.IsNullOrWhiteSpace(parcel) || string.Equals(parcel.Trim(), name, StringComparison.OrdinalIgnoreCase) ? null : parcel.Trim();
-        string shown = string.IsNullOrWhiteSpace(host) ? name : $"{name} ({host.Trim()})";
-        return new LocationParts(own, shown, coords);
+        return new LocationParts(own, name, coords, string.IsNullOrWhiteSpace(host) ? null : $"({host.Trim()})");
     }
 
     /// <summary>Reads "Region name" or "Region name/x/y/z" (y and z may be left out), also as a secondlife:// or hop:// address. Null

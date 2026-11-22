@@ -63,6 +63,7 @@ function WaitingWith([string]$token) {
     $d = Invoke-LiveApi "dialog" @{ action = "find"; token = $token }
     $i = 0
     foreach ($w in @($d.waiting)) { if ($w.contains) { return @{ nth = $i; report = $d } }; $i++ }
+    if ($d.modal_contains) { return @{ nth = -1; report = $d } }   # an alert is not in the list: -1 names the alert on screen
     return $null
 }
 $homeOutcomes = New-Object System.Collections.Generic.List[string]
@@ -89,9 +90,8 @@ function GoHome([string]$label, [string]$homeAt) {
     }
     $s = $first.state
     Shot "home-refused-$label"
-    $nth = 0; $k = 0
-    foreach ($w in @($first.offer.waiting)) { if ($w.kind -eq "Alert") { $nth = $k }; $k++ }
-    [void](Invoke-LiveApi "dialog" @{ action = "answer"; nth = $nth; button = 0 })
+    # the offer is an alert, which the list leaves out: nth -1 answers the alert on screen
+    [void](Invoke-LiveApi "dialog" @{ action = "answer"; nth = -1; button = 0 })
     $relog = Wait-LiveUntil { $x = State; if ($x.in_world -and $x.region -eq $homeAt -and $null -eq $x.visited_grid) { $x } } 180
     $homeOutcomes.Add($(if ($relog) { "refused-relogged" } else { "refused-relog-failed" }))
     Check "home_$label" ($null -ne $relog) ("teleport home refused '$($s.teleport_failure_text)' while visiting " + $s.visited_grid + "; offer answered OK; back at home by a fresh login: " + (Short $(if ($relog) { $relog } else { State })))

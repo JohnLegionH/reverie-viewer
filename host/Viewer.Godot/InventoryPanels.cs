@@ -423,6 +423,95 @@ public partial class InventoryPanel : VBoxContainer
     /// <summary>The user asked to open an item (a double-click, Enter, or Open on its menu): the item's id, a link's own id included.</summary>
     public event Action<Guid>? OpenRequested;
 
+    // ---------------- the Recent tab's filter ----------------
+
+    private RecentFilter _recentFilter = RecentFilter.Default;
+    private CheckBox? _sinceLogoff;
+    private SpinBox? _hoursAgo, _daysAgo;
+    private OptionButton? _dateDirection;
+    private PopupMenu? _kindsMenu;
+
+    /// <summary>The Recent tab's filter row (shown on that tab only): the official viewer's filter options, as in its inventory filter window
+    /// (floater_inventory_view_finder): the kinds shown, Since Logoff, or newer or older than hours and days ago, and Reset.</summary>
+    public HFlowContainer RecentFilters { get; private set; } = null!;
+
+    /// <summary>The Recent tab's filter in use now.</summary>
+    public RecentFilter RecentFilterNow => _recentFilter;
+
+    private HFlowContainer BuildRecentFilters(StringTable strings)
+    {
+        var row = new HFlowContainer { Name = "recent_filters", Visible = false };
+        row.AccessibilityName = strings.Get("inventory.recent.filters");
+        row.AddThemeConstantOverride("h_separation", 6);
+        row.AddThemeConstantOverride("v_separation", 4);
+        var kinds = new MenuButton { Name = "recent_kinds", Text = strings.Get("inventory.recent.kinds"), Flat = false };
+        kinds.AccessibilityName = strings.Get("inventory.recent.kinds");
+        _kindsMenu = kinds.GetPopup();
+        _kindsMenu.HideOnCheckableItemSelection = false;
+        foreach (var k in Enum.GetValues<RecentKind>())
+            _kindsMenu.AddCheckItem(strings.Get("inventory.recent.kind." + k.ToString().ToLowerInvariant()), (int)k);
+        _kindsMenu.IdPressed += id =>
+        {
+            int index = _kindsMenu.GetItemIndex((int)id);
+            ApplyRecentFilter(_recentFilter.WithKind((RecentKind)(int)id, !_kindsMenu.IsItemChecked(index)));
+        };
+        row.AddChild(kinds);
+        _sinceLogoff = new CheckBox { Name = "recent_since_logoff", Text = strings.Get("inventory.recent.since_logoff") };
+        _sinceLogoff.AccessibilityName = _sinceLogoff.Text;
+        _sinceLogoff.Toggled += on => ApplyRecentFilter(_recentFilter.WithSinceLogoff(on));
+        row.AddChild(_sinceLogoff);
+        _dateDirection = new OptionButton { Name = "recent_direction" };
+        _dateDirection.AccessibilityName = strings.Get("inventory.recent.newer");
+        _dateDirection.AddItem(strings.Get("inventory.recent.newer"), 0);
+        _dateDirection.AddItem(strings.Get("inventory.recent.older"), 1);
+        _dateDirection.ItemSelected += i => ApplyRecentFilter(_recentFilter with { Older = i == 1 && !_recentFilter.SinceLogoff });
+        row.AddChild(_dateDirection);
+        SpinBox Spin(string name, string labelKey, int max)
+        {
+            var box = new HBoxContainer { Name = name + "_box" };
+            box.AddThemeConstantOverride("separation", 4);
+            var spin = new SpinBox { Name = name, MinValue = 0, MaxValue = max, Step = 1, Rounded = true };
+            spin.GetLineEdit().AccessibilityName = strings.Get(labelKey);
+            box.AddChild(spin);
+            box.AddChild(new Label { Text = strings.Get(labelKey), VerticalAlignment = VerticalAlignment.Center });
+            row.AddChild(box);
+            spin.ValueChanged += _ => ApplyRecentFilter(_recentFilter.WithTimeAgo((int)(_hoursAgo?.Value ?? 0), (int)(_daysAgo?.Value ?? 0)));
+            return spin;
+        }
+        _hoursAgo = Spin("recent_hours", "inventory.recent.hours", RecentFilter.MaxHours);
+        _daysAgo = Spin("recent_days", "inventory.recent.days", RecentFilter.MaxDays);
+        var reset = new Button { Name = "recent_reset", Text = strings.Get("inventory.recent.reset") };
+        reset.AccessibilityName = reset.Text;
+        reset.Pressed += () => ApplyRecentFilter(RecentFilter.Default);
+        row.AddChild(reset);
+        ShowRecentFilter();
+        return row;
+    }
+
+    /// <summary>Uses a new Recent filter and shows it in the row's controls.</summary>
+    public void ApplyRecentFilter(RecentFilter filter)
+    {
+        _recentFilter = filter;
+        ShowRecentFilter();
+        if (_view is not null) { _view.Recent = filter; _dirty = true; }
+    }
+
+    private void ShowRecentFilter()
+    {
+        var f = _recentFilter;
+        _sinceLogoff?.SetPressedNoSignal(f.SinceLogoff);
+        _hoursAgo?.SetValueNoSignal(f.Hours);
+        _daysAgo?.SetValueNoSignal(f.Days);
+        if (_dateDirection is not null)
+        {
+            _dateDirection.Select(f.Older ? 1 : 0);
+            _dateDirection.Disabled = f.SinceLogoff;   // Since Logoff always looks newer, as the official window greys the choice
+        }
+        if (_kindsMenu is not null)
+            foreach (var k in Enum.GetValues<RecentKind>())
+                _kindsMenu.SetItemChecked(_kindsMenu.GetItemIndex((int)k), f.Shows(k));
+    }
+
     public InventoryPanel(StringTable strings, InputFocus focus, long redrawGapMs = 250, SettingsService? settings = null)
     {
         _strings = strings;
@@ -456,10 +545,16 @@ public partial class InventoryPanel : VBoxContainer
         Tabs.AccessibilityName = strings.Get("inventory.tabs");
         Tabs.AddTab(strings.Get("inventory.tab.all"));
         Tabs.AddTab(strings.Get("inventory.tab.recent"));
-        Tabs.TabChanged += i => { if (_view is not null) { _view.Tab = i == 1 ? InventoryTab.Recent : InventoryTab.All; _dirty = true; } };
+        Tabs.TabChanged += i =>
+        {
+            RecentFilters.Visible = i == 1;
+            if (_view is not null) { _view.Tab = i == 1 ? InventoryTab.Recent : InventoryTab.All; _dirty = true; }
+        };
         var track = new PanelContainer { Name = "tabs_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
         track.AddChild(Tabs);
         AddChild(track);
+        RecentFilters = BuildRecentFilters(strings);
+        AddChild(RecentFilters);
 
         TreeView = new InventoryTree
         {
@@ -647,6 +742,7 @@ public partial class InventoryPanel : VBoxContainer
                 Tab = Tabs.CurrentTab == 1 ? InventoryTab.Recent : InventoryTab.All,
                 SearchText = Search.Text,
                 RecentSince = recentSince,
+                Recent = _recentFilter,
             };
             _actions = submit is null ? null : new InventoryActions(model, submit);
             _outfit = submit is null ? null : new OutfitActions(model, submit, wornObjects, id => CanDetachItem?.Invoke(id) ?? true);

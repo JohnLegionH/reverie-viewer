@@ -41,6 +41,9 @@ public static class NotificationFeature
         s.Menus.AddEntry("communicate", new MenuEntry("communicate.notifications", "menu.communicate.notifications", "floater.notifications"));
         s.Toolbar.Add(new ToolbarButton("toolbar_notifications", "toolbar.notifications", "floater.notifications", UiIcons.Notifications, ListId));
         toasts.OpenList = () => s.Floaters.Open(ListId);
+        // the alert lives in the shell's own top layer, not under the world view: the engine gives a click to the last control in the tree
+        // under the pointer, so only there do the dock, the top bar and the windows stop taking the alert's clicks
+        toasts.UseModalLayer(shell.ModalLayer, shell.ModalSpace);
         return new Panels(toasts, list, obj);
     }
 }
@@ -217,7 +220,8 @@ internal static class NotificationView
 /// <see cref="TextWidth"/> and as tall as the text needs, with a title, and buttons sized to their labels at the bottom right in one row. The
 /// default button is filled and holds the keyboard focus, so Enter answers it; Tab and the arrow keys move between the buttons; Esc is
 /// handled by <see cref="NotificationModel.PressEscape"/> (after its one-second guard). Behaviour after the official viewer's alert panel
-/// (lltoastalertpanel.cpp): its text width, default button and keys, written from the behaviour, not copied.
+/// (lltoastalertpanel.cpp): its text width, default button and keys, written from the behaviour, not copied. Its message is in a scroll
+/// area that the layer keeps short enough for the whole dialog to fit the window (<see cref="ModalPlacement"/>).
 /// </summary>
 internal static class AlertDialogView
 {
@@ -242,7 +246,9 @@ internal static class AlertDialogView
             ThemeTypeVariation = n.Caution ? UiTheme.ErrorLabel : "",
         };
         text.AccessibilityName = body;
-        box.AddChild(text);
+        var scroll = new ScrollContainer { Name = "message_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        scroll.AddChild(text);
+        box.AddChild(scroll);
         var row = new HBoxContainer { Name = "buttons", Alignment = BoxContainer.AlignmentMode.End };
         row.AddThemeConstantOverride("separation", 8);
         Button? def = null;
@@ -277,9 +283,9 @@ public partial class ToastStack : Control
     private NotificationHub? _hub;
     private bool _dirty = true;
 
-    /// <summary>The draw order of the modal layer: over every window (the right-click menu is at 100).</summary>
-    private const int ModalZ = 200;
     private long _modalShown;   // the id of the alert drawn now (0: none)
+    private Control? _modalLayer;
+    private Func<(UiRect Main, UiRect? Dock)>? _modalSpace;
 
     public ScrollContainer Scroll { get; }
     public VBoxContainer Stack { get; }
@@ -288,7 +294,9 @@ public partial class ToastStack : Control
     /// <summary>How many notifications in the list are unread (the toolbar's bell shows it).</summary>
     public int Unread { get; private set; }
     public ColorRect Dim { get; }
-    public CenterContainer ModalCentre { get; }
+
+    /// <summary>Holds the alert; the alert is placed in it by <see cref="ModalPlacement"/> every frame it shows.</summary>
+    public Control ModalCentre { get; }
 
     /// <summary>Opens the list of waiting notifications (the badge's action).</summary>
     public Action? OpenList { get; set; }
@@ -316,12 +324,24 @@ public partial class ToastStack : Control
 
         Dim = new ColorRect { Name = "modal_dim", Color = ShellTheme.C(UiTheme.Tokens.Scrim), Visible = false, MouseFilter = MouseFilterEnum.Stop };
         Dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        Dim.ZIndex = ModalZ;   // above the windows and the menus: an alert is answered first
         AddChild(Dim);
-        ModalCentre = new CenterContainer { Name = "modal_centre", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        ModalCentre = new Control { Name = "modal_centre", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
         ModalCentre.SetAnchorsPreset(LayoutPreset.FullRect);
-        ModalCentre.ZIndex = ModalZ + 1;
         AddChild(ModalCentre);
+    }
+
+    /// <summary>Moves the dim and the alert into <paramref name="layer"/> (the shell's top layer, over the whole window), and places the alert
+    /// in the part of the window <paramref name="space"/> gives: the world view between the bars, and the dock's rectangle when it shows.</summary>
+    public void UseModalLayer(Control layer, Func<(UiRect Main, UiRect? Dock)> space)
+    {
+        _modalLayer = layer;
+        _modalSpace = space;
+        foreach (var c in new Control[] { Dim, ModalCentre })
+        {
+            RemoveChild(c);
+            layer.AddChild(c);
+            c.SetAnchorsPreset(LayoutPreset.FullRect);
+        }
     }
 
     /// <summary>Shows a session's notifications (null: none; everything is hidden).</summary>
@@ -339,6 +359,8 @@ public partial class ToastStack : Control
 
     public override void _Process(double delta)
     {
+        if (ModalCentre.Visible)
+            PlaceAlert();
         if (!_dirty)
             return;
         _dirty = false;
@@ -384,6 +406,8 @@ public partial class ToastStack : Control
         {
             var (alert, def) = AlertDialogView.Build(modal, _strings, Answer);
             ModalCentre.AddChild(alert);
+            _modalLayer?.MoveToFront();   // the last child of the shell: over the dock, the bars and every window, for clicks and for drawing
+            PlaceAlert();
             // the default button holds the keyboard, so Enter answers it, and a newly opened alert takes focus from whatever was being typed in
             def?.CallDeferred(Control.MethodName.GrabFocus);
         }
@@ -391,6 +415,35 @@ public partial class ToastStack : Control
     }
 
     private void Answer(long id, int button, string text) => _hub?.Model.Answer(id, button, text);
+
+    /// <summary>Wraps the message within the window's width, gives it a scroll area when the whole dialog would be taller than the window, and
+    /// puts the dialog where <see cref="ModalPlacement"/> says: centred between the bars and the dock, always wholly inside the window.</summary>
+    private void PlaceAlert()
+    {
+        if (ModalCentre.GetChildCount() == 0 || ModalCentre.GetChild(0) is not PanelContainer panel || panel.IsQueuedForDeletion())
+            return;
+        var window = ModalCentre.Size;
+        if (window.X <= 0 || window.Y <= 0)
+            return;
+        var ui = new UiSize(window.X, window.Y);
+        if (panel.FindChild("message_scroll", true, false) is ScrollContainer scroll && scroll.GetChildCount() > 0 && scroll.GetChild(0) is Label text)
+        {
+            float chrome = panel.GetCombinedMinimumSize().X - Math.Max(text.CustomMinimumSize.X, scroll.GetCombinedMinimumSize().X);
+            float width = ModalPlacement.TextWidth(ui, AlertDialogView.TextWidth, Math.Max(0, chrome));
+            if (Math.Abs(text.CustomMinimumSize.X - width) > 0.5f)
+                text.CustomMinimumSize = new Vector2(width, 0);
+            float textHeight = text.GetCombinedMinimumSize().Y;
+            float rest = panel.GetCombinedMinimumSize().Y - scroll.GetCombinedMinimumSize().Y;
+            float shown = Math.Min(textHeight, Math.Max(24, ModalPlacement.MaxHeight(ui) - rest));
+            if (Math.Abs(scroll.CustomMinimumSize.Y - shown) > 0.5f)
+                scroll.CustomMinimumSize = new Vector2(0, shown);
+        }
+        var need = panel.GetCombinedMinimumSize();
+        var (main, dock) = _modalSpace?.Invoke() ?? (new UiRect(0, 0, ui.W, ui.H), null);
+        var at = ModalPlacement.Place(ui, main, dock, new UiSize(need.X, need.Y));
+        panel.Position = new Vector2(at.X, at.Y);
+        panel.Size = new Vector2(at.W, at.H);
+    }
 
     /// <summary>Enter with an alert up and the keyboard elsewhere (the focus was lost): the alert's default button answers. With the focus on one
     /// of the alert's buttons that button takes Enter itself, so Tab and the arrow keys can choose another one first.</summary>

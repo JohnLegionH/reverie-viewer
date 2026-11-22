@@ -20,11 +20,12 @@ internal static class HostLinks
     private static readonly LinkGate Gate = new(() => DateTimeOffset.Now);
 
     public static Func<string?> LoginUri = () => null;
+    public static Func<string?> CurrentGrid = () => null;
     public static Func<Guid, string?> AgentName = _ => null;
     public static Func<Guid, string?> GroupName = _ => null;
     public static Func<LinkAction, string?> Perform = _ => null;
 
-    public static readonly LinkRouter Router = new(Gate, () => LoginUri(), id => AgentName(id), id => GroupName(id));
+    public static readonly LinkRouter Router = new(Gate, () => LoginUri(), id => AgentName(id), id => GroupName(id), currentGrid: () => CurrentGrid());
 
     /// <summary>The last click's action, for the development automation.</summary>
     public static LinkAction? LastAction { get; private set; }
@@ -47,6 +48,7 @@ public partial class Main
     private void AttachLinks(ViewerSession s)
     {
         HostLinks.LoginUri = () => s.IsEnded ? null : s.LoginUri;
+        HostLinks.CurrentGrid = () => s.IsEnded ? null : s.VisitedGrid;   // while visiting, links name places by the visited grid; at home, by the login address as before
         HostLinks.AgentName = id => s.Names.Get(id);
         HostLinks.GroupName = id => _comms?.Groups.Groups.FirstOrDefault(g => g.Id == id)?.Name;
         HostLinks.Perform = PerformLink;

@@ -114,6 +114,40 @@ public partial class Main
                 var rows = v.Rows();
                 return new { rows = rows.Count, items = rows.Count(r => !r.IsFolder), status = v.Status().Key, tab = v.Tab.ToString() };
             }
+            case "recent":
+            {
+                // the Recent tab as shown: whether the item (its id in kind) is listed, where it is held (the kinds of the folders above it and
+                // whether one is the hypergrid suitcase), and the folders asked for while reading it; text "hours:N" or "days:N" sets the filter's
+                // spin box as a person does, "reset" presses Reset
+                if (text is { Length: > 0 } set)
+                {
+                    var parts = set.Split(':');
+                    if (parts[0] == "reset")
+                        p.ApplyRecentFilter(Viewer.Shell.Inventory.RecentFilter.Default);
+                    else if (parts.Length == 2 && int.TryParse(parts[1], out int n) && p.RecentFilters.FindChild("recent_" + parts[0], true, false) is global::Godot.SpinBox spin)
+                        spin.Value = n;
+                }
+                p.Tabs.CurrentTab = 1;
+                v.Tab = Viewer.Shell.Inventory.InventoryTab.Recent;
+                int inFlightBefore = m.InFlight, unloadedBefore = m.UnloadedFolderCount;
+                var rows = v.Rows();
+                Guid.TryParse(kind, out var item);
+                var path = new System.Collections.Generic.List<string>();
+                bool inSuitcase = false;
+                for (var f = m.Item(item) is { } held ? m.Folder(held.ParentId) : null; f is not null; f = m.Folder(f.ParentId))
+                {
+                    path.Insert(0, f.Id == m.RootId ? "Root" : f.Kind.ToString());
+                    inSuitcase |= f.ParentId == m.RootId && f.Name == "My Suitcase";
+                }
+                return new
+                {
+                    rows = rows.Count, listed = item != Guid.Empty && rows.Any(r => r.Id == item), held = m.Item(item) is not null,
+                    path = path.ToArray(), in_suitcase = inSuitcase,
+                    since = v.RecentSince?.ToString("o"), since_logoff = v.Recent.SinceLogoff, hours = v.Recent.Hours, days = v.Recent.Days,
+                    filter_row_shown = p.RecentFilters.IsVisibleInTree(),
+                    folders_asked = Math.Max(0, m.InFlight - inFlightBefore) + Math.Max(0, unloadedBefore - m.UnloadedFolderCount), unloaded = m.UnloadedFolderCount,
+                };
+            }
             case "sort":
             {
                 v.Sort = string.Equals(sort, "date", StringComparison.OrdinalIgnoreCase) ? Viewer.Shell.Inventory.InventorySort.ByDate : Viewer.Shell.Inventory.InventorySort.ByName;

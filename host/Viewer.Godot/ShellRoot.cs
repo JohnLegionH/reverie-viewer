@@ -60,6 +60,16 @@ public partial class ShellRoot : Control
 
     public IReadOnlyDictionary<string, FloaterFrame> Frames => _frames;
 
+    /// <summary>The layer for the modal alert, over the whole window. It is kept the shell's last child (the alert moves it to the front when it
+    /// opens): the engine hands a click to the last control in the tree under the pointer, whatever the drawing order, so the alert's dim and
+    /// buttons take the clicks before the dock, the bars and any window. Its draw order also puts it over the right-click menu.</summary>
+    public Control ModalLayer { get; }
+
+    /// <summary>The part of the window the alert is placed in: the world view between the bars, and the dock's rectangle while it shows.</summary>
+    public (UiRect Main, UiRect? Dock) ModalSpace() =>
+        (new UiRect(MainArea.Position.X, MainArea.Position.Y, MainArea.Size.X, MainArea.Size.Y),
+         Dock.Visible ? new UiRect(Dock.Position.X, Dock.Position.Y, Dock.Size.X, Dock.Size.Y) : null);
+
     /// <summary>The part of the window the bars leave (interface units, as laid out last): what a picture of the world shows between the menu rows and the chat row and toolbar.</summary>
     public Rect2 MainArea { get; private set; }
 
@@ -105,6 +115,10 @@ public partial class ShellRoot : Control
         foreach (var spec in shell.Floaters.Specs)
             AddFrame(spec);
         shell.Floaters.Changed += SyncFloaters;
+
+        ModalLayer = new Control { Name = "modal_layer", MouseFilter = MouseFilterEnum.Ignore, ZIndex = 200 };
+        ModalLayer.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(ModalLayer);
 
         shell.Focus.TextReleaseRequested += () => GetViewport()?.GuiReleaseFocus();
     }

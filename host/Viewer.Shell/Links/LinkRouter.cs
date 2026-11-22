@@ -25,8 +25,12 @@ public sealed record LinkAction(LinkActionKind Kind, string Region = "", Vector3
 /// <param name="loginUri">The login address of the grid the user is on (null before login).</param>
 /// <param name="agentName">An agent's name when known, else null.</param>
 /// <param name="groupName">A group's name when known, else null.</param>
-public sealed class LinkRouter(LinkGate gate, Func<string?> loginUri, Func<Guid, string?>? agentName = null, Func<Guid, string?>? groupName = null)
+/// <param name="currentGrid">The grid the agent's region is on ("host:port"), which differs from the login address while visiting another
+/// grid; null or empty: the login address's grid.</param>
+public sealed class LinkRouter(LinkGate gate, Func<string?> loginUri, Func<Guid, string?>? agentName = null, Func<Guid, string?>? groupName = null,
+    Func<string?>? currentGrid = null)
 {
+    private readonly Func<string?> _currentGrid = currentGrid ?? (() => null);
     private readonly LinkGate _gate = gate;
     private readonly Func<string?> _loginUri = loginUri;
     private readonly Func<Guid, string?> _agentName = agentName ?? (_ => null);
@@ -85,13 +89,25 @@ public sealed class LinkRouter(LinkGate gate, Func<string?> loginUri, Func<Guid,
         raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
         || raw.StartsWith("www.", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Whether a hop:// link names the grid the user is on (same host and port as the login address; a hop link
-    /// without a port means port 80).</summary>
+    /// <summary>Whether a hop:// link names the grid the user is on: the grid of the agent's region while visiting another grid, else the
+    /// login address's (same host and port; a hop link without a port means port 80). While visiting, a link to the home grid is a place on
+    /// another grid, so it asks before teleporting as any other grid's link does (Firestorm treats a hop link by its grid the same way).</summary>
     public bool SameGrid(ViewerLink link)
     {
-        if (link.Host is not { Length: > 0 } host || !Uri.TryCreate(_loginUri() ?? "", UriKind.Absolute, out var login))
+        if (link.Host is not { Length: > 0 } host)
             return false;
-        return string.Equals(login.Host, host, StringComparison.OrdinalIgnoreCase) && login.Port == (link.Port ?? 80);
+        int port = link.Port ?? 80;
+        if (_currentGrid() is { Length: > 0 } current)
+        {
+            int colon = current.LastIndexOf(':');
+            string currentHost = colon > 0 ? current[..colon] : current;
+            int currentPort = colon > 0 && int.TryParse(current[(colon + 1)..], System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out int p) ? p : 80;
+            return string.Equals(currentHost, host, StringComparison.OrdinalIgnoreCase) && currentPort == port;
+        }
+        if (!Uri.TryCreate(_loginUri() ?? "", UriKind.Absolute, out var login))
+            return false;
+        return string.Equals(login.Host, host, StringComparison.OrdinalIgnoreCase) && login.Port == port;
     }
 
     /// <summary>Whether the user is on Second Life (the login address is one of Linden Lab's).</summary>

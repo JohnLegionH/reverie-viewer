@@ -338,7 +338,7 @@ public partial class AutomationHost : Node
                 return m.ChatCall(action, Str(call.Body, "text"), Str(call.Body, "kind"), agent, Str(call.Body, "token")) is { } done
                     ? AutomationReply.Ok(done) : AutomationReply.Error(409, "no session");
             }
-            case "dialog":   // {action: find|answer|open|toast_click, nth?, button?, text?, token?, labels?}: what scripts asked and the notifications waiting (answers ids, kinds, counts and layout; text only compared with a token)
+            case "dialog":   // {action: find|answer|open|toast_click, nth?, button?, text?, token?, labels?}: what scripts asked and the notifications waiting (answers ids, kinds, counts and layout; text only compared with a token); answer with nth -1 answers the alert on screen, and find lists the alert's buttons (index, key, node, default, cancel)
             {
                 string action = Str(call.Body, "action") ?? "find";
                 if (action is not ("find" or "answer" or "open" or "toast_click"))
@@ -413,7 +413,7 @@ public partial class AutomationHost : Node
                 Guid agent = Guid.TryParse(Str(call.Body, "agent"), out var a) ? a : Guid.Empty;
                 return m.MapCall(action, Str(call.Body, "name"), agent) is { } done ? AutomationReply.Ok(done) : AutomationReply.Error(409, "no session");
             }
-            case "inventory":   // {action: status|open|search|sort, kind?, text?, sort?}: the inventory, read only (answers counts and states, never a name)
+            case "inventory":   // {action: status|open|search|sort|recent, kind?, text?, sort?}: the inventory, read only (answers counts and states, never a name); recent: the Recent tab, kind = an item id, text = hours:N, days:N or reset
             {
                 string action = Str(call.Body, "action") ?? "status";
                 string[] outfitActions = ["outfit", "refresh", "wear", "add", "takeoff", "attach", "detach", "wearoutfit", "saveoutfit", "dropbase"];

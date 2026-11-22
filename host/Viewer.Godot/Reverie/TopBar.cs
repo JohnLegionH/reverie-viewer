@@ -246,14 +246,15 @@ public partial class RvMenuBar : HFlowContainer
 }
 
 /// <summary>
-/// The location field. Display mode shows the parcel's name when it has one of its own, the region's name once (weight 600) and the
-/// coordinates (muted). A click turns it into a text entry that takes a region name or a region/x/y/z address and asks for a teleport on
+/// The location field. Display mode shows the parcel's name when it has one of its own, the region's name once (weight 600), the visited
+/// grid's host while on another grid, and the coordinates (muted). When they do not fit, the coordinates go first, then the names are
+/// shortened with an ellipsis (<see cref="LocationFit"/>); the host is never cut, and the tooltip has the whole place. A click turns it into a text entry that takes a region name or a region/x/y/z address and asks for a teleport on
 /// Enter; Escape cancels. The star at its right end adds a landmark.
 /// </summary>
 public partial class RvLocationField : PanelContainer
 {
     private readonly Button _display;
-    private readonly Label _parcel, _region, _coords;
+    private readonly Label _parcel, _region, _host, _coords;
     private readonly LineEdit _edit;
     private LocationParts? _parts;
 
@@ -277,10 +278,12 @@ public partial class RvLocationField : PanelContainer
         labels.SetAnchorsPreset(LayoutPreset.FullRect);
         labels.AddThemeConstantOverride("separation", 6);
         _parcel = new Label { ThemeTypeVariation = ReverieStyle.Status, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
-        _region = new Label { ThemeTypeVariation = ReverieStyle.Region, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
+        _region = new Label { ThemeTypeVariation = ReverieStyle.Region, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        _host = new Label { Name = "location_host", ThemeTypeVariation = ReverieStyle.Region, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
         _coords = new Label { ThemeTypeVariation = ReverieStyle.Muted, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
         labels.AddChild(_parcel);
         labels.AddChild(_region);
+        labels.AddChild(_host);
         labels.AddChild(_coords);
         _display.AddChild(labels);
         _display.Pressed += BeginEdit;
@@ -307,27 +310,55 @@ public partial class RvLocationField : PanelContainer
         _parcel.Text = parts?.Parcel ?? "";
         _parcel.Visible = parts?.Parcel is not null;
         _region.Text = parts?.Region ?? "";
+        _host.Text = parts?.Host ?? "";
+        _host.Visible = parts?.Host is not null;
         _coords.Text = parts?.Coordinates ?? "";
-        _display.TooltipText = parts is null ? "" : string.Join(" ", new[] { parts.Parcel, parts.Region, parts.Coordinates }.Where(t => !string.IsNullOrEmpty(t)));
+        _display.TooltipText = parts?.Full ?? "";
+        if (_fitWidth > 0)
+            FitText(_fitWidth);
     }
 
-    /// <summary>The field's text fitted to its width: the coordinates are left out when the names and the coordinates do not fit
-    /// together (the region's name is never cut for them; the tooltip keeps the whole place).</summary>
+    private float _fitWidth;
+
+    /// <summary>The width a label's whole text takes in its own font (a shortened label's minimum size is only its ellipsis).</summary>
+    private static float FullWidth(Label label) =>
+        label.Visible && label.Text.Length > 0
+            ? label.GetThemeFont("font").GetStringSize(label.Text, HorizontalAlignment.Left, -1, label.GetThemeFontSize("font_size")).X
+                + (label.GetThemeStylebox("normal")?.GetMinimumSize().X ?? 0)
+            : 0;
+
+    /// <summary>Whether the region's or the parcel's name is shown shortened now, for checks.</summary>
+    public bool NamesShortened { get; private set; }
+
+    /// <summary>The field's text fitted to its width: the coordinates go first, then the parcel's and the region's names are shortened with
+    /// an ellipsis; the grid's host keeps its whole width (the tooltip keeps the whole place).</summary>
     public void FitText(float width)
     {
-        float names = (_parcel.Visible ? _parcel.GetCombinedMinimumSize().X + 6 : 0) + _region.GetCombinedMinimumSize().X;
+        _fitWidth = width;
         float room = width - Star.GetCombinedMinimumSize().X - 4 - 24;   // the star, the gap and the field's rounded ends
-        _coords.Visible = names + 6 + _coords.GetCombinedMinimumSize().X <= room;
+        _coords.Visible = true;
+        float parcel = FullWidth(_parcel), region = FullWidth(_region), host = FullWidth(_host), coords = FullWidth(_coords);
+        var w = LocationFit.Widths(room, parcel, region, host, coords, 6);
+        _coords.Visible = w.Coordinates;
+        _parcel.CustomMinimumSize = new Vector2(w.Parcel, 0);
+        _region.CustomMinimumSize = new Vector2(w.Region, 0);
+        NamesShortened = w.Parcel + 0.5f < parcel || w.Region + 0.5f < region;
     }
 
     /// <summary>Display mode's text as one line, for checks: the parts that are shown, in order.</summary>
-    public string DisplayText => string.Join(" | ", new[] { _parcel.Visible ? _parcel.Text : null, _region.Text, _coords.Visible ? _coords.Text : null }.Where(t => !string.IsNullOrEmpty(t)));
+    public string DisplayText => string.Join(" | ", new[] { _parcel.Visible ? _parcel.Text : null, _region.Text, _host.Visible ? _host.Text : null, _coords.Visible ? _coords.Text : null }.Where(t => !string.IsNullOrEmpty(t)));
+
+    /// <summary>The visited grid's host as shown, for checks.</summary>
+    public Label HostLabel => _host;
+
+    /// <summary>The tooltip's text (the whole place), for checks.</summary>
+    public string Tooltip => _display.TooltipText;
 
     public void BeginEdit()
     {
         _display.Visible = false;
         _edit.Visible = true;
-        _edit.Text = _parts is null ? "" : _parts.Region;
+        _edit.Text = _parts is null ? "" : _parts.Place;
         _edit.GrabFocus();
         _edit.SelectAll();
     }

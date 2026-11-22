@@ -126,7 +126,8 @@ public partial class Main
         {
             case "answer":
             {
-                var n = model.List.ElementAtOrDefault(nth);
+                // nth -1 (DialogTarget.Alert) names the alert on screen, which the list leaves out
+                var n = DialogTarget.Pick(model, nth);
                 if (n is null)
                     return new { answered = false, reason = "no_such_notification" };
                 bool done = model.Answer(n.Id, button, text ?? "");
@@ -157,7 +158,10 @@ public partial class Main
                     toasts = model.Toasts.Count,
                     modal = model.Modal is not null,
                     modal_body = model.Modal?.Body.Key,
+                    modal_contains = model.Modal is { } shown && Has(shown),   // the alert's words hold the caller's token
                     modal_default = model.Modal?.DefaultButton,
+                    // the alert's buttons: index, label key, node name (for the ui command's point) and role; never their text
+                    alert_buttons = DialogTarget.Buttons(model.Modal).Select(b => new { index = b.Index, key = b.Key, node = b.Node, is_default = b.IsDefault, is_cancel = b.IsCancel }).ToArray(),
                     history = model.History.Count,
                     throttled = hub.Prompts.Throttled, unknown = hub.Prompts.Unknown, muted = hub.Prompts.Muted,
                     waiting = model.List.Select(n => new

@@ -195,6 +195,9 @@ public partial class Main
             region = s?.Region?.Name, size_x = s?.Region?.SizeX, size_y = s?.Region?.SizeY, grid_x = s?.Region?.GridX, grid_y = s?.Region?.GridY,
             worlds = s?.Worlds.Count ?? 0, objects = s?.World.Snapshot().Objects.Count ?? 0,
             grid_label = bar.Grid.Text, location = bar.Location.DisplayText,
+            // the location field as drawn: the whole place in its tooltip, whether a name is shortened, and how much of the host is in view
+            location_tooltip = bar.Location.Tooltip, location_names_shortened = bar.Location.NamesShortened,
+            location_host_reach = bar.Location.HostLabel.IsVisibleInTree() ? ReachOf(bar.Location.HostLabel).Kind.ToString().ToLowerInvariant() : "none",
             map_grid = _travel?.WorldMap.Grid, map_regions = _travel?.WorldMap.Regions.Count ?? 0,
             teleport_stage = _travel?.Teleport.Stage.ToString(), teleport_failure = _travel?.Teleport.Failure?.Key, teleport_failure_text = _travel?.Teleport.Failure?.Arg,
             in_world = s is { IsEnded: false } && s.AgentId != Guid.Empty,
