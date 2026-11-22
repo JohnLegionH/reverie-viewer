@@ -304,8 +304,12 @@ public partial class RvLocationField : PanelContainer
     public LineEdit Edit => _edit;
 
     /// <summary>What display mode shows (null: no region yet).</summary>
+    /// <summary>The visited grid's host came, went or changed: the bar lays itself out again, as the field's least width follows it.</summary>
+    public event Action? HostChanged;
+
     public void Show(LocationParts? parts)
     {
+        bool hostChanged = parts?.Host != _parts?.Host;
         _parts = parts;
         _parcel.Text = parts?.Parcel ?? "";
         _parcel.Visible = parts?.Parcel is not null;
@@ -316,16 +320,22 @@ public partial class RvLocationField : PanelContainer
         _display.TooltipText = parts?.Full ?? "";
         if (_fitWidth > 0)
             FitText(_fitWidth);
+        if (hostChanged)
+            HostChanged?.Invoke();
     }
 
     private float _fitWidth;
 
     /// <summary>The width a label's whole text takes in its own font (a shortened label's minimum size is only its ellipsis).</summary>
-    private static float FullWidth(Label label) =>
-        label.Visible && label.Text.Length > 0
+    internal static float FullWidth(Label label) =>
+        label.Text.Length > 0
             ? label.GetThemeFont("font").GetStringSize(label.Text, HorizontalAlignment.Left, -1, label.GetThemeFontSize("font_size")).X
                 + (label.GetThemeStylebox("normal")?.GetMinimumSize().X ?? 0)
             : 0;
+
+    /// <summary>The least width the field needs to show the visited grid's whole host beside a few characters of the region (at home, the
+    /// region's few characters): the star, the field's rounded ends and <see cref="LocationFit.LeastNames"/>.</summary>
+    public float LeastWidth() => Star.GetCombinedMinimumSize().X + 4 + 24 + LocationFit.LeastNames(_parts?.Host is null ? 0 : FullWidth(_host), 6);
 
     /// <summary>Whether the region's or the parcel's name is shown shortened now, for checks.</summary>
     public bool NamesShortened { get; private set; }
@@ -337,12 +347,15 @@ public partial class RvLocationField : PanelContainer
         _fitWidth = width;
         float room = width - Star.GetCombinedMinimumSize().X - 4 - 24;   // the star, the gap and the field's rounded ends
         _coords.Visible = true;
-        float parcel = FullWidth(_parcel), region = FullWidth(_region), host = FullWidth(_host), coords = FullWidth(_coords);
+        float parcel = _parts?.Parcel is null ? 0 : FullWidth(_parcel), host = _parts?.Host is null ? 0 : FullWidth(_host);
+        float region = FullWidth(_region), coords = FullWidth(_coords);
         var w = LocationFit.Widths(room, parcel, region, host, coords, 6);
         _coords.Visible = w.Coordinates;
+        _parcel.Visible = _parts?.Parcel is not null && w.Parcel > 0;
         _parcel.CustomMinimumSize = new Vector2(w.Parcel, 0);
         _region.CustomMinimumSize = new Vector2(w.Region, 0);
         NamesShortened = w.Parcel + 0.5f < parcel || w.Region + 0.5f < region;
+        _host.CustomMinimumSize = new Vector2(host, 0);
     }
 
     /// <summary>Display mode's text as one line, for checks: the parts that are shown, in order.</summary>
@@ -428,6 +441,7 @@ public partial class TopBar : PanelContainer
         Back = new RvIconButton(LucideIcons.Back, strings.Get("topbar.back")) { Name = "back", SizeFlagsVertical = SizeFlags.ShrinkCenter };
         Home = new RvIconButton(LucideIcons.Home, strings.Get("topbar.home")) { Name = "home", SizeFlagsVertical = SizeFlags.ShrinkCenter };
         Location = new RvLocationField(strings);
+        Location.HostChanged += () => { if (IsInsideTree()) Callable.From(Relayout).CallDeferred(); };
         _centre.AddChild(Back);
         _centre.AddChild(Home);
         _centre.AddChild(Location);
@@ -572,11 +586,20 @@ public partial class TopBar : PanelContainer
             : own ? available - 16 : available - 16 - leftWidth - rightWidth - 2 * TopBarLayout.ZoneGap;
         room -= Back.GetCombinedMinimumSize().X + Home.GetCombinedMinimumSize().X + 8;
         Location.CustomMinimumSize = new Vector2(Math.Clamp(room, ReverieTheme.LocationMinWidth, ReverieTheme.LocationMaxWidth), ReverieTheme.LocationHeight);
+        Grid.LimitText(null);   // measured at its whole width first; shortened below only when the field needs the room
         // what the rows really need, measured now: a row still wider than the bar gives the location field less room (never below
         // half its least width), then the menus' titles wrap, so nothing is ever cut off
         float inner = available - 16;
         if (_second.Visible && _second.GetCombinedMinimumSize().X - inner is var over2 and > 0.5f)
-            Location.CustomMinimumSize = new Vector2(Math.Max(ReverieTheme.LocationMinWidth / 2, Location.CustomMinimumSize.X - over2), ReverieTheme.LocationHeight);
+        {
+            // the field gives room down to half its least width, but never below what shows the visited grid's whole host; past that the
+            // status chip beside it in the row (the "Visiting ..." text, which also has its tooltip) is shortened with an ellipsis
+            float least = Math.Max(ReverieTheme.LocationMinWidth / 2, Location.LeastWidth());
+            float give = Math.Clamp(over2, 0, Math.Max(0, Location.CustomMinimumSize.X - least));
+            Location.CustomMinimumSize = new Vector2(Location.CustomMinimumSize.X - give, ReverieTheme.LocationHeight);
+            if (over2 - give > 0.5f && _statusDown && Grid.Visible)
+                Grid.LimitText(Math.Max(48, Grid.TextWidth - (over2 - give)));
+        }
         Location.FitText(Location.CustomMinimumSize.X);
         if (_first.GetCombinedMinimumSize().X - inner is var over1 and > 0.5f)
             Menus.CustomMinimumSize = new Vector2(Math.Max(0, Menus.CustomMinimumSize.X - over1), 0);

@@ -349,7 +349,23 @@ public partial class RvStatusChip : HBoxContainer
     public string Text
     {
         get => _text.Text;
-        set { _text.Text = value; AccessibilityName = value; }
+        set { _text.Text = value; AccessibilityName = value; if (_limited) TooltipText = value; }
+    }
+
+    private bool _limited;
+
+    /// <summary>The width the whole text takes in the chip's font.</summary>
+    public float TextWidth => RvLocationField.FullWidth(_text);
+
+    /// <summary>Shortens the text with an ellipsis to <paramref name="width"/> (null: the whole text again); while shortened, the whole text
+    /// is the chip's tooltip.</summary>
+    public void LimitText(float? width)
+    {
+        _limited = width is not null;
+        _text.TextOverrunBehavior = _limited ? TextServer.OverrunBehavior.TrimEllipsis : TextServer.OverrunBehavior.NoTrimming;
+        _text.CustomMinimumSize = new Vector2(width ?? 0, 0);
+        TooltipText = _limited ? _text.Text : "";
+        MouseFilter = _limited ? MouseFilterEnum.Pass : MouseFilterEnum.Ignore;   // a tooltip needs the pointer
     }
 
     /// <summary>The dot's colour by its name in the status colours: "ok", "accent" or "muted".</summary>

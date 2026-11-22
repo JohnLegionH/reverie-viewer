@@ -425,7 +425,7 @@ public partial class AutomationHost : Node
                     return m.AppearanceCall(action, Str(call.Body, "text"), Guid.TryParse(Str(call.Body, "id"), out var wearable) ? wearable : Guid.Empty,
                         Num(call.Body, "a", 0), Num(call.Body, "b", 0), Num(call.Body, "c", 0), (int)Num(call.Body, "param", 0)) is { } appearance
                         ? AutomationReply.Ok(appearance) : AutomationReply.Error(409, "no session");
-                if (action is not ("status" or "open" or "search" or "sort")) return AutomationReply.Error(400, "action must be status, open, search, sort, outfit, wear, add, takeoff, attach, wearoutfit or saveoutfit");
+                if (action is not ("status" or "open" or "search" or "sort" or "recent")) return AutomationReply.Error(400, "action must be status, open, search, sort, recent, outfit, wear, add, takeoff, attach, wearoutfit or saveoutfit");
                 return m.InventoryCall(action, Str(call.Body, "kind"), Str(call.Body, "text"), Str(call.Body, "sort"), Str(call.Body, "tab")) is { } done
                     ? AutomationReply.Ok(done) : AutomationReply.Error(409, "no session");
             }

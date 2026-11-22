@@ -131,6 +131,10 @@ public static class LocationFit
     /// <summary>The least width a shortened name keeps (about three characters and the ellipsis).</summary>
     public const float MinName = 36;
 
+    /// <summary>The least room the names need beside the host: the host, a gap and the region's least width (the region's least width alone
+    /// at home).</summary>
+    public static float LeastNames(float host, float gap) => host > 0 ? host + gap + MinName : MinName;
+
     /// <summary>The widths to give each part: the parcel's and the region's (each at most its full width), whether the coordinates show,
     /// and the host's (always its full width). <paramref name="gap"/> is the space between two parts shown.</summary>
     public static (float Parcel, float Region, bool Coordinates, float Host) Widths(float room, float parcel, float region, float host, float coordinates, float gap)
@@ -144,6 +148,12 @@ public static class LocationFit
             return (parcel, region, false, host);
         // the parcel gives way first, then the region; each keeps a few characters and the ellipsis
         float p = parcel > 0 ? Math.Min(parcel, Math.Max(MinName, names - region)) : 0;
+        if (p > 0 && names - p < Math.Min(region, MinName))
+        {
+            // not even both short names fit: the parcel's name goes (with its gap) and the region keeps what is left
+            p = 0;
+            names += gap;
+        }
         float r = Math.Min(region, Math.Max(Math.Min(region, MinName), names - p));
         return (p, r, false, host);
     }

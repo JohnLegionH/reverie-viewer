@@ -165,6 +165,24 @@ public class HypergridUiTests
     }
 
     [Fact]
+    public void When_even_short_names_do_not_fit_the_parcel_goes_and_the_region_keeps_its_least_width_beside_the_whole_host()
+    {
+        var d = LocationFit.Widths(room: 170, parcel: 80, region: 100, host: 120, coordinates: 70, gap: 6);
+        Assert.Equal((0f, 170f - 120 - 6, false, 120f), (d.Parcel, d.Region, d.Coordinates, d.Host));   // the parcel's gap goes with it
+        // the least width a field needs for that: the host, a gap and the region's least width
+        Assert.Equal(120 + 6 + LocationFit.MinName, LocationFit.LeastNames(host: 120, gap: 6));
+        Assert.Equal(LocationFit.MinName, LocationFit.LeastNames(host: 0, gap: 6));
+    }
+
+    [Fact]
+    public void The_top_bar_keeps_the_field_wide_enough_for_the_host_and_shortens_the_visiting_chip_instead()
+    {
+        string bar = Read(Path.Combine("Reverie", "TopBar.cs"));
+        Assert.Contains("Location.LeastWidth()", bar);
+        Assert.Contains("Grid.LimitText(", bar);
+    }
+
+    [Fact]
     public void The_location_field_cuts_names_with_an_ellipsis_and_its_tooltip_has_the_whole_place()
     {
         string bar = Read(Path.Combine("Reverie", "TopBar.cs"));
