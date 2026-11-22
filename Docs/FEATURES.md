@@ -13,10 +13,10 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Add or manage grids. Login screen: Grid list > **Add a grid…** or **Manage grids…**.
 - A grid can make Reverie read like its own by setting keys in its grid information: its name, its currency symbol (`currency`) and currency name (`currencyname`), and its help, about, welcome and viewer-download pages. Prices, fees and costs carry the grid's symbol; a grid that sets `currency = none` has no balance, no Buy currency and no Pay. The Help menu gets the grid's help and about pages and **Get Reverie from <grid>**, and the login screen gets **Visit <grid>'s page**; an item shows only when the grid sets its key. Every such page opens in your own browser, after a question that names its host. The grid list always shows each grid's host beside its name; a grid named "Second Life", "SL" or anything with "Linden" in it is shown under its host, as is a grid with the same name as another you saved. Second Life is unchanged: nothing a grid supplies applies there.
 - Visit another grid by Hypergrid: the top bar shows **Visiting <grid name> (<host>)**, prices there carry that grid's symbol, and your balance keeps your home grid's symbol.
-- Travel to a region on another grid by typing its address in the location box or the world map's search: `hop://host:port/Region/x/y/z`, `host:port:Region`, `host:port Region` or `http://host:port/ Region`. While visiting, the location box shows the region with its grid's host. Back and teleport history remember which grid each place was on.
-- A hop:// link to another grid in chat, an IM, a notecard, a group notice or a parcel's description asks first, naming the place and its grid, and teleports only on **Teleport**.
+- Travel to a region on another grid by typing its address in the location box or the world map's search: `hop://host:port/Region/x/y/z`, `host:port:Region`, `host:port Region` or `http://host:port/ Region`. While visiting, the location box shows the region with its grid's host; in a narrow bar the coordinates go first, then the names are shortened with "…", the host always shows, and the whole place is in the tooltip. Back and teleport history remember which grid each place was on.
+- A hop:// link to another grid in chat, an IM, a notecard, a group notice or a parcel's description asks first, naming the place and its grid, and teleports only on **Teleport**. While visiting, a link back to your home grid asks the same way.
 - Landmarks: the star in the location box makes one in your Landmarks folder; double-click a landmark in the inventory to see its place and the grid it is on, and **Teleport** there, also to another grid.
-- **Go home** while visiting tries the teleport home first; if your home grid refuses it, a dialog offers to log out and log back in at your home location.
+- **Go home** while visiting tries the teleport home first; if your home grid refuses it, a dialog offers to log out and log back in at your home location. A dialog that must be answered takes every click on itself at any interface size; nothing behind it does.
 - Remember your name, or (where this computer can protect it) your password. Login screen: **Remember name**, **Remember password**.
 - Choose where you arrive: last location, home, or a named region. Login screen: **Start at**.
 - Reconnect after a dropped connection: the **Logged out** window has a **Reconnect** button. It does not start by itself.
@@ -45,7 +45,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 ## Inventory and appearance
 
-- Browse, search, rename, make folders, drag to move, move to Trash: **Content > Inventory** (Ctrl+I). Tabs: All items, Recent items.
+- Browse, search, rename, make folders, drag to move, move to Trash: **Content > Inventory** (Ctrl+I). Tabs: All items, Recent items. Recent items lists what is already loaded (the Hypergrid suitcase too) by the official viewer's rules: since your last logout by default, or newer or older than a number of hours and days, and only the kinds you choose under **Show**; **Reset** goes back to Since logoff.
 - Make new scripts, notecards, gestures, clothing and body parts: Inventory window.
 - Open notecards and scripts; wear, add, take off, attach and detach items: Inventory window.
 - Outfits: **Content > Outfits** (Ctrl+O).
