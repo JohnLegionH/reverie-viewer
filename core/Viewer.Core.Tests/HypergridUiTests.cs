@@ -202,6 +202,14 @@ public class HypergridUiTests
     }
 
     [Fact]
+    public void A_location_field_no_bar_has_fitted_shows_its_names_whole()
+    {
+        // a field shown before any top bar gave it a width (or with none, as in a gallery) must not leave its names at no width
+        string bar = Read(Path.Combine("Reverie", "TopBar.cs"));
+        Assert.Contains("FitText(_fitWidth > 0 ? _fitWidth : float.MaxValue);", bar);
+    }
+
+    [Fact]
     public void The_top_bar_keeps_the_field_wide_enough_for_the_host_and_shortens_the_visiting_chip_instead()
     {
         string bar = Read(Path.Combine("Reverie", "TopBar.cs"));
@@ -213,7 +221,7 @@ public class HypergridUiTests
     public void The_location_field_cuts_names_with_an_ellipsis_and_its_tooltip_has_the_whole_place()
     {
         string bar = Read(Path.Combine("Reverie", "TopBar.cs"));
-        Assert.Contains("_region = new Label { ThemeTypeVariation = ReverieStyle.Region, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis", bar);
+        Assert.Contains("_region.Text = LocationFit.Shorten(regionText, w.Region, t => TextWidth(_region, t));", bar);
         Assert.Contains("LocationFit.Widths(", bar);
         Assert.Contains("_display.TooltipText = parts?.Full ?? \"\"", bar);
     }

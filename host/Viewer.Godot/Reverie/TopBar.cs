@@ -277,8 +277,9 @@ public partial class RvLocationField : PanelContainer
         var labels = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         labels.SetAnchorsPreset(LayoutPreset.FullRect);
         labels.AddThemeConstantOverride("separation", 6);
-        _parcel = new Label { ThemeTypeVariation = ReverieStyle.Status, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
-        _region = new Label { ThemeTypeVariation = ReverieStyle.Region, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        // the names are shortened by FitText itself (LocationFit.Shorten): each label holds exactly the text shown, at its natural width
+        _parcel = new Label { ThemeTypeVariation = ReverieStyle.Status, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
+        _region = new Label { ThemeTypeVariation = ReverieStyle.Region, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
         _host = new Label { Name = "location_host", ThemeTypeVariation = ReverieStyle.Region, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
         _coords = new Label { ThemeTypeVariation = ReverieStyle.Muted, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
         labels.AddChild(_parcel);
@@ -318,8 +319,8 @@ public partial class RvLocationField : PanelContainer
         _host.Visible = parts?.Host is not null;
         _coords.Text = parts?.Coordinates ?? "";
         _display.TooltipText = parts?.Full ?? "";
-        if (_fitWidth > 0)
-            FitText(_fitWidth);
+        // fitted to the width the bar last gave it; a field no bar has fitted yet shows its names whole
+        FitText(_fitWidth > 0 ? _fitWidth : float.MaxValue);
         if (hostChanged)
             HostChanged?.Invoke();
     }
@@ -347,6 +348,16 @@ public partial class RvLocationField : PanelContainer
     /// an ellipsis; the grid's host keeps its whole width (the tooltip keeps the whole place).</summary>
     public void FitText(float width)
     {
+        if (width >= float.MaxValue)
+        {
+            // no width given yet: every part at its natural width, nothing shortened (as a field in a gallery shows)
+            _coords.Visible = true;
+            _parcel.Visible = _parts?.Parcel is not null;
+            _parcel.Text = _parts?.Parcel ?? "";
+            _region.Text = _parts?.Region ?? "";
+            NamesShortened = false;
+            return;
+        }
         _fitWidth = width;
         float room = width - Star.GetCombinedMinimumSize().X - 4 - 24;   // the star, the gap and the field's rounded ends
         _coords.Visible = true;
@@ -356,13 +367,10 @@ public partial class RvLocationField : PanelContainer
         var w = LocationFit.Widths(room, parcel, region, host, coords, 6);
         _coords.Visible = w.Coordinates;
         _parcel.Visible = _parts?.Parcel is not null && w.Parcel > 0;
-        _parcel.CustomMinimumSize = new Vector2(w.Parcel, 0);
-        _region.CustomMinimumSize = new Vector2(w.Region, 0);
         // the names shortened here with an ellipsis, measured in their own fonts (the engine's own trimming left no ellipsis in this label)
         _parcel.Text = LocationFit.Shorten(parcelText, w.Parcel, t => TextWidth(_parcel, t));
         _region.Text = LocationFit.Shorten(regionText, w.Region, t => TextWidth(_region, t));
         NamesShortened = w.Parcel + 0.5f < parcel || w.Region + 0.5f < region;
-        _host.CustomMinimumSize = new Vector2(host, 0);
     }
 
     /// <summary>Display mode's text as one line, for checks: the parts that are shown, in order.</summary>
