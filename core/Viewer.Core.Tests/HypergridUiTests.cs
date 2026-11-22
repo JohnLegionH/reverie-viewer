@@ -206,7 +206,9 @@ public class HypergridUiTests
     {
         // a field shown before any top bar gave it a width (or with none, as in a gallery) must not leave its names at no width
         string bar = Read(Path.Combine("Reverie", "TopBar.cs"));
-        Assert.Contains("FitText(_fitWidth > 0 ? _fitWidth : float.MaxValue);", bar);
+        // it fits to its own set width, and again once in the tree, where its fonts are the ones it draws with
+        Assert.Contains("private float OwnWidth => _fitWidth > 0 ? _fitWidth : CustomMinimumSize.X > 0 ? CustomMinimumSize.X : float.MaxValue;", bar);
+        Assert.Contains("public override void _Ready() => FitText(OwnWidth);", bar);
     }
 
     [Fact]

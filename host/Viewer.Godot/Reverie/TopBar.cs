@@ -319,13 +319,19 @@ public partial class RvLocationField : PanelContainer
         _host.Visible = parts?.Host is not null;
         _coords.Text = parts?.Coordinates ?? "";
         _display.TooltipText = parts?.Full ?? "";
-        // fitted to the width the bar last gave it; a field no bar has fitted yet shows its names whole
-        FitText(_fitWidth > 0 ? _fitWidth : float.MaxValue);
+        // fitted to the width the bar last gave it; a field no bar has fitted yet fits its own set width
+        FitText(OwnWidth);
         if (hostChanged)
             HostChanged?.Invoke();
     }
 
     private float _fitWidth;
+
+    /// <summary>The width the names are fitted to: the bar's, else the field's own set width, else none (natural widths).</summary>
+    private float OwnWidth => _fitWidth > 0 ? _fitWidth : CustomMinimumSize.X > 0 ? CustomMinimumSize.X : float.MaxValue;
+
+    /// <summary>Fitted again once in the tree, where the fonts are the ones the field draws with.</summary>
+    public override void _Ready() => FitText(OwnWidth);
 
     /// <summary>The width a label's whole text takes in its own font (a shortened label's minimum size is only its ellipsis).</summary>
     internal static float FullWidth(Label label) => TextWidth(label, label.Text);
