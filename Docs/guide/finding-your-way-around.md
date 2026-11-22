@@ -11,8 +11,10 @@ The top bar runs across the top of the window. From left to right it has:
 - **The Reverie menu.** It holds About, Preferences, Add-ons, Check for updates, Log out and Quit. When the grid tells the viewer its name, the name shows here in place of "Reverie".
 - **Six menus:** **Me**, **Communicate**, **World**, **Build**, **Content** and **Help**.
 - **Back and Home.** **Back** takes you to the place you teleported from. **Home** takes you home.
-- **The location box.** It shows the parcel, the region and where you stand. To go somewhere, click it, type a region name or an address, and press Enter.
-- **The landmark star.** It is greyed out. Making landmarks is not in this viewer yet.
+- **The location box.** It shows the parcel, the region and where you stand. To go somewhere, click it, type a region name or an address, and press Enter. An address on another grid works too (Hypergrid): `hop://host:port/Region/x/y/z`, `host:port:Region`, `host:port Region` or `http://host:port/ Region`. While you visit another grid the box shows the region with that grid's host, and the top bar says **Visiting** with the grid's name and host. Back takes you to where you were, on whichever grid that was.
+- **The landmark star.** It makes a landmark of where you stand, in your Landmarks folder. A landmark made on another grid remembers that grid: double-click it in the inventory to see where it leads, and press **Teleport** to go back there.
+- **Going home from another grid.** **Go home** tries the teleport home first. If your home grid refuses it, a dialog says so and offers **Log out and back in at home**; Cancel keeps you where you are.
+- **Links to other grids.** A hop:// link in chat, a message, a notecard, a group notice or a parcel's description asks before it takes you anywhere, and shows the region and its grid.
 - **The status area.** The search button, the grid you are on, the time, your balance on grids that have one, and the connection state.
 
 ### What is in the menus

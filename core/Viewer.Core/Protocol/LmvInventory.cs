@@ -227,7 +227,9 @@ internal sealed partial class LmvTransport
                 break;
             case CreateLandmarkCommand lm:
                 // the region makes the landmark's asset from where the agent stands; the new item arrives as any created item does
-                _ = inv.CreateItemAsync(new UUID(lm.FolderId), lm.Name, lm.Description, AssetType.Landmark, UUID.Random(), InventoryType.Landmark,
+                // no transaction: a non-zero one tells the region an upload is coming, and it would wait for one (the official viewer sends
+                // LLTransactionID::tnull here); the region writes the landmark's asset itself
+                _ = inv.CreateItemAsync(new UUID(lm.FolderId), lm.Name, lm.Description, AssetType.Landmark, UUID.Zero, InventoryType.Landmark,
                     PermissionMask.All, CancellationToken.None).ContinueWith(t => _log.Warn("inventory.landmark-failed", CoreLog.F("error", t.Exception?.InnerException?.GetType().Name ?? "")),
                     TaskContinuationOptions.OnlyOnFaulted);
                 break;

@@ -63,6 +63,7 @@ public class LandmarkAssetTests
 
     [Theory]
     [InlineData("Visit Landing @ http://grid.example.org:8002", "grid.example.org:8002")]
+    [InlineData("Visit Landing (128, 128, 23) @ http://grid.example.org:8002", "grid.example.org:8002")]
     [InlineData("Visit Landing", null)]
     [InlineData("Shop @ the beach", null)]
     public void The_grid_an_hg_landmark_name_carries(string name, string? grid) => Assert.Equal(grid, LandmarkAsset.GridOfName(name));

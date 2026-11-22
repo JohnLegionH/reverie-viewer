@@ -13,6 +13,10 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Add or manage grids. Login screen: Grid list > **Add a grid…** or **Manage grids…**.
 - A grid can make Reverie read like its own by setting keys in its grid information: its name, its currency symbol (`currency`) and currency name (`currencyname`), and its help, about, welcome and viewer-download pages. Prices, fees and costs carry the grid's symbol; a grid that sets `currency = none` has no balance, no Buy currency and no Pay. The Help menu gets the grid's help and about pages and **Get Reverie from <grid>**, and the login screen gets **Visit <grid>'s page**; an item shows only when the grid sets its key. Every such page opens in your own browser, after a question that names its host. The grid list always shows each grid's host beside its name; a grid named "Second Life", "SL" or anything with "Linden" in it is shown under its host, as is a grid with the same name as another you saved. Second Life is unchanged: nothing a grid supplies applies there.
 - Visit another grid by Hypergrid: the top bar shows **Visiting <grid name> (<host>)**, prices there carry that grid's symbol, and your balance keeps your home grid's symbol.
+- Travel to a region on another grid by typing its address in the location box or the world map's search: `hop://host:port/Region/x/y/z`, `host:port:Region`, `host:port Region` or `http://host:port/ Region`. While visiting, the location box shows the region with its grid's host. Back and teleport history remember which grid each place was on.
+- A hop:// link to another grid in chat, an IM, a notecard, a group notice or a parcel's description asks first, naming the place and its grid, and teleports only on **Teleport**.
+- Landmarks: the star in the location box makes one in your Landmarks folder; double-click a landmark in the inventory to see its place and the grid it is on, and **Teleport** there, also to another grid.
+- **Go home** while visiting tries the teleport home first; if your home grid refuses it, a dialog offers to log out and log back in at your home location.
 - Remember your name, or (where this computer can protect it) your password. Login screen: **Remember name**, **Remember password**.
 - Choose where you arrive: last location, home, or a named region. Login screen: **Start at**.
 - Reconnect after a dropped connection: the **Logged out** window has a **Reconnect** button. It does not start by itself.
@@ -128,9 +132,9 @@ Every key is listed in the [keyboard shortcuts](guide/keyboard-shortcuts.md) sec
 
 Things people coming from other viewers look for. They are not in this preview:
 
-- Snapshots; search; landmarks and a places list; teleport history.
+- Snapshots; search; a places list and a teleport history window (Back works).
 - Profiles; a list of people nearby; paying or giving items to people; groups beyond chat, notices and your active group.
-- Land, parcel and estate tools; the Land build tool; hypergrid travel; the object weights window (Reverie shows the land impact only).
+- Land, parcel and estate tools; the Land build tool; the object weights window (Reverie shows the land impact only).
 - Saved chat logs; away and do-not-disturb replies; emoji, spell check and translation.
 - Inventory: emptying the Trash, copy and paste, item properties, a Worn tab and filters.
 - Voice, parcel music, media on a prim and particles.

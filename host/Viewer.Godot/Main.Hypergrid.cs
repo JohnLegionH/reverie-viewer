@@ -79,9 +79,14 @@ public partial class Main
     /// <summary>A landmark opened from the inventory: its asset is read for the place and the grid it names, and shown with Teleport.</summary>
     private void OpenLandmark(InventoryItemData item)
     {
-        if (_inventoryFor is not { IsEnded: false } s || item.AssetId is not { } asset || asset == Guid.Empty)
+        if (Model?.Session is not { IsEnded: false } s)
             return;
         var strings = _strings ?? StringTable.English();
+        if (item.AssetId is not { } asset || asset == Guid.Empty)
+        {
+            ShowLandmark(s, item, Guid.Empty, null, strings);   // the place and grid from its description; its asset is not known yet
+            return;
+        }
         _ = Task.Run(async () =>
         {
             LandmarkAsset? lm = null;
@@ -99,15 +104,21 @@ public partial class Main
 
     private void ShowLandmark(ViewerSession s, InventoryItemData item, Guid asset, LandmarkAsset? lm, StringTable strings)
     {
-        string? grid = lm?.Grid ?? LandmarkAsset.GridOfName(item.Name);
+        // the asset's gatekeeper line first; OpenSim also adds " @ <gatekeeper>" to a Hypergrid landmark's description (InventoryAccessModule)
+        string? grid = lm?.Grid ?? LandmarkAsset.GridOfName(item.Description) ?? LandmarkAsset.GridOfName(item.Name);
         var lines = new System.Collections.Generic.List<string> { item.Name };
         if (!string.IsNullOrWhiteSpace(item.Description))
             lines.Add(strings.Get("landmark.info.place", item.Description));
-        lines.Add(lm is null && grid is null ? strings.Get("landmark.info.unreadable") : grid is not null ? strings.Get("landmark.info.grid", grid) : strings.Get("landmark.info.grid_unnamed"));
+        lines.Add(lm is null && grid is null && asset != Guid.Empty ? strings.Get("landmark.info.unreadable")
+            : grid is not null ? strings.Get("landmark.info.grid", grid) : strings.Get("landmark.info.grid_unnamed"));
         _notes?.Model.Post(Confirmations.LandmarkInfo(string.Join("\n", lines), () =>
         {
-            if (!s.IsEnded)
+            if (s.IsEnded)
+                return;
+            if (asset != Guid.Empty)
                 _travel?.Teleport.ToLandmark(asset, grid);
+            else
+                _shell?.ShowNotice(strings.Get("landmark.info.unreadable"));
         }));
     }
 
@@ -166,7 +177,7 @@ public partial class Main
                     return new { error = "no session" };
                 var marks = s.Inventory.AllItems().Where(i => i.Kind == ItemKind.Landmark && !s.Inventory.IsInLibrary(i.Id))
                     .OrderByDescending(i => i.CreatedAt).Take(20)
-                    .Select(i => new { id = i.Id, grid = LandmarkAsset.GridOfName(i.Name), has_asset = i.AssetId is { } a && a != Guid.Empty }).ToArray();
+                    .Select(i => new { id = i.Id, grid = LandmarkAsset.GridOfName(i.Description) ?? LandmarkAsset.GridOfName(i.Name), has_asset = i.AssetId is { } a && a != Guid.Empty }).ToArray();
                 return new { count = marks.Length, landmarks = marks };
             }
             case "open_landmark":
@@ -185,7 +196,8 @@ public partial class Main
             worlds = s?.Worlds.Count ?? 0, objects = s?.World.Snapshot().Objects.Count ?? 0,
             grid_label = bar.Grid.Text, location = bar.Location.DisplayText,
             map_grid = _travel?.WorldMap.Grid, map_regions = _travel?.WorldMap.Regions.Count ?? 0,
-            teleport_stage = _travel?.Teleport.Stage.ToString(), teleport_failure = _travel?.Teleport.Failure?.Key,
+            teleport_stage = _travel?.Teleport.Stage.ToString(), teleport_failure = _travel?.Teleport.Failure?.Key, teleport_failure_text = _travel?.Teleport.Failure?.Arg,
+            in_world = s is { IsEnded: false } && s.AgentId != Guid.Empty,
             history = _teleportHistory.Count, back_grid = _teleportHistory.Peek?.Grid,
         };
     }

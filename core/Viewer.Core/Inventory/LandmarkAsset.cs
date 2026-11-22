@@ -63,8 +63,8 @@ public sealed record LandmarkAsset(Guid RegionId, Vector3 Position, ulong Region
         return new LandmarkAsset(region, new Vector3(v[0], v[1], v[2]), handle, string.IsNullOrWhiteSpace(gatekeeper) ? null : gatekeeper);
     }
 
-    /// <summary>The grid a landmark's name carries: OpenSim names a landmark made on a Hypergrid grid "Name @ http://host:port"
-    /// (HGInventoryAccessModule). Null when the name carries none.</summary>
+    /// <summary>The grid a landmark's description (or name) carries: OpenSim adds " @ http://host:port" to the description of a landmark
+    /// made on a Hypergrid grid (InventoryAccessModule.CreateNewInventoryItem with HGInventoryAccessModule's suffix). Null when it carries none.</summary>
     public static string? GridOfName(string? name)
     {
         if (name is null)
