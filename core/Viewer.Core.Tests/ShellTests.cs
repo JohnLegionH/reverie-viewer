@@ -501,6 +501,28 @@ public class QuitWatchdogTests
     }
 
     [Fact]
+    public void Each_stage_of_the_quit_is_written_to_the_log_as_it_is_entered_in_order()
+    {
+        // A process that dies during its quit leaves the log at the last stage it entered, so the log tells a crash in the
+        // engine's own shutdown from one in the viewer's cleanup, and from a clean exit, without a dump.
+        var sink = new ListSink();
+        var watchdog = new QuitWatchdog(new CoreLog(sink, "test"), _ => { }, TimeSpan.FromSeconds(30));
+        watchdog.Arm();
+        foreach (var stage in new[] { "settings", "add-ons", "presentation", "variant-disposal", "engine-shutdown" })
+            watchdog.Enter(stage);
+        watchdog.Disarm();
+        string text = sink.Text;
+        int at = -1;
+        foreach (var stage in new[] { "settings", "add-ons", "presentation", "variant-disposal", "engine-shutdown" })
+        {
+            int next = text.IndexOf("quit.stage stage=" + stage, StringComparison.Ordinal);
+            Assert.True(next > at, $"stage '{stage}' is not in the log after the one before it");
+            at = next;
+        }
+        Assert.DoesNotContain("quit.stalled", text);   // a quit that finished is not reported as stalled
+    }
+
+    [Fact]
     public void The_limit_is_finite_and_long_enough_for_a_slow_machine()
     {
         Assert.InRange(QuitWatchdog.Limit, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60));
