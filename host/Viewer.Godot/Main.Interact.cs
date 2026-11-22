@@ -82,6 +82,8 @@ public partial class Main
                     WireTradeButtons(_interactUi);   // once: the buttons outlive a session
                     _shell!.Shell.Commands.Register("floater.about_land", () => _interact?.AboutLandHere());   // World > About Land
                     _interactUi.Menu.Dismissed += () => _interact?.CloseMenu();   // Esc: the menu closed with no choice, so its selection goes
+                    _interactUi.Stand.Pressed += () => _interact?.Stand();   // once, like the other buttons: they outlive a session and read the current controller
+                    _interactUi.StopFlying.Pressed += () => _interact?.StopFlying();
                 }
                 var strings = _shell!.Shell.Strings;
                 var hooks = new SocialHooks(
@@ -138,8 +140,6 @@ public partial class Main
                 _interact.AboutLandRequested += () => { _shell.Shell.Floaters.Open(InteractFeature.LandId); RefreshInteractWindows(); };
                 _interact.BuildRequested += () => _shell.Shell.Commands.Execute(Viewer.Shell.BuildMenu.CreateCommand);
                 _interact.Changed += RefreshInteractWindows;
-                _interactUi.Stand.Pressed += () => _interact?.Stand();
-                _interactUi.StopFlying.Pressed += () => _interact?.StopFlying();
                 s.World.Changed += OnInteractWorldChange;
                 s.Communication += _interactEvents.Enqueue;
                 _interactFor = s;

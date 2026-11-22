@@ -1220,6 +1220,18 @@ public partial class Main : Node
                 _presenter = null;
                 _presented = null;
             }),
+            ("interaction layers", () =>
+            {
+                // the outline, face marker, floating text and edit handles hang under the stage and go with it below; the fields let go of
+                // them, so the next session makes its own instead of calling into freed nodes (which threw every frame before the world drew)
+                _outline = null;
+                _faceHighlight = null;
+                _hoverText = null;
+                _handles = null;
+                _handleDrag = null;
+                _handleHot = Viewer.Shell.Build.Handle.None;
+                _handlesDrawnAt = null;
+            }),
             ("stage", () => { _stage?.QueueFree(); _stage = null; _camera = null; }),
             ("login screen", () => { if (_loginScreen is not null) _loginScreen.Visible = true; }));
         Log.Info("presentation.detached");
