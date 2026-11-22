@@ -33,6 +33,7 @@ param(
     [string]$VisitAddress = "",
     [string]$VisitRegion = "",
     [string]$VisitGrid = "",
+    [string]$SelectAt = "126,124,23",   # an object of the visited region to select (x,y,z in region metres)
     [string]$Exe = ""
 )
 $ErrorActionPreference = "Stop"
@@ -51,6 +52,21 @@ function Check([string]$name, [bool]$pass, [string]$detail) {
 function State { Invoke-LiveApi "hypergrid" @{ action = "state" } }
 function Shot([string]$name) { [void](Invoke-LiveApi "screenshot" @{ dir = $OutDir; name = $name }) }
 function ViewerLog { Join-Path $Sandbox "localappdata\ReverieViewer\Logs\viewer.log" }
+# The interaction layers of the session drawn now: an object of the visited region is right-clicked (picked and selected, its menu
+# opened), and its selection outline must be drawn; then the menu is closed and the camera given back.
+function LayersCheck([string]$label) {
+    $p = $SelectAt.Split(",") | ForEach-Object { [double]$_ }
+    [void](Invoke-LiveApi "interact" @{ action = "aim"; x = $p[0]; y = $p[1]; z = $p[2]; distance = 6 })
+    Start-Sleep -Seconds 2
+    $rc = Invoke-LiveApi "interact" @{ action = "rightclick"; x = $p[0]; y = $p[1]; z = $p[2] }
+    $st = Wait-LiveUntil { $x = Invoke-LiveApi "interact" @{ action = "state" }; if ($x.selected -and [int]$x.outline_pieces -gt 0) { $x } } 10
+    $last = if ($st) { $st } else { Invoke-LiveApi "interact" @{ action = "state" } }
+    Shot "$label-selected"
+    Check "layers_$label" ($null -ne $st) "right-clicked the object at ${SelectAt}: menu=$($rc.menu) selected=$($last.selected) outline_pieces=$($last.outline_pieces) disposed_errors_in_log=$(Disposed)"
+    [void](Invoke-LiveKey "ESC"); Start-Sleep -Milliseconds 500
+    [void](Invoke-LiveApi "interact" @{ action = "aim"; x = 0; y = 0; z = 0; distance = 0 })
+    Start-Sleep -Seconds 1
+}
 # The modal alert up now (its body key), answered by a real click on one of its buttons (button_0 is its first: the confirmation's yes).
 function ModalBody { (Invoke-LiveApi "dialog" @{ action = "find" }).modal_body }
 function ClickModal([int]$button) {
@@ -73,7 +89,7 @@ function Reading {
         stage = $o.stage; chunks = $(if ($p) { [int]$p.chunks } else { 0 }); patches = $(if ($p) { [int]$p.patches_presented } else { 0 })
         frames = $(if ($p) { [long]$p.frames } else { 0 }); soles = $(if ($o.self -and $o.self.drawn_soles) { ($o.self.drawn_soles | ForEach-Object { [math]::Round([double]$_, 1) }) -join "," } else { "" })
         camera = $(if ($o.camera) { $o.camera.mode } else { "" }); terrain_complete = $(if ($o.terrain) { [bool]$o.terrain.complete } else { $false })
-        body = [bool]($o.self -and $o.self.drawn_limbs)   # a body of the own avatar is shown (its limbs are placed)
+        body = [bool]($o.self -and $o.self.drawn_limbs -and @($o.self.drawn_limbs.PSObject.Properties).Count -gt 0)   # a body of the own avatar is shown (its limbs are placed)
     }
 }
 # Drawn: two readings two seconds apart, the frame count moving on, within -Seconds of being asked.
@@ -107,6 +123,7 @@ try {
     $homeGrid = $s0.home_grid
     Check "login_at_start" ($null -ne $s0 -and $null -eq $s0.visited_grid) "region=$($s0.region) grid=$($s0.current_grid)"
     [void](WaitDrawn "01-first-login")
+    if ($env:NV_CHARACTER_DIR) { Check "body_at_first_login" ($script:bodies["01-first-login"]) "the character folder is set, so the own body must be shown at the first login: $($script:bodies['01-first-login'])" }
 
     if ($Mode -eq "SameGrid") {
         $out = Invoke-LiveApi "session" @{ action = "logout" }
@@ -125,6 +142,7 @@ try {
         Check "arrived_visit" ($null -ne $v) "region=$($v.region) visited=$($v.visited_grid) label='$($v.grid_label)'"
         if (-not $v) { throw "no arrival on the visited grid" }
         [void](WaitDrawn "02-visiting")
+        LayersCheck "02-visiting"
         $lm0 = Invoke-LiveApi "hypergrid" @{ action = "landmarks" }
         $click = Invoke-LiveClick "landmark"
         $lm1 = Wait-LiveUntil { $x = Invoke-LiveApi "hypergrid" @{ action = "landmarks" }; if ($x -and [int]$x.count -gt [int]$lm0.count) { $x } } 45
@@ -165,7 +183,7 @@ try {
                 Write-LiveNote "landmark Teleport clicked=$($tp.clicked)"
                 $lv = Wait-LiveUntil { $s = State; if ($s.region -eq $VisitRegion -and $s.visited_grid -eq $VisitGrid -and $s.teleport_stage -eq "Idle") { $s } } 120
                 Check "back_by_landmark" ($null -ne $lv) "region=$($lv.region) visited=$($lv.visited_grid) label='$($lv.grid_label)' failure='$((State).teleport_failure_text)'"
-                if ($lv) { [void](WaitDrawn "06-back-by-landmark") }
+                if ($lv) { [void](WaitDrawn "06-back-by-landmark"); LayersCheck "06-back-by-landmark" }
             }
         }
     }
