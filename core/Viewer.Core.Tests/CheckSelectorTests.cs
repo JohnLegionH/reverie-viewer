@@ -47,6 +47,7 @@ public class CheckSelectorTests
     [InlineData("core/Viewer.Core/Appearance/WearableKinds.cs")]
     [InlineData("host/Viewer.Godot/Main.Gestures.cs")]
     [InlineData("host/Viewer.Godot/Main.NewItems.cs")]
+    [InlineData("host/Viewer.Godot/Main.Hypergrid.cs")]
     public void The_areas_v10_names_and_grid_message_code_run_the_stock_smoke(string file)
     {
         var s = Select(file);
