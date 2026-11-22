@@ -156,6 +156,8 @@ public partial class AutomationHost : Node
                 return m.LoginScreenCall(action, Str(call.Body, "login_uri"), name, password, Flag("remember"), Flag("use_saved"), Str(call.Body, "start")) is { } screen
                     ? AutomationReply.Ok(screen) : AutomationReply.Error(409, "no login screen");
             }
+            case "hypergrid":   // {action: state|landmarks|open_landmark, text?}: the grid the agent is on and how the interface shows it; landmarks and a landmark opened (development builds only)
+                return m.HypergridCall(Str(call.Body, "action") ?? "state", Str(call.Body, "text")) is { } hg ? AutomationReply.Ok(hg) : AutomationReply.Error(409, "no shell");
             case "topbar":   // {action: state|hover_all|click|type, index?, text?}: the top bar and the dock as a person meets them (development builds only)
                 return await m.TopBarCall(Str(call.Body, "action") ?? "state", Str(call.Body, "text"), (int)Num(call.Body, "index", 0)) is { } tb ? AutomationReply.Ok(tb) : AutomationReply.Error(409, "no shell");
             case "ui":   // {action: find|reveal, name}: a shown control of the shell found by its node name: whether it is wholly in view, cut by a scroll area or the window, or out of view, and the point a press lands on (reveal: its scroll areas scrolled to it first); the live checks' driver presses it through the input command (development builds only)

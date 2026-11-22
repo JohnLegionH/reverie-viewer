@@ -23,9 +23,19 @@ internal sealed partial class LmvTransport : IGridFeaturesSource, IGridKeys
         catch (Exception ex) when (ex is not OutOfMemoryException) { _log.Warn("grid.features-unreadable", CoreLog.F("error", ex.GetType().Name)); }
         string? map = _client.Network.LoginResponseData?.MapServerUrl;
         var login = (gridInfo ?? new GridLoginValues()) with { MapServerUrl = string.IsNullOrWhiteSpace(map) ? gridInfo?.MapServerUrl : map };
+        if (_grids.Visiting)
+            login = login with { MapServerUrl = null };   // another grid's map is its own: never the home grid's tiles for the visited grid's cells
         var features = Session.GridFeatures.From(extras, login);
         if (features.GridUrl is { } url)
+        {
             _grids.Learned(url);   // the region says which grid it is on
+            // and the agent's region is known by that grid from now on, whatever the teleport that brought it here expected
+            if (_client.Network.CurrentSim is { } here && Map(here) is { } sim && !string.Equals(sim.Grid, _grids.Current, StringComparison.OrdinalIgnoreCase))
+            {
+                sim.Grid = _grids.Current;
+                Raise(new RegionGridLearned(sim));
+            }
+        }
         return features;
     }
 

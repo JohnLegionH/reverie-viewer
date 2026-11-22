@@ -909,8 +909,11 @@ public sealed class ViewerSession : IDisposable
                 if (WorldFor(w.Sim, out var ww, out bool wCurrent) && wCurrent)
                     ww.Wind = new RegionWind(w.X, w.Y);
                 break;
+            case RegionGridLearned learned:
+                RegionGridChanged(learned.Sim);
+                break;
             case MapBlockSize m:
-                UpdateRegion(r => RegionSize.FromMapBlock(r, m), "mapBlock");
+                UpdateRegion(r => RegionSize.FromMapBlock(r with { Grid = CurrentGrid.Length > 0 ? CurrentGrid : r.Grid }, m), "mapBlock");
                 UpdateNeighbours(r => RegionSize.FromMapBlock(r, m));
                 Communicate(m);   // the world map learns every region the grid names
                 break;
@@ -1077,10 +1080,18 @@ public sealed class ViewerSession : IDisposable
         (_transport as Viewer.Core.Appearance.IWearableTransport)?.ItemInfo(itemId);
 
     /// <summary>The grid the agent's region is on ("host:port"; empty before a region, or when the transport does not say).</summary>
-    public string CurrentGrid => Region?.Grid ?? "";
+    public string CurrentGrid
+    {
+        get
+        {
+            SimRef? here;
+            lock (_lock) here = _currentSim;
+            return here?.Grid ?? Region?.Grid ?? "";
+        }
+    }
 
     /// <summary>The grid the agent's region is on when that is not the home grid (a Hypergrid visit); null at home.</summary>
-    public string? VisitedGrid => Region is { Grid.Length: > 0 } r && _transport is IGridKeys keys && !keys.IsHomeGrid(r.Grid) ? r.Grid : null;
+    public string? VisitedGrid => CurrentGrid is { Length: > 0 } g && _transport is IGridKeys keys && !keys.IsHomeGrid(g) ? g : null;
 
     /// <summary>The grid logged in to ("host:port"), as the transport keeps it; empty when it does not say.</summary>
     public string HomeGrid => (_transport as IGridKeys)?.HomeGrid ?? "";
@@ -1372,6 +1383,31 @@ public sealed class ViewerSession : IDisposable
         _communication?.Invoke(c);
     }
 
+    private (int X, int Y) _connectSize;
+
+    /// <summary>The agent's region turned out to be on another grid than it was taken to be on when it connected (a teleport whose destination
+    /// grid was not known): a size taken from the login reply because it seemed to be the login region is dropped for its own message's, unless
+    /// the grid's map has already said.</summary>
+    private void RegionGridChanged(SimRef sim)
+    {
+        (int X, int Y) own;
+        bool login;
+        lock (_lock)
+        {
+            if (!ReferenceEquals(sim, _currentSim))
+                return;
+            own = _connectSize;
+            login = _loginSim is { } l && l.SamePlace(sim);
+        }
+        UpdateRegion(r =>
+        {
+            if (r.SizeAuthoritative)
+                return r with { Grid = sim.Grid };
+            var sized = RegionSize.AtConnect(sim, own.X, own.Y, login ? _loginSizeX : 0, login ? _loginSizeY : 0);
+            return r with { Grid = sim.Grid, SizeX = sized.SizeX, SizeY = sized.SizeY };
+        }, "gridLearned");
+    }
+
     private void OnSimConnected(SimConnected c)
     {
         if (_opts.Neighbours)
@@ -1427,6 +1463,7 @@ public sealed class ViewerSession : IDisposable
             // each region from the message that brings it (llviewermessage.cpp, process_teleport_finish)
             _loginSim ??= c.Sim;
             bool loginRegion = _loginSim.SamePlace(c.Sim);   // the same map spot on another grid is another region (Hypergrid)
+            _connectSize = (c.SimSizeX, c.SimSizeY);
             region = RegionSize.AtConnect(c.Sim, c.SimSizeX, c.SimSizeY, loginRegion ? _loginSizeX : 0, loginRegion ? _loginSizeY : 0) with { Terrain = c.Terrain, WaterHeight = c.WaterHeight, IsEstateManager = c.IsEstateManager ?? false };
             _region = region;
             if (!ReferenceEquals(_currentSim, c.Sim) || _originSim is null)

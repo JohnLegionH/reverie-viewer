@@ -69,7 +69,9 @@ public sealed class SimRef(ulong handle, string name, string grid = "")
 {
     public ulong Handle { get; } = handle;
     public string Name { get; } = name;
-    public string Grid { get; } = grid ?? "";
+    /// <remarks>Set when the simulator is met; the transport corrects it for the agent's region once that region says which grid it is on
+    /// (a teleport whose destination grid was not known when it was sent: an offer, a script, a landmark that names none).</remarks>
+    public string Grid { get; internal set; } = grid ?? "";
     /// <summary>Whether <paramref name="other"/> is the same map spot on the same grid (not necessarily the same circuit).</summary>
     public bool SamePlace(SimRef? other) => other is not null && other.Handle == Handle && string.Equals(other.Grid, Grid, StringComparison.OrdinalIgnoreCase);
     public int GridX => (int)((Handle >> 32) / 256);
@@ -217,6 +219,10 @@ public sealed record RegionWindReceived(SimRef? Sim, float[] X, float[] Y) : Tra
 /// <param name="MapImageId">: the region's map tile texture (a J2K asset), when the grid names one.</param>
 /// <param name="Access">: the region's access level byte (13 PG, 21 mature, 42 adult, 255 for a cell with no region).</param>
 /// <param name="Grid">The grid whose map answered ("host:port"); null when not known, which matches any region as before.</param>
+/// <summary>The agent's region said which grid it is on, and that is not the grid it was first taken to be on (<see cref="SimRef.Grid"/> now
+/// holds the grid it said).</summary>
+public sealed record RegionGridLearned(SimRef Sim) : TransportEvent;
+
 public sealed record MapBlockSize(int GridX, int GridY, int SizeX, int SizeY, string? Name = null, Guid? MapImageId = null, int Access = 0, string? Grid = null) : TransportEvent;
 
 /// <summary>The hover height an AvatarAppearance message states for an avatar (its AppearanceHover block, in metres), or null when the

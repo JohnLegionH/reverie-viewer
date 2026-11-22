@@ -652,8 +652,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 self.RequestTeleport(handle.RegionHandle, L(handle.Position));
                 break;
             case TeleportCancelCommand:
-                _namedTeleport.Cancel();
-                _grids.Failed();
+                if (_namedTeleport.Cancel())
+                    _grids.Failed();   // stopped before the teleport was sent; a later cancel is answered by the grid's own Cancelled
                 _client.Network.SendPacket(new TeleportCancelPacket { Info = { AgentID = self.AgentID, SessionID = self.SessionID } });
                 break;
             case TeleportLureAnswerCommand lure:

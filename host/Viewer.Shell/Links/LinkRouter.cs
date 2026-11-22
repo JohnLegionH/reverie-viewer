@@ -65,6 +65,8 @@ public sealed class LinkRouter(LinkGate gate, Func<string?> loginUri, Func<Guid,
             // teleports (the Hypergrid form of the official viewer's map-then-teleport for a clicked location)
             if (link.Scheme == ViewerLinkScheme.Hop && !SameGrid(link) && TravelAddressParser.Parse(link.Raw) is { IsHypergrid: true } place)
                 return new LinkAction(LinkActionKind.ConfirmTeleport, place.Region, place.Position, NoteArg: place.Display, Travel: place);
+            if (link.Scheme == ViewerLinkScheme.Hop && !SameGrid(link))
+                return new LinkAction(LinkActionKind.Note, NoteKey: "link.not_built", NoteArg: raw);   // not a place this viewer can read: never a same-named region here
             if (link.Scheme == ViewerLinkScheme.Maps && !OnSecondLife())
                 return new LinkAction(LinkActionKind.Note, NoteKey: "link.sl_place", NoteArg: link.Region);
             return new LinkAction(LinkActionKind.ShowOnMap, link.Region, link.Position);

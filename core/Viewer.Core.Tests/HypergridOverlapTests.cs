@@ -115,6 +115,20 @@ public class HypergridOverlapTests
         Assert.True(RegionSize.FromMapBlock(region, new MapBlockSize(1000, 1000, 512, 512, "Visit Landing")).SizeAuthoritative);   // unknown grid: as before
     }
 
+    [Fact]
+    public void An_arrival_whose_grid_was_not_known_is_known_by_its_own_grid_once_it_says_so()
+    {
+        var (s, t, _, _) = AtHome();
+        var lured = Land(t, grid: HomeGrid);   // an offer from another grid: the transport could not know where it led
+        Assert.Equal(HomeGrid, s.CurrentGrid);
+        lured.Grid = VisitGrid;   // the region's features named its grid: the transport corrects its simulator and says so
+        t.Raise(new RegionGridLearned(lured));
+        Assert.Equal(VisitGrid, s.CurrentGrid);
+        t.Raise(new MapBlockSize(1000, 1000, 1024, 1024, "Alder", Grid: HomeGrid));
+        Assert.Equal(256, s.Region!.SizeX);
+        Assert.Equal("Visit Landing", s.Region.Name);
+    }
+
     // ---------------- the transport's grid keys ----------------
 
     [Fact]

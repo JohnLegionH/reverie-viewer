@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
@@ -140,11 +141,53 @@ public partial class Main
         {
             string before = m.StartLocation;
             m.StartLocation = ReconnectModel.HomeStart;
-            bool ok = await Task.Run(m.LoginAsync);
+            bool ok = await m.LoginAsync();   // on the main thread, as the login screen runs it
             m.StartLocation = before;
             if (ok)
                 return;
         }
         // the login screen asks for the password; its Start at is set to home
     }
+
+#if NV_AUTOMATION
+    /// <summary>The hypergrid command (development builds only): the grid the agent is on and how the interface shows it (the grid label,
+    /// the location field, the map's grid), the landmarks held (ids, the grid each names), and a landmark opened as a double-click does.
+    /// Answers grid keys, region names of the agent's own region and counts; no person's name.</summary>
+    public object? HypergridCall(string action, string? text)
+    {
+        if (_shell is null)
+            return null;
+        var s = Model?.Session;
+        switch (action)
+        {
+            case "landmarks":
+            {
+                if (s is null)
+                    return new { error = "no session" };
+                var marks = s.Inventory.AllItems().Where(i => i.Kind == ItemKind.Landmark && !s.Inventory.IsInLibrary(i.Id))
+                    .OrderByDescending(i => i.CreatedAt).Take(20)
+                    .Select(i => new { id = i.Id, grid = LandmarkAsset.GridOfName(i.Name), has_asset = i.AssetId is { } a && a != Guid.Empty }).ToArray();
+                return new { count = marks.Length, landmarks = marks };
+            }
+            case "open_landmark":
+            {
+                if (s is null || !Guid.TryParse(text, out var id) || s.Inventory.Item(id) is not { Kind: ItemKind.Landmark } item)
+                    return new { opened = false };
+                OpenLandmark(item);
+                return new { opened = true };
+            }
+        }
+        var bar = _shell.TopBar;
+        return new
+        {
+            home_grid = s?.HomeGrid, current_grid = s?.CurrentGrid, visited_grid = s?.VisitedGrid,
+            region = s?.Region?.Name, size_x = s?.Region?.SizeX, size_y = s?.Region?.SizeY, grid_x = s?.Region?.GridX, grid_y = s?.Region?.GridY,
+            worlds = s?.Worlds.Count ?? 0, objects = s?.World.Snapshot().Objects.Count ?? 0,
+            grid_label = bar.Grid.Text, location = bar.Location.DisplayText,
+            map_grid = _travel?.WorldMap.Grid, map_regions = _travel?.WorldMap.Regions.Count ?? 0,
+            teleport_stage = _travel?.Teleport.Stage.ToString(), teleport_failure = _travel?.Teleport.Failure?.Key,
+            history = _teleportHistory.Count, back_grid = _teleportHistory.Peek?.Grid,
+        };
+    }
+#endif
 }

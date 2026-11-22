@@ -148,6 +148,22 @@ public class HypergridTravelShellTests
         Assert.Single(map.Regions);
     }
 
+    [Fact]
+    public void A_hypergrid_link_the_grid_made_for_a_lookup_is_not_a_region_on_the_map()
+    {
+        var map = new WorldMapModel(new MapLinks());
+        map.Receive(new MapBlockSize(23456, 0, 256, 256, "visit.example.org:9100:Visit Landing"));
+        Assert.Empty(map.Regions);
+    }
+
+    [Fact]
+    public void A_hop_link_to_another_grid_that_cannot_be_read_is_not_shown_as_a_place_here()
+    {
+        var router = new Viewer.Shell.Links.LinkRouter(new Viewer.Core.Links.LinkGate(() => DateTimeOffset.UnixEpoch), () => "http://home.example.org:9000/");
+        var a = router.Click("hop://visit.example.org:9100/Bad;Name/1/2/3")!;
+        Assert.Equal(Viewer.Shell.Links.LinkActionKind.Note, a.Kind);
+    }
+
     // ---------------- landmarks ----------------
 
     [Fact]

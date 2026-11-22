@@ -524,6 +524,8 @@ public sealed class WorldMapModel
     {
         if (m.Grid is { } from && _grid is not null && !string.Equals(from, _grid, StringComparison.OrdinalIgnoreCase))
             return;   // a late answer from the grid the agent left: about another map
+        if (m.Name is { } linked && linked.Contains(':', StringComparison.Ordinal))
+            return;   // a Hypergrid link the grid made for a lookup ("host:port:Region" at a made-up spot): not a region of this map
         _answered.Add((m.GridX, m.GridY));
         SearchAnswered(m);
         if (string.IsNullOrEmpty(m.Name) || m.Access == 255)
