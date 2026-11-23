@@ -16,11 +16,16 @@ internal static class UnsavedQuestion
     public static void GiveUpRoom(Control prompt, params Control[] rows)
     {
         var was = new bool[rows.Length];
+        bool applied = false;
+        // VisibilityChanged also fires when a parent is hidden or shown, so act only when the question's own flag has really changed
         prompt.VisibilityChanged += () =>
         {
+            if (prompt.Visible == applied)
+                return;
+            applied = prompt.Visible;
             for (int i = 0; i < rows.Length; i++)
             {
-                if (prompt.Visible)
+                if (applied)
                 {
                     was[i] = rows[i].Visible;
                     rows[i].Visible = false;

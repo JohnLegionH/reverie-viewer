@@ -477,7 +477,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         _title.Visible = !dropdown;
         _navDropdown.Select(Array.IndexOf(Categories, _current));
         if (hadFocus)
-            (dropdown ? _navDropdown : (Control)_nav[_current]).CallDeferred(Control.MethodName.GrabFocus);
+            (dropdown ? (Control)_navDropdown : _nav.TryGetValue(_current, out var back) ? back : null)?.CallDeferred(Control.MethodName.GrabFocus);
     }
 
     /// <summary>Shows one category's page (a name from <see cref="Categories"/>).</summary>

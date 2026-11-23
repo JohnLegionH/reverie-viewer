@@ -78,6 +78,7 @@ public partial class TestRender
                 states.Add(("all sections closed", false));
             }
             sectionToggles += toggles.Count;
+            var startOpen = toggles.Select(t => t.ButtonPressed).ToList();
             foreach (var (state, open) in states)
             {
                 if (open is { } want)
@@ -100,6 +101,10 @@ public partial class TestRender
                         problems.Add($"{at} ({state}): {node.GetType().Name} '{node.Name}' spans x {r.Position.X:F0} to {r.End.X:F0}, outside the content area {box.Position.X:F0} to {box.End.X:F0}");
                 }
             }
+            for (int t = 0; t < toggles.Count; t++)
+                if (toggles[t].ButtonPressed != startOpen[t])
+                    toggles[t].ButtonPressed = startOpen[t];
+            await Frames(2);
             var area = scroll.GetGlobalRect();
             if (id == "general" && prefs.PageView(PrefPage.General)?.ControlFor(Settings.UiLanguageKey) is OptionButton language)
             {
@@ -112,6 +117,8 @@ public partial class TestRender
             else if (id == "general")
                 problems.Add($"{at}: the Language drop-down is not found");
         }
+        if (sectionToggles == 0)
+            problems.Add($"at {pct} % in {window}: no collapsible section was found on any page, so none was opened");
         if (examined != PreferencesPanel.Categories.Length)
             problems.Add($"at {pct} % in {window}: {examined} pages were examined, expected {PreferencesPanel.Categories.Length}");
         if (_result.TryGetValue("ui_chrome", out var chrome) && chrome is Dictionary<string, object?> map)
@@ -149,6 +156,10 @@ public partial class TestRender
             string step = $"100 % to {target} % in {w}x{h}";
             ((Button)prefs.FindChild("category_general", true, false)!).GrabFocus();
             await Frames(2);
+            if (dropdown.Visible || !list.IsVisibleInTree())
+                problems.Add($"{step}: before the change the drop-down is shown or the list is hidden, expected the list only");
+            if (list.GetViewport()?.GuiGetFocusOwner() != prefs.FindChild("category_general", true, false))
+                problems.Add($"{step}: before the change the keyboard focus did not reach the category button");
             UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), target);
             await Frames(6);
             if (!dropdown.Visible || !dropdown.IsVisibleInTree() || list.Visible)
