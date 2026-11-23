@@ -73,4 +73,35 @@ public class BaseBodyRuleTests
     {
         Assert.Equal(BodyPartDraw.DefaultSkin, BaseBodyRule.Decide(new BodyPartState(true, Bake, false, false, false, false)));
     }
+
+    [Fact]
+    public void In_the_fallback_another_avatars_part_with_no_bake_is_plain_grey()
+        => Assert.Equal(BodyPartDraw.Grey, BaseBodyRule.Decide(new BodyPartState(false, null, false, false, false, false, Fallback: true)));
+
+    [Fact]
+    public void In_the_fallback_another_avatars_named_bake_that_is_not_loaded_is_plain_grey()
+        => Assert.Equal(BodyPartDraw.Grey, BaseBodyRule.Decide(new BodyPartState(false, Guid.NewGuid(), false, false, false, false, Fallback: true)));
+
+    [Fact]
+    public void In_the_fallback_a_loaded_bake_and_a_last_good_bake_still_win_over_grey()
+    {
+        Assert.Equal(BodyPartDraw.Bake, BaseBodyRule.Decide(new BodyPartState(false, Guid.NewGuid(), false, false, true, false, Fallback: true)));
+        Assert.Equal(BodyPartDraw.LastGood, BaseBodyRule.Decide(new BodyPartState(false, Guid.NewGuid(), false, false, false, true, Fallback: true)));
+    }
+
+    [Fact]
+    public void In_the_fallback_a_part_a_worn_mesh_or_an_invisible_or_empty_bake_hides_stays_hidden()
+    {
+        Assert.Equal(BodyPartDraw.Hidden, BaseBodyRule.Decide(new BodyPartState(false, null, true, false, false, false, Fallback: true)));
+        Assert.Equal(BodyPartDraw.Hidden, BaseBodyRule.Decide(new BodyPartState(false, BaseBodyRule.Invisible, false, false, false, false, Fallback: true)));
+        Assert.Equal(BodyPartDraw.Hidden, BaseBodyRule.Decide(new BodyPartState(false, Guid.NewGuid(), false, true, true, false, Fallback: true)));
+    }
+
+    [Fact]
+    public void Another_avatar_is_never_drawn_with_the_default_skin_in_any_state()
+    {
+        foreach (var bake in new Guid?[] { null, Guid.NewGuid(), BaseBodyRule.Invisible })
+            for (int bits = 0; bits < 32; bits++)
+                Assert.NotEqual(BodyPartDraw.DefaultSkin, BaseBodyRule.Decide(new BodyPartState(false, bake, (bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0, (bits & 8) != 0, (bits & 16) != 0)));
+    }
 }

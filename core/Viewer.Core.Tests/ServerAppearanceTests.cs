@@ -188,6 +188,49 @@ public class ServerAppearanceTests
         Assert.Equal(1, s.World.Dropped(WorldDrop.RejectedSelfAppearance));
     }
 
+    /// <summary>A teleport from a region that bakes to one that does not: the new region's first appearance for us can arrive before its handshake,
+    /// while the mode is still the old region's. Once the handshake says the region does not bake, that appearance is our shape and is used.</summary>
+    [Fact]
+    public void ASelfAppearanceThatArrivedBeforeTheHandshakeOfARegionThatDoesNotBakeIsUsed()
+    {
+        var w = new WorldState(new CoreLog(new ListSink(), "test"));
+        var home = new object();
+        var visited = new object();
+        w.ChooseAppearanceMode("Home", serverBaked: true);
+        w.ApplyAppearance(home, Look(Me, 1, (8, Guid.NewGuid())), Me);
+        w.Retire();   // the teleport: the region left is let go of
+        var head = Guid.NewGuid();
+        w.ApplyAppearance(visited, Look(Me, 0, (8, head)), Me);   // the new region's first message, before its handshake
+        Assert.Null(w.Appearance(Me));   // still the old region's server mode: not taken yet
+        w.ChooseAppearanceMode("Visited", serverBaked: false);
+        var look = w.Appearance(Me);
+        Assert.NotNull(look);
+        Assert.Equal(head, look!.Bakes["head"]);
+    }
+
+    /// <summary>The held appearance is only for the region whose handshake decides it: a region that does bake still refuses it, and a
+    /// newer appearance received meanwhile is not replaced by the older one.</summary>
+    [Fact]
+    public void AHeldSelfAppearanceIsNotUsedInAServerRegionOrOverANewerOne()
+    {
+        var w = new WorldState(new CoreLog(new ListSink(), "test"));
+        var visited = new object();
+        w.ChooseAppearanceMode("Home", serverBaked: true);
+        w.ApplyAppearance(visited, Look(Me, 0, (8, Guid.NewGuid())), Me);
+        w.ChooseAppearanceMode("Visited", serverBaked: true);
+        Assert.Null(w.Appearance(Me));   // a region that bakes: version 0 is still not its bake
+
+        var w2 = new WorldState(new CoreLog(new ListSink(), "test"));
+        w2.ChooseAppearanceMode("Home", serverBaked: true);
+        var older = Guid.NewGuid();
+        w2.ApplyAppearance(visited, Look(Me, 0, (8, older)), Me);
+        var newer = Guid.NewGuid();
+        w2.ApplyAppearance(visited, Look(Me, 2, (8, newer)), Me);   // the region's own bake, accepted at once
+        Assert.Equal(newer, w2.Appearance(Me)!.Bakes["head"]);
+        w2.ChooseAppearanceMode("Visited", serverBaked: false);
+        Assert.Equal(newer, w2.Appearance(Me)!.Bakes["head"]);   // the older held one does not replace it
+    }
+
     // ---------------- the appearance-service route ----------------
 
     [Fact]

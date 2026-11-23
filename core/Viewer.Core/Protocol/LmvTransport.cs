@@ -42,7 +42,7 @@ public static class ProtocolAdapters
 /// Per instance, never static: the simulator map, the handlers, the client.
 /// </summary>
 internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryRequester, ISessionTransport, IMapBlockRequester, IAgentControlTransport, IAgentAnimationTransport, ICommandTransport, IAgentNameRequester, IOfflineMessageRequester, IGroupRequester, IMuteListRequester, Viewer.Core.Assets.IAnimationTransport, Viewer.Core.Assets.ISettingsTransport, Viewer.Core.Assets.ISoundTransport, Viewer.Core.Assets.ISoundProbe, Viewer.Core.Assets.IMeshTransport, Viewer.Core.Assets.ITextureTransport, Viewer.Core.Assets.ITextureRangeTransport,
-    Viewer.Core.Assets.ITextureCapabilityProbe, Viewer.Core.Assets.IMaterialTransport, IMapRequester, IMapTileTransport
+    Viewer.Core.Assets.ITextureCapabilityProbe, Viewer.Core.Assets.ITextureRouteProbe, Viewer.Core.Assets.IMaterialTransport, IMapRequester, IMapTileTransport
     , IInboundGate, Viewer.Core.Building.ITextureUploadService, Viewer.Core.Building.IModelUploadService
 {
     private readonly GridClient _client = new();
@@ -141,6 +141,15 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     /// anything else by id from the region's texture capability, as before; null with neither.
     /// </summary>
     private Uri? TextureAddress(Guid id) => BakeAddress(id) ?? (TextureCapability() is { } cap ? TextureUri(cap, id) : null);
+
+    /// <summary>A development reading of where textures are fetched from now: the login reply's appearance service, whether the
+    /// current region says it bakes avatars, the region's texture capability, and the address each given id would be fetched from.</summary>
+    public (string? AppearanceService, bool RegionBakes, Uri? TextureCapability, IReadOnlyList<(Guid Id, Uri? Address)> Routes) TextureRoutes(IEnumerable<Guid> ids)
+    {
+        string? service = AppearanceServiceOverride is { } s ? s() : _client.Network.AgentAppearanceServiceURL;
+        bool regionBakes = RegionBakesOverride is { } b ? b() : _client.Network.CurrentSim?.Protocols.HasFlag(RegionProtocols.AgentAppearanceService) == true;
+        return (service, regionBakes, TextureCapability(), ids.Select(id => (id, TextureAddress(id))).ToList());
+    }
 
     private int _bakeSourceLogged;
 

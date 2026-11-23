@@ -17,14 +17,14 @@ public class AvatarArrivalGateTests
     public void Not_drawn_while_a_part_is_missing()
     {
         var g = new AvatarArrivalGate(0);
-        for (double t = 0; t < 20; t += 0.5) Assert.False(g.Update(t, missingParts: true, bakesPending: false));
+        for (double t = 0; t < AvatarArrivalGate.GreyAfterSeconds; t += 0.5) Assert.False(g.Update(t, missingParts: true, bakesPending: false));
     }
 
     [Fact]
     public void Not_drawn_while_a_bake_is_downloading()
     {
         var g = new AvatarArrivalGate(0);
-        for (double t = 0; t < 20; t += 0.5) Assert.False(g.Update(t, missingParts: false, bakesPending: true));
+        for (double t = 0; t < AvatarArrivalGate.GreyAfterSeconds; t += 0.5) Assert.False(g.Update(t, missingParts: false, bakesPending: true));
     }
 
     [Fact]
@@ -75,7 +75,68 @@ public class AvatarArrivalGateTests
     public void Shown_anyway_after_the_give_up_time()
     {
         var g = new AvatarArrivalGate(5);
-        Assert.False(g.Update(5 + AvatarArrivalGate.GiveUpSeconds - 1, true, true));
-        Assert.True(g.Update(5 + AvatarArrivalGate.GiveUpSeconds + 0.1, true, true));
+        Assert.False(g.Update(5 + AvatarArrivalGate.GreyAfterSeconds - 1, true, true));
+        Assert.True(g.Update(5 + AvatarArrivalGate.GreyAfterSeconds + 0.1, true, true));
+    }
+
+    [Fact]
+    public void An_avatar_handed_over_from_another_region_is_drawn_at_once_even_with_no_look()
+    {
+        var g = new AvatarArrivalGate(0);
+        g.TakeOver();
+        Assert.True(g.Update(0, missingParts: true, bakesPending: true));
+        Assert.True(g.EverShown);
+    }
+
+    [Fact]
+    public void An_avatar_handed_over_has_no_second_gate_when_its_look_goes_missing_later()
+    {
+        var g = new AvatarArrivalGate(0);
+        g.TakeOver();
+        Assert.True(g.Update(0, false, false));
+        Assert.True(g.Update(5, true, true));
+        Assert.True(g.Update(5.5, true, true));
+        Assert.True(g.Update(7, true, false));
+    }
+
+    [Fact]
+    public void An_avatar_whose_look_never_arrives_is_drawn_in_the_fallback_after_the_wait_and_not_before()
+    {
+        var g = new AvatarArrivalGate(0);
+        Assert.False(g.Update(0, true, true));
+        Assert.False(g.Update(AvatarArrivalGate.GreyAfterSeconds - 0.1, true, true));
+        Assert.False(g.Fallback);
+        Assert.True(g.Update(AvatarArrivalGate.GreyAfterSeconds + 0.1, true, true));
+        Assert.True(g.Fallback);
+    }
+
+    [Fact]
+    public void An_avatar_whose_bakes_never_load_is_drawn_in_the_fallback_after_the_wait()
+    {
+        var g = new AvatarArrivalGate(0);
+        Assert.False(g.Update(10, false, true));
+        Assert.True(g.Update(AvatarArrivalGate.GreyAfterSeconds + 0.1, false, true));
+        Assert.True(g.Fallback);
+    }
+
+    [Fact]
+    public void The_fallback_ends_when_the_look_is_complete_and_the_avatar_stays_drawn()
+    {
+        var g = new AvatarArrivalGate(0);
+        Assert.True(g.Update(16, true, true));
+        Assert.True(g.Fallback);
+        Assert.True(g.Update(17, false, false));
+        Assert.False(g.Fallback);
+        Assert.True(g.Update(17.5, false, false));
+    }
+
+    [Fact]
+    public void An_avatar_already_shown_whose_look_goes_missing_for_good_is_drawn_again_in_the_fallback()
+    {
+        var g = new AvatarArrivalGate(0);
+        Assert.True(g.Update(3.5, false, false));
+        Assert.False(g.Update(10, true, false));
+        Assert.True(g.Update(10 + AvatarArrivalGate.GreyAfterSeconds + 0.1, true, false));
+        Assert.True(g.Fallback);
     }
 }

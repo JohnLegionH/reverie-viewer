@@ -95,26 +95,32 @@ internal sealed class ClientBakePipeline
             return Fail("required wearables absent from the list", absent);
 
         // 2. their assets
+        // A wearable that cannot be fetched or read is left out and the look is baked from the rest, as the official viewer does with a wearable
+        // it cannot load; each such item is logged once. One of the four every look needs cannot be left out: without it nothing faithful can be drawn.
         var texts = new List<(WornItem Item, string Text, ParsedWearable Parsed)>();
         var missing = new List<string>();
         foreach (var w in worn)
         {
             ct.ThrowIfCancellationRequested();
             var bytes = await _env.FetchWearableAsync(w.AssetId, w.WearableType <= (int)BakeKind.Eyes, ct).ConfigureAwait(false);
-            if (bytes is not { Length: > 0 })
+            string? text = null;
+            ParsedWearable? parsedWearable = null;
+            if (bytes is { Length: > 0 })
             {
-                missing.Add($"wearable-asset:{w.WearableType}");
+                try
+                {
+                    text = System.Text.Encoding.UTF8.GetString(bytes);
+                    parsedWearable = WearableParser.Parse(text);
+                }
+                catch (FormatException) { text = null; }
+            }
+            if (text is not null && parsedWearable is not null)
+            {
+                texts.Add((w, text, parsedWearable));
                 continue;
             }
-            try
-            {
-                var text = System.Text.Encoding.UTF8.GetString(bytes);
-                texts.Add((w, text, WearableParser.Parse(text)));
-            }
-            catch (FormatException)
-            {
-                missing.Add($"wearable-asset:{w.WearableType}");
-            }
+            if (RequiredWearables.Contains((BakeKind)w.WearableType)) missing.Add($"wearable-asset:{w.WearableType}");
+            else _log.Warn("bake.wearable-missing", CoreLog.F("type", w.WearableType), CoreLog.F("asset", w.AssetId));
         }
         if (missing.Count > 0)
             return Fail("one or more wearable assets failed to download or decode", [.. missing]);
@@ -189,7 +195,7 @@ internal sealed class ClientBakePipeline
 
         var visual = _compositor.EncodeVisualParams(parsed.Select(p => (p.Kind, p.Params)));
         _log.Info("bake.made", CoreLog.F("bakes", ids.Count), CoreLog.F("wearables", worn.Count), CoreLog.F("size", _bakeSize));
-        return new BakeRunResult(true, new PreparedLook(worn, parsed, ids, visual, _compositor.IsMale(parsed)), "", []);
+        return new BakeRunResult(true, new PreparedLook(texts.Select(t => t.Item).ToList(), parsed, ids, visual, _compositor.IsMale(parsed)), "", []);
     }
 }
 

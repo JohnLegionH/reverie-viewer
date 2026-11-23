@@ -108,6 +108,37 @@ public partial class Main
         return new { avatars = list, sky };
     }
 
+    /// <summary>A development aid for checking where bakes come from: the login reply's appearance service, whether the region says it bakes
+    /// avatars, the region's texture capability, and for each avatar's bake slots the address the viewer fetches it from. The user's own bake ids
+    /// are given in full (so the same address can be asked from outside the viewer); other avatars' ids are never given, only each route's host and kind.</summary>
+    public object? TextureRoutes()
+    {
+        var world = Model?.Session?.World;
+        if (world is null || _presented is null || _textureTransport is not Viewer.Core.Assets.ITextureRouteProbe probe) return null;
+        var self = _presented.AgentId;
+        var list = new List<object>();
+        string? service = null; bool regionBakes = false; Uri? cap = null;
+        foreach (var av in world.Snapshot().Avatars.Values)
+        {
+            var bakes = world.Appearance(av.AgentId)?.Bakes ?? new Dictionary<string, Guid>();
+            var r = probe.TextureRoutes(bakes.Values.Where(g => g != Guid.Empty));
+            (service, regionBakes, cap) = (r.AppearanceService, r.RegionBakes, r.TextureCapability);
+            var bySlot = bakes.Where(b => b.Value != Guid.Empty).OrderBy(b => b.Key).Select(b =>
+            {
+                var address = r.Routes.FirstOrDefault(x => x.Id == b.Value).Address;
+                bool fromService = address is not null && cap is not null && !address.AbsoluteUri.StartsWith(cap.AbsoluteUri.TrimEnd('/'), StringComparison.Ordinal);
+                return new
+                {
+                    slot = b.Key, id = av.AgentId == self ? b.Value.ToString("D") : null,
+                    route = address is null ? "none" : fromService ? "appearance_service" : "region_capability",
+                    host = address?.Host, url = av.AgentId == self ? address?.AbsoluteUri : null,
+                };
+            }).ToArray();
+            list.Add(new { self = av.AgentId == self, agent = av.AgentId == self ? av.AgentId.ToString("D") : null, appearance_version = world.Appearance(av.AgentId)?.AppearanceVersion ?? -1, bakes = bySlot });
+        }
+        return new { appearance_service = service, region_bakes = regionBakes, texture_capability = cap?.AbsoluteUri, avatars = list };
+    }
+
     /// <summary>A sun direction's elevation in degrees, rounded; 0 for a direction of no length (so the readout never carries a value JSON cannot hold).</summary>
     private static double Elevation(System.Numerics.Vector3 d)
     {

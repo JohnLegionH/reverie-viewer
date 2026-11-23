@@ -259,6 +259,8 @@ public partial class AutomationHost : Node
                 string? save = call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty("save", out var sv) && sv.ValueKind == JsonValueKind.String ? sv.GetString() : null;
                 return m.AvatarProbe(name, save) is { } probed ? AutomationReply.Ok(probed) : AutomationReply.Error(409, "not in world");
             }
+            case "texture_routes":   // where bakes are fetched from: the appearance service, the region's bake flag and texture capability, each bake slot's route (development builds)
+                return m.TextureRoutes() is { } routes ? AutomationReply.Ok(routes) : AutomationReply.Error(409, "not in world");
             case "presented_audit":   // {sample?}: the objects the world holds against the objects presented, the reason for each that is not (development builds)
             {
                 int sample = call.Body.ValueKind == JsonValueKind.Object && call.Body.TryGetProperty("sample", out var sv) && sv.ValueKind == JsonValueKind.Number ? sv.GetInt32() : 6;
