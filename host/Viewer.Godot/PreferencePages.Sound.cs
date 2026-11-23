@@ -56,9 +56,8 @@ public sealed partial class PrefPageView
         var width = new MaxWidthBox { Name = "sound_width", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddChild(width);
         var margin = new MarginContainer { Name = "sound_margin" };
-        // the page's padding (PanelPadding.Inner) comes from the Preferences window around every page, so none is added here
         foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
-            margin.AddThemeConstantOverride(side, 0);
+            margin.AddThemeConstantOverride(side, (int)PanelPadding.Inner);
         width.AddChild(margin);
         var page = new VBoxContainer { Name = "sound_content", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         page.AddThemeConstantOverride("separation", 10);

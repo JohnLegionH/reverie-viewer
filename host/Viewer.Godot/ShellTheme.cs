@@ -98,7 +98,7 @@ public static class ShellTheme
         var clear = t.Bar with { A = 0f };
 
         // floating windows and dialogs
-        theme.SetStylebox("panel", "PanelContainer", Box(t, t.Panel, t.Border, 6));
+        theme.SetStylebox("panel", "PanelContainer", Box(t, t.Panel, t.Border, (int)PanelPadding.Inner));   // a dialog, card or panel pads its content by the shared value
         theme.SetStylebox("panel", "PopupMenu", Box(t, t.Bar.Opaque(), t.Border, 4));
         theme.SetStylebox("panel", "PopupPanel", Box(t, t.Bar.Opaque(), t.Border, 4));
         theme.SetStylebox("hover", "PopupMenu", Box(t, t.Selection, t.Selection, 2, 0));
