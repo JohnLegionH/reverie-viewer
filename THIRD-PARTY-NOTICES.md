@@ -190,7 +190,12 @@ Package versions are pinned in `Directory.Packages.props` and the `packages.lock
 - **LibreMetaverse 3.3.0** and its packages **LibreMetaverse.Assets**, **.Protocol**, **.Transport**, **.Types**, **.StructuredData**
   and **.Imaging.Abstractions** 3.3.0 (BSD 3-clause): "Copyright (c) 2006-2016, openmetaverse.co" and "Copyright (c)
   2017-2025, Sjofn LLC". Licence text: `ThirdPartyLicenses/LICENSE-LibreMetaverse-source.txt` (identical to the
-  `LICENSE.txt` in each of the seven 3.3.0 packages). The packages are the unchanged ones from nuget.org.
+  `LICENSE.txt` in each of the seven packages). The viewer uses them as version 3.3.0-reverie.2, kept in the folder feed
+  `nuget-feed/`: builds of a fork, `https://github.com/JohnLegionH/libremetaverse`, branch `fix/teleport-failure-recovery`, commit
+  `a58d1e27be86558ecfcf771891c20d57038cad35`, of
+  upstream LibreMetaverse 3.3.0 (`https://github.com/cinderblocks/libremetaverse`, tag `v3.3.0`, commit
+  `7f1cbd11ff110edbe494f98f1a9ff3cbcc187d91`), with one change in the LibreMetaverse package: a teleport whose destination never
+  answers no longer moves the agent there. The copyright holders and the licence are upstream's, unchanged.
 - **CoreJ2K 2.4.1.109-alloc.1** (BSD 3-clause; the build the viewer loads: a build of a fork,
   `https://github.com/JohnLegionH/CoreJ2K`, branch `alloc-on-2.4.1`, commit `15c219da2e63c6f6fa87a5e2206b73349384c474`, of
   upstream CoreJ2K 2.4.1, `https://github.com/cinderblocks/CoreJ2K`, commit `f5895ac`). The viewer references it directly, so it
