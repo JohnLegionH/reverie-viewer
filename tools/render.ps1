@@ -136,7 +136,7 @@
 # -OneProcessPerCase  every case in a process of its own, as before the batch mode (also NV_RENDER_ONE_PER_CASE=1).
 # -ParallelBackends  (also NV_RENDER_PARALLEL=1) with more than one backend: one child render.ps1 per backend runs at the same time instead of the backends one after the other.
 #              Same cases, same checks, same tolerances; the pictures are the same files, Render.junit.xml is the merge of the children's, and the exit code is the one a single run
-#              would give. Not applied to -PlanOnly, -ShowPaths or the measuring sections (a second run at the same time would disturb their timings).
+#              would give. Needs -SkipTiming (the timing cases run alone, one backend after the other); not applied to -PlanOnly, -ShowPaths or the measuring sections.
 # -SkipTiming  leaves out the timing cases (a time limit is part of the check: stall, stress, crossing, arrival, crowd and the like); each is reported as a SKIP.
 # -OnlyTiming  runs only the timing cases, each alone in a process of its own, one after another (the other cases are reported as SKIP).
 # -OutDir      the folder the pictures, sidecars and the JUnit file go to (default tools\test-results\render).
@@ -209,8 +209,14 @@ $out = if ($OutDir) { $OutDir } else { Join-Path $results "render" }
 # for -PlanOnly, -ShowPaths, the measuring sections (their numbers are timings, which a second run at the same time would disturb) or a
 # single backend.
 $measuringSections = @("Measure", "Residency", "Resolutions", "Memory", "Budget", "TextureServer", "UploadBench", "HangCheck", "MeasureOnly", "OnlyTiming")
-if (($ParallelBackends -or $env:NV_RENDER_PARALLEL -eq "1") -and @($Backends).Count -gt 1 -and -not $PlanOnly -and -not $ShowPaths -and -not $env:NV_RENDER_JUNIT_NAME `
-        -and -not @($measuringSections | Where-Object { $PSBoundParameters.ContainsKey($_) -and $PSBoundParameters[$_] }).Count) {
+$wantParallel = ($ParallelBackends -or $env:NV_RENDER_PARALLEL -eq "1") -and @($Backends).Count -gt 1 -and -not $PlanOnly -and -not $ShowPaths -and -not $env:NV_RENDER_JUNIT_NAME `
+    -and -not @($measuringSections | Where-Object { $PSBoundParameters.ContainsKey($_) -and $PSBoundParameters[$_] }).Count
+if ($wantParallel -and -not $SkipTiming) {
+    # a timing case's time limit is part of its check, so a second backend drawing at the same time could fail it: they run one after the other
+    Write-Output "NOTE: -ParallelBackends needs -SkipTiming (the timing cases keep their machine to themselves); running the backends one after the other."
+    $wantParallel = $false
+}
+if ($wantParallel) {
     New-Item -ItemType Directory -Force -Path $out | Out-Null
     $forward = @()
     foreach ($k in $PSBoundParameters.Keys) {
@@ -223,11 +229,11 @@ if (($ParallelBackends -or $env:NV_RENDER_PARALLEL -eq "1") -and @($Backends).Co
     foreach ($be in $Backends) {
         $stdout = Join-Path $out "render-$be.stdout.txt"
         $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath) + $forward + @("-Backends", $be, "-OutDir", $out)
-        $env:NV_RENDER_JUNIT_NAME = "Render.$be.junit.xml"
+        $env:NV_RENDER_JUNIT_NAME = "Render.$be.junit.xml"; $env:NV_RENDER_ONLY_DRIVER = $be
         $p = Start-Process -FilePath "powershell.exe" -ArgumentList ($argList | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) `
             -RedirectStandardOutput $stdout -NoNewWindow -PassThru
         $null = $p.Handle   # keeps the exit code readable after the wait
-        Remove-Item Env:NV_RENDER_JUNIT_NAME -ErrorAction SilentlyContinue
+        Remove-Item Env:NV_RENDER_JUNIT_NAME, Env:NV_RENDER_ONLY_DRIVER -ErrorAction SilentlyContinue
         $jobs += [pscustomobject]@{ Backend = $be; Process = $p; Stdout = $stdout }
     }
     foreach ($j in $jobs) { $j.Process.WaitForExit() }
@@ -239,6 +245,8 @@ if (($ParallelBackends -or $env:NV_RENDER_PARALLEL -eq "1") -and @($Backends).Co
         $jf = Join-Path $out "Render.$($j.Backend).junit.xml"
         if (Test-Path -LiteralPath $jf) { $merged += ([xml](Get-Content -Raw -LiteralPath $jf)).testsuites.testsuite.testcase }
     }
+    # a case both children report (one ran it, the other left it to the first, or a check that is not a process) is one case: the one that ran
+    $merged = @($merged | Group-Object { $_.name } | ForEach-Object { $ran = @($_.Group | Where-Object { -not $_.skipped }); if ($ran.Count -gt 0) { $ran[0] } else { $_.Group[0] } })
     $mfail = @($merged | Where-Object { $_.failure }).Count
     $mskip = @($merged | Where-Object { $_.skipped }).Count
     $mx = New-Object System.Text.StringBuilder
@@ -353,7 +361,9 @@ function Invoke-CaseProcess([string]$driver, [string]$tag, [string]$extra, [int]
         $script:SkipPending = $true
         return @{ Exit = -1; Json = $null; Seconds = 0; Skipped = $true }
     }
-    if (Test-LeftOut $tag) {
+    # -ParallelBackends: a child runs only the processes of its own driver (every driver but d3d12 belongs to the vulkan child), so a case
+    # that is always drawn on one driver (its tag says which) is run once, by that driver's child, not by both
+    if ((Test-LeftOut $tag) -or ($env:NV_RENDER_ONLY_DRIVER -and (($driver -eq "d3d12") -ne ($env:NV_RENDER_ONLY_DRIVER -eq "d3d12")))) {
         $script:SkipPending = $true
         $script:Counts.Skipped++
         return @{ Exit = -1; Json = $null; Seconds = 0; Skipped = $true }
