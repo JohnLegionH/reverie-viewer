@@ -315,15 +315,13 @@ public partial class EditPanel : VBoxContainer
         _nextCopy = Tick(nextRow, "next_copy", "edit.perm.copy", on => _edit()?.SetPermission(0x10, copy, on));
         _nextTransfer = Tick(nextRow, "next_transfer", "edit.perm.transfer", on => _edit()?.SetPermission(0x10, transfer, on));
         general.AddChild(nextRow);
-        var saleRow = new HFlowContainer { Name = "sale_row" };
+        var saleRow = new HBoxContainer { Name = "sale_row" };
         saleRow.AddThemeConstantOverride("h_separation", 8);   // the price unit and the price box do not touch
-        // "For sale": its label in the label column, the tick box (no text of its own) beside it, then the price and the sale type; the
-        // row wraps as whole controls when it is too narrow
+        // "For sale": its label in the label column, the tick box (no text of its own) beside it, then the price; the sale type has its own
+        // labelled row below, so no line of controls stands without a label
         var saleLabel = LabelCell("for_sale_label", strings.Get("edit.for_sale"));
         saleRow.AddChild(saleLabel);
-        _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true));
-        _forSale.Text = "";
-        _forSale.AccessibilityName = strings.Get("edit.for_sale");
+        _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true), showText: false);
         saleLabel.MouseFilter = MouseFilterEnum.Stop;
         saleLabel.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } && !_forSale.Disabled) _forSale.ButtonPressed = !_forSale.ButtonPressed; };
         _priceLabel = new Label { Name = "sale_price_unit", Text = strings.Get("edit.sale_price") };
@@ -337,8 +335,8 @@ public partial class EditPanel : VBoxContainer
         foreach (var (type, key) in new[] { (Viewer.Core.Building.SaleKind.Copy, "copy"), (Viewer.Core.Building.SaleKind.Contents, "contents"), (Viewer.Core.Building.SaleKind.Original, "original") })
             _saleType.AddItem(strings.Get("edit.sale_type." + key), (int)type);
         _saleType.ItemSelected += _ => { if (!_filling) SendSale(false); };
-        saleRow.AddChild(_saleType);
         general.AddChild(saleRow);
+        general.AddChild(Line("sale_type", "edit.sale_type", _saleType));
         var clickRow = new HBoxContainer { Name = "click_row" };
         clickRow.AddChild(LabelCell("click_action_label", strings.Get("edit.click_action")));
         _clickAction = new OptionButton { Name = "click_action", TooltipText = strings.Get("edit.click_action.tip") };
@@ -560,10 +558,12 @@ public partial class EditPanel : VBoxContainer
             _status.Text = _s.Get("edit." + why);
     }
 
-    private CheckBox Tick(Container parent, string name, string key, Action<bool> changed)
+    /// <summary>A tick box named by the string table; <paramref name="showText"/> false leaves the box without text of its own when a label in the
+    /// label column names it (the accessible name stays).</summary>
+    private CheckBox Tick(Container parent, string name, string key, Action<bool> changed, bool showText = true)
     {
-        var c = new CheckBox { Name = name, Text = _s.Get(key) };
-        c.AccessibilityName = c.Text;
+        var c = new CheckBox { Name = name, Text = showText ? _s.Get(key) : string.Empty };
+        c.AccessibilityName = _s.Get(key);
         c.Toggled += on => { if (!_filling) changed(on); };
         parent.AddChild(c);
         return c;

@@ -24,7 +24,7 @@ public partial class TestRender
         ("texture_rotation_label", "texture_rotation"), ("offset_u_label", "offset_u"), ("offset_v_label", "offset_v"),
         ("name_label", "name"), ("description_label", "description"), ("creator_label", "creator"), ("owner_label", "owner"),
         ("click_action_label", "click_action"),
-        ("next_owner", "next_modify"), ("for_sale_label", "for_sale"), ("fullbright_label", "fullbright"),
+        ("next_owner", "next_modify"), ("for_sale_label", "for_sale"), ("sale_type_label", "sale_type"), ("fullbright_label", "fullbright"),
     ];
 
     /// <summary>The rows of three values (X, Y, Z): the label stands on its own line with the three boxes on one line below it (the official
@@ -32,7 +32,7 @@ public partial class TestRender
     private static readonly string[] TripleRows = ["position", "size", "rotation"];
 
     /// <summary>Tick boxes whose row has a label in the column, with the box beside it (the label is a separate control, the box has no text).</summary>
-    private static readonly (string Label, string Control)[] TickRows = [("for_sale_label", "for_sale"), ("fullbright_label", "fullbright"), ("next_owner", "next_modify")];
+    private static readonly (string Label, string Control)[] TickRows = [("for_sale_label", "for_sale"), ("sale_type_label", "sale_type"), ("fullbright_label", "fullbright"), ("next_owner", "next_modify")];
 
     /// <summary>
     /// Layout checks on the Build window as drawn in a build scene at interface size <paramref name="pct"/> (UI-STANDARD U1, U3 to U5, U8 to U12,
@@ -106,6 +106,29 @@ public partial class TestRender
         foreach (var (labelName, controlName) in TickRows)
             if (panel.FindChild(controlName, true, false) is Control tick && Shown(tick) && (panel.FindChild(labelName, true, false) is not Control tl || !Shown(tl)))
                 _failures.Add($"{tag}: the tick box '{controlName}' has no label '{labelName}' in the label column");
+
+        // every line of controls in a section has a label in the label column on that same line; a control that wraps onto a line of its own
+        // without one fails. Exempt: the three-value rows (their label stands on its own line above the boxes, UI-STANDARD U1 exception) and
+        // tick boxes that carry their own text.
+        foreach (var c in All<Control>().Where(c => scroll.IsAncestorOf(c) && (c is OptionButton or SpinBox or LineEdit or HSlider || c is CheckBox { Text.Length: 0 })))
+        {
+            string cn = c.Name.ToString();
+            if (TripleRows.Any(r => cn.StartsWith(r + "_", StringComparison.Ordinal)) && cn.Length == cn.IndexOf('_') + 2 && "xyz".Contains(cn[^1]))
+                continue;
+            Control row = c;
+            while (row.GetParent() is Control par && par is not VBoxContainer)
+                row = par;
+            if (row.GetParent() is not VBoxContainer)
+            {
+                _failures.Add($"{tag}: '{cn}' is not inside a row of a section body, so its label could not be checked");
+                continue;
+            }
+            var cr = c.GetGlobalRect();
+            bool labelled = AllChildren(row).OfType<Label>().Any(l => Shown(l) && l.CustomMinimumSize.X >= EditPanel.LabelColumn - 1f
+                && Math.Abs(l.GetGlobalRect().GetCenter().Y - cr.GetCenter().Y) <= Math.Max(l.Size.Y, cr.Size.Y) / 2f);
+            if (!labelled)
+                _failures.Add($"{tag}: '{cn}' stands on a line without a label in the label column");
+        }
 
         // three-value rows: the label on its own line, then the three boxes on one line, one width, never wrapping
         foreach (var row in TripleRows)
