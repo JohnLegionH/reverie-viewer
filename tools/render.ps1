@@ -764,13 +764,11 @@ function Invoke-UiChromeCases {
     # the open windows are inside the main view. The golden is fixtures\ui\golden-uichrome-<pct>-<WxH>-<backend>.png; a case with none ends as NO GOLDEN.
     foreach ($be in $Backends) {
         foreach ($win in @("1152x648", "1280x720", "1920x1080")) {
-            # 125 and 175 % are checked in the smallest window only (the layout check), with no picture of their own
+            # 125 and 175 % are run in the smallest window only; every size run has a golden of its own
             foreach ($pct in $(if ($win -eq "1152x648") { @(100, 125, 150, 175, 200) } else { @(100, 150, 200) })) {
                 $name = "ui_chrome_${pct}_${win}_$be"
                 $golden = Join-Path $repo "fixtures\ui\golden-uichrome-$pct-$win-$be.png"
-                # 125 and 175 % have no picture of their own (layout check only); every other size has a golden in each window size
-                $wantsGolden = $pct -in @(100, 150, 200)
-                if ($wantsGolden -and -not (Test-Path -LiteralPath $golden)) {
+                if (-not (Test-Path -LiteralPath $golden)) {
                     $r = Invoke-Render $be "proposal-uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win"
                     $okGeometry = $r.Json -and $r.Json.backend.driver -eq $be -and $r.Json.ui_chrome -and -not @($r.Json.ui_chrome.problems).Count
                     if ($Propose -and $okGeometry) {
@@ -779,9 +777,7 @@ function Invoke-UiChromeCases {
                     } else { Add-Case $name $(if (-not $okGeometry -and $r.Json -and (Get-NoGoldenStatus $r $be) -eq "NO GOLDEN") { "FAIL" } else { Get-NoGoldenStatus $r $be }) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { (@($r.Json.failures) -join ' | ') }))" $r.Seconds }
                     continue
                 }
-                # a size with no picture of its own is run without --tr-golden: a golden path that names no file ends the run as "golden not found"
-                $goldenArg = if ($wantsGolden) { " `"--tr-golden=$golden`"" } else { "" }
-                $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win$goldenArg"
+                $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win `"--tr-golden=$golden`""
                 $c = $r.Json.ui_chrome
                 $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $c -and -not @($c.problems).Count
                 Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) logical $($c.logical), $($c.dock_buttons) dock buttons in $($c.dock_rows) row(s)$(if ($r.Json.diff) { '; ' + $r.Json.diff.summary })$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
