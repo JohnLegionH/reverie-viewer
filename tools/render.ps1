@@ -134,6 +134,9 @@
 #              one after another, instead of one process per case; a case that crashes or hangs fails alone and the next case gets a new process. Cases
 #              that need a process of their own (measuring runs, timing cases, lifecycle and leak checks, warm-up and pipeline-gate checks) are never batched.
 # -OneProcessPerCase  every case in a process of its own, as before the batch mode (also NV_RENDER_ONE_PER_CASE=1).
+# -ParallelBackends  (also NV_RENDER_PARALLEL=1) with more than one backend: one child render.ps1 per backend runs at the same time instead of the backends one after the other.
+#              Same cases, same checks, same tolerances; the pictures are the same files, Render.junit.xml is the merge of the children's, and the exit code is the one a single run
+#              would give. Needs -SkipTiming (the timing cases run alone, one backend after the other); not applied to -PlanOnly, -ShowPaths or the measuring sections.
 # -SkipTiming  leaves out the timing cases (a time limit is part of the check: stall, stress, crossing, arrival, crowd and the like); each is reported as a SKIP.
 # -OnlyTiming  runs only the timing cases, each alone in a process of its own, one after another (the other cases are reported as SKIP).
 # -OutDir      the folder the pictures, sidecars and the JUnit file go to (default tools\test-results\render).
@@ -149,7 +152,7 @@
 #     powershell -NoProfile -File <repo>\tools\render.ps1 [-Propose] [-Measure] [-Residency] [-UploadBench] [-ShowPaths]
 # =====================================================================================
 [CmdletBinding()]
-param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$HandlesOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "")
+param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$HandlesOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$ParallelBackends,[switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "")
 
 $ErrorActionPreference = "Stop"
 # The full render set is slow and takes the machine for a long time, so it never starts by accident: it needs -All. With no section
@@ -199,6 +202,64 @@ $godot = Join-Path $PSScriptRoot "godot.ps1"
 $diagArgs = if ($DiagDir) { @("-DiagDir", $DiagDir) } else { @() }
 $results = Join-Path $PSScriptRoot "test-results"
 $out = if ($OutDir) { $OutDir } else { Join-Path $results "render" }
+# -ParallelBackends (or NV_RENDER_PARALLEL=1): one child render.ps1 per backend, run at the same time, instead of the backends one after the other.
+# Each child gets the same arguments with -Backends <one backend> and writes its own pictures (their tags carry the backend, so the files
+# do not collide) and its own Render.<backend>.junit.xml; this run merges them into Render.junit.xml, prints each child's output, and
+# ends with the exit code a single run would give. The cases, the checks and the tolerances are the children's, unchanged. Not used
+# for -PlanOnly, -ShowPaths, the measuring sections (their numbers are timings, which a second run at the same time would disturb) or a
+# single backend.
+$measuringSections = @("Measure", "Residency", "Resolutions", "Memory", "Budget", "TextureServer", "UploadBench", "HangCheck", "MeasureOnly", "OnlyTiming")
+$wantParallel = ($ParallelBackends -or $env:NV_RENDER_PARALLEL -eq "1") -and @($Backends).Count -gt 1 -and -not $PlanOnly -and -not $ShowPaths -and -not $env:NV_RENDER_JUNIT_NAME `
+    -and -not @($measuringSections | Where-Object { $PSBoundParameters.ContainsKey($_) -and $PSBoundParameters[$_] }).Count
+if ($wantParallel -and -not $SkipTiming) {
+    # a timing case's time limit is part of its check, so a second backend drawing at the same time could fail it: they run one after the other
+    Write-Output "NOTE: -ParallelBackends needs -SkipTiming (the timing cases keep their machine to themselves); running the backends one after the other."
+    $wantParallel = $false
+}
+if ($wantParallel) {
+    New-Item -ItemType Directory -Force -Path $out | Out-Null
+    $forward = @()
+    foreach ($k in $PSBoundParameters.Keys) {
+        if ($k -in @("Backends", "ParallelBackends", "OutDir")) { continue }
+        $v = $PSBoundParameters[$k]
+        if ($v -is [System.Management.Automation.SwitchParameter]) { if ($v.IsPresent) { $forward += "-$k" } }
+        else { $forward += "-$k"; $forward += [string]$v }
+    }
+    $jobs = @()
+    foreach ($be in $Backends) {
+        $stdout = Join-Path $out "render-$be.stdout.txt"
+        $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath) + $forward + @("-Backends", $be, "-OutDir", $out)
+        $env:NV_RENDER_JUNIT_NAME = "Render.$be.junit.xml"; $env:NV_RENDER_ONLY_DRIVER = $be
+        $p = Start-Process -FilePath "powershell.exe" -ArgumentList ($argList | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) `
+            -RedirectStandardOutput $stdout -NoNewWindow -PassThru
+        $null = $p.Handle   # keeps the exit code readable after the wait
+        Remove-Item Env:NV_RENDER_JUNIT_NAME, Env:NV_RENDER_ONLY_DRIVER -ErrorAction SilentlyContinue
+        $jobs += [pscustomobject]@{ Backend = $be; Process = $p; Stdout = $stdout }
+    }
+    foreach ($j in $jobs) { $j.Process.WaitForExit() }
+    $codes = @(); $merged = @()
+    foreach ($j in $jobs) {
+        $code = $j.Process.ExitCode; $codes += $code
+        Write-Output "---- backend $($j.Backend) (exit $code) ----"
+        Get-Content -LiteralPath $j.Stdout | ForEach-Object { Write-Output $_ }
+        $jf = Join-Path $out "Render.$($j.Backend).junit.xml"
+        if (Test-Path -LiteralPath $jf) { $merged += ([xml](Get-Content -Raw -LiteralPath $jf)).testsuites.testsuite.testcase }
+    }
+    # a case both children report (one ran it, the other left it to the first, or a check that is not a process) is one case: the one that ran
+    $merged = @($merged | Group-Object { $_.name } | ForEach-Object { $ran = @($_.Group | Where-Object { -not $_.skipped }); if ($ran.Count -gt 0) { $ran[0] } else { $_.Group[0] } })
+    $mfail = @($merged | Where-Object { $_.failure }).Count
+    $mskip = @($merged | Where-Object { $_.skipped }).Count
+    $mx = New-Object System.Text.StringBuilder
+    [void]$mx.AppendLine('<?xml version="1.0" encoding="utf-8"?>')
+    [void]$mx.AppendLine("<testsuites><testsuite name=""Render"" tests=""$($merged.Count)"" failures=""$mfail"" skipped=""$mskip"" errors=""0"">")
+    foreach ($tc in $merged) { [void]$mx.AppendLine($tc.OuterXml) }
+    [void]$mx.AppendLine("</testsuite></testsuites>")
+    Set-Content -LiteralPath (Join-Path $out "Render.junit.xml") -Value $mx.ToString() -Encoding utf8
+    Write-Output ("Render summary (backends run in parallel): total {0}, passed {1}, failed {2}, skipped {3}" -f $merged.Count, ($merged.Count - $mfail - $mskip), $mfail, $mskip)
+    # the exit code a single run over both backends gives: 3 only when no backend rendered a case, 2 for no section, 1 for any failure
+    $final = if (@($codes | Where-Object { $_ -ne 3 }).Count -eq 0) { 3 } elseif ($codes -contains 2) { 2 } elseif (@($codes | Where-Object { $_ -notin @(0, 3) }).Count -gt 0) { 1 } else { 0 }
+    exit $final
+}
 . (Join-Path $PSScriptRoot "render-serve.ps1")
 $serveOff = [bool]($OneProcessPerCase -or $env:NV_RENDER_ONE_PER_CASE -eq "1")
 $script:Counts = @{ Served = 0; OwnProcess = 0; Skipped = 0 }
@@ -267,7 +328,7 @@ function Write-JUnit {
         Write-Output "Cases with their own process, by reason:"
         $script:Plan | Where-Object Kind -eq "own-process" | Group-Object Why | Sort-Object Count -Descending | ForEach-Object { Write-Output ("  {0,4}  {1}" -f $_.Count, $_.Name) }
     }
-    Set-Content -LiteralPath (Join-Path $(if ($OutDir) { $out } else { $results }) "Render.junit.xml") -Value $xml.ToString() -Encoding utf8
+    Set-Content -LiteralPath (Join-Path $(if ($OutDir) { $out } else { $results }) $(if ($env:NV_RENDER_JUNIT_NAME) { $env:NV_RENDER_JUNIT_NAME } else { "Render.junit.xml" })) -Value $xml.ToString() -Encoding utf8
     Write-Output ("Render summary: total {0}, passed {1}, failed {2}, skipped {3}" -f $cases.Count, @($cases | Where-Object Status -eq "PASS").Count, $fail, $skip)
     $st = Get-ServeStats
     Write-Output ("Render batch: {0} renders in batch processes ({1} started, {2} could not start), {3} in a process of their own, {4} left out by the timing switches" -f $script:Counts.Served, $st.Starts, $st.Failures, $script:Counts.OwnProcess, $script:Counts.Skipped)
@@ -300,7 +361,9 @@ function Invoke-CaseProcess([string]$driver, [string]$tag, [string]$extra, [int]
         $script:SkipPending = $true
         return @{ Exit = -1; Json = $null; Seconds = 0; Skipped = $true }
     }
-    if (Test-LeftOut $tag) {
+    # -ParallelBackends: a child runs only the processes of its own driver (every driver but d3d12 belongs to the vulkan child), so a case
+    # that is always drawn on one driver (its tag says which) is run once, by that driver's child, not by both
+    if ((Test-LeftOut $tag) -or ($env:NV_RENDER_ONLY_DRIVER -and (($driver -eq "d3d12") -ne ($env:NV_RENDER_ONLY_DRIVER -eq "d3d12")))) {
         $script:SkipPending = $true
         $script:Counts.Skipped++
         return @{ Exit = -1; Json = $null; Seconds = 0; Skipped = $true }

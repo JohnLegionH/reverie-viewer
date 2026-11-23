@@ -14,12 +14,19 @@
 # Every Godot process goes through tools\godot.ps1 (APPDATA sandboxed, no lingering build processes).
 # A window opens briefly for each run; that is expected.
 #     powershell -NoProfile -File <repo>\tools\s1.ps1
+# -ExportOnly: just the shipping export and the guards that read it (about 30 s instead of 5 to 6 minutes); not an S-1 run (see the parameter).
+# A fresh checkout needs its packages restored first (dotnet restore, or the build/test step that does it): the export fails without them.
 # =====================================================================================
 [CmdletBinding()]
 param(
     [string]$GodotExe = "",   # default: the portable editor in \tools\godot\4.7.2-mono\ on this drive (set below)
     [string]$DiagDir = "",   # passed to every godot.ps1 run; absent, godot.ps1's default stands
-    [string]$BuildFolder = ""   # check this folder as the export (no import, no export, no development export); absent: the repo's own build folder
+    [string]$BuildFolder = "",   # check this folder as the export (no import, no export, no development export); absent: the repo's own build folder
+    # Makes the shipping export and runs the checks that read the export folder (joltc, avatar data folder, no Linden data), then stops:
+    # no development export and none of the runs of the exported viewer. It is for a step that only needs a current export to draw
+    # with (tools\render.ps1). It is NOT the S-1 stage: it prints no "S-1 summary" and writes S1-export-only.junit.xml, so
+    # S1.junit.xml is only ever written by a whole S-1 run. Absent: the whole stage, as before.
+    [switch]$ExportOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,7 +60,7 @@ function Add-Case([string]$name, [string]$status, [string]$detail, [double]$seco
     Write-Output ("  {0,-7} S1.{1}  {2}" -f $status, $name, $detail)
 }
 function Esc([string]$s) { [System.Security.SecurityElement]::Escape($s) }
-function Write-JUnit {
+function Write-JUnit([string]$fileName = $(if ($ExportOnly) { "S1-export-only.junit.xml" } else { "S1.junit.xml" })) {
     $fail = @($cases | Where-Object Status -eq "FAIL").Count
     $skip = @($cases | Where-Object Status -eq "SKIP").Count
     $total = ($cases | Measure-Object Seconds -Sum).Sum
@@ -68,8 +75,8 @@ function Write-JUnit {
         [void]$xml.AppendLine("</testcase>")
     }
     [void]$xml.AppendLine("</testsuite></testsuites>")
-    Set-Content -LiteralPath (Join-Path $results "S1.junit.xml") -Value $xml.ToString() -Encoding utf8
-    Write-Output ("S-1 summary: total {0}, passed {1}, failed {2}, skipped {3}" -f $cases.Count, @($cases | Where-Object Status -eq "PASS").Count, $fail, $skip)
+    Set-Content -LiteralPath (Join-Path $results $fileName) -Value $xml.ToString() -Encoding utf8
+    Write-Output ("{4}: total {0}, passed {1}, failed {2}, skipped {3}" -f $cases.Count, @($cases | Where-Object Status -eq "PASS").Count, $fail, $skip, $(if ($ExportOnly) { "S-1 export-only (NOT an S-1 run) summary" } else { "S-1 summary" }))
 }
 
 Write-Output "S-1 stage (exported build)"
@@ -169,6 +176,12 @@ $lg = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScript
 $lgExit = $LASTEXITCODE
 $secs = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
 Add-Case "linden_guard" ($(if ($lgExit -eq 0) { "PASS" } else { "FAIL" })) (($lg | Select-Object -Last 1) -join "") $secs
+
+# -ExportOnly: the shipping export and the guards that read it are done; no development export and no runs of the viewer.
+if ($ExportOnly) {
+    Write-JUnit
+    exit $(if (@($cases | Where-Object Status -eq "FAIL").Count -gt 0) { 1 } else { 0 })
+}
 
 # 2c. The DEVELOPMENT export (preset "windows-dev", export-debug: the automation API compiled in, off unless
 #     --automation), into build\dev\; then the assembly scan: the SHIPPING export has no automation type, enable string or
