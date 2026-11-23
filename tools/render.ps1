@@ -779,7 +779,9 @@ function Invoke-UiChromeCases {
                     } else { Add-Case $name $(if (-not $okGeometry -and $r.Json -and (Get-NoGoldenStatus $r $be) -eq "NO GOLDEN") { "FAIL" } else { Get-NoGoldenStatus $r $be }) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { (@($r.Json.failures) -join ' | ') }))" $r.Seconds }
                     continue
                 }
-                $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win `"--tr-golden=$golden`""
+                # a size with no picture of its own is run without --tr-golden: a golden path that names no file ends the run as "golden not found"
+                $goldenArg = if ($wantsGolden) { " `"--tr-golden=$golden`"" } else { "" }
+                $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win$goldenArg"
                 $c = $r.Json.ui_chrome
                 $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $c -and -not @($c.problems).Count
                 Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) logical $($c.logical), $($c.dock_buttons) dock buttons in $($c.dock_rows) row(s)$(if ($r.Json.diff) { '; ' + $r.Json.diff.summary })$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
