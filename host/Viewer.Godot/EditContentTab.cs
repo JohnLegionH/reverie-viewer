@@ -81,7 +81,7 @@ public sealed class EditContentTab
         ReverieRestyle.Apply(page);
         _newScript = Btn("new_script", "edit.content.new_script", () => _edit()?.NewScript(_s.Get("edit.content.new_script.name")));
         page.AddChild(_newScript);
-        _list = new ContentDropList { Name = "contents", CustomMinimumSize = new Vector2(0, 84), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        _list = new ContentDropList { Name = "contents", CustomMinimumSize = new Vector2(0, 72), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };   // short enough that the buttons below stay in the window; a long row ends in an ellipsis, its tooltip has the whole name
         _list.AccessibilityName = strings.Get("edit.content.list");
         _list.Accepts = ids => ids.Count > 0 && _edit()?.Object() is not null;
