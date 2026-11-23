@@ -10,7 +10,7 @@ namespace Viewer.Core.Tests;
 /// <summary>
 /// The World > Environment menu: the official viewer's items in its order (Sunrise, Midday, Sunset, Midnight, Use Shared
 /// Environment; the menu_viewer.xml of the official viewer), a check mark on the one in force, the choice kept across teleports
-/// and (only when the official setting EnvironmentPersistAcrossLogin is on, off by default) across logins, and the F9 key
+/// and (while the setting EnvironmentPersistAcrossLogin is on, as it is by default) across logins, and the F9 key
 /// that steps through the same choices. Plain .NET.
 /// </summary>
 public class EnvironmentMenuTests
@@ -126,10 +126,12 @@ public class EnvironmentMenuTests
     }
 
     [Fact]
-    public void By_default_the_choice_is_not_kept_across_logins()
+    public void With_the_persist_setting_off_the_choice_is_not_kept_across_logins()
     {
         var store = new MemoryStore();
-        new EnvironmentChoice(new SettingsService(store)).Set(SkyChoice.Sunset);
+        var settings = new SettingsService(store);
+        settings.Set(Settings.EnvironmentPersistAcrossLogin, false);
+        new EnvironmentChoice(settings).Set(SkyChoice.Sunset);
         Assert.Equal(SkyChoice.Region, new EnvironmentChoice(new SettingsService(new MemoryStore(store.Text))).Current);
     }
 

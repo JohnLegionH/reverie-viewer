@@ -228,14 +228,24 @@ public partial class RvMenuBar : HFlowContainer
                 if (e.Icon is { } subIcon && ReverieIcons.Get(subIcon) is { } subTexture)
                     popup.SetItemIcon(popup.ItemCount - 1, subTexture);   // a submenu's row has its icon in the column too
             }
-            else if (e.Checked is { } on)
-                popup.AddIconCheckItem(ReverieIcons.Get(e.Icon ?? LucideIcons.Check)!, e.Label, id);
-            else if (e.Icon is { } icon && ReverieIcons.Get(icon) is { } texture)
-                popup.AddIconItem(texture, e.Label, id);
             else
-                popup.AddItem(e.Label, id);
+            {
+                // a row with no icon of its own shows the tick only while it is ticked, so in a list of choices the one in use is the one marked
+                var mark = MenuMarks.For(e.Icon, e.Checked);
+                if (mark.Icon is { } icon && ReverieIcons.Get(icon) is { } texture)
+                {
+                    if (mark.CheckItem)
+                        popup.AddIconCheckItem(texture, e.Label, id);
+                    else
+                        popup.AddIconItem(texture, e.Label, id);
+                }
+                else if (mark.CheckItem)
+                    popup.AddCheckItem(e.Label, id);
+                else
+                    popup.AddItem(e.Label, id);
+            }
             int index = popup.ItemCount - 1;
-            if (e.Checked is { } c)
+            if (e.Checked is { } c)   // kept on a row that only shows the tick as its icon, for what reads the state back
                 popup.SetItemChecked(index, c);
             popup.SetItemIconModulate(index, tint);
             popup.SetItemDisabled(index, !e.Enabled);

@@ -51,7 +51,7 @@ public partial class TestRender
     [
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
-        "preferences-privacy", "preferences-cache", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
+        "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "build-create", "build-object", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
@@ -310,17 +310,35 @@ public partial class TestRender
             return await ReverieSceneRun(scene, look, golden);   // the Reverie top bar and component gallery (TestRender.Reverie.cs)
         if (Array.IndexOf(UiScenes, scene) < 0)
             throw new ArgumentException("--tr-ui must be one of " + string.Join(", ", UiScenes) + ", " + string.Join(", ", ReverieScenes));
+        // the Sound page at interface sizes 150 and 200 % is drawn in a picture 1.5 and 2 times as large (the same window, larger on screen);
+        // "-open" has its collapsed sections open, as the page keeps them
+        int pct = scene.EndsWith("-150", StringComparison.Ordinal) ? 150 : scene.EndsWith("-200", StringComparison.Ordinal) ? 200 : 100;
+        bool soundOpen = scene.StartsWith("preferences-sound-open", StringComparison.Ordinal);
+        if (scene.StartsWith("preferences-sound", StringComparison.Ordinal))
+            scene = soundOpen ? "preferences-sound" : scene;
+        if (pct != 100)
+            scene = "preferences-sound";
+        int picW = UiWidth * pct / 100, picH = UiHeight * pct / 100;
         var strings = StringTable.English();
         // NV_UI_NORESTYLE=1: the windows as the classic look built them, for the before list of controls (NV_UI_CONTROLS=1)
         ReverieRestyle.Enabled = System.Environment.GetEnvironmentVariable("NV_UI_NORESTYLE") != "1";
         var tokens = ThemePresets.Get(look);
         if (wrongToken)
             tokens = tokens with { Accent = new UiColour(1f, 0f, 1f), Text = new UiColour(0f, 1f, 0f) };
-        UiTheme.Apply(tokens, 100);
-        var rig = MakeRig(new Vector2I(UiWidth, UiHeight));
+        UiTheme.Apply(tokens, pct);
+        var rig = MakeRig(new Vector2I(picW, picH));
+        if (pct != 100)
+        {
+            rig.Viewport.Size2DOverride = new Vector2I(UiWidth, UiHeight);
+            rig.Viewport.Size2DOverrideStretch = true;
+        }
         var shell = new ShellRoot(new ShellController(strings, () => { })) { FixedClockText = TestClockText };
+        if (pct != 100)
+            shell.ScaleSink = _ => { };   // the override above stands in for the window's content scale
         rig.Viewport.AddChild(shell);
         var settings = new SettingsService(null);
+        if (soundOpen)
+            settings.SetText(PrefPageView.SoundSectionsKey, "interface,more");
         ThemeStore.Save(settings, "render", ThemeChoice.Default with { Preset = ThemePresets.Classic });   // the stored look the pictures were made with (the Classic preset)
         settings.Set(Settings.DrawDistance, 1024);   // the pictures keep a distance of 1,024 (no level has it: Custom), whatever the default level is
 
@@ -487,6 +505,13 @@ public partial class TestRender
         else if (open.Length > 0)
             shell.Shell.Floaters.Open(open);
         await Frames(10);
+        if (scene == "preferences-sound" && soundOpen && shell.FindChild("page_sound", true, false) is PrefPageView soundView
+            && soundView.FindChild("section_more", true, false) is Control moreSection)
+        {
+            // the picture of the opened sections starts at More, so the table of interface sounds is in it
+            soundView.ScrollVertical = (int)(moreSection.GlobalPosition.Y - soundView.GetGlobalRect().Position.Y + soundView.ScrollVertical - 6);
+            await Frames(4);
+        }
         if (newMenuOf is not null)
         {
             newMenuOf.ShowNewMenu(clothing: true);   // the + menu with New Clothes open
@@ -589,6 +614,8 @@ public partial class TestRender
         }
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);
+        if (scene == "preferences-sound" && !wrongToken)
+            SoundPageStandard(shell, soundOpen, pct, img);
         if (loginShown is not null)
             LinkUnderlines(loginShown, img, rig.Viewport.GetVisibleRect().Size);
         Directory.CreateDirectory(_out);
@@ -604,9 +631,9 @@ public partial class TestRender
             {
                 var g = Image.LoadFromFile(golden);
                 g.Convert(Image.Format.Rgba8);
-                var diff = g.GetWidth() != UiWidth || g.GetHeight() != UiHeight
+                var diff = g.GetWidth() != picW || g.GetHeight() != picH
                     ? new DiffResult(false, g.GetWidth(), g.GetHeight(), 0, 0, 0, 0, "golden size differs")
-                    : ImageDiff.Compare(img.GetData(), g.GetData(), UiWidth, UiHeight, 4, DiffTolerance.Ui);
+                    : ImageDiff.Compare(img.GetData(), g.GetData(), picW, picH, 4, DiffTolerance.Ui);
                 _result["diff"] = new Dictionary<string, object?>
                 {
                     ["golden"] = Path.GetFileName(golden), ["pass"] = diff.Pass, ["differing"] = diff.Differing,
