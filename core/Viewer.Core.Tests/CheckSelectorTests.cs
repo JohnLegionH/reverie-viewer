@@ -271,6 +271,79 @@ public class CheckSelectorTests
         Assert.Contains("build", Select("fixtures/build/golden-handles-move-vulkan.png").Areas);
     }
 
+    // Every file the repository tracks has a place in the map: a file the map cannot place sends its whole order to the full render set
+    // and the stock smoke (QuitWatchdog.cs, which draws nothing, did exactly that). A new file adds its rule to tools\check-map.tsv.
+    [Fact]
+    public void Every_tracked_file_is_placed_by_the_map()
+    {
+        string[] files = TrackedFiles();
+        Assert.True(files.Length > 1000, "git listed too few files: " + files.Length);
+        var s = Select(files);
+        Assert.True(s.Unplaced.Count == 0, "files the map does not place (" + s.Unplaced.Count + "):\n" + string.Join("\n", s.Unplaced));
+    }
+
+    // A rule that sends files to "full" costs every order that touches them the full render set, so the map says why, on the comment
+    // line(s) directly above the rule, starting "# full because:". A rule that can be narrower is narrowed instead.
+    [Fact]
+    public void Every_rule_that_maps_to_full_carries_a_written_reason_above_it()
+    {
+        string[] lines = Map.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+        var missing = new List<string>();
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            if (line.Length == 0 || line.StartsWith("#")) continue;
+            var cols = line.Split('\t');
+            if (!cols[1].Split(',').Contains("full")) continue;
+            // walk up through the comment block directly above the rule (a blank line ends it)
+            bool reason = false;
+            for (int j = i - 1; j >= 0 && lines[j].StartsWith("#"); j--)
+                if (lines[j].StartsWith("# full because:") && lines[j].Length > "# full because:".Length + 10) { reason = true; break; }
+            if (!reason) missing.Add("line " + (i + 1) + ": " + (cols[0].Length > 80 ? cols[0].Substring(0, 80) + "..." : cols[0]));
+        }
+        Assert.True(missing.Count == 0, "rules mapped to full with no '# full because: <reason>' comment above them:\n" + string.Join("\n", missing));
+    }
+
+    // The World files whose users the code shows select only those users' areas; the shared world model stays on the full set.
+    [Theory]
+    [InlineData("core/Viewer.Core/World/CloudNoise.cs", "environment")]
+    [InlineData("core/Viewer.Core/World/WaterWaves.cs", "environment")]
+    [InlineData("core/Viewer.Core/World/WaterPlan.cs", "environment,terrain")]
+    [InlineData("core/Viewer.Core/World/Glow.cs", "avatars,objects")]
+    [InlineData("core/Viewer.Core/World/GlowOccluders.cs", "objects,terrain")]
+    [InlineData("host/Viewer.Shell/QuitWatchdog.cs", "none")]
+    [InlineData("host/Viewer.Godot/Main.Window.cs", "ui")]
+    public void Placed_files_select_the_areas_of_their_users_and_not_the_full_set(string file, string areas)
+    {
+        var s = Select(file);
+        Assert.Empty(s.Unplaced);
+        Assert.False(s.Full, file);
+        Assert.Equal(areas.Split(','), s.FileAreas[file].ToArray());
+    }
+
+    [Theory]
+    [InlineData("core/Viewer.Core/World/WorldState.cs")]
+    [InlineData("core/Viewer.Core/World/Materials.cs")]
+    [InlineData("core/Viewer.Core/World/NewFileNobodyPlacedYet.cs")]
+    [InlineData("host/Viewer.Godot/Main.tscn")]
+    public void The_shared_world_model_and_the_main_scene_stay_on_the_full_set(string file)
+    {
+        var s = Select(file);
+        Assert.True(s.Full, file);
+        Assert.Empty(s.Unplaced);
+    }
+
+    private static string[] TrackedFiles()
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+        psi.ArgumentList.Add("-C"); psi.ArgumentList.Add(RepoRoot()); psi.ArgumentList.Add("ls-files");
+        using var p = System.Diagnostics.Process.Start(psi)!;
+        string output = p.StandardOutput.ReadToEnd();
+        p.WaitForExit();
+        Assert.True(p.ExitCode == 0, "git ls-files failed");
+        return output.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
