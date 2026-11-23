@@ -198,7 +198,9 @@ public sealed partial class PrefPageView
             bool muted = _model().Value(mute) is true;
             button.Text = _strings.Get(muted ? "prefs.sound.unmute" : "prefs.sound.mute");
             button.AccessibilityName = button.Text + " " + title;
-            slider.Modulate = new Color(1, 1, 1, muted ? 0.5f : 1f);   // a muted level is shown dimmed
+            var shade = slider.Modulate;   // a muted level is shown dimmed: the same colour at half strength
+            shade.A = muted ? 0.5f : 1f;
+            slider.Modulate = shade;
         };
     }
 
@@ -265,7 +267,7 @@ public sealed partial class PrefPageView
             cell.AddChild(note);
             table.AddChild(cell);
 
-            var on = new CheckBox { Name = "sound_" + key + "_on", Text = "" };
+            var on = new CheckBox { Name = "sound_" + key + "_on" };
             on.AccessibilityName = title + " " + _strings.Get("prefs.sound.enabled");
             on.TooltipText = _strings.Get("prefs.sound.enabled");
             on.Toggled += v =>
