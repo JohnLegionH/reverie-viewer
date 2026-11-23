@@ -29,7 +29,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Run: Ctrl+R switches always-run; tap a direction twice and hold to run (Preferences > Move & View).
 - Sit on an object or the ground (right-click > **Sit Here**), and stand up (the **Stand** button, or right-click > **Stand Up**).
 - Mouselook: M, or scroll in past the closest zoom. Esc or scroll out leaves it. Turn it off in Preferences > Move & View.
-- Camera: Alt+drag orbits and zooms, Ctrl+Alt+drag orbits, Ctrl+Alt+Shift+drag pans. Alt+click focuses on what you click. Alt with the arrow keys also moves the camera. Scroll wheel zooms. Esc resets the view.
+- Camera: Alt+drag orbits and zooms, Ctrl+Alt+drag orbits, Ctrl+Alt+Shift+drag pans. Alt+click focuses on what you click. Alt with the arrow keys also moves the camera. Scroll wheel zooms. Esc resets the view. Left-drag on your own avatar turns you the way you drag (right turns right) and tilts the view up and down; left-drag on the ground steers.
 - Smoothing, inverted mouse, crosshair and camera constraints: Preferences > Move & View.
 
 ## Chat and people
