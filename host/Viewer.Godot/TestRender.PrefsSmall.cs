@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Godot;
@@ -180,6 +181,45 @@ public partial class TestRender
             _failures.Add("preferences layout switch: " + p);
         if (_result.TryGetValue("ui_chrome", out var chrome) && chrome is Dictionary<string, object?> map)
             map["prefs_switch"] = new { count = problems.Count, problems };
+    }
+
+    /// <summary>
+    /// The interface size drop-down: it offers 100, 125, 150, 175 and 200 %; a size that is not one of them (a saved 110 %) is kept as an
+    /// entry of its own, shown as the choice, until another size is chosen; Cancel puts back the size that was in force when Preferences
+    /// opened. (The same control is worked by pointer and keyboard events in tools\ui-size-live.ps1.)
+    /// </summary>
+    private async Task PreferencesSizeDropdown(PreferencesPanel prefs)
+    {
+        var problems = new List<string>();
+        var dropdown = prefs.FindChild("scale_dropdown", true, false) as OptionButton;
+        if (dropdown is null)
+        {
+            _failures.Add("preferences size drop-down: the size control 'scale_dropdown' is not found (the interface size is not a drop-down)");
+            return;
+        }
+        string Items() => string.Join(" ", Enumerable.Range(0, dropdown.ItemCount).Select(i => dropdown.GetItemId(i).ToString(CultureInfo.InvariantCulture)));
+        int start = prefs.Page.EffectiveScale;
+        if (Items() != "100 125 150 175 200")
+            problems.Add($"the drop-down offers '{Items()}', expected '100 125 150 175 200'");
+        prefs.Page.SetScale(110);   // a saved size that is not on the list
+        await Frames(3);
+        if (Items() != "100 110 125 150 175 200" || dropdown.Selected < 0 || dropdown.GetItemId(dropdown.Selected) != 110)
+            problems.Add($"a saved 110 % is not kept as its own entry (entries '{Items()}', shown {dropdown.GetItemId(Math.Max(0, dropdown.Selected))})");
+        // the choice goes through the drop-down's own signal, as a pick from its list does
+        int at150 = Enumerable.Range(0, dropdown.ItemCount).First(i => dropdown.GetItemId(i) == 150);
+        dropdown.Select(at150);
+        dropdown.EmitSignal(OptionButton.SignalName.ItemSelected, (long)at150);
+        await Frames(3);
+        if (Items() != "100 125 150 175 200" || dropdown.Selected < 0 || dropdown.GetItemId(dropdown.Selected) != 150 || UiTheme.ScalePercent != 150)
+            problems.Add($"after choosing 150 % the odd entry stays or the choice is not shown (entries '{Items()}')");
+        prefs.CancelEdits();
+        await Frames(3);
+        if (UiTheme.ScalePercent != start || dropdown.Selected < 0 || dropdown.GetItemId(dropdown.Selected) != start)
+            problems.Add($"Cancel did not put back {start} % (in force {UiTheme.ScalePercent}, drop-down shows {dropdown.GetItemId(dropdown.Selected)})");
+        if (_result.TryGetValue("ui_chrome", out var chrome) && chrome is Dictionary<string, object?> map)
+            map["prefs_size_dropdown"] = new { count = problems.Count, problems };
+        foreach (var p in problems)
+            _failures.Add("preferences size drop-down: " + p);
     }
 
     private static ScrollContainer? FirstScroll(Control page) => page as ScrollContainer ?? page.FindChild("*", true, false) as ScrollContainer;

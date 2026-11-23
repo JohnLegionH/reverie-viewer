@@ -764,10 +764,13 @@ function Invoke-UiChromeCases {
     # the open windows are inside the main view. The golden is fixtures\ui\golden-uichrome-<pct>-<WxH>-<backend>.png; a case with none ends as NO GOLDEN.
     foreach ($be in $Backends) {
         foreach ($win in @("1152x648", "1280x720", "1920x1080")) {
-            foreach ($pct in @(100, 150, 200)) {
+            # 125 and 175 % are checked in the smallest window only (the layout check), with no picture of their own
+            foreach ($pct in $(if ($win -eq "1152x648") { @(100, 125, 150, 175, 200) } else { @(100, 150, 200) })) {
                 $name = "ui_chrome_${pct}_${win}_$be"
                 $golden = Join-Path $repo "fixtures\ui\golden-uichrome-$pct-$win-$be.png"
-                if (-not (Test-Path -LiteralPath $golden)) {
+                # 125 and 175 % have no picture of their own (layout check only); every other size has a golden in each window size
+                $wantsGolden = $pct -in @(100, 150, 200)
+                if ($wantsGolden -and -not (Test-Path -LiteralPath $golden)) {
                     $r = Invoke-Render $be "proposal-uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win"
                     $okGeometry = $r.Json -and $r.Json.backend.driver -eq $be -and $r.Json.ui_chrome -and -not @($r.Json.ui_chrome.problems).Count
                     if ($Propose -and $okGeometry) {
