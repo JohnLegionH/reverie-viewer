@@ -489,7 +489,7 @@ public partial class ScriptEditorPanel : VBoxContainer
             return;
         _syncing = true;
         Code.Editable = e.CanEdit;
-        SaveButton.Disabled = !e.CanSave;
+        DisabledTip.Set(SaveButton, !e.CanSave, _s.Get("disabled.script.save"));
         RunningCheck.Visible = ResetButton.Visible = e.InObject;
         RunningCheck.Disabled = !e.CanSetRunning;
         RunningCheck.ButtonPressed = e.Running ?? false;
@@ -627,7 +627,7 @@ public partial class ScriptEditorPanel : VBoxContainer
         if (_syncing || _editing is not { } e)
             return;
         e.Text = Code.Text;
-        SaveButton.Disabled = !e.CanSave;
+        DisabledTip.Set(SaveButton, !e.CanSave, _s.Get("disabled.script.save"));
         SyncWords(e);
         if (!e.SecondLife && !e.ChooseEngine)
             SyncTarget(e);   // the greyed drop-down names the engine the first line asks for

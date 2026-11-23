@@ -47,6 +47,9 @@ public partial class ColourChip : Button
                 }
         }
         DrawRect(inner, Disabled ? _colour.Darkened(0.55f) : _colour);
+        // a thin outline in the unticked box's colour, so a dark swatch on a dark surface (or a light one on a light surface) is still seen
+        var edge = ShellTheme.C(CheckColours.Outline(ReverieStyle.TokensFor(UiTheme.Tokens)));
+        DrawRect(new Rect2(inner.Position - Vector2.One, inner.Size + Vector2.One * 2), Disabled ? edge with { A = edge.A * ControlStates.DisabledStrength } : edge, false, 1);
     }
 }
 

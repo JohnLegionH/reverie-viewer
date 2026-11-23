@@ -10,7 +10,7 @@ namespace Viewer.Godot;
 /// <summary>
 /// The pictures of the Reverie check box: an unticked box is a rounded outline in a colour that holds 3:1 against the surface behind it
 /// (<see cref="CheckColours"/>), a ticked box the accent filled with a tick in the text-on-accent colour, and a disabled box the same
-/// at 45 % so it differs from an unticked one. Drawn here by distance to the shape, so the edges are smooth at any look's colours.
+/// at 45 %, an unticked one a dashed outline (so it differs by shape, not only by dimness). Drawn here by distance to the shape, so the edges are smooth at any look's colours.
 /// </summary>
 public static class CheckBoxIcons
 {
@@ -25,7 +25,10 @@ public static class CheckBoxIcons
         var outline = CheckColours.Outline(r);
         var fill = ticked ? r.Accent : outline;
         var tick = r["text.on-accent"];
-        float fade = disabled ? (float)ControlStates.DisabledStrength : 1f;
+        // a disabled, unticked box is a dashed outline at its own strength (CheckColours.Disabled); a ticked one is the box at 45 %
+        var off = CheckColours.Disabled(r);
+        bool dashed = disabled && !ticked;
+        float fade = !disabled ? 1f : ticked ? ControlStates.DisabledStrength : off.Strength;
         var image = Image.CreateEmpty(Size, Size, false, Image.Format.Rgba8);
         const int samples = 4;
         for (int y = 0; y < Size; y++)
@@ -39,7 +42,7 @@ public static class CheckBoxIcons
                         float d = BoxDistance(px, py);
                         if (d <= 0)
                             body++;
-                        if (d <= 0 && d >= -Stroke)
+                        if (d <= 0 && d >= -Stroke && (!dashed || DashOn(px, py)))
                             line++;
                         if (ticked && TickDistance(px, py) <= 1.0f)
                             mark++;
@@ -66,6 +69,10 @@ public static class CheckBoxIcons
             }
         return ImageTexture.CreateFromImage(image);
     }
+
+    // the dashed outline of a disabled box: sixteen arcs around the centre, every other one drawn
+    private static bool DashOn(float x, float y) =>
+        (int)MathF.Floor((MathF.Atan2(y - Size / 2f, x - Size / 2f) + MathF.PI) / MathF.Tau * 16f) % 2 == 0;
 
     // signed distance to the rounded square that fills the picture (negative inside), in picture units
     private static float BoxDistance(float x, float y)

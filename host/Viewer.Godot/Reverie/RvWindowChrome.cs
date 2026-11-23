@@ -67,7 +67,7 @@ public partial class RvWindowChrome : Control
         row.AddChild(Close);
         Content = new MarginContainer { Name = "content", SizeFlagsVertical = SizeFlags.ExpandFill };
         foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
-            Content.AddThemeConstantOverride(side, 12);
+            Content.AddThemeConstantOverride(side, (int)PanelPadding.Inner);
         column.AddChild(Content);
     }
 

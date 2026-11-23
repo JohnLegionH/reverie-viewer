@@ -232,9 +232,9 @@ public partial class OutfitPanel : VBoxContainer
     private void Refresh()
     {
         bool bound = _actions is not null && _view is not null;
-        TakeOffButton.Disabled = !bound || _selectedWorn == Guid.Empty || !_actions!.CanTakeOff(_selectedWorn);
-        WearOutfitButton.Disabled = !bound || _selectedOutfit == Guid.Empty || !_actions!.CanWearOutfit(_selectedOutfit);
-        SaveButton.Disabled = !bound;
+        DisabledTip.Set(TakeOffButton, !bound || _selectedWorn == Guid.Empty || !_actions!.CanTakeOff(_selectedWorn), _strings.Get("disabled.outfit.take_off"));
+        DisabledTip.Set(WearOutfitButton, !bound || _selectedOutfit == Guid.Empty || !_actions!.CanWearOutfit(_selectedOutfit), _strings.Get("disabled.outfit.wear"));
+        DisabledTip.Set(SaveButton, !bound, _strings.Get("disabled.outfit.save"));
         NameField.Editable = bound;
         if (_view is null)
         {

@@ -147,12 +147,14 @@ public sealed partial class PreferencesPanel : VBoxContainer
             _nav[id] = go;
         }
         var content = new VBoxContainer { Name = "content", SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        // the window frame pads the outside; the gap between the category list and every page is the shared inner padding too
+        body.AddThemeConstantOverride("separation", (int)PanelPadding.Inner);
         body.AddChild(content);
         _title = new Label { Name = "category", ThemeTypeVariation = UiTheme.TitleLabel };
         content.AddChild(_title);
 
         // as every other page: wider than its place, it scrolls sideways inside the window's margin
-        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
+        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, CustomMinimumSize = new Vector2(640, 0) };   // asks for the same width as the other pages, so the window keeps its width from page to page
         content.AddChild(scroll);
         _interfaceScroll = scroll;
         foreach (var pageId in Enum.GetValues<PrefPage>())
@@ -230,6 +232,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         // colours
         box.AddChild(Heading(strings.Get("prefs.colours.heading")));
         var grid = new GridContainer { Name = "colours", Columns = 2 };
+        grid.AddThemeConstantOverride("h_separation", 10);
         Row(grid, "panel", "prefs.colour.panel", c => _page.SetPanel(c));
         Row(grid, "bar", "prefs.colour.bar", c => _page.SetBar(c));
         Row(grid, "text", "prefs.colour.text", c => _page.SetText(c));
@@ -414,6 +417,8 @@ public sealed partial class PreferencesPanel : VBoxContainer
         ShowCategory(def.Page.ToString().ToLowerInvariant());
         if (ControlFor(key) is not { } control)
             return false;
+        foreach (var view in _views.Values)
+            view.RevealSetting(key);
         // once the row shows (the window may open in the same frame, and takes the keyboard as it opens), for at most ten frames
         var tree = GetTree();
         int frames = 0;
@@ -643,7 +648,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
     private void Row(GridContainer grid, string key, string labelKey, Action<UiColour?> set)
     {
         string text = _strings.Get(labelKey);
-        var label = new Label { Name = "label_" + key, Text = text, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var label = new Label { Name = "label_" + key, Text = text, CustomMinimumSize = new Vector2(150, 0) };   // a label column with the swatch right beside it
         label.AccessibilityName = text;
         var picker = new ColourButton { Name = "pick_" + key, CustomMinimumSize = new Vector2(96, 28) };
         picker.AccessibilityName = text;

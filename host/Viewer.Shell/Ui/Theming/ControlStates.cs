@@ -20,6 +20,27 @@ public static class ControlStates
     /// <summary>How strongly a disabled control is drawn: 45 % of its enabled opacity.</summary>
     public const float DisabledStrength = 0.45f;
 
+    /// <summary>The least contrast the label of a disabled filled button keeps on its dimmed face.</summary>
+    public const double DisabledFilledMinContrast = 3.0;
+
+    /// <summary>
+    /// The label colour of a disabled primary button (Reverie components). The face is the accent at 45 %, so the accent's own label colour
+    /// (dark on a light accent) would be dark on a dark face. The label is the look's text colour instead, at 45 % or the least stronger
+    /// opacity that keeps <see cref="DisabledFilledMinContrast"/> on the dimmed face over every surface a button stands on.
+    /// </summary>
+    public static UiColour FilledDisabledText(ReverieTokens r)
+    {
+        var text = r["text.primary"];
+        float strength = DisabledStrength;
+        while (strength < 1f && !CheckColours.SurfaceNames.All(s =>
+        {
+            var face = CheckColours.Over(r.Accent, DisabledStrength, r[s]);
+            return UiColour.Contrast(CheckColours.Over(text, strength, face), face) >= DisabledFilledMinContrast + 0.05;
+        }))
+            strength = MathF.Min(1f, strength + 0.05f);
+        return text with { A = strength };
+    }
+
     /// <summary>The colour at the disabled strength: the same colour, its opacity times <see cref="DisabledStrength"/>.</summary>
     public static UiColour Faded(UiColour c) => c with { A = c.A * DisabledStrength };
 

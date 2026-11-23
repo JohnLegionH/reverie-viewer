@@ -643,7 +643,7 @@ public partial class LoginScreen : Control
     private void ShowPasswordTick()
     {
         bool enabled = StartChoice.PasswordTickEnabled(_remember.ButtonPressed);
-        _rememberPassword.Disabled = !enabled;
+        DisabledTip.Set(_rememberPassword, !enabled, _strings.Get("disabled.login.remember_password"));
     }
 
     private void ShowBusy()

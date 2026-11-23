@@ -25,6 +25,8 @@ public sealed partial class MaxWidthBox : Container
         foreach (var node in GetChildren())
             if (node is Control { Visible: true } c)
                 min = min.Max(c.GetCombinedMinimumSize());
+        // every page asks for the same width, so the window does not change width from page to page
+        min.X = Math.Max(min.X, MaxWidth);
         return min;
     }
 
@@ -53,21 +55,13 @@ public sealed partial class PrefPageView
 
     private void BuildSoundPage(VBoxContainer box)
     {
-        var width = new MaxWidthBox { Name = "sound_width", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        box.AddChild(width);
-        var margin = new MarginContainer { Name = "sound_margin" };
-        foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
-            margin.AddThemeConstantOverride(side, 12);
-        width.AddChild(margin);
-        var page = new VBoxContainer { Name = "sound_content", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        page.AddThemeConstantOverride("separation", 10);
-        margin.AddChild(page);
+        var page = PageRoot(box, "sound");
 
         // Volume: one row each (name, slider, value, mute), as the official viewer's Sound & Media tab
         Section(page, "volume", false, null, null, out var volume);
         var rows = new GridContainer { Name = "sound_volumes", Columns = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         rows.AddThemeConstantOverride("h_separation", 10);
-        rows.AddThemeConstantOverride("v_separation", 8);
+        rows.AddThemeConstantOverride("v_separation", 4);
         volume.AddChild(rows);
         AddVolumeRow(rows, "master", AudioLevels.Master.Key, AudioLevels.MuteMaster.Key);
         AddVolumeRow(rows, "sounds", AudioLevels.Sounds.Key, AudioLevels.MuteSounds.Key);
@@ -76,8 +70,13 @@ public sealed partial class PrefPageView
 
         // Options: plain tick boxes
         Section(page, "options", false, null, null, out var options);
+        // two to a line, so the closed More and Interface sounds headers below are in view when the page is first opened
+        var optionGrid = new GridContainer { Name = "sound_options", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        optionGrid.AddThemeConstantOverride("h_separation", 24);
+        optionGrid.AddThemeConstantOverride("v_separation", 4);
+        options.AddChild(optionGrid);
         foreach (var key in new[] { AudioLevels.CollisionSounds.Key, AudioLevels.GestureSounds.Key, AudioLevels.Mono.Key, UiSoundSettings.MuteWhenMinimized.Key })
-            AddSetting(options, PreferenceCatalog.Find(key)!);
+            AddSetting(optionGrid, PreferenceCatalog.Find(key)!);
         if (_controls.GetValueOrDefault(AudioLevels.Mono.Key) is { } mono)
             mono.TooltipText = _strings.Get("prefs.sound.mono.tip");
 
@@ -105,13 +104,13 @@ public sealed partial class PrefPageView
     }
 
     private HashSet<string> OpenSoundSections() =>
-        (_model().Service.GetText(SoundSectionsKey) ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+        (_model().Service.GetText(_sectionsKey) ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
 
     /// <summary>One section: a flat header with a rule under it. A collapsible one has a chevron, is closed until the user opens it (the choice is
     /// kept), and says in one line what it holds while it is closed; <paramref name="extra"/> sits at the right end of its header.</summary>
-    private void Section(VBoxContainer parent, string id, bool collapsible, Func<string>? summary, Control? extra, out VBoxContainer body)
+    private void Section(VBoxContainer parent, string id, bool collapsible, Func<string>? summary, Control? extra, out VBoxContainer body, string? titleKey = null)
     {
-        string title = _strings.Get(id == "interface" ? "prefs.sound.heading" : "prefs.sound.section." + id);
+        string title = _strings.Get(titleKey ?? (id == "interface" ? "prefs.sound.heading" : "prefs.sound.section." + id));
         var holder = new VBoxContainer { Name = "section_" + id };
         holder.AddThemeConstantOverride("separation", 6);
         var content = new VBoxContainer { Name = "section_" + id + "_body" };
@@ -135,7 +134,10 @@ public sealed partial class PrefPageView
             toggle.AccessibilityName = title;
             var line = new Label { Name = "section_" + id + "_summary", ThemeTypeVariation = UiTheme.CaptionLabel, Visible = !open, ClipText = true };
             line.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-            var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
+            // the summary takes the room the title leaves (a plain spacer beside it took it all and left the summary a pixel wide)
+            line.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            line.CustomMinimumSize = new Vector2(120, 0);
+            var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore, Visible = open };   // keeps the right end clear while the section is open
             head.AddChild(toggle);
             head.AddChild(line);
             head.AddChild(spacer);
@@ -150,10 +152,11 @@ public sealed partial class PrefPageView
             {
                 content.Visible = on;
                 line.Visible = !on;
+                spacer.Visible = on;
                 toggle.Icon = ReverieIcons.Get(on ? LucideIcons.Down : LucideIcons.Submenu);
                 var now = OpenSoundSections();
                 if (on) now.Add(id); else now.Remove(id);
-                _model().Service.SetText(SoundSectionsKey, string.Join(",", now.Order()));
+                _model().Service.SetText(_sectionsKey, string.Join(",", now.Order()));
             };
             holder.AddChild(head);
         }
@@ -186,7 +189,8 @@ public sealed partial class PrefPageView
         value.AccessibilityName = title;
         grid.AddChild(value);
 
-        var button = new Button { Name = "pref_" + muteKey, CustomMinimumSize = new Vector2(84, 0) };
+        // the speaker icon, as the official viewer's Sound & Media tab has it: crossed out while muted, with the action as its tooltip
+        var button = new Button { Name = "pref_" + muteKey, CustomMinimumSize = new Vector2(36, 0), Icon = ReverieIcons.Get(LucideIcons.Volume) };
         button.Pressed += () => Edit(mute, _model().Value(mute) is not true);
         grid.AddChild(button);
 
@@ -196,8 +200,9 @@ public sealed partial class PrefPageView
         _sync[muteKey] = () =>
         {
             bool muted = _model().Value(mute) is true;
-            button.Text = _strings.Get(muted ? "prefs.sound.unmute" : "prefs.sound.mute");
-            button.AccessibilityName = button.Text + " " + title;
+            button.Icon = ReverieIcons.Get(muted ? LucideIcons.Muted : LucideIcons.Volume);
+            button.TooltipText = _strings.Get(muted ? "prefs.sound.unmute.tip" : "prefs.sound.mute.tip");
+            button.AccessibilityName = _strings.Get(muted ? "prefs.sound.unmute" : "prefs.sound.mute") + " " + title;
             var shade = slider.Modulate;   // a muted level is shown dimmed: the same colour at half strength
             shade.A = muted ? 0.5f : 1f;
             slider.Modulate = shade;
@@ -210,7 +215,7 @@ public sealed partial class PrefPageView
         string label = _strings.Get(def.LabelKey);
         var row = new HBoxContainer { Name = "row_" + def.Key };
         row.AddThemeConstantOverride("separation", 10);
-        var caption = new Label { Text = label, CustomMinimumSize = new Vector2(NameColumn + 100, 0), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        var caption = new Label { Text = label, CustomMinimumSize = new Vector2(LabelColumn, 0), AutowrapMode = TextServer.AutowrapMode.Off };
         caption.AccessibilityName = label;
         row.AddChild(caption);
         var control = MakeValueControl(def, label);

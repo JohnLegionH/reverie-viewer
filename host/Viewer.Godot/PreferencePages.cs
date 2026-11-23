@@ -32,6 +32,10 @@ public sealed partial class PrefPageView : ScrollContainer
     private readonly Dictionary<UiSoundSlot, (Label Note, OptionButton Source)> _soundStatus = new();
     private double _statusAge;
     private bool _syncing;
+    private readonly string _sectionsKey;
+
+    /// <summary>The width of the label column on a settings row: the label, then its control right next to it.</summary>
+    private const float LabelColumn = 250;
 
     public PrefPage Page { get; }
 
@@ -54,16 +58,17 @@ public sealed partial class PrefPageView : ScrollContainer
         HorizontalScrollMode = ScrollMode.Auto;
         var box = new VBoxContainer { Name = "page", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         AddChild(box);
+        _sectionsKey = page == PrefPage.Sound ? SoundSectionsKey : "prefs_" + page.ToString().ToLowerInvariant() + "_sections_open";
+        Dictionary<string, VBoxContainer>? bodies = null;
         if (page == PrefPage.Sound)
             BuildSoundPage(box);
         else
-            foreach (var def in PreferenceCatalog.OfPage(page))
-                AddSetting(box, def);
+            bodies = BuildStandardPage(box, page);
         if (page == PrefPage.Privacy && clearNames is not null)
-            box.AddChild(ConfirmedAction("clear_names", "prefs.privacy.clear", "prefs.privacy.clear.ask", "prefs.privacy.clear.yes", "prefs.privacy.clear.no",
+            (bodies?.GetValueOrDefault("login") ?? box).AddChild(ConfirmedAction("clear_names", "prefs.privacy.clear", "prefs.privacy.clear.ask", "prefs.privacy.clear.yes", "prefs.privacy.clear.no",
                 () => _strings.Get(clearNames() ? "prefs.privacy.cleared" : "prefs.privacy.none")));
         if (page == PrefPage.Cache && clearCache is not null)
-            box.AddChild(ConfirmedAction("clear_cache", "prefs.cache.clear", "prefs.cache.clear.ask", "prefs.cache.clear.yes", "prefs.cache.clear.no",
+            (bodies?.GetValueOrDefault("cache") ?? box).AddChild(ConfirmedAction("clear_cache", "prefs.cache.clear", "prefs.cache.clear.ask", "prefs.cache.clear.yes", "prefs.cache.clear.no",
                 () => _strings.Get("prefs.cache.cleared", new Counted("count.entries", clearCache()))));
         Sync();
     }
@@ -89,7 +94,76 @@ public sealed partial class PrefPageView : ScrollContainer
         Sync();
     }
 
-    private void AddSetting(VBoxContainer box, PrefDef def)
+    /// <summary>The note a setting carries under it, as a string key, or null: the backend's own notice, or that a change needs a restart or the next login.</summary>
+    private static string? NoteKeyOf(PrefDef def) =>
+        def.Key == Settings.GraphicsBackendKey ? "prefs.backend.notice"
+        : def.Apply == PrefApply.Restart ? "prefs.note.restart"
+        : def.Apply == PrefApply.NextUse ? "prefs.note.nextuse" : null;
+
+    /// <summary>
+    /// A page of the ordinary kind: its content kept to a readable width from the left edge, the settings under flat headers as
+    /// <see cref="PreferencePageLayout"/> groups them, and the rarely used ones in a closed "More" that says what it holds. Returns each
+    /// section's body by id, for the actions that belong in one.
+    /// </summary>
+    private Dictionary<string, VBoxContainer> BuildStandardPage(VBoxContainer box, PrefPage page)
+    {
+        var bodies = new Dictionary<string, VBoxContainer>();
+        var content = PageRoot(box, page.ToString().ToLowerInvariant() + "_layout");
+        foreach (var section in PreferencePageLayout.For(page))
+        {
+            var defs = section.Keys.Select(k => PreferenceCatalog.Find(k)!).ToList();
+            Func<string>? summary = section.Collapsed
+                ? () => _strings.Get(section.SummaryKey(page), defs.Select(ValueText).Cast<object>().ToArray())
+                : null;
+            Section(content, section.Id, section.Collapsed, summary, null, out var body, section.TitleKey(page));
+            bodies[section.Id] = body;
+            // one note for a section whose settings all need the same thing (a restart), rather than the same line under each
+            var shared = defs.Select(NoteKeyOf).Where(n => n is not null && n != "prefs.backend.notice").GroupBy(n => n).FirstOrDefault(g => g.Count() >= 2)?.Key;
+            if (shared is not null)
+                body.AddChild(Caption(_strings.Get(shared), "note_" + defs.First(d => NoteKeyOf(d) == shared).Key));
+            foreach (var def in defs)
+                AddSetting(body, def, noteSuppressed: shared is not null && NoteKeyOf(def) == shared);
+        }
+        return bodies;
+    }
+
+    /// <summary>The page's content holder: kept to a readable width, with the shared inner padding all round. Returns the column the sections go in.</summary>
+    private VBoxContainer PageRoot(VBoxContainer box, string name)
+    {
+        var width = new MaxWidthBox { Name = name + "_width", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        box.AddChild(width);
+        var margin = new MarginContainer { Name = name + "_margin" };
+        foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
+            margin.AddThemeConstantOverride(side, (int)PanelPadding.Inner);
+        width.AddChild(margin);
+        var content = new VBoxContainer { Name = name + "_content", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        content.AddThemeConstantOverride("separation", 6);
+        margin.AddChild(content);
+        return content;
+    }
+
+    /// <summary>Opens the closed section a setting is in (its "More"), so the row can be shown, scrolled to and focused.</summary>
+    public void RevealSetting(string key)
+    {
+        foreach (var section in PreferencePageLayout.For(Page))
+            if (section.Collapsed && section.Keys.Contains(key) && FindChild("section_" + section.Id + "_toggle", true, false) is Button { ButtonPressed: false } toggle)
+                toggle.ButtonPressed = true;
+    }
+
+    /// <summary>A setting's value in words, for a closed section's summary line.</summary>
+    private string ValueText(PrefDef def)
+    {
+        object? value = _model().Value(def);
+        return def.Kind switch
+        {
+            PrefKind.Switch => _strings.Get(value is true ? "prefs.value.on" : "prefs.value.off"),
+            PrefKind.Choice => _strings.Get("prefs.c." + def.Key + "." + value),
+            PrefKind.Folder or PrefKind.Text => value as string ?? "",
+            _ => Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("0.##", CultureInfo.CurrentCulture),
+        };
+    }
+
+    private void AddSetting(Node box, PrefDef def, bool noteSuppressed = false)
     {
         string label = _strings.Get(def.LabelKey);
         Control control;
@@ -101,7 +175,7 @@ public sealed partial class PrefPageView : ScrollContainer
             _sync[def.Key] = () =>
             {
                 check.SetPressedNoSignal(_model().Value(def) is true);
-                check.Disabled = !_model().Enabled(def);
+                DisabledTip.Set(check, !_model().Enabled(def), def.Scope == PrefScope.PerAccount ? _strings.Get("prefs.note.account") : null);
             };
             box.AddChild(check);
             control = check;
@@ -109,19 +183,25 @@ public sealed partial class PrefPageView : ScrollContainer
         else
         {
             var row = new HBoxContainer { Name = "row_" + def.Key };
-            var caption = new Label { Text = label, SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(120, 0) };
+            row.AddThemeConstantOverride("separation", 10);
+            // a fixed label column on one line, the control right next to it; a hint that does not fit the label is the tooltip of both
+            var caption = new Label { Text = label, CustomMinimumSize = new Vector2(LabelColumn, 0), AutowrapMode = TextServer.AutowrapMode.Off };
             caption.AccessibilityName = label;
             row.AddChild(caption);
             control = MakeValueControl(def, label);
+            if (_strings.Has(def.LabelKey + ".tip"))
+            {
+                caption.TooltipText = _strings.Get(def.LabelKey + ".tip");
+                caption.MouseFilter = MouseFilterEnum.Pass;
+                control.TooltipText = caption.TooltipText;
+            }
             row.AddChild(control);
             if (def.Kind == PrefKind.Folder)
                 AddChooseFolder(row, def);
             box.AddChild(row);
         }
         _controls[def.Key] = control;
-        string? note = def.Key == Settings.GraphicsBackendKey ? "prefs.backend.notice"
-            : def.Apply == PrefApply.Restart ? "prefs.note.restart"
-            : def.Apply == PrefApply.NextUse ? "prefs.note.nextuse" : null;
+        string? note = noteSuppressed ? null : NoteKeyOf(def);
         if (note is not null)
             box.AddChild(Caption(_strings.Get(note), "note_" + def.Key));
         if (def.Key == Settings.GraphicsBackendKey && GraphicsBackendInfo.Status is { } backend)
@@ -157,10 +237,12 @@ public sealed partial class PrefPageView : ScrollContainer
                 bool whole = def.Kind == PrefKind.Whole;
                 // a real number keeps the two decimals it is stored with: the engine snaps a value to its step counted from the minimum,
                 // so a step of 0.1 above a minimum of 0.01 made a typed 1.5 into 1.51; the arrows still move by 0.1
-                var spin = new SpinBox { Name = "pref_" + def.Key, MinValue = def.Min, MaxValue = def.Max, Step = whole ? 1 : 0.01, CustomArrowStep = whole ? 0 : 0.1,
-                    Rounded = whole, CustomMinimumSize = new Vector2(110, 0) };
+                // the two sound thresholds are shown and stepped in whole units (an amount of money, a percentage of health); they stay real numbers in the file
+                bool wholeShown = whole || def.Key == Viewer.Shell.Sound.UiSoundSettings.MoneyThreshold.Key || def.Key == Viewer.Shell.Sound.UiSoundSettings.HealthThreshold.Key;
+                var spin = new SpinBox { Name = "pref_" + def.Key, MinValue = def.Min, MaxValue = def.Max, Step = wholeShown ? 1 : 0.01, CustomArrowStep = wholeShown ? 0 : 0.1,
+                    Rounded = wholeShown, CustomMinimumSize = new Vector2(110, 0) };
                 spin.AccessibilityName = label;
-                spin.ValueChanged += v => Edit(def, whole ? (object)(int)Math.Round(v) : Math.Round(v, 2));
+                spin.ValueChanged += v => Edit(def, whole ? (object)(int)Math.Round(v) : wholeShown ? Math.Round(v) : Math.Round(v, 2));
                 _sync[def.Key] = () =>
                 {
                     spin.SetValueNoSignal(Convert.ToDouble(_model().Value(def), CultureInfo.InvariantCulture));
@@ -181,6 +263,8 @@ public sealed partial class PrefPageView : ScrollContainer
             {
                 var line = new LineEdit { Name = "pref_" + def.Key, CustomMinimumSize = new Vector2(160, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
                 line.AccessibilityName = label;
+                if (def.Kind == PrefKind.Folder)
+                    line.PlaceholderText = _strings.Get("prefs.cache.placeholder");   // empty means the default folder
                 line.TextSubmitted += text => Edit(def, text.Trim());
                 line.FocusExited += () => Edit(def, line.Text.Trim());
                 _sync[def.Key] = () => line.Text = _model().Value(def) as string ?? "";
