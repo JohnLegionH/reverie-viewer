@@ -476,10 +476,6 @@ public partial class Main
                     done = new[] { inSquare.X, inSquare.Y };
                 }
                 break;
-            // where the Build window's own close button stands on screen, for the live check of closing it with a click
-            case "build_close":
-                done = CloseButtonOf(_editPanel) is { } bc ? new[] { bc.GetGlobalRect().GetCenter().X, bc.GetGlobalRect().GetCenter().Y } : null;
-                break;
             // where a picker window's own close button stands on screen: items, colour or folders
             case "picker_close":
             {
