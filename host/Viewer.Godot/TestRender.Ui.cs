@@ -52,7 +52,7 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
-        "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
+        "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-placement", "build-placement-150", "build-placement-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
@@ -256,6 +256,22 @@ public partial class TestRender
         return window;
     }
 
+    /// <summary>Scrolls the Build window so the section's card is at the top of its view (the section comes after others and may be below the fold).</summary>
+    private async Task ScrollSectionToTop(ShellRoot shell, string section)
+    {
+        if (shell.FindChild("section_box_" + section, true, false) is not Control box)
+            return;
+        ScrollContainer? scroll = null;
+        for (Node? n = box.GetParent(); n is not null && scroll is null; n = n.GetParent())
+            scroll = n as ScrollContainer;
+        if (scroll is not null && box.GetParent() is Control card)
+        {
+            scroll.ScrollVertical = (int)(card.GetGlobalRect().Position.Y - scroll.GetGlobalRect().Position.Y + scroll.ScrollVertical);
+            await Frames(4);
+        }
+    }
+
+
     /// <summary>The Build window with an example box selected (the Edit tool; a hollowed, twisted box), on an in-memory world with no
     /// session or grid. <paramref name="scene"/>: "build" every section closed (each shows its summary); "build-look" only Look open;
     /// "build-search" a search for "hollow" (the Shape section open on its two rows); the colour picker scenes as "build".</summary>
@@ -291,7 +307,8 @@ public partial class TestRender
         foreach (var section in Viewer.Shell.Build.BuildLayout.Sections)
             panel.SetOpen(section, scene == "build-look" && section == Viewer.Shell.Build.BuildSection.Look
                 || scene == "build-contents" && section == Viewer.Shell.Build.BuildSection.Contents
-                || scene == "build-object" && section == Viewer.Shell.Build.BuildSection.Object);
+                || scene == "build-object" && section == Viewer.Shell.Build.BuildSection.Object
+                || scene == "build-placement" && section is Viewer.Shell.Build.BuildSection.Placement or Viewer.Shell.Build.BuildSection.Shape);
         if (scene == "build-search")
             panel.SearchText = "hollow";
         panel.Refresh();
@@ -471,7 +488,7 @@ public partial class TestRender
                     "inspect" => InteractFeature.InspectId,
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
-                    "build" or "build-look" or "build-search" or "build-contents" or "build-create" or "build-object" => EditPanel.FloaterId,
+                    "build" or "build-look" or "build-placement" or "build-search" or "build-contents" or "build-create" or "build-object" => EditPanel.FloaterId,
                     "colourpicker" or "texturepicker" or "gridoptions" or "takefolder" or "objectcontents" or "buy" or "objectinfo" or "addons" or "addon-ao" or "addon-rlv" => "",
                     "upload-image" => BuildFeature.ImageFloaterId,
                     "upload-bulk" => BuildFeature.BulkFloaterId,
@@ -586,8 +603,34 @@ public partial class TestRender
                     _failures.Add($"build-look: the Look section's body ({b.Position.Y:F0}) is not in the Build window's view ({view.Position.Y:F0} to {view.End.Y:F0})");
             }
         }
+        if (scene == "build-contents")
+        {
+            CheckBuildLayout(shell, scene, pct, contentsPanel, " as opened");   // the window as it opens: the Contents buttons must be whole there too
+            await ScrollSectionToTop(shell, "contents");   // the Contents card at the top of the window: its buttons are checked there, and the picture shows them
+        }
         if (scene.StartsWith("build", StringComparison.Ordinal))
+        {
             CheckBuildLayout(shell, scene, pct, contentsPanel);
+            // and again in the Build window's smallest size (400 x 520), where the same layout rules hold
+            FloaterFrame? buildFrame = null;
+            for (Node? n = shell.FindChild("edit_panel", true, false); n is not null && buildFrame is null; n = n.GetParent())
+                buildFrame = n as FloaterFrame;
+            if (buildFrame is not null)
+            {
+                var keepSize = buildFrame.Size;
+                buildFrame.Size = new Vector2(400, 520);
+                await Frames(6);
+                if (scene == "build-contents")
+                    await ScrollSectionToTop(shell, "contents");
+                CheckBuildLayout(shell, scene, pct, contentsPanel, " smallest");
+                buildFrame.Size = keepSize;   // the picture is of the window at its usual size
+                await Frames(6);
+                if (scene == "build-contents")
+                    await ScrollSectionToTop(shell, "contents");
+            }
+            else
+                _failures.Add($"{scene}@{pct}: the Build window's frame was not found, so its smallest size was not checked");
+        }
         if (loginShown is not null && loginShown.ById["password"] is LineEdit field && loginShown.ById["reveal"] is Control eye)
         {
             // the field's text area ends where its face's right margin begins; the show button must start at or after it

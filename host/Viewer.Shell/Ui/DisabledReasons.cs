@@ -22,6 +22,7 @@ public static class DisabledReasons
         "disabled.map.teleport", "disabled.map.find_friend",
         "disabled.teleport.busy", "disabled.teleport.no_friends",
         "disabled.edit.link", "disabled.edit.unlink",
+        "disabled.content.pick", "disabled.content.open", "disabled.content.rename", "disabled.content.delete",
         "disabled.script.save", "disabled.login.remember_password",
     ];
 }

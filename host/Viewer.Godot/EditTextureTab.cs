@@ -43,11 +43,14 @@ public sealed class EditTextureTab
         _inventory = inventory;
         _owner = owner;
 
-        var texRow = new HBoxContainer { Name = "texture_row" };
-        texRow.AddChild(LabelCell("texture_label", "edit.tex.texture"));
+        // the name beside its label; the button on the line below, so the name keeps its room in the smallest window
+        var texRow = new VBoxContainer { Name = "texture_row" };
+        var texLine = new HBoxContainer();
+        texLine.AddChild(LabelCell("texture_label", "edit.tex.texture"));
         _texture = new Label { Name = "texture_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _texture.AccessibilityName = strings.Get("edit.tex.texture");
-        texRow.AddChild(_texture);
+        texLine.AddChild(_texture);
+        texRow.AddChild(texLine);
         var choose = Btn("texture_choose", "edit.tex.choose", () => OpenPicker(ItemKind.Texture));
         texRow.AddChild(choose);
         page.AddChild(texRow);
@@ -95,7 +98,7 @@ public sealed class EditTextureTab
         var matRow = new VBoxContainer { Name = "material_row" };
         var matName = new HBoxContainer();
         matName.AddChild(LabelCell("material_label", "edit.tex.material"));
-        _material = new Label { Name = "material_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        _material = new Label { Name = "material_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart };   // a long name wraps, it is not cut
         _material.AccessibilityName = strings.Get("edit.tex.material");
         matName.AddChild(_material);
         matRow.AddChild(matName);

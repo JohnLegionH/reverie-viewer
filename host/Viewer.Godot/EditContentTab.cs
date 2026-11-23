@@ -69,6 +69,11 @@ public sealed class EditContentTab
 
     private const int MenuOpen = 0, MenuProperties = 1, MenuRename = 2, MenuDelete = 3, MenuCopy = 5;
 
+    private static int MenuIdOf(ContentAction action) => action switch
+    {
+        ContentAction.Open => MenuOpen, ContentAction.Properties => MenuProperties, ContentAction.Rename => MenuRename, ContentAction.Delete => MenuDelete, _ => MenuCopy,
+    };
+
     public EditContentTab(StringTable strings, Func<EditController?> edit, Func<InventoryModel?> inventory, VBoxContainer page,
         Func<Guid>? agent = null, Func<Guid, string?>? names = null)
     {
@@ -81,8 +86,10 @@ public sealed class EditContentTab
         ReverieRestyle.Apply(page);
         _newScript = Btn("new_script", "edit.content.new_script", () => _edit()?.NewScript(_s.Get("edit.content.new_script.name")));
         page.AddChild(_newScript);
-        _list = new ContentDropList { Name = "contents", CustomMinimumSize = new Vector2(0, 72), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };   // short enough that the buttons below stay in the window; a long row ends in an ellipsis, its tooltip has the whole name
+        // the list is as tall as its rows, so it has no scroll bar of its own: the Build window's section scrolls, one region and not two. A long row
+        // ends in an ellipsis and its tooltip has the whole name.
+        _list = new ContentDropList { Name = "contents", AutoHeight = true, CustomMinimumSize = new Vector2(0, 36), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _list.AccessibilityName = strings.Get("edit.content.list");
         _list.Accepts = ids => ids.Count > 0 && _edit()?.Object() is not null;
         _list.Dropped += Drop;
@@ -113,7 +120,6 @@ public sealed class EditContentTab
                 _list.AcceptEvent();
             }
         };
-        page.AddChild(_list);
         _menu = new PopupMenu { Name = "content_menu" };
         _menu.IdPressed += MenuChosen;
         _engineMenu = new PopupMenu { Name = "content_engine_menu" };
@@ -128,7 +134,8 @@ public sealed class EditContentTab
         _copy = Btn("content_copy", "edit.content.copy", () => { if (Chosen() is { } id) _edit()?.CopyItemToInventory(id); });
         foreach (var b in new[] { _open, _properties, _rename, _delete, _copy })
             row.AddChild(b);
-        page.AddChild(row);
+        page.AddChild(row);   // above the list: the buttons stay in view however many rows the list has
+        page.AddChild(_list);
 
         // the item's properties (the official item profile of a task item: name, description, creator, owner, permissions)
         _props = new VBoxContainer { Name = "content_props", Visible = false };
@@ -240,15 +247,16 @@ public sealed class EditContentTab
         var item = ItemOf(id);
         var (modify, youOwn) = ObjectRights();
         _menu.Clear();
-        if (item is not null && TaskItemRules.OpenKind(item) != TaskOpenKind.None)
-            _menu.AddItem(_s.Get("edit.content.open"), MenuOpen);
-        _menu.AddItem(_s.Get("edit.content.properties"), MenuProperties);
-        // the same choices as the buttons below the list; one that does not apply is greyed, as its button is
-        _menu.AddItem(_s.Get("edit.content.rename"), MenuRename);
-        _menu.SetItemDisabled(_menu.ItemCount - 1, item is null || !modify || !TaskItemRules.CanRename(item, _agent()));
-        if (modify || youOwn)
-            _menu.AddItem(_s.Get("edit.content.delete"), MenuDelete);
-        _menu.AddItem(_s.Get("edit.content.copy"), MenuCopy);
+        // the same choices as the buttons above the list, always all of them; one that does not apply is greyed with its reason, as its button is
+        foreach (var action in ContentMenuRules.All)
+        {
+            var (enabled, reason) = ContentMenuRules.State(action, item, modify, youOwn, _agent());
+            _menu.AddItem(_s.Get(ContentMenuRules.TextKey(action)), MenuIdOf(action));
+            int entry = _menu.ItemCount - 1;
+            _menu.SetItemDisabled(entry, !enabled);
+            if (!enabled && reason is not null)
+                _menu.SetItemTooltip(entry, _s.Get(reason));
+        }
         if (item is { AssetType: 10 } && ScriptRegionOf?.Invoke() is { } region)
             AddEngineMenu(item, region);
         _menu.Position = (Vector2I)(_list.GetScreenPosition() + at);
@@ -464,11 +472,11 @@ public sealed class EditContentTab
         }
         var current = Chosen() is { } c ? items.FirstOrDefault(i => i.ItemId == c) : null;
         _newScript.Disabled = !modify;
-        _delete.Disabled = !(modify || youOwn) || current is null;
-        _copy.Disabled = current is null;
-        _open.Disabled = current is null || TaskItemRules.OpenKind(current) == TaskOpenKind.None;
-        _properties.Disabled = current is null;
-        _rename.Disabled = current is null || !modify || !TaskItemRules.CanRename(current, agent);
+        foreach (var (action, button) in new[] { (ContentAction.Open, _open), (ContentAction.Properties, _properties), (ContentAction.Rename, _rename), (ContentAction.Delete, _delete), (ContentAction.Copy, _copy) })
+        {
+            var (enabled, reason) = ContentMenuRules.State(action, current, modify, youOwn, agent);
+            DisabledTip.Set(button, !enabled, reason is null ? null : _s.Get(reason));
+        }
         if (_props.Visible)
         {
             if (items.FirstOrDefault(i => i.ItemId == _propItem) is { } shownItem)

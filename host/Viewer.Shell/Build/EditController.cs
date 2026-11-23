@@ -126,9 +126,19 @@ public sealed partial class EditController
         Changed?.Invoke();
     }
 
-    /// <summary>Choose a tool (Ctrl+1 to Ctrl+5); build mode opens with it.</summary>
+    /// <summary>Whether the Land tool exists. It is not built (terraforming), so nothing selects it: the window has no segment for it and
+    /// <see cref="SelectTool"/> and <see cref="TryParseTool"/> refuse it. The enum value, its hint and its strings stay for when it is built.</summary>
+    public static bool LandToolBuilt => false;
+
+    /// <summary>Reads a tool from text (the automation's "tool" action): the name of a tool that exists.</summary>
+    public static bool TryParseTool(string? text, out BuildTool tool) =>
+        Enum.TryParse(text, true, out tool) && Enum.IsDefined(tool) && (tool != BuildTool.Land || LandToolBuilt);
+
+    /// <summary>Choose a tool (Ctrl+1 to Ctrl+5); build mode opens with it. A tool that is not built (Land) changes nothing.</summary>
     public void SelectTool(BuildTool tool)
     {
+        if (tool == BuildTool.Land && !LandToolBuilt)
+            return;   // not built: nothing changes, build mode stays as it was
         BuildMode = true;
         Tool = tool;
         Changed?.Invoke();

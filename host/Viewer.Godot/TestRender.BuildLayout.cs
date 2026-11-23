@@ -11,19 +11,20 @@ namespace Viewer.Godot;
 
 public partial class TestRender
 {
-    /// <summary>The Build window's label and control pairs on the Look section, which sit side by side (UI-STANDARD U1): label name, control name.</summary>
-    private static readonly (string Label, string Control)[] LookPairs =
+    /// <summary>The Build window's label and control pairs (Placement, Shape, Look and Object), which sit side by side in a fixed label
+    /// column (UI-STANDARD U1): label name, control name. A pair whose section is closed or whose row is hidden is not checked.</summary>
+    private static readonly (string Label, string Control)[] LabelPairs =
     [
+        ("position_label", "position"), ("size_label", "size"), ("rotation_label", "rotation"),
+        ("prim_type_label", "prim_type"), ("path_cut_label", "path_cut_a"), ("hollow_label", "hollow_a"), ("hollow_shape_label", "hollow_shape"),
+        ("twist_label", "twist_a"), ("taper_label", "taper_a"), ("top_shear_label", "top_shear_a"), ("slice_label", "slice_a"), ("dimple_label", "dimple_a"),
+        ("profile_cut_label", "profile_cut_a"), ("hole_size_label", "hole_size_a"), ("radius_label", "radius_a"), ("revolutions_label", "revolutions_a"),
+        ("skew_label", "skew_a"),
         ("texture_label", "texture_name"), ("colour_label", "colour"), ("transparency_label", "transparency"), ("glow_label", "glow"),
         ("mapping_label", "mapping"), ("scale_u_label", "scale_u"), ("scale_v_label", "scale_v"), ("per_metre_label", "per_metre"),
         ("texture_rotation_label", "texture_rotation"), ("offset_u_label", "offset_u"), ("offset_v_label", "offset_v"),
-    ];
-
-    /// <summary>The other Build sections' pairs, which still stack the label over the control: reported, not failed.</summary>
-    private static readonly (string Label, string Control)[] StackedPairs =
-    [
-        ("position_label", "position"), ("size_label", "size"), ("rotation_label", "rotation"), ("prim_type_label", "prim_type"),
-        ("hollow_shape_label", "hollow_shape"), ("name_label", "name"), ("description_label", "description"),
+        ("name_label", "name"), ("description_label", "description"), ("creator_label", "creator"), ("owner_label", "owner"),
+        ("click_action_label", "click_action"),
     ];
 
     /// <summary>
@@ -32,9 +33,9 @@ public partial class TestRender
     /// the Build window (the Land segment gone, the sections fitting the view, the summary on the header line, the Contents list and its menu,
     /// the Create options, the texture shown by name, the search line). Failures go into the case's failure list.
     /// </summary>
-    private void CheckBuildLayout(Control shell, string scene, int pct, EditPanel? edit)
+    private void CheckBuildLayout(Control shell, string scene, int pct, EditPanel? edit, string size = "")
     {
-        string tag = $"{scene}@{pct}";
+        string tag = $"{scene}@{pct}{size}";
         if (shell.FindChild("edit_panel", true, false) is not Control panel || panel.FindChild("sections_scroll", true, false) is not ScrollContainer scroll)
         {
             _failures.Add($"{tag}: the Build window or its scroll area was not found");
@@ -80,8 +81,8 @@ public partial class TestRender
             _failures.Add($"{tag}: the Build window needs {minW:F0} px of width; its smallest window gives {(400 - 24) * k:F0} (widest: '{widest.Name}' {widest.GetCombinedMinimumSize().X:F0})");
         }
 
-        // each control beside its label (the Look section): the same row, and close
-        foreach (var (labelName, controlName) in LookPairs)
+        // each control beside its label, in a column of one width: the same row, close, and the label as wide as the column
+        foreach (var (labelName, controlName) in LabelPairs)
         {
             if (panel.FindChild(labelName, true, false) is not Control label || panel.FindChild(controlName, true, false) is not Control control || !Shown(label) || !Shown(control))
                 continue;
@@ -90,11 +91,9 @@ public partial class TestRender
             float gap = cr.Position.X - lr.End.X;
             if (Math.Abs(cr.GetCenter().Y - lr.GetCenter().Y) > Math.Max(lr.Size.Y, cr.Size.Y) / 2f || gap < -0.5f || gap > 16f * k)
                 _failures.Add($"{tag}: '{controlName}' is not beside its label '{labelName}' (label {lr.Position.X:F0},{lr.Position.Y:F0} {lr.Size.X:F0} wide; control {cr.Position.X:F0},{cr.Position.Y:F0})");
+            else if (Math.Abs(lr.Size.X - EditPanel.LabelColumn) > 1f)
+                _failures.Add($"{tag}: the label '{labelName}' is {lr.Size.X:F0} px wide, not the column's {EditPanel.LabelColumn:F0}");
         }
-        var stacked = StackedPairs.Where(p => panel.FindChild(p.Label, true, false) is Control l && Shown(l) && panel.FindChild(p.Control, true, false) is Control c && Shown(c)
-            && c.GetGlobalRect().Position.Y >= l.GetGlobalRect().End.Y - 1f).Select(p => p.Control).ToArray();
-        if (stacked.Length > 0)
-            _result["build_stacked_labels"] = stacked;   // not in this batch: reported in the order's list of rules still broken
 
         // no segment for a tool that is not built
         if (panel.FindChild("tool_land", true, false) is not null)
@@ -113,7 +112,7 @@ public partial class TestRender
             }
         }
         // with every section closed, as many cards as fit are in the window's view
-        if (scene == "build")
+        if (scene == "build" && size.Length == 0)
         {
             var cards = scroll.FindChildren("section_card_*", "", true, false).OfType<Control>().Where(Shown).ToList();
             int inView = cards.Count(c => c.GetGlobalRect().End.Y <= view.End.Y + 0.5f);
@@ -165,9 +164,23 @@ public partial class TestRender
             foreach (var key in new[] { "edit.content.open", "edit.content.properties", "edit.content.rename", "edit.content.delete", "edit.content.copy" })
                 if (!menu.Contains(texts.Get(key), StringComparison.Ordinal))
                     _failures.Add($"{tag}: the right-click menu lacks '{texts.Get(key)}' that the button row has: {menu}");
-            // at 100 and 150 % the buttons are in view when the window opens at the top; at 200 % the text takes the room and the section scrolls
-            if (pct <= 150 && panel.FindChild("content_buttons", true, false) is Control buttons && buttons.GetGlobalRect().End.Y > view.End.Y + 0.5f)
-                _failures.Add($"{tag}: the Contents buttons end at {buttons.GetGlobalRect().End.Y:F0}, below the window's view ({view.End.Y:F0})");
+            // with the Contents card at the top of the window (the scene scrolls it there), every button is whole at every interface size
+            if (panel.FindChild("content_buttons", true, false) is not Control buttons)
+                _failures.Add($"{tag}: the Contents button row was not found");
+            else
+            {
+                if (buttons.GetChildren().OfType<Button>().Count(Shown) != 5)
+                    _failures.Add($"{tag}: the Contents button row shows {buttons.GetChildren().OfType<Button>().Count(Shown)} buttons, not the five (Open, Properties, Rename, Delete, Copy to inventory)");
+                foreach (var b in buttons.GetChildren().OfType<Button>().Where(Shown))
+                {
+                    var br = b.GetGlobalRect();
+                    if (br.End.Y > view.End.Y + 0.5f || br.Position.Y < view.Position.Y - 0.5f || br.End.X > view.End.X + 0.5f)
+                        _failures.Add($"{tag}: the Contents button '{b.Name}' is cut: {br.Position.Y:F0} to {br.End.Y:F0} down in a view of {view.Position.Y:F0} to {view.End.Y:F0}, to {br.End.X:F0} across of {view.End.X:F0}");
+                }
+            }
+            // one region scrolls: the list has no scroll bar of its own while the window shows its rows
+            if (list is not null && (list.GetVScrollBar().Visible || !list.AutoHeight))
+                _failures.Add($"{tag}: the Contents list has a scroll bar of its own ({list.ItemCount} rows)");
         }
     }
 

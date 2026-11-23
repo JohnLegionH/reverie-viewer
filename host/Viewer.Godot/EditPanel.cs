@@ -28,7 +28,23 @@ public partial class EditPanel : VBoxContainer
 
     /// <summary>Whether the Land tool exists. It is not built, so the window has no segment for it (UI-STANDARD U9: an unbuilt feature is
     /// absent, not shown greyed). Set when the land tools are built.</summary>
-    private const bool LandToolBuilt = false;
+    private static bool LandToolBuilt => EditController.LandToolBuilt;
+
+    /// <summary>The width of the label column: every label of Placement, Shape, Look and Object stands in a column this wide with its control
+    /// beside it (UI-STANDARD U1).</summary>
+    internal const float LabelColumn = 150;
+
+    private static Label LabelCell(string name, string text) => new() { Name = name, Text = text, CustomMinimumSize = new Vector2(LabelColumn, 0), VerticalAlignment = VerticalAlignment.Center };
+
+    /// <summary>A label in the label column with its control beside it; the line is named "&lt;row&gt;_line" so a search hides it with the row.</summary>
+    private HBoxContainer Line(string name, string key, Control control)
+    {
+        var line = new HBoxContainer { Name = name + "_line" };
+        line.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        control.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        line.AddChild(control);
+        return line;
+    }
 
     private sealed record SectionParts(BuildSection Id, Button Header, Label Summary, VBoxContainer Body, Control Card);
 
@@ -252,22 +268,20 @@ public partial class EditPanel : VBoxContainer
 
         // ---------------- Shape ----------------
         var shape = Body(BuildSection.Shape);
-        shape.AddChild(new Label { Name = "prim_type_label", Text = strings.Get("edit.prim_type") });
         _type = new OptionButton { Name = "prim_type" };
         _type.AccessibilityName = strings.Get("edit.prim_type");
         foreach (var k in Enum.GetValues<PrimKind>())
             _type.AddItem(strings.Get("edit.type." + k.ToString().ToLowerInvariant()), (int)k);
         _type.ItemSelected += i => { if (!_filling && (PrimKind)_type.GetItemId((int)i) is var k && k != PrimKind.Sculpt) _edit()?.SetShape(ShapeRules.OfKind(k)); };
-        shape.AddChild(_type);
+        shape.AddChild(Line("prim_type", "edit.prim_type", _type));
         ShapeRow(shape, "path_cut", "edit.path_cut", 0, 1, 0.025, true);
         ShapeRow(shape, "hollow", "edit.hollow", 0, 95, 5, false);
-        shape.AddChild(new Label { Name = "hollow_shape_label", Text = strings.Get("edit.hollow_shape") });
         _hole = new OptionButton { Name = "hollow_shape" };
         _hole.AccessibilityName = strings.Get("edit.hollow_shape");
         foreach (var (key, id) in new[] { ("same", 0x00), ("circle", 0x10), ("square", 0x20), ("triangle", 0x30) })
             _hole.AddItem(strings.Get("edit.hole." + key), id);
         _hole.ItemSelected += _ => SendShape();
-        shape.AddChild(_hole);
+        shape.AddChild(Line("hollow_shape", "edit.hollow_shape", _hole));
         ShapeRow(shape, "twist", "edit.twist", -360, 360, 1, true);
         ShapeRow(shape, "taper", "edit.taper", -1, 1, 0.01, true);
         ShapeRow(shape, "top_shear", "edit.top_shear", -0.5, 0.5, 0.01, true);
@@ -317,7 +331,7 @@ public partial class EditPanel : VBoxContainer
         saleRow.AddChild(_saleType);
         general.AddChild(saleRow);
         var clickRow = new HBoxContainer { Name = "click_row" };
-        clickRow.AddChild(new Label { Name = "click_action_label", Text = strings.Get("edit.click_action") });
+        clickRow.AddChild(LabelCell("click_action_label", strings.Get("edit.click_action")));
         _clickAction = new OptionButton { Name = "click_action", TooltipText = strings.Get("edit.click_action.tip") };
         _clickAction.AccessibilityName = strings.Get("edit.click_action");
         foreach (var choice in Viewer.Core.Interaction.ClickChoices.All)
@@ -548,20 +562,19 @@ public partial class EditPanel : VBoxContainer
 
     private LineEdit Field(Container parent, string name, string key, Action<string> commit)
     {
-        parent.AddChild(new Label { Name = name + "_label", Text = _s.Get(key) });
         var e = new LineEdit { Name = name };
         e.AccessibilityName = _s.Get(key);
         e.TextSubmitted += t => commit(t);
         e.FocusExited += () => { if (!_filling) commit(e.Text); };
-        parent.AddChild(e);
+        parent.AddChild(Line(name, key, e));
         return e;
     }
 
     private Label Info(Container parent, string name, string key)
     {
         var row = new HBoxContainer { Name = name + "_row" };
-        row.AddChild(new Label { Text = _s.Get(key) });
-        var v = new Label { Name = name, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        row.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        var v = new Label { Name = name, VerticalAlignment = VerticalAlignment.Center, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         v.AccessibilityName = _s.Get(key);
         row.AddChild(v);
         parent.AddChild(row);
@@ -576,24 +589,29 @@ public partial class EditPanel : VBoxContainer
 
     private void Triple(Container parent, string name, string key, SpinBox[] boxes, double min, double max, double step, Action<System.Numerics.Vector3> commit)
     {
-        parent.AddChild(new Label { Name = name + "_label", Text = _s.Get(key) });
-        var row = new HBoxContainer { Name = name };
+        var line = new HBoxContainer { Name = name + "_line" };
+        line.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        // X, Y and Z each with its letter; they wrap onto a second line in a narrow window instead of widening it
+        var row = new HFlowContainer { Name = name, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         string[] axes = ["edit.x", "edit.y", "edit.z"];
         for (int i = 0; i < 3; i++)
         {
-            row.AddChild(new Label { Text = _s.Get(axes[i]) });
+            var axis = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            axis.AddChild(new Label { Text = _s.Get(axes[i]), VerticalAlignment = VerticalAlignment.Center });
             boxes[i] = Spin($"{name}_{"xyz"[i]}", _s.Get(key) + " " + _s.Get(axes[i]), min, max, step);
             boxes[i].ValueChanged += _ => { if (!_filling) commit(new System.Numerics.Vector3((float)boxes[0].Value, (float)boxes[1].Value, (float)boxes[2].Value)); };
-            row.AddChild(boxes[i]);
+            axis.AddChild(boxes[i]);
+            row.AddChild(axis);
         }
-        parent.AddChild(row);
+        line.AddChild(row);
+        parent.AddChild(line);
     }
 
     private void ShapeRow(Container parent, string name, string key, double min, double max, double step, bool pair)
     {
-        var holder = new VBoxContainer { Name = name };
-        holder.AddChild(new Label { Text = _s.Get(key) });
-        var row = new HBoxContainer();
+        var holder = new HBoxContainer { Name = name };
+        holder.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         var a = Spin(name + "_a", _s.Get(key), min, max, step);
         a.ValueChanged += _ => SendShape();
         row.AddChild(a);
