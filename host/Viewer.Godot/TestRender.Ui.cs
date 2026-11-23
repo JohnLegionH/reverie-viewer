@@ -650,7 +650,7 @@ public partial class TestRender
             await PreferencesFit(strings, tokens);
             await PreferencesLayout(strings, tokens);
         }
-        if (scene is "script" or "notecard" && !wrongToken)
+        if (scene is "script" or "notecard" or "appearance-shape" && !wrongToken)
             await UnsavedPromptFit(scene, strings, tokens);
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         return _failures.Count == 0 ? 0 : 1;
@@ -800,9 +800,10 @@ public partial class TestRender
     }
 
     /// <summary>
-    /// The "Save changes?" question of the script and notecard editors, checked after the picture is taken: at the interface sizes 100, 150 and
-    /// 200 %, with the editor's window at its minimum size and at its default size, the question is shown and its three buttons (Save, Don't
-    /// Save, Cancel) are each wholly seen: inside the window, and not cut by any scroll area or clipping control between them and it.
+    /// The "Save changes?" question of the script and notecard editors and of the Appearance window (scene "appearance-shape", its Edit tab),
+    /// checked after the picture is taken: at the interface sizes 100, 150 and 200 %, with the window at its minimum size and at its default
+    /// size, the question is shown and its three buttons (Save, Don't Save, Cancel) are each wholly seen: inside the window, and not cut by
+    /// any scroll area or clipping control between them and it.
     /// </summary>
     private async Task UnsavedPromptFit(string scene, StringTable strings, ThemeTokens tokens)
     {
@@ -810,6 +811,9 @@ public partial class TestRender
         var problems = new List<string>();
         var table = new List<string>();
         int measured = 0;
+        bool appearance = scene == "appearance-shape";
+        string kind = appearance ? "appearance" : scene;
+        string[] buttonNames = appearance ? new[] { "unsaved_save", "unsaved_discard", "unsaved_cancel" } : new[] { "prompt_save", "prompt_dont_save", "prompt_cancel" };
         foreach (int pct in new[] { 100, 150, 200 })
         {
             float s = pct / 100f;
@@ -819,16 +823,25 @@ public partial class TestRender
             rig.Viewport.Size2DOverrideStretch = true;
             var shell = new ShellRoot(new ShellController(strings, () => { })) { ScaleSink = _ => { }, FixedClockText = TestClockText };
             rig.Viewport.AddChild(shell);
-            Control panel = scene == "script" ? ExampleScript(shell, "script") : ExampleNotecard(shell, false)!;
+            Control panel;
+            if (appearance)
+            {
+                var appearancePanel = AppearanceFeature.Install(shell, redrawGapMs: 0);
+                await AppearanceExample.Show(appearancePanel, scene, _ => new ActionResult(ActionStatus.Failed, 0, "failed"));   // the shape open on the Edit tab with a slider moved: unsaved changes; the grid refuses a save
+                shell.Shell.Floaters.Open(AppearanceFeature.FloaterId);
+                panel = appearancePanel;
+            }
+            else
+                panel = scene == "script" ? ExampleScript(shell, "script") : ExampleNotecard(shell, false)!;
             var floaters = shell.Shell.Floaters;
             string id = floaters.OpenFloaters[0].Id;
             await Frames(8);
             Node? up = panel;
             while (up is not null and not FloaterFrame)
                 up = up.GetParent();
-            if (up is not FloaterFrame frame || panel.FindChild("unsaved", true, false) is not Control question)
+            if (up is not FloaterFrame frame || panel.FindChild(appearance ? "unsaved_prompt" : "unsaved", true, false) is not Control question)
             {
-                problems.Add($"{scene} at {pct} %: the editor window or its question is not found");
+                problems.Add($"{kind} at {pct} %: the editor window or its question is not found");
                 rig.Viewport.QueueFree();
                 continue;
             }
@@ -840,11 +853,51 @@ public partial class TestRender
                 floaters.Resize(id, w, h);
                 await Frames(4);
                 var box = frame.GetGlobalRect();
-                foreach (var name in new[] { "prompt_save", "prompt_dont_save", "prompt_cancel" })
+                // a save that fails while the question shows: its reason must be seen in the window, and the answers stay whole
+                string? reasonWanted = null;
+                if (appearance)
+                {
+                    ((AppearancePanel)panel).PromptSave.EmitSignal(BaseButton.SignalName.Pressed);
+                    await Frames(4);   // the window shows the model's state on its next frames
+                    reasonWanted = ((AppearancePanel)panel).StatusLabel.Text;
+                }
+                else if (panel is ScriptEditorPanel scriptPanel)
+                {
+                    scriptPanel.ShowAnswer(Viewer.Core.Inventory.ScriptSaveResult.Of(Viewer.Core.Inventory.ScriptSaveStatus.Failed, "failed"));
+                    reasonWanted = scriptPanel.StatusLabel.Text;
+                }
+                else if (panel is NotecardPanel notecardPanel)
+                {
+                    notecardPanel.ShowAnswer(Viewer.Core.Inventory.NotecardSaveResult.Of(Viewer.Core.Inventory.NotecardSaveStatus.Failed, "failed"));
+                    reasonWanted = notecardPanel.StatusLabel.Text;
+                }
+                await Frames(4);
+                if (!question.Visible)
+                    problems.Add($"{kind} at {pct} %, window {label}: the question went away after the failed save");
+                if (string.IsNullOrEmpty(reasonWanted))
+                    problems.Add($"{kind} at {pct} %, window {label}: the failed save left no reason text");
+                else
+                {
+                    measured++;
+                    var reasonLabel = panel.FindChild("unsaved_reason", true, false) as Label;
+                    if (reasonLabel is null || !reasonLabel.IsVisibleInTree() || reasonLabel.Text != reasonWanted)
+                        problems.Add($"{kind} at {pct} %, window {label}: the reason \"{reasonWanted}\" is not shown with the question (shown: \"{reasonLabel?.Text}\", visible {reasonLabel?.IsVisibleInTree()})");
+                    else
+                    {
+                        var seenReason = reasonLabel.GetGlobalRect();
+                        for (var a = reasonLabel.GetParent() as Control; a is not null && a != frame; a = a.GetParent() as Control)
+                            if (a.ClipContents)
+                                seenReason = seenReason.Intersection(a.GetGlobalRect());
+                        seenReason = seenReason.Intersection(box);
+                        if (seenReason.Size.X < reasonLabel.GetGlobalRect().Size.X - slack || seenReason.Size.Y < reasonLabel.GetGlobalRect().Size.Y - slack)
+                            problems.Add($"{kind} at {pct} %, window {label}: the reason is cut off ({reasonLabel.GetGlobalRect()} seen as {seenReason})");
+                    }
+                }
+                foreach (var name in buttonNames)
                 {
                     if (panel.FindChild(name, true, false) is not Control button || !button.IsVisibleInTree())
                     {
-                        problems.Add($"{scene} at {pct} %, window {label}: the button {name} is not shown");
+                        problems.Add($"{kind} at {pct} %, window {label}: the button {name} is not shown");
                         continue;
                     }
                     var whole = button.GetGlobalRect();
@@ -854,7 +907,7 @@ public partial class TestRender
                             seen = seen.Intersection(a.GetGlobalRect());
                     seen = seen.Intersection(box);
                     measured++;
-                    string line = $"{scene} at {pct} %, window {label} ({box.Size.X:F0} x {box.Size.Y:F0} px): {name} {whole} is seen as {seen}, window {box}";
+                    string line = $"{kind} at {pct} %, window {label} ({box.Size.X:F0} x {box.Size.Y:F0} px): {name} height {whole.Size.Y:F0} is seen as {seen.Size.Y:F0}; {name} {whole} is seen as {seen}, window {box}";
                     table.Add(line);
                     if (seen.Size.X < whole.Size.X - slack || seen.Size.Y < whole.Size.Y - slack)
                         problems.Add(line);
@@ -863,11 +916,11 @@ public partial class TestRender
             rig.Viewport.QueueFree();
             await Frames(2);
         }
-        _result["unsaved_prompt_fit_" + scene] = new { measured, problems = problems.Count, buttons = table };
+        _result["unsaved_prompt_fit_" + kind] = new { measured, problems = problems.Count, buttons = table };
         foreach (var line in problems.Take(6))
             _failures.Add("save-changes question: " + line);
         if (problems.Count > 6)
-            _failures.Add($"save-changes question: {problems.Count - 6} more (unsaved_prompt_fit_{scene} in the result)");
+            _failures.Add($"save-changes question: {problems.Count - 6} more (unsaved_prompt_fit_{kind} in the result)");
         if (measured == 0)
             _failures.Add("save-changes question: nothing measured");
     }

@@ -162,6 +162,8 @@ public partial class AppearancePanel : VBoxContainer
         StatusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         StatusLabel.Text = strings.Get("appearance.status.clean");
         edit.AddChild(StatusLabel);
+        // in the smallest window at a large interface size the Edit tab is taller than the window, so the rest of the tab gives up its room while the question shows
+        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, edit.GetChildren().OfType<Control>().Where(c => c != UnsavedPrompt).ToArray());
         Refresh();
     }
 
@@ -342,6 +344,7 @@ public partial class AppearancePanel : VBoxContainer
         if (!ed.Save())
         {
             UnsavedPrompt.Visible = true;   // it could not be sent: the edits and the question stay
+            UnsavedQuestion.Reason(UnsavedPrompt, _strings.Get("appearance.status.failed", ReasonText(ed.SaveReason)));   // the status row is hidden while the question shows
             _dirty = true;
             return;
         }
@@ -653,6 +656,8 @@ public partial class AppearancePanel : VBoxContainer
             EditSaveState.Failed => _strings.Get("appearance.status.failed", ReasonText(ed.SaveReason)),
             _ => dirty ? _strings.Get("appearance.status.dirty") : _strings.Get("appearance.status.clean"),
         };
+        if (ed is { SaveState: EditSaveState.Failed } && UnsavedPrompt.Visible)
+            UnsavedQuestion.Reason(UnsavedPrompt, StatusLabel.Text);   // the status row is hidden while the question shows
         if (_afterSave is not null && ed is { SaveState: EditSaveState.Saved or EditSaveState.SavedNotRebuilt })
         {
             var after = _afterSave;
