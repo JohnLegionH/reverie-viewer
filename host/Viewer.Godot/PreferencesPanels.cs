@@ -154,7 +154,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         content.AddChild(_title);
 
         // as every other page: wider than its place, it scrolls sideways inside the window's margin
-        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
+        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, CustomMinimumSize = new Vector2(640, 0) };   // asks for the same width as the other pages, so the window keeps its width from page to page
         content.AddChild(scroll);
         _interfaceScroll = scroll;
         foreach (var pageId in Enum.GetValues<PrefPage>())
