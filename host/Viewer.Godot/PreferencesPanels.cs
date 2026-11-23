@@ -424,6 +424,25 @@ public sealed partial class PreferencesPanel : VBoxContainer
     /// content), and the buttons are all in view; otherwise a drop-down above the page stands in for it, so no sideways scroll bar
     /// appears and no category is cut off or behind a scroll bar.
     /// </summary>
+    public override void _EnterTree()
+    {
+        // the layout is also chosen when the usable width changes without this panel's own size changing: the interface size (the
+        // window's content scale) changes the width in interface units, and the window may be moved or resized around the panel
+        UiTheme.Changed += UpdateNavigationLater;
+        GetViewport().SizeChanged += UpdateNavigationLater;
+        UpdateNavigationLater();
+    }
+
+    public override void _ExitTree()
+    {
+        UiTheme.Changed -= UpdateNavigationLater;
+        if (GetViewport() is { } viewport)
+            viewport.SizeChanged -= UpdateNavigationLater;
+    }
+
+    /// <summary>Chooses the layout after the frame's other size changes (the window's content scale follows the theme change).</summary>
+    private void UpdateNavigationLater() => CallDeferred(MethodName.UpdateNavigation);
+
     private void UpdateNavigation()
     {
         float buttonsHeight = 0;
@@ -446,6 +465,9 @@ public sealed partial class PreferencesPanel : VBoxContainer
         }
         if (dropdown == _dropdownMode)
             return;
+        // a control that is hidden or taken out of the tree loses the keyboard focus: the one now showing takes it, so a person using the
+        // keyboard stays on the category control
+        bool hadFocus = _navDropdown.HasFocus() || (_nav.TryGetValue(_current, out var currentButton) && currentButton.HasFocus());
         _dropdownMode = dropdown;
         _navScroll.Visible = !dropdown;
         _navDropdown.Reparent(dropdown ? _footer : _content, false);
@@ -454,6 +476,8 @@ public sealed partial class PreferencesPanel : VBoxContainer
         _navDropdown.Visible = dropdown;
         _title.Visible = !dropdown;
         _navDropdown.Select(Array.IndexOf(Categories, _current));
+        if (hadFocus)
+            (dropdown ? _navDropdown : (Control)_nav[_current]).CallDeferred(Control.MethodName.GrabFocus);
     }
 
     /// <summary>Shows one category's page (a name from <see cref="Categories"/>).</summary>

@@ -170,6 +170,8 @@ public partial class TestRender
         // after the picture (the pages are shown one by one, which changes what is drawn): Preferences in the smallest window
         if (w <= 1152)
             await PreferencesSmallWindow(shell, prefs, pct, $"{w}x{h}");
+        if (w <= 1152 && pct == 100)
+            await PreferencesLayoutSwitch(shell, prefs, rig.Viewport, w, h);
         shell.QueueFree();
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         Dock.PulseEnabled = true;
