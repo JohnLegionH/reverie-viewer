@@ -145,6 +145,9 @@ public sealed class EditContentTab
         // a new name typed and then a click elsewhere (Copy to inventory, another row) is sent, not dropped
         _propName.FocusExited += SaveProperties;
         _propDesc.FocusExited += SaveProperties;
+        // Esc in a field puts back the item's text and leaves the field, as the official renamer reverts on Escape (llfolderview.cpp)
+        _propName.GuiInput += e => CancelOnEscape(e, _propName);
+        _propDesc.GuiInput += e => CancelOnEscape(e, _propDesc);
         _props.AddChild(Field("edit.content.prop.name", _propName));
         _props.AddChild(Field("edit.content.prop.description", _propDesc));
         _propCreator = InfoLine("content_prop_creator");
@@ -392,6 +395,27 @@ public sealed class EditContentTab
         if ((mask & TaskItemRules.Transfer) != 0)
             parts.Add(_s.Get("edit.content.prop.transfer"));
         return parts.Count == 0 ? _s.Get("edit.content.prop.none") : string.Join(", ", parts);
+    }
+
+    private void CancelOnEscape(InputEvent e, LineEdit field)
+    {
+        if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+            return;
+        if (ItemOf(_propItem) is { } item)
+        {
+            _propName.Text = item.Name;
+            _propDesc.Text = item.Description;
+        }
+        field.AcceptEvent();
+        field.ReleaseFocus();   // the text equals the item's again, so the save on leaving the field sends nothing
+    }
+
+    /// <summary>Sends a name or description still being typed (the Build window is closing, and its fields lose the keyboard only after
+    /// the selection is gone).</summary>
+    public void CommitPendingEdit()
+    {
+        if (_props.Visible && (_propName.HasFocus() || _propDesc.HasFocus()))
+            SaveProperties();
     }
 
     private void SaveProperties()

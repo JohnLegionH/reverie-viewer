@@ -216,6 +216,7 @@ public partial class Main
     /// <summary>Esc or the window's close: build mode ends, Edit linked goes off, the selection clears and the window closes.</summary>
     private void LeaveBuild()
     {
+        _editPanel?.ContentTab.CommitPendingEdit();   // a rename being typed is kept while the item is still selected
         _edit?.CloseBuild();
         _interact?.CancelCreate();
         _editDrag = null;
