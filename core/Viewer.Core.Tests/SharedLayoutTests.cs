@@ -128,7 +128,7 @@ public class SharedLayoutTests
     [Fact]
     public void The_shared_mechanism_sets_the_tooltip_the_engine_shows_on_hover_and_a_disabled_control_keeps_catching_the_pointer()
     {
-        string src = Source("Viewer.Godot", "DisabledTip.cs");
+        string src = Source("Viewer.Godot", "Reverie/DisabledTip.cs");
         Assert.Contains("DisabledReasons.TooltipFor", src);
         Assert.Contains("TooltipText", src);
         Assert.DoesNotContain("MouseFilterEnum.Ignore", src);   // a disabled control must stay hoverable

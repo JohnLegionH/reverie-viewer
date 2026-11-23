@@ -14,15 +14,20 @@ namespace Viewer.Godot;
 /// </summary>
 public static class DisabledTip
 {
-    private const string NormalTipKey = "normal_tooltip";
+    private const string NormalTipKey = "normal_tooltip", ShownTipKey = "shown_tooltip";
 
-    /// <summary>Sets <paramref name="control"/> disabled or enabled; while disabled, <paramref name="reason"/> is its tooltip.</summary>
+    /// <summary>Sets <paramref name="control"/> disabled or enabled; while disabled, <paramref name="reason"/> is its tooltip.
+    /// A tooltip the control was given since the last call (anything other than the text this set last) is its normal one.</summary>
     public static void Set(BaseButton control, bool disabled, string? reason)
     {
-        if (!control.HasMeta(NormalTipKey))
-            control.SetMeta(NormalTipKey, control.TooltipText ?? "");
+        string current = control.TooltipText ?? "";
+        string? shown = control.HasMeta(ShownTipKey) ? (string)control.GetMeta(ShownTipKey) : null;
+        if (shown is null || current != shown)
+            control.SetMeta(NormalTipKey, current);
         string normal = (string)control.GetMeta(NormalTipKey);
         control.Disabled = disabled;
-        control.TooltipText = DisabledReasons.TooltipFor(disabled, reason, normal.Length == 0 ? null : normal) ?? "";
+        string tip = DisabledReasons.TooltipFor(disabled, reason, normal.Length == 0 ? null : normal) ?? "";
+        control.TooltipText = tip;
+        control.SetMeta(ShownTipKey, tip);
     }
 }
