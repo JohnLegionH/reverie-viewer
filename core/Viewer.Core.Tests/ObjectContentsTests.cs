@@ -139,7 +139,56 @@ public class ObjectContentsTests
         Assert.Equal(TaskItemRules.MaxName, sent.Name.Length);
         Assert.Equal(TaskItemRules.MaxDescription, sent.Description.Length);
         Assert.True(r.C.UpdateItemText(card.ItemId, null, "plain", Me));
-        Assert.Equal(card with { Description = "plain" }, r.Sent.OfType<UpdateObjectItemIntent>().Last().Item);
+        // the listed item already carries the first edit (as the official viewer's own copy does), so the second keeps the new name
+        Assert.Equal(card with { Name = new string('n', TaskItemRules.MaxName), Description = "plain" }, r.Sent.OfType<UpdateObjectItemIntent>().Last().Item);
+    }
+
+    [Fact]
+    public void A_rename_shows_in_the_list_at_once_and_a_list_read_before_the_region_applied_it_does_not_undo_it()
+    {
+        // llviewerobject.cpp updateInventory: the viewer's own copy of the item takes the new name as the message goes (doUpdateInventory).
+        // The region handles the rename and the list request that follows it in either order, so the first list can still carry the old name.
+        var card = Item(11, "old");
+        var other = Item(12, "beta");
+        var r = Selected(Own, card, other);
+        Assert.True(r.C.UpdateItemText(card.ItemId, "zeta", null, Me));
+        Assert.Equal(["beta", "zeta"], r.C.Contents.Select(i => i.Name));
+        r.C.Receive(new TaskInventoryReceived(G(1), [card, other]));   // read before the region applied the rename
+        Assert.Equal(["beta", "zeta"], r.C.Contents.Select(i => i.Name));
+        r.C.Receive(new TaskInventoryReceived(G(1), [card with { Name = "zeta" }, other]));
+        Assert.Equal(["beta", "zeta"], r.C.Contents.Select(i => i.Name));
+        r.C.Receive(new TaskInventoryReceived(G(1), [card, other]));   // a later list is the region's word
+        Assert.Equal(["beta", "old"], r.C.Contents.Select(i => i.Name));
+    }
+
+    [Fact]
+    public void The_menus_Copy_to_inventory_entry_sends_one_copy_of_the_chosen_item_and_says_so_in_the_status_line()
+    {
+        // the right-click menu's entries carry ids; the Copy entry's id stands for Copy, and Copy goes the one way the button goes too
+        var ids = ContentMenuRules.All.Select(ContentMenuRules.MenuId).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+        Assert.DoesNotContain(4, ids);   // the Engine submenu's id
+        foreach (var a in ContentMenuRules.All)
+            Assert.Equal(a, ContentMenuRules.ActionOfMenuId(ContentMenuRules.MenuId(a)));
+        Assert.Null(ContentMenuRules.ActionOfMenuId(4));
+        var script = Item(11, "New Script", type: 10);
+        var r = Selected(Own, script);
+        var en = StringTable.English();
+        string? line = ContentMenuRules.Copy(r.C, script.ItemId, Me, en);
+        Assert.Equal("Copied New Script to your inventory.", line);
+        Assert.Equal(new CopyObjectItemIntent(1, script.ItemId, 10), Assert.Single(r.Sent.OfType<CopyObjectItemIntent>()));
+    }
+
+    [Fact]
+    public void Copy_to_inventory_of_a_no_copy_item_says_it_moved_and_an_item_not_listed_sends_nothing_and_says_nothing()
+    {
+        // the region moves an item the agent may not copy out of the object (Scene.Inventory.cs RemoveNonCopyTaskItemFromPrim)
+        var once = Item(11, "Only One", ownerMask: TaskItemRules.Modify | TaskItemRules.Transfer);
+        var r = Selected(Own, once);
+        var en = StringTable.English();
+        Assert.Equal("Moved Only One to your inventory.", ContentMenuRules.Copy(r.C, once.ItemId, Me, en));
+        Assert.Null(ContentMenuRules.Copy(r.C, G(99), Me, en));
+        Assert.Single(r.Sent.OfType<CopyObjectItemIntent>());
     }
 
     [Fact]

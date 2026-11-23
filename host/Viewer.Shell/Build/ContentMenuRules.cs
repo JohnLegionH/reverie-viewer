@@ -25,6 +25,16 @@ public static class ContentMenuRules
         ContentAction.Open => "open", ContentAction.Properties => "properties", ContentAction.Rename => "rename", ContentAction.Delete => "delete", _ => "copy",
     };
 
+    /// <summary>The right-click menu's entry id of an action (id 4 is the Engine submenu's).</summary>
+    public static int MenuId(ContentAction action) => 0;
+
+    /// <summary>The action a right-click menu entry id stands for, or null for one that is not an action (the Engine submenu).</summary>
+    public static ContentAction? ActionOfMenuId(long id) => null;
+
+    /// <summary>Copy to inventory, from the button or the right-click menu: the copy is sent once, and the line the Contents status area
+    /// then shows is returned (null when nothing was sent).</summary>
+    public static string? Copy(EditController edit, Guid itemId, Guid agent, StringTable strings) => null;
+
     public static (bool Enabled, string? ReasonKey) State(ContentAction action, TaskItem? item, bool objectModify, bool youOwn, Guid agent)
     {
         if (item is null)
