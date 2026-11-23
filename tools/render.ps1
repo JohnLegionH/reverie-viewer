@@ -280,7 +280,7 @@ if ($wantParallel) {
         if (Test-Path -LiteralPath $jf) { $merged += ([xml](Get-Content -Raw -LiteralPath $jf)).testsuites.testsuite.testcase }
     }
     # a case both children report (one ran it, the other left it to the first, or a check that is not a process) is one case: the one that ran
-    $merged = @($merged | Group-Object { $_.name } | ForEach-Object { $ran = @($_.Group | Where-Object { -not $_.skipped }); if ($ran.Count -gt 0) { $ran[0] } else { $_.Group[0] } })
+    $merged = @($merged | Group-Object { $_.name } | ForEach-Object { $ran = @($_.Group | Where-Object { -not $_.skipped -or $_.skipped.type -eq "NO GOLDEN" }); if ($ran.Count -gt 0) { $ran[0] } else { $_.Group[0] } })
     $mfail = @($merged | Where-Object { $_.failure }).Count
     $mnoResult = @($merged | Where-Object { $_.error }).Count
     $mnoGolden = @($merged | Where-Object { $_.skipped -and $_.skipped.type -eq "NO GOLDEN" }).Count
@@ -514,7 +514,7 @@ function Invoke-ProjectorCases {
         if ($Propose -and $r.Json -and (Test-Path -LiteralPath (Join-Path $out "projector-vulkan.png"))) {
             Copy-Item -LiteralPath (Join-Path $out "projector-vulkan.png") -Destination (Get-ProposalTarget $golden)
             Add-Case "projector_vulkan" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
-        } else { Add-Case "projector_vulkan" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit))" $r.Seconds }
+        } else { Add-Case "projector_vulkan" (Get-NoGoldenStatus $r "vulkan") "no committed golden $golden (render exit $($r.Exit))" $r.Seconds }
     } else {
         $ok = $r.Exit -eq 0 -and $lit -and $r.Json.diff.pass
         Add-Case "projector_vulkan" ($(if ($ok) { "PASS" } else { "FAIL" })) "$($pj.spot_lights) spot lights, $($r.Json.diff.summary)$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
@@ -773,7 +773,7 @@ function Invoke-UiChromeCases {
                     if ($Propose -and $okGeometry) {
                         Copy-Item -LiteralPath (Join-Path $out "proposal-uichrome-$pct-$win-$be.png") -Destination (Get-ProposalTarget $golden)
                         Add-Case $name "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
-                    } else { Add-Case $name (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { (@($r.Json.failures) -join ' | ') }))" $r.Seconds }
+                    } else { Add-Case $name $(if (-not $okGeometry -and $r.Json -and (Get-NoGoldenStatus $r $be) -eq "NO GOLDEN") { "FAIL" } else { Get-NoGoldenStatus $r $be }) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { (@($r.Json.failures) -join ' | ') }))" $r.Seconds }
                     continue
                 }
                 $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win `"--tr-golden=$golden`""
@@ -1066,7 +1066,7 @@ function Invoke-LoginCardCases {
                 if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
                     Copy-Item -LiteralPath (Join-Path $out "proposal-$name-$be.png") -Destination (Get-ProposalTarget $golden)
                     Add-Case "$($name.Replace('-', '_'))_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it); $geometry" $r.Seconds
-                } else { Add-Case "$($name.Replace('-', '_'))_$be" "NO GOLDEN" "no committed golden $golden; $geometry" $r.Seconds }
+                } else { Add-Case "$($name.Replace('-', '_'))_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden; $geometry" $r.Seconds }
                 continue
             }
             $r = Invoke-Render $be "$name-$be" "`"--tr-golden=$golden`" --tr-logincard=$what"
@@ -2592,7 +2592,7 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             Add-Case "avatars_face_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary)" $r.Seconds
         } else {
             $r = Invoke-AvatarRender $be "proposal-avatars-face-$be" "--tr-avatars=face --tr-bakes"
-            Add-Case "avatars_face_$be" "NO GOLDEN" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-$be.png")" $r.Seconds
+            Add-Case "avatars_face_$be" (Get-NoGoldenStatus $r $be) "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-$be.png")" $r.Seconds
         }
     }
     # the same face under the stock Midday (Legacy) sky, so the official classic lighting is held by a picture of an avatar (a local golden; absent, the picture is proposed and the case fails as PROPOSED)
@@ -2604,7 +2604,7 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             Add-Case "avatars_face_legacy_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary)" $r.Seconds
         } else {
             $r = Invoke-AvatarRender $be "proposal-avatars-face-legacy-$be" "--tr-avatars=face --tr-bakes --tr-alter=legacysky"
-            Add-Case "avatars_face_legacy_$be" "NO GOLDEN" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-legacy-$be.png")" $r.Seconds
+            Add-Case "avatars_face_legacy_$be" (Get-NoGoldenStatus $r $be) "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-legacy-$be.png")" $r.Seconds
         }
     }
     # and under a stock Midday sky that sets a reflection probe ambiance (the tone-mapped path with the sky probe's ambient), so that ambient is held by a picture of an avatar (a local golden, proposed when absent)
@@ -2616,7 +2616,7 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             Add-Case "avatars_face_eep_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary)" $r.Seconds
         } else {
             $r = Invoke-AvatarRender $be "proposal-avatars-face-eep-$be" "--tr-avatars=face --tr-bakes --tr-alter=eepsky"
-            Add-Case "avatars_face_eep_$be" "NO GOLDEN" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-eep-$be.png")" $r.Seconds
+            Add-Case "avatars_face_eep_$be" (Get-NoGoldenStatus $r $be) "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-eep-$be.png")" $r.Seconds
         }
     }
     $golden = Join-Path $localGoldens "golden-avatars-vulkan.png"
