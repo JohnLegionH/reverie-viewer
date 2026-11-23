@@ -538,7 +538,7 @@ public partial class NotificationListPanel : VBoxContainer
         var model = _hub?.Model;
         Count.Text = _strings.Get("notifications.unread", model?.List.Count ?? 0);
         Count.AccessibilityName = Count.Text;
-        MarkAll.Disabled = !ButtonAvailability.MarkAllReadEnabled(model?.List.Count ?? 0);
+        DisabledTip.Set(MarkAll, !ButtonAvailability.MarkAllReadEnabled(model?.List.Count ?? 0), _strings.Get("disabled.notifications.mark_read"));
         if (model is null)
             return;
         if (model.List.Count == 0)

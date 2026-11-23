@@ -287,6 +287,7 @@ public partial class EditPanel : VBoxContainer
         _nextTransfer = Tick(nextRow, "next_transfer", "edit.perm.transfer", on => _edit()?.SetPermission(0x10, transfer, on));
         general.AddChild(nextRow);
         var saleRow = new HFlowContainer { Name = "sale_row" };
+        saleRow.AddThemeConstantOverride("h_separation", 8);   // the price unit and the price box do not touch
         _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true));
         _priceLabel = new Label { Name = "sale_price_unit", Text = strings.Get("edit.sale_price") };
         saleRow.AddChild(_priceLabel);
@@ -737,8 +738,8 @@ public partial class EditPanel : VBoxContainer
             var o = e?.Object();
             var access = o is null || e is null ? new EditAccess(false, false, false, false) : e.Access(o.Id.LocalId);
             int count = e?.Selection.Count ?? 0;
-            Link.Disabled = count < 2;
-            Unlink.Disabled = count == 0;
+            DisabledTip.Set(Link, count < 2, _s.Get("disabled.edit.link"));
+            DisabledTip.Set(Unlink, count == 0, _s.Get("disabled.edit.unlink"));
             if (LastRefusal is null)
                 _status.Text = o is null ? _s.Get("edit.none") : access.ReadOnly ? _s.Get("edit.read_only") : count > 1 ? string.Format(CultureInfo.InvariantCulture, _s.Get("edit.selected"), count) : "";
             _status.Visible = _status.Text.Length > 0;

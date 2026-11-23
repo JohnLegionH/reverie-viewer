@@ -184,7 +184,7 @@ public static class ReverieStyle
         var menuPanel = Face(C(r["surface.base"]), C(r["border.control"]), bw, control, 6, 6);
         Shadow(menuPanel);
         theme.SetStylebox("panel", Popup, menuPanel);
-        theme.SetStylebox("hover", Popup, Face(selected, selected, 0, 6, 8, 4));
+        theme.SetStylebox("hover", Popup, Face(selected, selected, 0, 6, PanelPadding.Inner, 4));
         var line = new StyleBoxLine { Color = C(r["border.default"]), Thickness = 1, GrowBegin = -6, GrowEnd = -6 };
         theme.SetStylebox("separator", Popup, line);
         theme.SetColor("font_color", Popup, C(r["text.primary"]));
@@ -252,14 +252,14 @@ public static class ReverieStyle
         // the text area (a notecard, the script editor, a certificate text): the field's frame, for a TextEdit and a CodeEdit alike. Only the
         // frame changes: a code editor keeps its own text, syntax, gutter and line-number colours.
         theme.SetTypeVariation(TextArea, "TextEdit");
-        theme.SetStylebox("normal", TextArea, Face(C(r["surface.raised"]), C(r["border.control"]), bw, control, 10, 6));
-        theme.SetStylebox("read_only", TextArea, Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 10, 6));
+        theme.SetStylebox("normal", TextArea, Face(C(r["surface.raised"]), C(r["border.control"]), bw, control, PanelPadding.Inner, PanelPadding.Inner));
+        theme.SetStylebox("read_only", TextArea, Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, PanelPadding.Inner, PanelPadding.Inner));
         theme.SetStylebox("focus", TextArea, FocusRing(r, control));
         theme.SetColor("font_color", TextArea, C(r["text.primary"]));
         theme.SetColor("font_readonly_color", TextArea, C(r["text.primary"]));
 
         // lists and trees: the sunken surface, rows in the list row's states (hover 60 %, selected on the selected surface)
-        var sunken = Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 4, 4);
+        var sunken = Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, PanelPadding.Inner, PanelPadding.Inner);
         var rowSelected = Face(selected, rowSelectedBorder, rowBw, control, 6, 2);
         var rowHover = Face(hover, hover, 0, control, 6, 2);
         var none = new StyleBoxEmpty();

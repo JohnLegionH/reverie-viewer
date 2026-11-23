@@ -135,11 +135,16 @@ public static class ShellTheme
         // text fields
         var field = Box(t, t.Input, t.Border, 4);
         var focus = Box(t, t.Input, t.Accent, 4);
+        // a list, a tree, a text area and a text block keep the shared inner padding between their edge and their content;
+        // a one-line field keeps its small one
+        var area = Box(t, t.Input, t.Border, (int)PanelPadding.Inner);
+        var areaFocus = Box(t, t.Input, t.Accent, (int)PanelPadding.Inner);
         foreach (var type in new[] { "LineEdit", "TextEdit" })
         {
-            theme.SetStylebox("normal", type, field);
-            theme.SetStylebox("focus", type, focus);
-            theme.SetStylebox("read_only", type, field);
+            bool block = type == "TextEdit";
+            theme.SetStylebox("normal", type, block ? area : field);
+            theme.SetStylebox("focus", type, block ? areaFocus : focus);
+            theme.SetStylebox("read_only", type, block ? area : field);
             theme.SetColor("font_color", type, text);
             // read-only text (a licence, a certificate, a script you cannot change) is the text colour too, not the engine's half-transparent grey
             theme.SetColor(type == "TextEdit" ? "font_readonly_color" : "font_uneditable_color", type, text);
@@ -155,8 +160,8 @@ public static class ShellTheme
             room.ContentMarginRight = LoginScreenSpec.PasswordTextRightMargin((int)box.ContentMarginRight);
             theme.SetStylebox(state, UiTheme.PasswordField, room);
         }
-        theme.SetStylebox("normal", "RichTextLabel", field);
-        theme.SetStylebox("focus", "RichTextLabel", focus);
+        theme.SetStylebox("normal", "RichTextLabel", area);
+        theme.SetStylebox("focus", "RichTextLabel", areaFocus);
         theme.SetColor("default_color", "RichTextLabel", text);
 
         // labels
@@ -235,8 +240,8 @@ public static class ShellTheme
         theme.SetStylebox("grabber_area_highlight", "HSlider", Box(t, t.Accent, t.Accent, 3));
 
         // lists, trees and tabs
-        theme.SetStylebox("panel", "ItemList", field);
-        theme.SetStylebox("panel", "Tree", field);
+        theme.SetStylebox("panel", "ItemList", area);
+        theme.SetStylebox("panel", "Tree", area);
         foreach (var type in new[] { "ItemList", "Tree" })
         {
             theme.SetColor("font_color", type, text);
@@ -262,9 +267,9 @@ public static class ShellTheme
         theme.SetStylebox("background", "ProgressBar", field);
         theme.SetStylebox("fill", "ProgressBar", Box(t, t.AccentFill, t.AccentFill, 0));
         // the script editor's code field: the text field's faces, the code font, the line numbers muted, the current line faintly marked
-        theme.SetStylebox("normal", "CodeEdit", field);
-        theme.SetStylebox("focus", "CodeEdit", focus);
-        theme.SetStylebox("read_only", "CodeEdit", field);
+        theme.SetStylebox("normal", "CodeEdit", area);
+        theme.SetStylebox("focus", "CodeEdit", areaFocus);
+        theme.SetStylebox("read_only", "CodeEdit", area);
         theme.SetColor("font_color", "CodeEdit", text);
         theme.SetColor("font_readonly_color", "CodeEdit", text);
         theme.SetColor("caret_color", "CodeEdit", accent);

@@ -101,7 +101,7 @@ public sealed partial class PrefPageView : ScrollContainer
             _sync[def.Key] = () =>
             {
                 check.SetPressedNoSignal(_model().Value(def) is true);
-                check.Disabled = !_model().Enabled(def);
+                DisabledTip.Set(check, !_model().Enabled(def), def.Scope == PrefScope.PerAccount ? _strings.Get("prefs.note.account") : null);
             };
             box.AddChild(check);
             control = check;

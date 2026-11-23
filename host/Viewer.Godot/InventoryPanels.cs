@@ -895,11 +895,11 @@ public partial class InventoryPanel : VBoxContainer
         RetryButton.Visible = InventoryButtons.ShowsRetry(bound, _selected != Guid.Empty, _selected == Guid.Empty ? null : _model?.LoadState(_selected));
         bool picked = bound && _outfit is not null && _selected != Guid.Empty;
         bool folder = picked && _model!.Folder(_selected) is not null;
-        WearButton.Disabled = !picked || !(folder ? _outfit!.CanWearOutfit(_selected) : _outfit!.CanWear(_selected));
-        AddButton.Disabled = !picked || folder || !_outfit!.CanAdd(_selected);
-        TakeOffButton.Disabled = !picked || folder || !_outfit!.CanTakeOff(_selected);
-        AttachButton.Disabled = !picked || folder || !_outfit!.CanAttach(_selected);
-        DetachButton.Disabled = !picked || folder || !_outfit!.CanDetach(_selected);
+        DisabledTip.Set(WearButton, !picked || !(folder ? _outfit!.CanWearOutfit(_selected) : _outfit!.CanWear(_selected)), _strings.Get("disabled.inventory.wear"));
+        DisabledTip.Set(AddButton, !picked || folder || !_outfit!.CanAdd(_selected), _strings.Get("disabled.inventory.add"));
+        DisabledTip.Set(TakeOffButton, !picked || folder || !_outfit!.CanTakeOff(_selected), _strings.Get("disabled.inventory.take_off"));
+        DisabledTip.Set(AttachButton, !picked || folder || !_outfit!.CanAttach(_selected), _strings.Get("disabled.inventory.attach"));
+        DisabledTip.Set(DetachButton, !picked || folder || !_outfit!.CanDetach(_selected), _strings.Get("disabled.inventory.detach"));
         if (_view is null)
         {
             StatusLabel.Text = _strings.Get("inventory.status.waiting");

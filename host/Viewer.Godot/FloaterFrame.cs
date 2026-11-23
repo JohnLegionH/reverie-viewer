@@ -100,7 +100,7 @@ public partial class FloaterFrame : PanelContainer
         content.SizeFlagsVertical = SizeFlags.ExpandFill;
         _pad = new MarginContainer { Name = "content_pad", SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
-            _pad.AddThemeConstantOverride(side, 6);
+            _pad.AddThemeConstantOverride(side, (int)PanelPadding.Inner);
         _pad.AddChild(content);
         // the content scrolls when the window is smaller than it needs (a small screen or a large interface size), instead of
         // making the window bigger than the screen; at a size that suits the content nothing scrolls and nothing is drawn extra
@@ -116,8 +116,8 @@ public partial class FloaterFrame : PanelContainer
     public void SetFooter(Control footer)
     {
         _footer = new MarginContainer { Name = "footer_pad", SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
-        foreach (var side in new[] { "margin_left", "margin_right", "margin_top" })
-            _footer.AddThemeConstantOverride(side, 6);
+        foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
+            _footer.AddThemeConstantOverride(side, (int)PanelPadding.Inner);
         _footer.AddChild(footer);
         Body.AddChild(_footer);
         if (_foot is not null)

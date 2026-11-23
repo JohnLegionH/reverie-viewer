@@ -335,7 +335,7 @@ public partial class WorldMapPanel : VBoxContainer
             Selected.Text = map?.Selected is { } s
                 ? _strings.Get("map.selected", s.RegionName, Math.Round(s.Local.X), Math.Round(s.Local.Y))
                 : _strings.Get("map.selected.none");
-            TeleportButton.Disabled = map?.Selected is null;
+            DisabledTip.Set(TeleportButton, map?.Selected is null, _strings.Get("disabled.map.teleport"));
             Status.Text = map?.Status is { } st ? TravelText.Words(_strings, st) : "";
             var chosen = FriendChoice.Selected >= 0 && FriendChoice.Selected < _friendIds.Count ? _friendIds[FriendChoice.Selected] : Guid.Empty;
             FriendChoice.Clear();
@@ -352,7 +352,8 @@ public partial class WorldMapPanel : VBoxContainer
                 FriendChoice.AddItem(_strings.Get("map.friend.placeholder"));   // nothing to choose: the select says so (the choice is disabled)
                 FriendChoice.Select(0);
             }
-            FriendChoice.Disabled = FriendButton.Disabled = _friendIds.Count == 0;
+            FriendChoice.Disabled = _friendIds.Count == 0;
+            DisabledTip.Set(FriendButton, _friendIds.Count == 0, _strings.Get("disabled.map.find_friend"));
             FriendNote.Visible = _friendIds.Count == 0;
         }
         finally { _syncing = false; }

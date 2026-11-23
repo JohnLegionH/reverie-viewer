@@ -147,7 +147,14 @@ public sealed partial class PreferencesPanel : VBoxContainer
             _nav[id] = go;
         }
         var content = new VBoxContainer { Name = "content", SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        body.AddChild(content);
+        // every page keeps the shared inner padding from the category list (the gap between the two), the window's right edge and its
+        // bottom; the page title and the Sound page's own margin do not add their own
+        body.AddThemeConstantOverride("separation", (int)PanelPadding.Inner);
+        var contentPad = new MarginContainer { Name = "content_pad", SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        foreach (var side in new[] { "margin_right", "margin_top", "margin_bottom" })
+            contentPad.AddThemeConstantOverride(side, (int)PanelPadding.Inner);
+        body.AddChild(contentPad);
+        contentPad.AddChild(content);
         _title = new Label { Name = "category", ThemeTypeVariation = UiTheme.TitleLabel };
         content.AddChild(_title);
 

@@ -377,8 +377,8 @@ public partial class TeleportPanel : VBoxContainer
         _dirty = false;
         var t = _hub?.Teleport;
         bool idle = t is not null && !t.Busy;
-        GoButton.Disabled = !idle;
-        HomeButton.Disabled = !idle;
+        DisabledTip.Set(GoButton, !idle, _strings.Get("disabled.teleport.busy"));
+        DisabledTip.Set(HomeButton, !idle, _strings.Get("disabled.teleport.busy"));
         Status.Text = t?.Status is { } s ? TravelText.Words(_strings, s) : "";
 
         var requests = t?.Requests ?? [];
@@ -443,8 +443,8 @@ public partial class TeleportPanel : VBoxContainer
         }
         FriendChoice.Disabled = !anyone;
         MessageEdit.Editable = anyone;
-        OfferButton.Disabled = !anyone;
-        AskButton.Disabled = !anyone;
+        DisabledTip.Set(OfferButton, !anyone, _strings.Get("disabled.teleport.no_friends"));
+        DisabledTip.Set(AskButton, !anyone, _strings.Get("disabled.teleport.no_friends"));
         OfferNote.Visible = !anyone;
     }
 }
