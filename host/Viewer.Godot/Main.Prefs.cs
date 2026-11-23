@@ -364,6 +364,8 @@ public partial class Main
         return new { typed = text.Length };
     }
 
+    private System.Numerics.Vector3? _probePoint;
+
     public object? InputCall(string kind, string? key, string? button, bool down, bool shift, bool ctrl, bool alt, float x, float y, bool doubleClick = false)
     {
         switch (kind)
@@ -428,6 +430,19 @@ public partial class Main
                 break;
             case "state":
                 break;
+            case "probe":   // what a left press at the viewport point (x, y) would pick; the point is kept for "project"
+            {
+                var pick = PickAt(new Vector2(x, y), includeSelf: true);
+                _probePoint = pick.Kind == Viewer.Core.Interaction.PickKind.None ? null : pick.Point;
+                return new { probe_kind = pick.Kind.ToString(), probe_own = _presented is { } ps && OwnAvatarHit(ps, pick),
+                    probe_point = _probePoint is { } pp ? new[] { pp.X, pp.Y, pp.Z } : null };
+            }
+            case "project":   // where the last probed point is in the viewport now
+            {
+                if (_probePoint is not { } q || _camera is null) return new { projected = (float[]?)null };
+                var engine = new Vector3(q.X, q.Z, -q.Y);
+                return new { projected = _camera.IsPositionBehind(engine) ? null : new[] { _camera.UnprojectPosition(engine).X, _camera.UnprojectPosition(engine).Y } };
+            }
             case "buttons":
             {
                 // the visible buttons of the interface with where they are, so a script can click one the way a person does
@@ -461,6 +476,12 @@ public partial class Main
             steer_pressed = _steer.Pressed,
             steering = _steer.Steering,
             camera_tool = _cameraTool,
+            camera_tool_steering = _cameraTool && Controls.MouseSteering,
+            avatar_pitch_deg = System.Math.Round(_follow.AvatarPitch * 180 / System.Math.PI, 3),
+            eye = new[] { _eye.X, _eye.Y, _eye.Z },
+            self_screen = _camera is not null && !_camera.IsPositionBehind(new Vector3(_agentCentre.X, _agentCentre.Z, -_agentCentre.Y))
+                ? new[] { _camera.UnprojectPosition(new Vector3(_agentCentre.X, _agentCentre.Z, -_agentCentre.Y)).X, _camera.UnprojectPosition(new Vector3(_agentCentre.X, _agentCentre.Z, -_agentCentre.Y)).Y } : null,
+            look = new[] { _look.X, _look.Y, _look.Z },
             focus_owner = GetViewport().GuiGetFocusOwner()?.GetType().Name,
             hovered = GetViewport().GuiGetHoveredControl()?.GetPath().ToString(),
             mouse_at = new[] { GetViewport().GetMousePosition().X, GetViewport().GetMousePosition().Y },

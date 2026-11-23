@@ -95,8 +95,9 @@ public sealed class CameraControls
 
     /// <summary>The left button went down with the tool engaged. <paramref name="validPoint"/>: the click hit an object or the ground
     /// (not the sky). Returns whether the drag acts.</summary>
-    public bool MouseDown(CameraMask mask, bool validPoint)
+    public bool MouseDown(CameraMask mask, bool validPoint, bool mouseSteering = false)
     {
+        MouseSteering = mouseSteering && validPoint;
         _down = true;
         _valid = validPoint;
         _accumX = _accumY = 0;
@@ -104,7 +105,16 @@ public sealed class CameraControls
         return validPoint;
     }
 
-    public void MouseUp() => _down = _valid = _outsideX = _outsideY = false;
+    public void MouseUp() => _down = _valid = _outsideX = _outsideY = MouseSteering = false;
+
+    /// <summary>The drag was started by a left press on the own avatar (mMouseSteering): its vertical movement pitches the agent instead of
+    /// zooming, and the pointer goes back to where the button went down when it is let go.</summary>
+    public bool MouseSteering { get; private set; }
+
+    /// <summary>Whether a left press that reached the own avatar (or an attachment of it with no touch handler) steers (lltoolfocus.cpp
+    /// pickCallback: no Alt, the third-person camera, time not frozen, the hit is the own avatar or one of its attachments).</summary>
+    public static bool SteersOnOwnAvatar(CameraMask mask, bool thirdPerson, bool freezeTime, bool hitOwnAvatar) =>
+        (mask & CameraMask.Alt) == 0 && thirdPerson && !freezeTime && hitOwnAvatar;
 
     /// <summary>The pointer moved by (<paramref name="dx"/>, <paramref name="dyDown"/>) pixels in window terms (y runs down). The official
     /// tool reads the movement in the window system's terms with y up (LLCoordGL; lltoolfocus.cpp handleHover), so a pointer pulled up is a
@@ -136,7 +146,11 @@ public sealed class CameraControls
         else
         {
             if (dx != 0) Camera.OrbitAround(-dx * radiansPerPixel);
-            if (dy != 0 && _outsideY) Camera.ZoomIn(MathF.Pow(ZoomDragFactor, dy));
+            if (dy != 0 && _outsideY)
+            {
+                if (MouseSteering) Camera.OrbitOver(-dy * radiansPerPixel);
+                else Camera.ZoomIn(MathF.Pow(ZoomDragFactor, dy));
+            }
         }
     }
 

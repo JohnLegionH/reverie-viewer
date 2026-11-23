@@ -172,6 +172,11 @@ public class AgentCamera
     /// <summary>The avatar is turned (yaw, radians; left positive) or tilted by an orbit while the focus is on the avatar (gAgent.yaw / pitch).</summary>
     public Action<float>? YawAvatar { get; set; }
     public Action<float>? PitchAvatar { get; set; }
+    /// <summary>The agent's pitch while the camera follows it in third person (LLAgent::pitch on the agent's frame), radians, positive with
+    /// the at axis turned down; the rear view's camera and focus offsets turn with it.</summary>
+    public float AvatarPitch { get; private set; }
+    /// <summary>The left mouse button is held on the world: a reset of the view does not level the agent's pitch then.</summary>
+    public bool LeftMouseDown { get; set; }
     /// <summary>The focus came back to the avatar from elsewhere: the avatar turns to face this heading (radians about up from east), where
     /// the camera was looking (llagentcamera.cpp setFocusOnAvatar with reset_axes).</summary>
     public event Action<float>? FaceHeading;
@@ -189,6 +194,7 @@ public class AgentCamera
     private bool _hasPose, _smoothStop;
     private float _heading;
     private float _distance = -1;   // eased distance; negative until the first pose
+    private double _lastDt;          // the last pose's frame time, for a reset of the view's levelling
     private float _targetDistance = CameraOffset.Length();
 
     // the unlocked view
@@ -237,7 +243,7 @@ public class AgentCamera
     /// <summary>Back to the default view behind the avatar, as at the start.</summary>
     public void Reset()
     {
-        OrbitYaw = OrbitPitch = 0;
+        OrbitYaw = OrbitPitch = AvatarPitch = 0;
         Zoom = 1f;
         CollidePlane = default;
         FocusOnAvatar = true;
@@ -313,12 +319,73 @@ public class AgentCamera
     /// staying between 1 and 179 degrees. A positive angle takes the camera up.</summary>
     public void OrbitOver(float angle)
     {
-        if (FocusOnAvatar && Mode == CameraViewMode.ThirdPerson) { PitchAvatar?.Invoke(angle); return; }
+        if (FocusOnAvatar && Mode == CameraViewMode.ThirdPerson)
+        {
+            angle = LimitAvatarPitch(angle);
+            // a seated agent's frame is flattened every frame (llagentcamera.cpp 1838-1846), so it keeps no pitch
+            if (MathF.Abs(angle) > 1e-4f && SeatRotation is null) AvatarPitch += angle;
+            PitchAvatar?.Invoke(angle);
+            return;
+        }
         var unit = Vector3.Normalize(_offsetTarget);
         float fromUp = MathF.Acos(Math.Clamp(unit.Z, -1f, 1f));
         float next = Math.Clamp(fromUp - angle, OrbitMinFromUp, OrbitMaxFromUp);
         _offsetTarget = Vector3.Transform(_offsetTarget, Quaternion.CreateFromAxisAngle(LeftAxis(), fromUp - next));
         ZoomIn(1f);
+    }
+
+    /// <summary>A left press on the own avatar: the camera tool's pick unlocks the view and the press then puts the focus back on the avatar with
+    /// its axes reset (lltoolfocus.cpp pickCallback, lltoolpie.cpp handleLeftClickPick; llagentcamera.cpp setFocusOnAvatar with reset_axes): in third
+    /// person, unless seated, the agent turns to face the camera's flattened at axis, which also clears its pitch.</summary>
+    public void LockOnAvatarForSteering()
+    {
+        if (Mode == CameraViewMode.ThirdPerson && SeatRotation is null)
+        {
+            var (forward, _) = Axes();
+            if (forward.X * forward.X + forward.Y * forward.Y > 1e-8f) FaceHeading?.Invoke(MathF.Atan2(forward.Y, forward.X));
+            AvatarPitch = 0;
+        }
+        if (FocusOnAvatar) return;
+        FocusOnAvatar = true;
+        _focusFollow = null;
+        _focusIsAvatar = _focusIsObject = false;
+        _smoothedOffset = null;
+        _smoothedGlobal = null;
+    }
+
+    /// <summary>LLAgent::pitch's limits: turning down stops with the at axis 179 degrees from up; turning up stops with the camera's
+    /// line to the focus 5 degrees from straight up.</summary>
+    private float LimitAvatarPitch(float angle)
+    {
+        if (angle >= 0f)
+        {
+            float atFromUp = MathF.PI / 2 + AvatarPitch;
+            if (atFromUp + angle > AvatarLookDownLimit) angle = AvatarLookDownLimit - atFromUp;
+        }
+        else if (_hasPose)
+        {
+            var look = _lastTarget - _lastEye;
+            if (look.LengthSquared() > 1e-12f)
+            {
+                float lookFromUp = MathF.Acos(Math.Clamp(Vector3.Normalize(look).Z, -1f, 1f));
+                if (lookFromUp + angle < AvatarLookUpLimit) angle = AvatarLookUpLimit - lookFromUp;
+            }
+        }
+        return angle;
+    }
+
+    /// <summary>The agent's pitch limits (LLAgent::pitch: look_down_limit 179 degrees, look_up_limit 5 degrees) and the time constant a reset
+    /// of the view levels the pitch with (resetView: LLSmoothInterpolation::getInterpolant(0.3)).</summary>
+    public const float AvatarLookDownLimit = 179f * MathF.PI / 180f, AvatarLookUpLimit = 5f * MathF.PI / 180f, PitchLevelTimeConstant = 0.3f;
+
+    /// <summary>resetView leaving mouse steering: the at axis moves towards its flattened self by 1 - 2^(-dt / 0.3), and the frame is rebuilt from it.</summary>
+    private void LevelAvatarPitch(double dt)
+    {
+        if (AvatarPitch == 0f) return;
+        float k = Math.Clamp(1f - MathF.Pow(2f, -(float)Math.Max(0, dt) / PitchLevelTimeConstant), 0f, 1f);
+        float horizontal = MathF.Cos(AvatarPitch) + k * (1f - MathF.Cos(AvatarPitch));
+        float down = MathF.Sin(AvatarPitch) * (1f - k);
+        AvatarPitch = MathF.Atan2(down, horizontal);
     }
 
     /// <summary>cameraZoomIn: the distance to the focus times <paramref name="fraction"/>, within the limits (the nearest from the focus,
@@ -428,6 +495,8 @@ public class AgentCamera
     public void ResetView(bool changeCamera = false, bool turnAvatar = true)
     {
         if (changeCamera) { ChangeToThirdPerson(); _distance = -1; }
+        // leaving mouse steering: with the left button up, the agent's pitch eases back to level (llagentcamera.cpp resetView)
+        if (!LeftMouseDown && Mode == CameraViewMode.ThirdPerson) LevelAvatarPitch(_lastDt);
         if (!FocusOnAvatar)
         {
             var (forward, _) = Axes();
@@ -460,6 +529,7 @@ public class AgentCamera
     {
         Mode = CameraViewMode.ThirdPerson;
         Zoom = 1f;
+        if (SeatRotation is null) AvatarPitch = 0;   // changeCameraToThirdPerson removes any pitch from the agent unless it sits
         SetOrbit(0, 0);
         _lag = default;
         _smoothedOffset = null;
@@ -509,6 +579,7 @@ public class AgentCamera
         // the avatar where it is drawn (the drawable has damped it); the camera smooths only its offset from it, below
         var anchor = Anchored(centre);
         _heading = heading;
+        _lastDt = dt;
         Vector3 eye, target;
         if (FocusOnAvatar) (eye, target) = RearPose(anchor, heading, dt, velocity, secondsInAir);
         else (eye, target) = FreePose(anchor, dt);
@@ -522,6 +593,9 @@ public class AgentCamera
     {
         var baseAt = anchor + ThirdPersonHeadOffset;
         var turn = AvatarFrame(heading) * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, OrbitYaw);
+        // the agent's pitch turns the rear offset and the focus offset with the agent's frame (llagentcamera.cpp: the offset turned to
+        // absolute by the agent's frame, calcThirdPersonFocusOffset); a seated agent's frame is kept level, so no pitch then
+        if (SeatRotation is null && AvatarPitch != 0f) turn *= Quaternion.CreateFromAxisAngle(Vector3.UnitY, AvatarPitch);
         // the preset pitch tilts about the avatar's own side axis (Y in its frame): positive raises the camera behind it
         var tilt = Quaternion.CreateFromAxisAngle(Vector3.UnitY, OrbitPitch);
         var direction = Vector3.Transform(Vector3.Normalize(CameraOffset), turn * tilt);
