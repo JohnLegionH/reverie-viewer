@@ -95,7 +95,7 @@ public sealed class CameraControls
 
     /// <summary>The left button went down with the tool engaged. <paramref name="validPoint"/>: the click hit an object or the ground
     /// (not the sky). Returns whether the drag acts.</summary>
-    public bool MouseDown(CameraMask mask, bool validPoint)
+    public bool MouseDown(CameraMask mask, bool validPoint, bool mouseSteering = false)
     {
         _down = true;
         _valid = validPoint;
@@ -105,6 +105,12 @@ public sealed class CameraControls
     }
 
     public void MouseUp() => _down = _valid = _outsideX = _outsideY = false;
+
+    /// <summary>The drag was started by a left press on the own avatar (mMouseSteering).</summary>
+    public bool MouseSteering { get; private set; }
+
+    /// <summary>Whether a left press that reached the own avatar (or an attachment of it with no touch handler) steers.</summary>
+    public static bool SteersOnOwnAvatar(CameraMask mask, bool thirdPerson, bool freezeTime, bool hitOwnAvatar) => false;
 
     /// <summary>The pointer moved by (<paramref name="dx"/>, <paramref name="dyDown"/>) pixels in window terms (y runs down). The official
     /// tool reads the movement in the window system's terms with y up (LLCoordGL; lltoolfocus.cpp handleHover), so a pointer pulled up is a

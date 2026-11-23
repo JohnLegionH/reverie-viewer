@@ -172,6 +172,11 @@ public class AgentCamera
     /// <summary>The avatar is turned (yaw, radians; left positive) or tilted by an orbit while the focus is on the avatar (gAgent.yaw / pitch).</summary>
     public Action<float>? YawAvatar { get; set; }
     public Action<float>? PitchAvatar { get; set; }
+    /// <summary>The agent's pitch while the camera follows it in third person (LLAgent::pitch on the agent's frame), radians, positive with
+    /// the at axis turned down; the rear view's camera and focus offsets turn with it.</summary>
+    public float AvatarPitch { get; private set; }
+    /// <summary>The left mouse button is held on the world: a reset of the view does not level the agent's pitch then.</summary>
+    public bool LeftMouseDown { get; set; }
     /// <summary>The focus came back to the avatar from elsewhere: the avatar turns to face this heading (radians about up from east), where
     /// the camera was looking (llagentcamera.cpp setFocusOnAvatar with reset_axes).</summary>
     public event Action<float>? FaceHeading;
