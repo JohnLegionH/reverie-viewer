@@ -308,15 +308,24 @@ public partial class EditPanel : VBoxContainer
         _shareGroup = Tick(general, "share_group", "edit.share_group", on => _edit()?.SetPermission(0x04, modify | move | copy, on));
         _anyMove = Tick(general, "anyone_move", "edit.anyone_move", on => _edit()?.SetPermission(0x08, move, on));
         _anyCopy = Tick(general, "anyone_copy", "edit.anyone_copy", on => _edit()?.SetPermission(0x08, copy, on));
-        var nextRow = new HBoxContainer { Name = "next_row" };
-        nextRow.AddChild(new Label { Name = "next_owner", Text = strings.Get("edit.next_owner") });
+        // the label stands in the label column like its neighbours; the three ticks wrap as whole controls in a narrow window
+        var nextRow = new HFlowContainer { Name = "next_row" };
+        nextRow.AddChild(LabelCell("next_owner", strings.Get("edit.next_owner")));
         _nextModify = Tick(nextRow, "next_modify", "edit.perm.modify", on => _edit()?.SetPermission(0x10, modify, on));
         _nextCopy = Tick(nextRow, "next_copy", "edit.perm.copy", on => _edit()?.SetPermission(0x10, copy, on));
         _nextTransfer = Tick(nextRow, "next_transfer", "edit.perm.transfer", on => _edit()?.SetPermission(0x10, transfer, on));
         general.AddChild(nextRow);
         var saleRow = new HFlowContainer { Name = "sale_row" };
         saleRow.AddThemeConstantOverride("h_separation", 8);   // the price unit and the price box do not touch
+        // "For sale": its label in the label column, the tick box (no text of its own) beside it, then the price and the sale type; the
+        // row wraps as whole controls when it is too narrow
+        var saleLabel = LabelCell("for_sale_label", strings.Get("edit.for_sale"));
+        saleRow.AddChild(saleLabel);
         _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true));
+        _forSale.Text = "";
+        _forSale.AccessibilityName = strings.Get("edit.for_sale");
+        saleLabel.MouseFilter = MouseFilterEnum.Stop;
+        saleLabel.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } && !_forSale.Disabled) _forSale.ButtonPressed = !_forSale.ButtonPressed; };
         _priceLabel = new Label { Name = "sale_price_unit", Text = strings.Get("edit.sale_price") };
         saleRow.AddChild(_priceLabel);
         _price = new SpinBox { Name = "sale_price", MinValue = 0, MaxValue = 999999999, Step = 1, Rounded = true, AllowGreater = false, CustomMinimumSize = new Vector2(120, 0) };
@@ -589,15 +598,16 @@ public partial class EditPanel : VBoxContainer
 
     private void Triple(Container parent, string name, string key, SpinBox[] boxes, double min, double max, double step, Action<System.Numerics.Vector3> commit)
     {
-        var line = new HBoxContainer { Name = name + "_line" };
+        // a row of three values keeps its label on its own line with the three boxes on one line below it, equal in width and never wrapping
+        // (the official viewer's grouping; UI-STANDARD U1, exception for X Y Z rows)
+        var line = new VBoxContainer { Name = name + "_line" };
         line.AddChild(LabelCell(name + "_label", _s.Get(key)));
-        // X, Y and Z each with its letter; they wrap onto a second line in a narrow window instead of widening it
-        var row = new HFlowContainer { Name = name, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var row = new HBoxContainer { Name = name, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         string[] axes = ["edit.x", "edit.y", "edit.z"];
         for (int i = 0; i < 3; i++)
         {
             var axis = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            axis.AddChild(new Label { Text = _s.Get(axes[i]), VerticalAlignment = VerticalAlignment.Center });
+            axis.AddChild(new Label { Text = _s.Get(axes[i]), VerticalAlignment = VerticalAlignment.Center, CustomMinimumSize = new Vector2(16, 0) });   // one letter width, so the boxes are equal
             boxes[i] = Spin($"{name}_{"xyz"[i]}", _s.Get(key) + " " + _s.Get(axes[i]), min, max, step);
             boxes[i].ValueChanged += _ => { if (!_filling) commit(new System.Numerics.Vector3((float)boxes[0].Value, (float)boxes[1].Value, (float)boxes[2].Value)); };
             axis.AddChild(boxes[i]);

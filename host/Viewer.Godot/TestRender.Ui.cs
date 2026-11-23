@@ -300,7 +300,7 @@ public partial class TestRender
             edit.ChooseShape(Viewer.Core.Building.CreateShape.Torus);
         }
         if (scene == "build-contents")
-            edit.Receive(new TaskInventoryReceived(G(31), ExampleTaskItems()));
+            edit.Receive(new TaskInventoryReceived(G(31), [.. ExampleTaskItems(), ExampleLongTaskItem()]));   // one name too long for the list: it must end in an ellipsis
         // the owner and creator are named as the session's name cache would name them (a neutral example name)
         var panel = new EditPanel(strings, () => edit, null, new SettingsService(null), () => G(32), id => id == G(32) ? "Test User" : null);
         shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
@@ -548,8 +548,10 @@ public partial class TestRender
         }
         if (scene == "build-contents" && contentsPanel is not null)
         {
-            contentsPanel.ContentTab.OpenMenuOnRow(1);   // the right-click menu on the second row (the notecard)
+            contentsPanel.ContentTab.OpenMenuOnRow(1);   // the right-click menu on the second row (the notecard): its entries are read by the layout check
             await Frames(10);
+            contentsPanel.ContentTab.CloseMenu();   // the picture shows the list without the menu over the row ends, where a long name must end in an ellipsis
+            await Frames(4);
         }
         if (scene == "build-object" && shell.FindChild("section_box_object", true, false) is Control objectBox)
         {
@@ -577,6 +579,20 @@ public partial class TestRender
             }
             else
                 _failures.Add("build-object: the Object section's scroll area was not found");
+        }
+        if (scene == "build-placement" && shell.FindChild("rotation_line", true, false) is Control rotationLine)
+        {
+            // the Placement section is open above the Shape section: the window is scrolled to the Rotation row, so the last three-value row, the
+            // copy and paste buttons and the first Shape rows are in the picture (Position and Size stand above it, checked by the layout check)
+            await Frames(4);
+            ScrollContainer? placeScroll = null;
+            for (Node? n = rotationLine.GetParent(); n is not null && placeScroll is null; n = n.GetParent())
+                placeScroll = n as ScrollContainer;
+            if (placeScroll is not null)
+            {
+                placeScroll.ScrollVertical = (int)(rotationLine.GetGlobalRect().Position.Y - placeScroll.GetGlobalRect().Position.Y + placeScroll.ScrollVertical - 8);
+                await Frames(4);
+            }
         }
         if (scene == "build-look" && shell.FindChild("section_box_look", true, false) is Control lookBox)
         {

@@ -90,6 +90,8 @@ public sealed class EditContentTab
         // ends in an ellipsis and its tooltip has the whole name.
         _list = new ContentDropList { Name = "contents", AutoHeight = true, CustomMinimumSize = new Vector2(0, 36), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        // a long row ends in an ellipsis inside the list's border: every row is as wide as the list less its padding and scroll bar room
+        _list.Resized += () => _list.FixedColumnWidth = Math.Max(1, (int)_list.Size.X - 24);
         _list.AccessibilityName = strings.Get("edit.content.list");
         _list.Accepts = ids => ids.Count > 0 && _edit()?.Object() is not null;
         _list.Dropped += Drop;
@@ -278,6 +280,9 @@ public sealed class EditContentTab
             .Select(i => (object)new { text = m.GetItemText(i), disabled = m.IsItemDisabled(i), tooltip = m.GetItemTooltip(i) }).ToArray();
         return new { visible = _menu.Visible, items = Entries(_menu), engine_items = Entries(_engineMenu) };
     }
+
+    /// <summary>Closes the right-click menu (for the render case, which reads its entries and then draws the list without it).</summary>
+    internal void CloseMenu() => _menu.Hide();
 
     /// <summary>The texts of the right-click menu's entries as they stand (for the render case's layout check).</summary>
     internal IReadOnlyList<string> MenuTexts() => Enumerable.Range(0, _menu.ItemCount).Select(_menu.GetItemText).ToList();

@@ -63,10 +63,18 @@ public sealed class EditTextureTab
         page.AddChild(Line("colour", "edit.tex.colour", _colour));
         _transparency = Spin(page, "transparency", "edit.tex.transparency", 0, 100, 1, v => new FaceChange(Transparency: (float)v));
         _glow = Spin(page, "glow", "edit.tex.glow", 0, 1, 0.01, v => new FaceChange(Glow: (float)v));
-        _fullbright = new CheckBox { Name = "fullbright", Text = strings.Get("edit.tex.fullbright") };
-        _fullbright.AccessibilityName = _fullbright.Text;
+        // the label stands in the label column like its neighbours, with the tick box (no text of its own) beside it; a click on the label ticks it
+        _fullbright = new CheckBox { Name = "fullbright" };
+        _fullbright.AccessibilityName = strings.Get("edit.tex.fullbright");
         _fullbright.Toggled += on => { if (!_filling) _edit()?.EditFaces(new FaceChange(Fullbright: on)); };
-        page.AddChild(_fullbright);
+        var fullbrightLine = Line("fullbright", "edit.tex.fullbright", _fullbright);
+        _fullbright.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+        if (fullbrightLine.GetChild(0) is Label fullbrightLabel)
+        {
+            fullbrightLabel.MouseFilter = Control.MouseFilterEnum.Stop;
+            fullbrightLabel.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } && !_fullbright.Disabled) _fullbright.ButtonPressed = !_fullbright.ButtonPressed; };
+        }
+        page.AddChild(fullbrightLine);
 
         _mapping = new OptionButton { Name = "mapping" };
         _mapping.AccessibilityName = strings.Get("edit.tex.mapping");

@@ -15,7 +15,6 @@ public partial class TestRender
     /// column (UI-STANDARD U1): label name, control name. A pair whose section is closed or whose row is hidden is not checked.</summary>
     private static readonly (string Label, string Control)[] LabelPairs =
     [
-        ("position_label", "position"), ("size_label", "size"), ("rotation_label", "rotation"),
         ("prim_type_label", "prim_type"), ("path_cut_label", "path_cut_a"), ("hollow_label", "hollow_a"), ("hollow_shape_label", "hollow_shape"),
         ("twist_label", "twist_a"), ("taper_label", "taper_a"), ("top_shear_label", "top_shear_a"), ("slice_label", "slice_a"), ("dimple_label", "dimple_a"),
         ("profile_cut_label", "profile_cut_a"), ("hole_size_label", "hole_size_a"), ("radius_label", "radius_a"), ("revolutions_label", "revolutions_a"),
@@ -25,7 +24,15 @@ public partial class TestRender
         ("texture_rotation_label", "texture_rotation"), ("offset_u_label", "offset_u"), ("offset_v_label", "offset_v"),
         ("name_label", "name"), ("description_label", "description"), ("creator_label", "creator"), ("owner_label", "owner"),
         ("click_action_label", "click_action"),
+        ("next_owner", "next_modify"), ("for_sale_label", "for_sale"), ("fullbright_label", "fullbright"),
     ];
+
+    /// <summary>The rows of three values (X, Y, Z): the label stands on its own line with the three boxes on one line below it (the official
+    /// viewer's grouping; UI-STANDARD U1, exception for three-value rows).</summary>
+    private static readonly string[] TripleRows = ["position", "size", "rotation"];
+
+    /// <summary>Tick boxes whose row has a label in the column, with the box beside it (the label is a separate control, the box has no text).</summary>
+    private static readonly (string Label, string Control)[] TickRows = [("for_sale_label", "for_sale"), ("fullbright_label", "fullbright"), ("next_owner", "next_modify")];
 
     /// <summary>
     /// Layout checks on the Build window as drawn in a build scene at interface size <paramref name="pct"/> (UI-STANDARD U1, U3 to U5, U8 to U12,
@@ -95,6 +102,31 @@ public partial class TestRender
                 _failures.Add($"{tag}: the label '{labelName}' is {lr.Size.X:F0} px wide, not the column's {EditPanel.LabelColumn:F0}");
         }
 
+        // a tick box row has its label in the column: the label control must exist beside the box
+        foreach (var (labelName, controlName) in TickRows)
+            if (panel.FindChild(controlName, true, false) is Control tick && Shown(tick) && (panel.FindChild(labelName, true, false) is not Control tl || !Shown(tl)))
+                _failures.Add($"{tag}: the tick box '{controlName}' has no label '{labelName}' in the label column");
+
+        // three-value rows: the label on its own line, then the three boxes on one line, one width, never wrapping
+        foreach (var row in TripleRows)
+        {
+            if (panel.FindChild(row + "_label", true, false) is not Control tlabel || !Shown(tlabel))
+                continue;
+            var boxes = "xyz".Select(a => panel.FindChild($"{row}_{a}", true, false) as Control).ToList();
+            if (boxes.Any(b => b is null || !Shown(b)))
+            {
+                _failures.Add($"{tag}: the three boxes of '{row}' were not all found");
+                continue;
+            }
+            var rects = boxes.Select(b => b!.GetGlobalRect()).ToList();
+            if (rects.Max(r => r.GetCenter().Y) - rects.Min(r => r.GetCenter().Y) > 1f)
+                _failures.Add($"{tag}: the three boxes of '{row}' are not on one line (down at {string.Join(", ", rects.Select(r => r.Position.Y.ToString("F0")))})");
+            if (rects.Max(r => r.Size.X) - rects.Min(r => r.Size.X) > 1f)
+                _failures.Add($"{tag}: the three boxes of '{row}' are not one width ({string.Join(", ", rects.Select(r => r.Size.X.ToString("F0")))})");
+            if (tlabel.GetGlobalRect().End.Y > rects.Min(r => r.Position.Y) + 0.5f)
+                _failures.Add($"{tag}: the label of '{row}' is not on its own line above the boxes");
+        }
+
         // no segment for a tool that is not built
         if (panel.FindChild("tool_land", true, false) is not null)
             _failures.Add($"{tag}: the Build window still has a Land segment for a tool that is not built");
@@ -152,6 +184,9 @@ public partial class TestRender
             {
                 if (list.TextOverrunBehavior != TextServer.OverrunBehavior.TrimEllipsis)
                     _failures.Add($"{tag}: the Contents list does not end a long row with an ellipsis");
+                // a row's text is cut by the list's own column width: it must end inside the list's border, not run to it
+                if (list.FixedColumnWidth <= 0 || list.FixedColumnWidth > list.Size.X - 12 * k)
+                    _failures.Add($"{tag}: the Contents rows are {list.FixedColumnWidth} px wide in a list of {list.Size.X:F0} px, so a long name runs to the border instead of ending in an ellipsis");
                 for (int i = 0; i < list.ItemCount; i++)
                 {
                     float w = list.GetThemeFont("font").GetStringSize(list.GetItemText(i), HorizontalAlignment.Left, -1, list.GetThemeFontSize("font_size")).X;
