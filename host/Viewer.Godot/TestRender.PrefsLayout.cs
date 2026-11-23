@@ -142,8 +142,29 @@ public partial class TestRender
             if (summary.Text.Length == 0 || !summary.Visible)
                 found.Add($"closed section '{summary.Name}' shows no summary");
             else if (summary.Size.X + 0.5f < textWidth)
-                found.Add($"the summary '{summary.Text}' is cut off ({summary.Size.X:F0} wide, text {textWidth:F0})");
+            {
+                // a summary may be shortened, but only with an ellipsis and only while the section title (checked above) stays whole
+                if (summary.TextOverrunBehavior != TextServer.OverrunBehavior.TrimEllipsis)
+                    found.Add($"the summary '{summary.Text}' is cut off without an ellipsis ({summary.Size.X:F0} wide, text {textWidth:F0})");
+                else if (summary.Size.X < 24)
+                    found.Add($"the summary '{summary.Text}' is shortened to {summary.Size.X:F0} wide, too little to read");
+            }
         }
+        // a section's rows follow its header and rule closely: a header is never separated from its rows by the layout
+        // (one that the page's scroll edge shows alone is only the last visible item of a page that scrolls)
+        int gapsMeasured = 0;
+        foreach (var rule in page.FindChildren("section_*_rule", "HSeparator", true, false).OfType<HSeparator>())
+        {
+            var body = rule.GetParent()?.FindChild(rule.Name.ToString().Replace("_rule", "_body"), false, false) as Control;
+            if (body is null || !body.IsVisibleInTree() || !rule.IsVisibleInTree())
+                continue;
+            gapsMeasured++;
+            float gap = body.GetGlobalRect().Position.Y - rule.GetGlobalRect().End.Y;
+            if (gap > 12 || gap < 0)
+                found.Add($"the rows of section '{rule.Name}' start {gap:F0} units from its header rule (expected 0 to 12)");
+        }
+        if (gapsMeasured == 0)
+            found.Add("no section header gap was measured (no section with a shown body found)");
         return found;
     }
 }

@@ -162,6 +162,8 @@ public partial class AppearancePanel : VBoxContainer
         StatusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         StatusLabel.Text = strings.Get("appearance.status.clean");
         edit.AddChild(StatusLabel);
+        // in the smallest window at a large interface size the Edit tab is taller than the window, so the rest of the tab gives up its room while the question shows
+        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, edit.GetChildren().OfType<Control>().Where(c => c != UnsavedPrompt).ToArray());
         Refresh();
     }
 

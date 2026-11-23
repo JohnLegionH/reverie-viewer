@@ -127,6 +127,9 @@ public sealed partial class PrefPageView
     private HashSet<string> OpenSoundSections() =>
         (_model().Service.GetText(_sectionsKey) ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
 
+    /// <summary>The narrowest a closed section's summary is made, in interface units.</summary>
+    private const float SummaryMinWidth = 48;
+
     /// <summary>One section: a flat header with a rule under it. A collapsible one has a chevron, is closed until the user opens it (the choice is
     /// kept), and says in one line what it holds while it is closed; <paramref name="extra"/> sits at the right end of its header.</summary>
     private void Section(VBoxContainer parent, string id, bool collapsible, Func<string>? summary, Control? extra, out VBoxContainer body, string? titleKey = null)
@@ -153,11 +156,11 @@ public sealed partial class PrefPageView
                 ThemeTypeVariation = ReverieStyle.SectionHeader, Icon = ReverieIcons.Get(open ? LucideIcons.Down : LucideIcons.Submenu),
             };
             toggle.AccessibilityName = title;
-            var line = new Label { Name = "section_" + id + "_summary", ThemeTypeVariation = UiTheme.CaptionLabel, Visible = !open, ClipText = true };
+            var line = new Label { Name = "section_" + id + "_summary", ThemeTypeVariation = UiTheme.CaptionLabel, Visible = !open, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis, MouseFilter = MouseFilterEnum.Pass };
             line.SizeFlagsVertical = SizeFlags.ShrinkCenter;
             // the summary takes the room the title leaves (a plain spacer beside it took it all and left the summary a pixel wide)
             line.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            line.CustomMinimumSize = new Vector2(120, 0);
+            line.CustomMinimumSize = new Vector2(SummaryMinWidth, 0);   // small: the section title always keeps its whole width, the summary gives way (ending in an ellipsis)
             var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore, Visible = open };   // keeps the right end clear while the section is open
             head.AddChild(toggle);
             head.AddChild(line);
@@ -168,6 +171,7 @@ public sealed partial class PrefPageView
             {
                 line.Text = summary!();
                 line.AccessibilityName = line.Text;
+                line.TooltipText = line.Text;   // the whole summary where the line had to be shortened
             };
             toggle.Toggled += on =>
             {
