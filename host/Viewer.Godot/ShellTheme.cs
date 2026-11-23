@@ -174,13 +174,13 @@ public static class ShellTheme
         theme.SetColor("font_color", UiTheme.CaptionLabel, muted);
 
         // buttons: an input-coloured face, the accent on hover and focus; a filled accent button for the main action; disabled, the
-        // normal face, border and text at the one disabled strength (ControlStates), in every theme
+        // normal face, border and text at the one disabled strength (ControlStates), in every theme. (A check box is the plain tick box of SharedControlStyle, set by ReverieStyle.Add below.)
         var states = ControlStates.Button(t);
         var face = Box(t, states.Normal.Fill, states.Normal.Border, 6);
         var hover = Box(t, states.Hover.Fill, states.Hover.Border, 6);
         var pressed = Box(t, states.Pressed.Fill, states.Pressed.Border, 6);
         var disabled = Box(t, states.Disabled.Fill, states.Disabled.Border, 6);
-        foreach (var type in new[] { "Button", "OptionButton", "CheckBox", "MenuButton" })
+        foreach (var type in new[] { "Button", "OptionButton", "MenuButton" })
         {
             theme.SetStylebox("normal", type, face);
             theme.SetStylebox("hover", type, hover);
@@ -258,7 +258,6 @@ public static class ShellTheme
         theme.SetColor("font_selected_color", "TabBar", text);
         theme.SetColor("font_unselected_color", "TabBar", muted);
         theme.SetColor("font_hovered_color", "TabBar", text);
-        theme.SetColor("font_color", "CheckBox", text);
         theme.SetColor("font_color", "ProgressBar", text);
         theme.SetStylebox("background", "ProgressBar", field);
         theme.SetStylebox("fill", "ProgressBar", Box(t, t.AccentFill, t.AccentFill, 0));

@@ -315,7 +315,7 @@ public static class ReverieStyle
         if (semibold is not null)
             theme.SetFont("font", TabBar, semibold);
 
-        // the check box: the tick and its label, as the official viewer draws one, with no bar around the row; dimmed when off
+        // the check box: the tick and its label, as the official viewer draws one, with no bar around the row; a disabled one is dashed (unticked) or dimmed (ticked)
         theme.SetTypeVariation(Check, "CheckBox");
         SharedControlStyle.ApplyCheck(theme, Check, r, Type(ReverieTheme.TypeBody));
         // the base CheckBox and SpinBox types take the same look, so a window that makes a plain tick box or number box has it too

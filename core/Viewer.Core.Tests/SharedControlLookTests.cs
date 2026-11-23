@@ -45,14 +45,15 @@ public class SharedControlLookTests
 
     [Theory]
     [MemberData(nameof(Looks))]
-    public void A_disabled_box_differs_from_an_unticked_one_by_shape_or_by_contrast(string look)
+    public void A_disabled_box_is_dashed_and_dimmer_than_an_unticked_one(string look)
     {
         var t = TokensOf(look);
         var d = CheckColours.Disabled(t);
-        bool byShape = d.Dashed;
+
         double enabled = UiColour.Contrast(CheckColours.Outline(t), t["surface.base"]);
         double disabled = UiColour.Contrast(CheckColours.Over(d.Outline, d.Strength, t["surface.base"]), t["surface.base"]);
-        Assert.True(byShape || enabled - disabled >= 1.0, $"{look}: unticked {enabled:F2}:1, disabled {disabled:F2}:1, dashed {byShape}");
+        Assert.True(d.Dashed, $"{look}: the disabled box is not dashed");
+        Assert.True(disabled <= enabled, $"{look}: unticked {enabled:F2}:1, disabled {disabled:F2}:1");
     }
 
     [Theory]
