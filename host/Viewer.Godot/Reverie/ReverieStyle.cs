@@ -134,9 +134,13 @@ public static class ReverieStyle
                 theme.SetColor(icon, name, new Color(1, 1, 1));
         ButtonVariation(theme, IconButton, r, normal: clear, hover, selected, border: clear, 0, control, 6, 6, r["text.primary"], ReverieTheme.TypeBody, null);
         ButtonVariation(theme, LocationButton, r, normal: clear, A(r["surface.selected"], 0.35f), A(r["surface.selected"], 0.6f), border: clear, 0, Px(ReverieTheme.LocationHeight / 2), 2, 0, r["text.primary"], ReverieTheme.TypeStatus, null);
-        ButtonVariation(theme, Secondary, r, normal: clear, hover, selected, border: C(r["border.control"]), bw, Px(ReverieTheme.ButtonHeight / 2), 16, 6, r["text.primary"], ReverieTheme.TypeSmall, null);
+        ButtonVariation(theme, Secondary, r, normal: clear, hover, selected, border: C(CheckColours.ButtonOutline(r)), bw, Px(ReverieTheme.ButtonHeight / 2), 16, 6, r["text.primary"], ReverieTheme.TypeSmall, null);
         ButtonVariation(theme, Primary, r, normal: C(r.Accent), C(r.Accent).Darkened(0.12f), C(r.Accent).Darkened(0.22f), border: C(r.Accent), bw, Px(ReverieTheme.ButtonHeight / 2), 18, 6, r.OnAccent, ReverieTheme.TypeBody, semibold);
-        ButtonVariation(theme, Chip, r, normal: C(r["surface.raised"]), C(r["surface.selected"]), C(r["surface.selected.strong"]), border: C(r["border.control"]), bw, Px(ReverieTheme.ChipHeight / 2), 12, 3, r["text.primary"], ReverieTheme.TypeSmall, null);
+        // disabled: the accent at 45 % with no outline of its own (a filled border over the fill drew a doubled edge) and a label that keeps 3:1
+        var dimmedAccent = C(r.Accent) with { A = ControlStates.DisabledStrength };
+        theme.SetStylebox("disabled", Primary, Face(dimmedAccent, dimmedAccent, 0, Px(ReverieTheme.ButtonHeight / 2), 18, 6));
+        theme.SetColor("font_disabled_color", Primary, C(ControlStates.FilledDisabledText(r)));
+        ButtonVariation(theme, Chip, r, normal: C(r["surface.raised"]), C(r["surface.selected"]), C(r["surface.selected.strong"]), border: C(CheckColours.ButtonOutline(r)), bw, Px(ReverieTheme.ChipHeight / 2), 12, 3, r["text.primary"], ReverieTheme.TypeSmall, null);
         ButtonVariation(theme, ListRow, r, normal: clear, hover, selected, border: rowBorder, rowBw, control, 8, 4, r["text.primary"], ReverieTheme.TypeBody, null);
         // a row that stays pressed (a sidebar page, a preset) shows the selected face, with the accent outline when rows are outlined
         foreach (var state in new[] { "pressed", "hover_pressed" })
@@ -251,6 +255,8 @@ public static class ReverieStyle
         theme.SetStylebox("normal", TextArea, Face(C(r["surface.raised"]), C(r["border.control"]), bw, control, 10, 6));
         theme.SetStylebox("read_only", TextArea, Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 10, 6));
         theme.SetStylebox("focus", TextArea, FocusRing(r, control));
+        theme.SetColor("font_color", TextArea, C(r["text.primary"]));
+        theme.SetColor("font_readonly_color", TextArea, C(r["text.primary"]));
 
         // lists and trees: the sunken surface, rows in the list row's states (hover 60 %, selected on the selected surface)
         var sunken = Face(C(r["surface.sunken"]), C(r["border.default"]), bw, control, 4, 4);
@@ -311,20 +317,11 @@ public static class ReverieStyle
 
         // the check box: the tick and its label, as the official viewer draws one, with no bar around the row; dimmed when off
         theme.SetTypeVariation(Check, "CheckBox");
-        var bare = new StyleBoxEmpty { ContentMarginLeft = 2, ContentMarginRight = 4, ContentMarginTop = 2, ContentMarginBottom = 2 };
-        foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "disabled" })
-            theme.SetStylebox(state, Check, bare);
-        theme.SetStylebox("focus", Check, FocusRing(r, 4));
-        foreach (var colour in new[] { "font_color", "font_pressed_color", "font_focus_color" })
-            theme.SetColor(colour, Check, C(r["text.primary"]));
-        theme.SetColor("font_hover_color", Check, C(r["text.strong"]));
-        theme.SetColor("font_hover_pressed_color", Check, C(r["text.strong"]));
-        theme.SetColor("font_disabled_color", Check, C(ControlStates.Faded(r["text.primary"])));
-        theme.SetConstant("h_separation", Check, 6);
-        // the box itself: an outline that holds 3:1 against the surface (ticked: the accent with a tick; disabled: the same at 45 %)
-        foreach (var (icon, ticked, off) in new[] { ("unchecked", false, false), ("checked", true, false), ("unchecked_disabled", false, true), ("checked_disabled", true, true) })
-            theme.SetIcon(icon, Check, CheckBoxIcons.Make(r, ticked, off));
-        theme.SetFontSize("font_size", Check, Type(ReverieTheme.TypeBody));
+        SharedControlStyle.ApplyCheck(theme, Check, r, Type(ReverieTheme.TypeBody));
+        // the base CheckBox and SpinBox types take the same look, so a window that makes a plain tick box or number box has it too
+        // (the base box keeps the classic text size)
+        SharedControlStyle.ApplyCheck(theme, "CheckBox", r, 0);
+        SharedControlStyle.ApplySpinBox(theme, r, bw);
 
         // a collapsible section header: flat, a chevron icon, the label in weight 600; the window draws the thin divider under it.
         // Open or shut, the face stays flat: the chevron shows which.

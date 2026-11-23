@@ -141,6 +141,8 @@ public static class ShellTheme
             theme.SetStylebox("focus", type, focus);
             theme.SetStylebox("read_only", type, field);
             theme.SetColor("font_color", type, text);
+            // read-only text (a licence, a certificate, a script you cannot change) is the text colour too, not the engine's half-transparent grey
+            theme.SetColor(type == "TextEdit" ? "font_readonly_color" : "font_uneditable_color", type, text);
             theme.SetColor("font_placeholder_color", type, muted);
             theme.SetColor("caret_color", type, accent);
             theme.SetColor("selection_color", type, C(t.Selection));
