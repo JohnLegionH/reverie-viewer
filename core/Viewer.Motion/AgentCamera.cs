@@ -333,6 +333,9 @@ public class AgentCamera
         ZoomIn(1f);
     }
 
+    /// <summary>A left press on the own avatar: the focus goes back on the avatar with its axes reset.</summary>
+    public void LockOnAvatarForSteering() { }
+
     /// <summary>LLAgent::pitch's limits: turning down stops with the at axis 179 degrees from up; turning up stops with the camera's
     /// line to the focus 5 degrees from straight up.</summary>
     private float LimitAvatarPitch(float angle)

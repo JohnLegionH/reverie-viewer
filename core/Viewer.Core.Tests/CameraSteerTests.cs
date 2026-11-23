@@ -146,6 +146,38 @@ public sealed class CameraSteerTests
     }
 
     [Fact]
+    public void A_press_on_the_own_avatar_locks_the_view_on_it_faces_the_camera_and_clears_the_pitch()
+    {
+        // lltoolfocus.cpp pickCallback unlocks, then lltoolpie.cpp sets the focus on the avatar again with reset_axes
+        // (llagentcamera.cpp setFocusOnAvatar: the agent turns to the camera's flattened at axis, so any pitch goes)
+        var cam = Cam();
+        float? faced = null;
+        cam.FaceHeading += h => faced = h;
+        Pose(cam);
+        cam.OrbitOver(0.3f);
+        Pose(cam);
+        cam.UnlockView();
+        cam.OrbitAround(0.5f);                                               // the free camera is turned away from the avatar's heading
+        var (eye, target) = Pose(cam);
+        float expected = MathF.Atan2(target.Y - eye.Y, target.X - eye.X);
+        cam.LockOnAvatarForSteering();
+        Assert.True(cam.FocusOnAvatar);
+        Assert.Equal(0f, cam.AvatarPitch);
+        Assert.NotNull(faced);
+        Assert.Equal(expected, faced!.Value, 3);
+    }
+
+    [Fact]
+    public void A_seated_agent_takes_no_pitch()
+    {
+        var cam = Cam();
+        cam.SeatRotation = Quaternion.Identity;
+        Pose(cam);
+        cam.OrbitOver(0.3f);
+        Assert.Equal(0f, cam.AvatarPitch);
+    }
+
+    [Fact]
     public void A_reset_while_the_left_button_is_held_keeps_the_pitch()
     {
         var cam = Cam();
