@@ -585,6 +585,7 @@ public partial class Main
             owned_only = e.SelectOwnedOnly,
             pending = e.Pending,
             contents = e.ContentsKnown ? e.Contents.Select(i => i.Name).ToArray() : null,
+            content_status = _editPanel.ContentTab.StatusText,
             features = e.Features() is { } ft ? new
             {
                 flexible = ft.Flexible is { } fx ? new[] { fx.Softness, fx.Gravity, fx.Drag, fx.Wind, fx.Tension } : null,

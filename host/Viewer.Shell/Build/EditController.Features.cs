@@ -266,10 +266,42 @@ public sealed partial class EditController
             return false;
         if (newName == item.Name && newDescription == item.Description)
             return true;
-        if (!Send(new UpdateObjectItemIntent(o.Id.LocalId, o.FullId, item with { Name = newName, Description = newDescription })))
+        var changed = item with { Name = newName, Description = newDescription };
+        if (!Send(new UpdateObjectItemIntent(o.Id.LocalId, o.FullId, changed)))
             return false;
+        // the list shows the change as it goes, as the official viewer's own copy does (llviewerobject.cpp updateInventory, doUpdateInventory);
+        // the region handles the change and the list request below in either order, so one list that still has the old text is not taken
+        if (_contents is { } c && c.ObjectId == o.FullId)
+        {
+            _contents = (c.ObjectId, Sorted(c.Items.Select(i => i.ItemId == itemId ? changed : i)));
+            _changedText[itemId] = changed;
+            Changed?.Invoke();
+        }
         RequestContents();
         return true;
+    }
+
+    /// <summary>Items whose new name or description was sent and not yet seen in a list from the region.</summary>
+    private readonly Dictionary<Guid, TaskItem> _changedText = new();
+
+    private static TaskItem[] Sorted(IEnumerable<TaskItem> items) =>
+        items.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ThenBy(i => i.Name, StringComparer.Ordinal).ToArray();
+
+    /// <summary>A list from the region, with a change sent just before it kept once: a list that already shows the change ends the wait, and
+    /// a list that does not is read as asked for before the region applied it, the one time; the next list is the region's word.</summary>
+    private TaskItem[] WithSentChanges(Guid objectId, IReadOnlyList<TaskItem> items)
+    {
+        if (_changedText.Count == 0)
+            return Sorted(items);
+        var shown = items.Select(i =>
+        {
+            if (!_changedText.Remove(i.ItemId, out var sent) || (i.Name == sent.Name && i.Description == sent.Description))
+                return i;
+            return i with { Name = sent.Name, Description = sent.Description };
+        }).ToArray();
+        if (_contents is { } c && c.ObjectId != objectId)
+            _changedText.Clear();
+        return Sorted(shown);
     }
 
     private static string Cut(string text, int max) => text.Length <= max ? text : text[..max];
@@ -406,7 +438,7 @@ public sealed partial class EditController
                 break;
             // an answer with nothing in it is an empty list: a prim whose last item was deleted has no contents file, and its read ends empty
             case TaskInventoryReceived t when (t.Ok || t.Items.Count == 0) && Object() is { } shown && shown.FullId == t.ObjectId:
-                _contents = (t.ObjectId, t.Items.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ThenBy(i => i.Name, StringComparer.Ordinal).ToArray());
+                _contents = (t.ObjectId, WithSentChanges(t.ObjectId, t.Items));
                 // an item stays waiting while the list still names the asset from before its save (a list asked for before the save);
                 // another prim's list ends every wait
                 foreach (var (item, before) in _relisting.ToArray())
