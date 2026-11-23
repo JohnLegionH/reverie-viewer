@@ -618,6 +618,8 @@ public partial class Main : Node
                     return;
             }
         }
+        // a reset of the view levels the agent's pitch only while the left button is up (llagentcamera.cpp resetView: getLeftMouseDown)
+        if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } leftButton) _follow.LeftMouseDown = leftButton.Pressed;
         if (CameraToolInput(e))
         {
             GetViewport().SetInputAsHandled();
@@ -695,10 +697,26 @@ public partial class Main : Node
         switch (e)
         {
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true, AltPressed: false } b:
+            {
+                var pick = PickAt(b.Position, includeSelf: true);
+                if (OwnAvatarHit(shown, pick))
+                {
+                    // a left press on the own avatar hands the drag to the camera tool (lltoolpie.cpp handleLeftClickPick): with mouse
+                    // steering on, the horizontal movement turns the avatar and the vertical one pitches it (lltoolfocus.cpp pickCallback,
+                    // handleHover); the click itself is not passed on
+                    bool steering = Viewer.Motion.CameraControls.SteersOnOwnAvatar(MaskOf(b), _follow.Mode == Viewer.Motion.CameraViewMode.ThirdPerson,
+                        freezeTime: false, hitOwnAvatar: true);
+                    Controls.MouseDown(MaskOf(b), validPoint: true, mouseSteering: steering);
+                    _cameraTool = true;
+                    _cameraToolPressAt = b.Position;
+                    if (!_scriptedMouseLook) Input.MouseMode = Input.MouseModeEnum.Captured;   // the pointer is hidden and held while the camera is dragged
+                    return true;
+                }
                 _steer.MouseDown(b.Position.X, b.Position.Y);
                 _steerDownAt = b.Position;
-                _steerPick = PickAt(b.Position, includeSelf: true);
+                _steerPick = pick;
                 return false;
+            }
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } when _steer.Pressed:
             {
                 bool steered = _steer.Steering;
@@ -721,6 +739,22 @@ public partial class Main : Node
         return false;
     }
 
+    private Vector2? _cameraToolPressAt;
+
+    /// <summary>Whether a pick is the own avatar as a left click sees it: the avatar itself, or an attachment it wears when neither the attachment
+    /// nor its root has a touch handler (lltoolpie.cpp handleLeftClickPick walks from such an attachment to its wearer).</summary>
+    private static bool OwnAvatarHit(Viewer.Core.Session.ViewerSession shown, Viewer.Core.Interaction.PickResult? pick)
+    {
+        if (pick is null) return false;
+        if (pick.Kind == Viewer.Core.Interaction.PickKind.Avatar) return pick.Avatar?.AgentId == shown.AgentId;
+        if (pick.Kind != Viewer.Core.Interaction.PickKind.Object || pick.Hit is not { } hit) return false;
+        var o = shown.World.Object(hit.Id);
+        if (o is null || o.WearerAgentId != shown.AgentId) return false;
+        var root = shown.World.Object(new Viewer.Core.World.ObjectId(o.Id.Epoch, o.ParentLocalId));
+        uint flags = (o.Interaction?.Flags ?? 0) | (root?.WearerAgentId == shown.AgentId ? root.Interaction?.Flags ?? 0 : 0);
+        return (flags & Viewer.Core.Interaction.ObjectFlagBits.HandleTouch) == 0;
+    }
+
     private void BeginSteering(Viewer.Core.Session.ViewerSession shown)
     {
         var pick = _steerPick;
@@ -739,6 +773,7 @@ public partial class Main : Node
             if (_camControls is not null) return _camControls;
             _follow.AutoEnterMouselook = false;   // this class keeps the mouse-look state
             _follow.FaceHeading += heading => _driver?.Input.AdoptHeading(heading);   // the focus came back: the avatar faces where the camera looked
+            _follow.YawAvatar = angle => _driver?.Input.Yaw(angle);   // an orbit with the focus on the avatar turns the avatar (cameraOrbitAround: gAgent.yaw)
             _camControls = new Viewer.Motion.CameraControls(_follow);
             _camControls.MouselookRequested += () => _mouseLook.WheelIn(true);
             return _camControls;
@@ -766,10 +801,19 @@ public partial class Main : Node
                 return true;
             }
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } when _cameraTool:
+            {
+                bool steered = Controls.MouseSteering;
                 Controls.MouseUp();
                 _cameraTool = false;
-                if (!_mouseLook.Active) Input.MouseMode = Input.MouseModeEnum.Visible;
+                if (!_mouseLook.Active)
+                {
+                    Input.MouseMode = Input.MouseModeEnum.Visible;
+                    // after mouse steering the pointer comes back where the button went down (lltoolfocus.cpp handleMouseUp)
+                    if (steered && _cameraToolPressAt is { } back) GetViewport().WarpMouse(back);
+                }
+                _cameraToolPressAt = null;
                 return true;
+            }
             case InputEventMouseMotion m when _cameraTool:
                 Controls.MouseMoveScreen(m.Relative.X, m.Relative.Y, MaskOf(m), GetViewport().GetVisibleRect().Size.X);
                 return true;
