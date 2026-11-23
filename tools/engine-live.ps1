@@ -165,6 +165,19 @@ function DragFromTo($from, $to) {
 }
 # the index of the first drop-down entry, not greyed, whose text matches
 function ComboIndex($s, [string]$pattern) { $items = @($s.combo_items); for ($i = 0; $i -lt $items.Count; $i++) { if ([string]$items[$i].text -match $pattern -and -not $items[$i].disabled) { return $i } }; return -1 }
+# Chooses the drop-down entry that saves one compile target, found by the target the editor reports once the entry is chosen, and returns its
+# index (-1 when no enabled entry saves it; the selection is then left on the last entry tried, and nothing is saved until a Save). Labels
+# cannot tell entries apart: on a region that lists SLua among its engines and runs Lua, two entries are both labelled "SLua (LSL)" (the engine
+# SLua, and the LSL-on-Lua target), and a partial match on "(LSL" picked the first entry, YEngine. A target is "luau", "lsl-luau" or "engine:<Name>".
+function PickTarget([string]$target) {
+    $items = @((SState).combo_items)
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        if ($items[$i].disabled) { continue }
+        $r = Scr @{ action = "pick"; text = "$i" }
+        if ($r -and [string]$r.target -ceq $target) { return $i }
+    }
+    return -1
+}
 function Items($s) { (@($s.combo_items) | ForEach-Object { "{0}{1}" -f $_.text, $(if ($_.disabled) { " (greyed)" } else { "" }) }) -join " | " }
 function Rt($s) { if ($s.runtime) { "mono {0} luau {1} lua-language {2} engine '{3}' choice '{4}'" -f $s.runtime.Mono, $s.runtime.Luau, $s.runtime.LuauLanguage, $s.runtime.Engine, $s.runtime.EngineChoice } else { "no reply" } }
 # every script editor closed through the window list, so the next Open asks the region again for the running state
@@ -220,8 +233,7 @@ if ($Mode -eq "A") {
     Note ("A1 opened: row {0}; entries [{1}]; {2}" -f $s.engine_row, (Items $s), (Rt $s))
     TypeAll ("ll.Say(0, `"lua $tok`")")
     [void](ClickS "engine_choose"); Start-Sleep -Milliseconds 400
-    $i = ComboIndex (SState) '\(Lua'
-    $p = if ($i -ge 0) { Scr @{ action = "pick"; text = "$i" } } else { $null }
+    $i = PickTarget 'luau'
     $before = SState
     $saved = SaveNow
     $ran = Said "lua $tok" 1
@@ -243,8 +255,7 @@ if ($Mode -eq "A") {
     $s = NewScriptOpened
     TypeAll ("default`n{`nstate_entry()`n{`nllSay(0, `"lsl-luau $tok`");`n}`n}")
     [void](ClickS "engine_choose"); Start-Sleep -Milliseconds 400
-    $i = ComboIndex (SState) '\(LSL'
-    if ($i -ge 0) { [void](Scr @{ action = "pick"; text = "$i" }) }
+    $i = PickTarget 'lsl-luau'
     $before3 = SState
     $saved3 = SaveNow
     $ran3 = Said "lsl-luau $tok" 1
@@ -297,8 +308,7 @@ if ($Mode -eq "B") {
     # ---- B2. Choose engine myself, YEngine, saved; read back ----
     TypeAll ("default`n{`nstate_entry()`n{`nllSay(0, `"yengine $tok`");`n}`n}")
     [void](ClickS "engine_choose"); Start-Sleep -Milliseconds 400
-    $i = ComboIndex (SState) '^YEngine'
-    if ($i -ge 0) { [void](Scr @{ action = "pick"; text = "$i" }) }
+    $i = PickTarget 'engine:YEngine'
     $before = SState
     $saved = SaveNow
     $ran = Said "yengine $tok" 1

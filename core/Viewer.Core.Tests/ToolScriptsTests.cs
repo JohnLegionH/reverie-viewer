@@ -83,6 +83,47 @@ public sealed class ToolScriptsTests
         Assert.Contains("returned box 77", r.Output);
     }
 
+    // Loads PickTarget out of engine-live.ps1 and asks it for each compile target of a drop-down like the one of a region that lists SLua
+    // among its engines AND runs Lua: two entries are both labelled "SLua (LSL)" (the engine SLua, and the LSL-on-Lua target), so only the target
+    // the editor reports after choosing an entry tells them apart. The stand-in drop-down reports the target of the entry last picked.
+    // Prints "<target> => <index>" and the entries picked, in order.
+    private const string PickTargetProbe = """
+        param([string]$Script)
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($Script, [ref]$null, [ref]$null)
+        foreach ($name in 'ComboIndex', 'EngineIndex', 'PickTarget') {
+            $fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
+            if ($fn) { Invoke-Expression $fn.Extent.Text }
+        }
+        if (-not (Get-Command PickTarget -ErrorAction SilentlyContinue)) { Write-Output "NO PickTarget"; exit 3 }
+        $script:targets = @('engine:YEngine', 'engine:Example.Phlox', 'engine:SLua', 'lsl-luau', 'luau', 'engine:Greyed')
+        $script:labels = @('YEngine (LSL)', 'Example.Phlox (LSL)', 'SLua (LSL)', 'SLua (LSL)', 'SLua (Lua)', 'Greyed (LSL)')
+        $script:picked = New-Object System.Collections.Generic.List[int]
+        $script:last = -1
+        function Start-Sleep { param([int]$Milliseconds, [int]$Seconds) }
+        function SState {
+            $items = for ($i = 0; $i -lt $script:labels.Count; $i++) { @{ text = $script:labels[$i]; disabled = ($i -eq 5) } }
+            @{ combo_items = @($items); target = $(if ($script:last -ge 0) { $script:targets[$script:last] } else { 'mono' }) }
+        }
+        function Scr($b) { if ($b.action -eq 'pick') { $script:last = [int]$b.text; $script:picked.Add($script:last) }; SState }
+        foreach ($t in 'engine:YEngine', 'engine:Example.Phlox', 'engine:SLua', 'lsl-luau', 'luau', 'engine:Greyed', 'engine:Missing') {
+            $script:last = -1; $script:picked.Clear()
+            Write-Output ("{0} => {1} (last pick {2})" -f $t, (PickTarget $t), $script:last)
+        }
+        """;
+
+    [Fact]
+    public void The_engine_check_picks_each_compile_target_by_the_target_the_editor_reports_not_by_its_label()
+    {
+        var r = RunPowerShell(PickTargetProbe, "-Script", Path.Combine(Tools, "engine-live.ps1"));
+        Assert.Equal(0, r.Exit);
+        Assert.Contains("engine:YEngine => 0 (last pick 0)", r.Output);
+        Assert.Contains("engine:Example.Phlox => 1 (last pick 1)", r.Output);
+        Assert.Contains("engine:SLua => 2 (last pick 2)", r.Output);
+        Assert.Contains("lsl-luau => 3 (last pick 3)", r.Output);     // the second "SLua (LSL)" entry; a label match answered 2
+        Assert.Contains("luau => 4 (last pick 4)", r.Output);
+        Assert.Contains("engine:Greyed => -1", r.Output);             // greyed entries are never picked
+        Assert.Contains("engine:Missing => -1", r.Output);            // not offered: no other engine's entry is used instead
+    }
     // For every script under tools\ with a -Token parameter, prints "TOKEN-PARAM <file>"; and for each assignment in it to a
     // variable named token (any case, any scope prefix) outside a function's own parameters, "CLASH <file>:<line>".
     private const string TokenProbe = """
