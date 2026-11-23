@@ -483,6 +483,7 @@ public partial class Main
                 ? new[] { _camera.UnprojectPosition(new Vector3(_agentCentre.X, _agentCentre.Z, -_agentCentre.Y)).X, _camera.UnprojectPosition(new Vector3(_agentCentre.X, _agentCentre.Z, -_agentCentre.Y)).Y } : null,
             look = new[] { _look.X, _look.Y, _look.Z },
             focus_owner = GetViewport().GuiGetFocusOwner()?.GetType().Name,
+            focus_name = GetViewport().GuiGetFocusOwner()?.Name.ToString(),   // the node name, so a check can tell two drop-downs apart
             hovered = GetViewport().GuiGetHoveredControl()?.GetPath().ToString(),
             mouse_at = new[] { GetViewport().GetMousePosition().X, GetViewport().GetMousePosition().Y },
             focus_on_avatar = _follow.FocusOnAvatar,

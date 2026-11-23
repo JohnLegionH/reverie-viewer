@@ -96,7 +96,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
     private readonly Dictionary<string, ColourButton> _pickers = new();
     private readonly List<(Label Name, Label Ratio, Label Verdict)> _rows = new();
     private readonly Label _message;
-    private readonly HSlider _scale;
+    private readonly OptionButton _scale;
     private readonly FloaterOpacityPrefs _opacity;
     private readonly (HSlider Slider, Label Value) _activeOpacity, _inactiveOpacity;
 
@@ -108,7 +108,6 @@ public sealed partial class PreferencesPanel : VBoxContainer
 
     /// <summary>The window opacity edits (for checks).</summary>
     public FloaterOpacityPrefs Opacity => _opacity;
-    private readonly Label _scaleValue;
     private readonly CheckBox _gridAccent;
     private readonly Label _gridNote;
     private readonly ColourButton _customAccent;
@@ -276,13 +275,23 @@ public sealed partial class PreferencesPanel : VBoxContainer
         // scale
         box.AddChild(Heading(strings.Get("prefs.scale.heading")));
         var scaleRow = new HBoxContainer { Name = "scale_row" };
-        _scale = new HSlider { Name = "scale", MinValue = InterfacePreferences.MinScalePercent, MaxValue = InterfacePreferences.MaxScalePercent, Step = 5, Value = 100, CustomMinimumSize = new Vector2(220, 24), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _scale = new OptionButton { Name = "scale_dropdown", SizeFlagsHorizontal = SizeFlags.ShrinkBegin, CustomMinimumSize = new Vector2(120, 24) };
         _scale.AccessibilityName = strings.Get("prefs.scale.named");
-        _scale.ValueChanged += v => { if (!_syncing) _page.SetScale((int)Math.Round(v)); };
+        // a choice applies once, when it is made: the list rescales nothing while it is open (a slider applied every step of a drag, and the
+        // control moved under the pointer as the interface grew)
+        _scale.ItemSelected += async index =>
+        {
+            if (_syncing)
+                return;
+            _page.SetScale(_scale.GetItemId((int)index));
+            // the page keeps its scroll position while its content grows or shrinks with the new size: bring the control back into view
+            // once the new size has been laid out, so the person can always go back
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (IsInstanceValid(_scale) && _scale.IsVisibleInTree())
+                _interfaceScroll.EnsureControlVisible(_scale);
+        };
         scaleRow.AddChild(_scale);
-        _scaleValue = new Label { Name = "scale_value", Text = strings.Get("prefs.scale.value", 100) };
-        _scaleValue.AccessibilityName = strings.Get("prefs.scale.named");
-        scaleRow.AddChild(_scaleValue);
         box.AddChild(scaleRow);
 
         // import and export
@@ -465,8 +474,10 @@ public sealed partial class PreferencesPanel : VBoxContainer
         if (dropdown == _dropdownMode)
             return;
         // a control that is hidden or taken out of the tree loses the keyboard focus: the one now showing takes it, so a person using the
-        // keyboard stays on the category control
-        bool hadFocus = _navDropdown.HasFocus() || (_nav.TryGetValue(_current, out var currentButton) && currentButton.HasFocus());
+        // keyboard stays on the category control. Focus on the category controls or on the size drop-down counts (a person who has just chosen a size
+        // is on it); a text field or slider keeps the keyboard.
+        var focusOwner = GetViewport()?.GuiGetFocusOwner();
+        bool hadFocus = focusOwner is not null && (focusOwner == _navDropdown || focusOwner == _scale || (focusOwner is Button navButton && _nav.ContainsValue(navButton)));
         _dropdownMode = dropdown;
         _navScroll.Visible = !dropdown;
         _navDropdown.Reparent(dropdown ? _footer : _content, false);
@@ -678,6 +689,28 @@ public sealed partial class PreferencesPanel : VBoxContainer
     /// <summary>The whole interface takes the working look.</summary>
     private void Apply() => UiTheme.Apply(_page.Tokens, _page.EffectiveScale);
 
+    /// <summary>The sizes the Interface size drop-down offers.</summary>
+    public static readonly int[] ScaleChoices = [100, 125, 150, 175, 200];
+
+    /// <summary>
+    /// Shows the size in force in the drop-down. A size that is not one of <see cref="ScaleChoices"/> (one saved by an earlier version, or by
+    /// the grid's display scale) is kept as an entry of its own, in its place in the list, until another size is chosen.
+    /// </summary>
+    private void SyncScale(int percent)
+    {
+        var sizes = ScaleChoices.Contains(percent) ? ScaleChoices : ScaleChoices.Append(percent).Order().ToArray();
+        bool same = _scale.ItemCount == sizes.Length;
+        for (int i = 0; same && i < sizes.Length; i++)
+            same = _scale.GetItemId(i) == sizes[i];
+        if (!same)
+        {
+            _scale.Clear();
+            foreach (var size in sizes)
+                _scale.AddItem(_strings.Get("prefs.scale.value", size), size);
+        }
+        _scale.Select(Array.IndexOf(sizes, percent));
+    }
+
     private void Refresh()
     {
         _syncing = true;
@@ -687,8 +720,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
             button.SetPressedNoSignal(_page.Working.Preset == id);
             button.ThemeTypeVariation = _page.Working.Preset == id ? ReverieStyle.SegmentSelected : ReverieStyle.Segment;
         }
-        _scale.Value = _page.EffectiveScale;
-        _scaleValue.Text = _strings.Get("prefs.scale.value", _page.EffectiveScale);
+        SyncScale(_page.EffectiveScale);
         _gridAccent.ButtonPressed = _page.Working.UseGridAccent;
         _gridAccent.Disabled = _page.GridAccent is null;
         _gridNote.Visible = _page.GridAccent is null;

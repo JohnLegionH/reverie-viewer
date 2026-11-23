@@ -172,6 +172,8 @@ public partial class TestRender
             await PreferencesSmallWindow(shell, prefs, pct, $"{w}x{h}");
         if (w <= 1152 && pct == 100)
             await PreferencesLayoutSwitch(shell, prefs, rig.Viewport, w, h);
+        if (w <= 1152 && pct == 100)
+            await PreferencesSizeDropdown(prefs);
         shell.QueueFree();
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
         Dock.PulseEnabled = true;
