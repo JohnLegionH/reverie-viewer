@@ -232,6 +232,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         // colours
         box.AddChild(Heading(strings.Get("prefs.colours.heading")));
         var grid = new GridContainer { Name = "colours", Columns = 2 };
+        grid.AddThemeConstantOverride("h_separation", 10);
         Row(grid, "panel", "prefs.colour.panel", c => _page.SetPanel(c));
         Row(grid, "bar", "prefs.colour.bar", c => _page.SetBar(c));
         Row(grid, "text", "prefs.colour.text", c => _page.SetText(c));
@@ -645,7 +646,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
     private void Row(GridContainer grid, string key, string labelKey, Action<UiColour?> set)
     {
         string text = _strings.Get(labelKey);
-        var label = new Label { Name = "label_" + key, Text = text, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var label = new Label { Name = "label_" + key, Text = text, CustomMinimumSize = new Vector2(150, 0) };   // a label column with the swatch right beside it
         label.AccessibilityName = text;
         var picker = new ColourButton { Name = "pick_" + key, CustomMinimumSize = new Vector2(96, 28) };
         picker.AccessibilityName = text;

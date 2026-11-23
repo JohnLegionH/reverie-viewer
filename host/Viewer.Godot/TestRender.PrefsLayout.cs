@@ -71,6 +71,14 @@ public partial class TestRender
             _failures.Add($"preferences layout: {problems.Count - 12} more (preferences_layout in the result)");
     }
 
+    /// <summary>A sentence under a setting or a section header (a note, a summary, a status): it may take the room it needs and wrap; the checks on row labels leave it.</summary>
+    private static bool IsNote(Label label)
+    {
+        string name = label.Name.ToString();
+        return name.StartsWith("note_", StringComparison.Ordinal) || name.StartsWith("account_", StringComparison.Ordinal) || name.StartsWith("backend_", StringComparison.Ordinal)
+            || name.EndsWith("_summary", StringComparison.Ordinal) || name.EndsWith("_status", StringComparison.Ordinal) || name.StartsWith("sound_note", StringComparison.Ordinal);
+    }
+
     private static List<string> PrefsPageProblems(Control page, string category)
     {
         var found = new List<string>();
@@ -80,7 +88,7 @@ public partial class TestRender
         {
             if (!node.IsVisibleInTree() || node is Container || node.Size.X <= 0)
                 continue;
-            if (node is Label label && label.Text.Length > 0 && label.ThemeTypeVariation != UiTheme.CaptionLabel)
+            if (node is Label label && label.Text.Length > 0 && !IsNote(label))
             {
                 var font = label.GetThemeFont("font");
                 int size = label.GetThemeFontSize("font_size");

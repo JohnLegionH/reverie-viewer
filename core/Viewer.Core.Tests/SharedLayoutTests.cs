@@ -63,7 +63,7 @@ public class SharedLayoutTests
     [InlineData("Reverie/ReverieStyle.cs")]
     [InlineData("ShellTheme.cs")]
     [InlineData("PreferencesPanels.cs")]
-    [InlineData("PreferencePages.Sound.cs")]
+    [InlineData("PreferencePages.cs")]
     public void Lists_text_areas_and_the_preference_pages_pad_by_the_shared_value_in_the_theme_not_per_window(string file)
         => Assert.Contains("PanelPadding.Inner", Source("Viewer.Godot", file));
 
