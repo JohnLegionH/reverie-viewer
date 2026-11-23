@@ -67,7 +67,7 @@ public sealed class EditContentTab
     /// <summary>Folders dropped before their contents had been read from the grid: their items go in once they have.</summary>
     private readonly List<Guid> _waitingFolders = new();
 
-    private const int MenuOpen = 0, MenuProperties = 1, MenuRename = 2, MenuDelete = 3;
+    private const int MenuOpen = 0, MenuProperties = 1, MenuRename = 2, MenuDelete = 3, MenuCopy = 5;
 
     public EditContentTab(StringTable strings, Func<EditController?> edit, Func<InventoryModel?> inventory, VBoxContainer page,
         Func<Guid>? agent = null, Func<Guid, string?>? names = null)
@@ -81,7 +81,8 @@ public sealed class EditContentTab
         ReverieRestyle.Apply(page);
         _newScript = Btn("new_script", "edit.content.new_script", () => _edit()?.NewScript(_s.Get("edit.content.new_script.name")));
         page.AddChild(_newScript);
-        _list = new ContentDropList { Name = "contents", CustomMinimumSize = new Vector2(0, 220), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _list = new ContentDropList { Name = "contents", CustomMinimumSize = new Vector2(0, 72), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };   // short enough that the buttons below stay in the window; a long row ends in an ellipsis, its tooltip has the whole name
         _list.AccessibilityName = strings.Get("edit.content.list");
         _list.Accepts = ids => ids.Count > 0 && _edit()?.Object() is not null;
         _list.Dropped += Drop;
@@ -242,10 +243,12 @@ public sealed class EditContentTab
         if (item is not null && TaskItemRules.OpenKind(item) != TaskOpenKind.None)
             _menu.AddItem(_s.Get("edit.content.open"), MenuOpen);
         _menu.AddItem(_s.Get("edit.content.properties"), MenuProperties);
-        if (item is not null && TaskItemRules.CanRename(item, _agent()))
-            _menu.AddItem(_s.Get("edit.content.rename"), MenuRename);
+        // the same choices as the buttons below the list; one that does not apply is greyed, as its button is
+        _menu.AddItem(_s.Get("edit.content.rename"), MenuRename);
+        _menu.SetItemDisabled(_menu.ItemCount - 1, item is null || !modify || !TaskItemRules.CanRename(item, _agent()));
         if (modify || youOwn)
             _menu.AddItem(_s.Get("edit.content.delete"), MenuDelete);
+        _menu.AddItem(_s.Get("edit.content.copy"), MenuCopy);
         if (item is { AssetType: 10 } && ScriptRegionOf?.Invoke() is { } region)
             AddEngineMenu(item, region);
         _menu.Position = (Vector2I)(_list.GetScreenPosition() + at);
@@ -256,7 +259,7 @@ public sealed class EditContentTab
     internal void OpenMenuOnRow(int index)
     {
         if (index >= 0 && index < _rows.Count)
-            ShowMenu(index, _list.GetItemRect(index).GetCenter());
+            ShowMenu(index, new Vector2(Math.Max(0, _list.Size.X - 100), _list.GetItemRect(index).GetCenter().Y));   // at the free end of the row, not over its name
     }
 
     /// <summary>The right-click menu as it stands, for the live checks: whether it is shown, and each entry's text, whether it is greyed and
@@ -267,6 +270,9 @@ public sealed class EditContentTab
             .Select(i => (object)new { text = m.GetItemText(i), disabled = m.IsItemDisabled(i), tooltip = m.GetItemTooltip(i) }).ToArray();
         return new { visible = _menu.Visible, items = Entries(_menu), engine_items = Entries(_engineMenu) };
     }
+
+    /// <summary>The texts of the right-click menu's entries as they stand (for the render case's layout check).</summary>
+    internal IReadOnlyList<string> MenuTexts() => Enumerable.Range(0, _menu.ItemCount).Select(_menu.GetItemText).ToList();
 
     /// <summary>Engine > the engine choices for a listed script, where the region saves a choice. For a script the agent may not modify the entry
     /// is offered only where the region allows an owner to set it; otherwise it is greyed with the reason as its tooltip.</summary>
@@ -324,6 +330,7 @@ public sealed class EditContentTab
             case MenuProperties: ShowProperties(item, false); break;
             case MenuRename: ShowProperties(item, true); break;
             case MenuDelete: Delete(item); break;
+            case MenuCopy: _edit()?.CopyItemToInventory(item); break;
         }
     }
 
@@ -448,6 +455,7 @@ public sealed class EditContentTab
             for (int i = 0; i < items.Count; i++)
             {
                 _list.AddItem(names[i]);
+                _list.SetItemTooltip(_list.ItemCount - 1, names[i]);
                 _rows.Add(items[i].ItemId);
                 _shownNames.Add(names[i]);
                 if (chosen == items[i].ItemId)

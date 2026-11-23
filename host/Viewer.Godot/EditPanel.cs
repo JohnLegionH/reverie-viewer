@@ -26,14 +26,19 @@ public partial class EditPanel : VBoxContainer
 {
     public const string FloaterId = "build";
 
-    private sealed record SectionParts(BuildSection Id, Button Header, Label Summary, VBoxContainer Body);
+    /// <summary>Whether the Land tool exists. It is not built, so the window has no segment for it (UI-STANDARD U9: an unbuilt feature is
+    /// absent, not shown greyed). Set when the land tools are built.</summary>
+    private const bool LandToolBuilt = false;
+
+    private sealed record SectionParts(BuildSection Id, Button Header, Label Summary, VBoxContainer Body, Control Card);
 
     private readonly StringTable _s;
     private readonly Func<EditController?> _edit;
     private readonly Dictionary<BuildTool, Button> _tools = new();
     private readonly Dictionary<ManipMode, Button> _manips = new();
-    private readonly HBoxContainer _manipRow;
+    private readonly HFlowContainer _manipRow;
     private readonly PanelContainer _manipTrack;
+    private readonly RvCard _card;
     private readonly Button _faceMode, _undo, _redo;
     private readonly CheckBox _linked, _snap, _both, _stretchTex, _ownedOnly;
     private readonly Label _status, _hint, _cardName, _cardPicked, _cardOwner, _searchStatus;
@@ -107,7 +112,7 @@ public partial class EditPanel : VBoxContainer
         var tools = new HBoxContainer { Name = "tools" };
         tools.AddThemeConstantOverride("separation", 2);
         foreach (var (tool, key) in new[] { (BuildTool.Focus, "edit.tool.focus"), (BuildTool.Move, "edit.tool.move"), (BuildTool.Edit, "edit.tool.edit"),
-                     (BuildTool.Create, "edit.tool.create"), (BuildTool.Land, "edit.tool.land") })
+                     (BuildTool.Create, "edit.tool.create"), (BuildTool.Land, "edit.tool.land") }.Where(t => t.Item1 != BuildTool.Land || LandToolBuilt))
         {
             // each tool's tooltip names it with its shortcut (the Build menu's Ctrl+1 to Ctrl+5)
             var b = new Button
@@ -117,8 +122,6 @@ public partial class EditPanel : VBoxContainer
             };
             b.AccessibilityName = b.Text;
             b.Pressed += () => ToolChosen?.Invoke(tool);
-            // the land tools are not built yet: the segment is shown, as in the official floater, and says so
-            b.Disabled = tool == BuildTool.Land;
             tools.AddChild(b);
             _tools[tool] = b;
         }
@@ -128,7 +131,7 @@ public partial class EditPanel : VBoxContainer
         // ---------------- the Edit modes, with Undo and Redo beside them ----------------
         // Move, Rotate, Stretch or Face: which handles the Edit and Grab tools show (floater_tools.xml's radio group; Ctrl and Ctrl+Shift
         // switch while held); Face is the official Select Face
-        _manipRow = new HBoxContainer { Name = "manip" };
+        _manipRow = new HFlowContainer { Name = "manip" };   // Undo and Redo wrap under the modes when the window is at its narrowest
         _manipTrack = new PanelContainer { Name = "manip_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _manipTrack.AccessibilityName = strings.Get("edit.modes");
         var manips = new HBoxContainer();
@@ -160,11 +163,13 @@ public partial class EditPanel : VBoxContainer
         // CreateToolKeepSelected); shown only while Create is the tool, as the official window shows it
         _createRow = new VBoxContainer { Name = "create_options" };
         // the fifteen shape buttons in the official order (floater_tools.xml ToolCube to ToolGrass); pressing one also turns Copy selection off
-        var shapeRow = new HFlowContainer { Name = "create_shapes" };
+        // three equal columns, so the rows line up (the names are up to twelve letters; the window's smallest width holds three)
+        var shapeRow = new GridContainer { Name = "create_shapes", Columns = 3 };
         foreach (var kind in Viewer.Core.Building.CreateShapes.All)
         {
             string key = "edit.shape." + kind.ToString().ToLowerInvariant();
-            var b = new Button { Name = "shape_" + kind.ToString().ToLowerInvariant(), Text = strings.Get(key), TooltipText = strings.Get(key), ToggleMode = true, ThemeTypeVariation = ReverieStyle.Segment };
+            var b = new Button { Name = "shape_" + kind.ToString().ToLowerInvariant(), Text = strings.Get(key), TooltipText = strings.Get(key), ToggleMode = true, ThemeTypeVariation = ReverieStyle.Segment, CustomMinimumSize = new Vector2(112, 0),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill };
             b.AccessibilityName = strings.Get(key);
             var chosen = kind;
             b.Pressed += () => { _edit()?.ChooseShape(chosen); Refresh(); };
@@ -185,13 +190,18 @@ public partial class EditPanel : VBoxContainer
         AddChild(_hint);
 
         // ---------------- the selection card ----------------
-        var card = new RvCard(null, null) { Name = "selection_card" };
+        // the card is the first thing in the scrolled column, so the sections get the height below the tools (it is not shown for Create)
+        var card = _card = new RvCard(null, null) { Name = "selection_card" };
         _cardName = new Label { Name = "card_name", ThemeTypeVariation = ReverieStyle.CardHeading, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _cardPicked = new Label { Name = "card_picked", ThemeTypeVariation = ReverieStyle.Caption };
-        _cardOwner = new Label { Name = "card_owner", ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        _cardOwner = new Label { Name = "card_owner", ThemeTypeVariation = ReverieStyle.Caption };
         card.Body.AddChild(_cardName);
-        card.Body.AddChild(_cardPicked);
-        card.Body.AddChild(_cardOwner);
+        // what is picked and who owns it share a line (they wrap only when the window is at its narrowest)
+        var cardFacts = new HFlowContainer { Name = "card_facts" };
+        cardFacts.AddThemeConstantOverride("h_separation", 16);
+        cardFacts.AddChild(_cardPicked);
+        cardFacts.AddChild(_cardOwner);
+        card.Body.AddChild(cardFacts);
         // "N objects selected, land impact X" (the official status line), from the region's GetObjectCost answer
         _impact = new Label { Name = "land_impact", ThemeTypeVariation = ReverieStyle.Caption };
         _impact.AccessibilityName = strings.Get("edit.card.land_impact");
@@ -199,14 +209,18 @@ public partial class EditPanel : VBoxContainer
         _status = new Label { Name = "status", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _status.AccessibilityName = strings.Get("edit.title");
         card.Body.AddChild(_status);
-        AddChild(card);
 
         // ---------------- the sections, in one scrolled column ----------------
         var scroll = new ScrollContainer { Name = "sections_scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        // the cards stop a little before the scroll bar, so they do not touch it
+        var gutter = new MarginContainer { Name = "sections_gutter", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        gutter.AddThemeConstantOverride("margin_right", 10);
         var column = new VBoxContainer { Name = "sections", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 6);
-        scroll.AddChild(column);
+        column.AddThemeConstantOverride("separation", 4);
+        gutter.AddChild(column);
+        scroll.AddChild(gutter);
         AddChild(scroll);
+        column.AddChild(card);
         foreach (var section in BuildLayout.Sections)
             _sections[section] = MakeSection(column, section);
 
@@ -357,10 +371,12 @@ public partial class EditPanel : VBoxContainer
         string title = _s.Get(BuildLayout.TitleKey(id));
         var card = new PanelContainer { Name = "section_card_" + name, ThemeTypeVariation = ReverieStyle.Card };
         var box = new VBoxContainer { Name = "section_box_" + name };
+        // the name and, while the section is closed, its one-line summary share one line (a header of fixed width keeps the summaries in a column)
+        var line = new HBoxContainer { Name = "section_line_" + name };
         var header = new Button
         {
             Name = "section_" + name, Text = title, ToggleMode = true, Flat = true, Alignment = HorizontalAlignment.Left,
-            TooltipText = _s.Get("edit.section.toggle.tip", title),
+            TooltipText = _s.Get("edit.section.toggle.tip", title), CustomMinimumSize = new Vector2(112, 0),
         };
         header.AccessibilityName = title;
         header.Toggled += open =>
@@ -368,14 +384,16 @@ public partial class EditPanel : VBoxContainer
             ShowSection(id, open);
             _memory.Set(id, open);
         };
-        box.AddChild(header);
-        var summary = new Label { Name = "summary_" + name, ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
-        box.AddChild(summary);
+        line.AddChild(header);
+        var summary = new Label { Name = "summary_" + name, ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, VerticalAlignment = VerticalAlignment.Center };
+        line.AddChild(summary);
+        box.AddChild(line);
         var body = new VBoxContainer { Name = name + "_page", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddChild(body);
         card.AddChild(box);
         column.AddChild(card);
-        return new SectionParts(id, header, summary, body);
+        return new SectionParts(id, header, summary, body, card);
     }
 
     private VBoxContainer Body(BuildSection s) => _sections[s].Body;
@@ -436,7 +454,7 @@ public partial class EditPanel : VBoxContainer
         {
             bool show = open.Contains(section);
             var p = _sections[section];
-            HideIf(p.Header.GetParent().GetParent<Control>(), !show);
+            HideIf(p.Card, !show);
             if (!show) continue;
             // shown open for this search only; the kept choice is not changed
             p.Header.SetPressedNoSignal(true);
@@ -456,10 +474,7 @@ public partial class EditPanel : VBoxContainer
                      .Concat(_manips.Select(kv => ("manip_" + kv.Key.ToString().ToLowerInvariant(), kv.Value)))
                      .Append(("manip_face", _faceMode)).Append(("undo", _undo)).Append(("redo", _redo)))
             b.Modulate = b.Modulate with { A = toolHits.Count > 0 && !found.Contains(id) ? 0.45f : 1f };
-        _searchStatus.Visible = true;
-        _searchStatus.Text = hits.Count == 0 ? _s.Get("edit.search.none", query.Trim())
-            : toolHits.Count > 0 ? _s.Get("edit.search.tools", string.Join(", ", toolHits.Select(h => _s.Get(h.LabelKey))))
-            : "";
+        _searchStatus.Text = BuildLayout.SearchLine(query, hits, _s);   // what the search found, or that it found nothing
         _searchStatus.Visible = _searchStatus.Text.Length > 0;
     }
 
@@ -475,7 +490,12 @@ public partial class EditPanel : VBoxContainer
     {
         foreach (var name in new[] { id, id + "_label" })
             if (body.FindChild(name, true, false) is Control c)
+            {
                 yield return c;
+                // a label and its control share a line (a holder named "<row>_line"): the line goes with them, so no empty gap stays
+                if (c.GetParent() is Control { } holder && holder.Name.ToString().EndsWith("_line", StringComparison.Ordinal))
+                    yield return holder;
+            }
         if (id.EndsWith("_row", StringComparison.Ordinal) && body.FindChild(id[..^4] + "_label", true, false) is Control l && l.GetParent()?.Name != id)
             yield return l;
     }
@@ -719,6 +739,7 @@ public partial class EditPanel : VBoxContainer
                 b.Disabled = !(e?.CanPaste(what) ?? false);
             _manipTrack.Visible = e is null || e is { Tool: BuildTool.Edit or BuildTool.Move };
             _createRow.Visible = e is { BuildMode: true, Tool: BuildTool.Create };
+            _card.Visible = !_createRow.Visible;   // Create has no selection to describe
             _keepTool.SetPressedNoSignal(e?.KeepToolSelected ?? false);
             // with Copy selection on no shape button shows chosen, as in the official window
             foreach (var (shape, b) in _shapeButtons)

@@ -52,7 +52,7 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
-        "build-look", "build-search", "build-create", "build-object", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
+        "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
@@ -316,7 +316,9 @@ public partial class TestRender
         bool soundOpen = scene.StartsWith("preferences-sound-open", StringComparison.Ordinal);
         if (scene.StartsWith("preferences-sound", StringComparison.Ordinal))
             scene = soundOpen ? "preferences-sound" : scene;
-        if (pct != 100)
+        if (pct != 100 && scene.StartsWith("build", StringComparison.Ordinal))
+            scene = scene[..^4];   // a Build case at 150 or 200 %: the same window, drawn larger
+        else if (pct != 100)
             scene = "preferences-sound";
         int picW = UiWidth * pct / 100, picH = UiHeight * pct / 100;
         var strings = StringTable.English();
@@ -584,6 +586,8 @@ public partial class TestRender
                     _failures.Add($"build-look: the Look section's body ({b.Position.Y:F0}) is not in the Build window's view ({view.Position.Y:F0} to {view.End.Y:F0})");
             }
         }
+        if (scene.StartsWith("build", StringComparison.Ordinal))
+            CheckBuildLayout(shell, scene, pct, contentsPanel);
         if (loginShown is not null && loginShown.ById["password"] is LineEdit field && loginShown.ById["reveal"] is Control eye)
         {
             // the field's text area ends where its face's right margin begins; the show button must start at or after it

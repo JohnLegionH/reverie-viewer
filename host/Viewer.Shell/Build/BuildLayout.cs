@@ -68,7 +68,6 @@ public static class BuildLayout
         R("tool_move", null, "edit.tool.move", "Move Tool", "grab", "lift", "spin"),
         R("tool_edit", null, "edit.tool.edit", "Edit Tool", "select"),
         R("tool_create", null, "edit.tool.create", "Create Tool", "rez", "new prim", "make a box"),
-        R("tool_land", null, "edit.tool.land", "Land Tool", "terraform", "flatten", "raise", "lower", "smooth"),
         R("manip_move", null, "edit.manip.move", "Position", "arrows"),
         R("manip_rotate", null, "edit.manip.rotate", "rings", "turn"),
         R("manip_scale", null, "edit.manip.scale", "scale", "resize", "size handles"),
@@ -201,6 +200,21 @@ public static class BuildLayout
     /// <summary>The sections a search opens: those holding a row it found.</summary>
     public static IReadOnlyList<BuildSection> SectionsOf(IEnumerable<BuildRow> hits) =>
         hits.Where(r => r.Section is not null).Select(r => r.Section!.Value).Distinct().OrderBy(s => s).ToArray();
+
+    /// <summary>The line under the search field: the tools a search found, else the sections and rows it found, or that nothing matched; empty
+    /// for an empty search.</summary>
+    public static string SearchLine(string? query, IReadOnlyList<BuildRow> hits, StringTable s)
+    {
+        string q = (query ?? "").Trim();
+        if (q.Length == 0)
+            return "";
+        if (hits.Count == 0)
+            return s.Get("edit.search.none", q);
+        var tools = hits.Where(h => h.Section is null).ToList();
+        if (tools.Count > 0)
+            return s.Get("edit.search.tools", string.Join(", ", tools.Select(h => s.Get(h.LabelKey))));
+        return s.Get("edit.search.found", string.Join(", ", SectionsOf(hits).Select(x => s.Get(TitleKey(x)))), string.Join(", ", hits.Select(h => s.Get(h.LabelKey))));
+    }
 
     private static string N(float v) => v.ToString("0.###", CultureInfo.InvariantCulture);
 
