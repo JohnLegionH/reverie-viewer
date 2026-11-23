@@ -29,7 +29,7 @@ public partial class TestRender
     /// <summary>
     /// Layout checks on the Build window as drawn in a build scene at interface size <paramref name="pct"/> (UI-STANDARD U1, U3 to U5, U8 to U12,
     /// U15): no label or button cut, controls beside their labels, nothing under the scroll bar, shared tick box styles, and each finding of
-    /// the Build batch (the Land segment gone, the sections fitting the view, the summary on the header line, the Contents list and its menu,
+    /// the Build window (the Land segment gone, the sections fitting the view, the summary on the header line, the Contents list and its menu,
     /// the Create options, the texture shown by name, the search line). Failures go into the case's failure list.
     /// </summary>
     private void CheckBuildLayout(Control shell, string scene, int pct, EditPanel? edit)
@@ -96,10 +96,10 @@ public partial class TestRender
         if (stacked.Length > 0)
             _result["build_stacked_labels"] = stacked;   // not in this batch: reported in the order's list of rules still broken
 
-        // F059: no segment for a tool that is not built
+        // no segment for a tool that is not built
         if (panel.FindChild("tool_land", true, false) is not null)
-            _failures.Add($"{tag}: the Build window still has a Land segment for a tool that is not built (F059)");
-        // F061: a closed section's summary sits on its header line
+            _failures.Add($"{tag}: the Build window still has a Land segment for a tool that is not built");
+        // a closed section's summary sits on its header line
         foreach (var header in scroll.FindChildren("section_*", "Button", true, false).OfType<Button>().Where(Shown))
         {
             string name = header.Name.ToString()["section_".Length..];
@@ -107,12 +107,12 @@ public partial class TestRender
             {
                 var hr = header.GetGlobalRect();
                 if (summary.GetGlobalRect().GetCenter().Y > hr.End.Y || summary.GetGlobalRect().GetCenter().Y < hr.Position.Y)
-                    _failures.Add($"{tag}: the summary of '{name}' is under its header, not on its line (F061)");
+                    _failures.Add($"{tag}: the summary of '{name}' is under its header, not on its line");
                 if (summary.GetLineCount() > 1)
                     _failures.Add($"{tag}: the summary of '{name}' wraps onto {summary.GetLineCount()} lines");
             }
         }
-        // F060: with every section closed, all six cards are in the window's view
+        // with every section closed, as many cards as fit are in the window's view
         if (scene == "build")
         {
             var cards = scroll.FindChildren("section_card_*", "", true, false).OfType<Control>().Where(Shown).ToList();
@@ -121,49 +121,53 @@ public partial class TestRender
             // before the fix three cards fitted, the last one cut; the selection card and the tool rows take the rest of the height at larger sizes
             int wanted = pct <= 100 ? 4 : pct <= 150 ? 3 : 2;
             if (inView < wanted)
-                _failures.Add($"{tag}: only {inView} of {cards.Count} section cards are in the window's view; {wanted} are wanted (F060)");
+                _failures.Add($"{tag}: only {inView} of {cards.Count} section cards are in the window's view; {wanted} are wanted");
         }
-        // F070: the Create tool has nothing to edit, so no selection card
+        // the Create tool has nothing to edit, so no selection card
         if (scene == "build-create" && panel.FindChild("selection_card", true, false) is Control selection && Shown(selection))
-            _failures.Add($"{tag}: the selection card is shown while Create is the tool (F070)");
+            _failures.Add($"{tag}: the selection card is shown while Create is the tool");
         if (scene == "build-create")
         {
-            // F069: the shape buttons are one size and sit on a grid
+            // the shape buttons are one size and sit on a grid
             var shapes = panel.FindChildren("shape_*", "Button", true, false).OfType<Button>().Where(Shown).ToList();
             var rows = shapes.GroupBy(b => (int)Math.Round(b.GetGlobalRect().Position.Y)).ToList();
             var columns = shapes.Select(b => (int)Math.Round(b.GetGlobalRect().Position.X)).Distinct().Count();
             if (shapes.Count == 0 || shapes.Max(b => b.Size.X) - shapes.Min(b => b.Size.X) > 3f || columns > Math.Ceiling(shapes.Count / (double)Math.Max(1, rows.Count)))
-                _failures.Add($"{tag}: the shape buttons are not on a grid ({shapes.Count} buttons, {rows.Count} rows, {columns} columns, {shapes.Select(b => (int)Math.Round(b.Size.X)).Distinct().Count()} widths) (F069)");
+                _failures.Add($"{tag}: the shape buttons are not on a grid ({shapes.Count} buttons, {rows.Count} rows, {columns} columns, {shapes.Select(b => (int)Math.Round(b.Size.X)).Distinct().Count()} widths)");
         }
         if (scene == "build-look" && panel.FindChild("texture_name", true, false) is Label tex && Guid.TryParse(tex.Text.Replace("…", ""), out _))
-            _failures.Add($"{tag}: the texture is shown by its id '{tex.Text}', not its name (F071)");
+            _failures.Add($"{tag}: the texture is shown by its id '{tex.Text}', not its name");
         if (scene == "build-search")
         {
-            // F078: a line says what the search found
+            // a line says what the search found
             if (panel.FindChild("search_status", true, false) is not Label found || !Shown(found) || found.Text.Length == 0)
-                _failures.Add($"{tag}: no line names what the search found (F078)");
+                _failures.Add($"{tag}: no line names what the search found");
         }
         if (scene == "build-contents" && edit is not null)
         {
-            // F064, F065, F066
+            // the Contents list (long rows, the menu, the buttons)
             var list = edit.ContentTab.List as ItemList;
             if (list is null || list.ItemCount == 0)
                 _failures.Add($"{tag}: the Contents list was not found or is empty");
             else
+            {
+                if (list.TextOverrunBehavior != TextServer.OverrunBehavior.TrimEllipsis)
+                    _failures.Add($"{tag}: the Contents list does not end a long row with an ellipsis");
                 for (int i = 0; i < list.ItemCount; i++)
                 {
                     float w = list.GetThemeFont("font").GetStringSize(list.GetItemText(i), HorizontalAlignment.Left, -1, list.GetThemeFontSize("font_size")).X;
                     if (w > list.Size.X - 24 * k && list.GetItemTooltip(i) != list.GetItemText(i))
-                        _failures.Add($"{tag}: row {i} is longer than the list and has no tooltip with its whole text (F064)");
+                        _failures.Add($"{tag}: row {i} is longer than the list and has no tooltip with its whole text");
                 }
+            }
             var texts = StringTable.English();
             string menu = string.Join("|", edit.ContentTab.MenuTexts());
             foreach (var key in new[] { "edit.content.open", "edit.content.properties", "edit.content.rename", "edit.content.delete", "edit.content.copy" })
                 if (!menu.Contains(texts.Get(key), StringComparison.Ordinal))
-                    _failures.Add($"{tag}: the right-click menu lacks '{texts.Get(key)}' that the button row has (F065): {menu}");
+                    _failures.Add($"{tag}: the right-click menu lacks '{texts.Get(key)}' that the button row has: {menu}");
             // at 100 and 150 % the buttons are in view when the window opens at the top; at 200 % the text takes the room and the section scrolls
             if (pct <= 150 && panel.FindChild("content_buttons", true, false) is Control buttons && buttons.GetGlobalRect().End.Y > view.End.Y + 0.5f)
-                _failures.Add($"{tag}: the Contents buttons end at {buttons.GetGlobalRect().End.Y:F0}, below the window's view ({view.End.Y:F0}) (F066)");
+                _failures.Add($"{tag}: the Contents buttons end at {buttons.GetGlobalRect().End.Y:F0}, below the window's view ({view.End.Y:F0})");
         }
     }
 

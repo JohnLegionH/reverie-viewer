@@ -212,8 +212,8 @@ public class BuildLayoutTests
         Assert.Contains("BuildLayout.Search", panel);
         Assert.Contains("BuildLayout.Summary", panel);
         Assert.Contains("BuildLayout.Hint", panel);
-        // one segmented tool row with the five tools, Land included, and Undo and Redo beside the modes
-        foreach (var tool in new[] { "Focus", "Move", "Edit", "Create", "Land" })
+        // one segmented tool row with the four built tools (Land is not built, so it has no segment), and Undo and Redo beside the modes
+        foreach (var tool in new[] { "Focus", "Move", "Edit", "Create" })
             Assert.Matches(new Regex(@"BuildTool\." + tool + @"\b"), panel);
         Assert.Contains("\"undo\"", panel);
         Assert.Contains("\"redo\"", panel);
