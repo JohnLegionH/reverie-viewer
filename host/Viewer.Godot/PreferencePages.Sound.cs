@@ -25,6 +25,8 @@ public sealed partial class MaxWidthBox : Container
         foreach (var node in GetChildren())
             if (node is Control { Visible: true } c)
                 min = min.Max(c.GetCombinedMinimumSize());
+        // every page asks for the same width, so the window does not change width from page to page
+        min.X = Math.Max(min.X, MaxWidth);
         return min;
     }
 
@@ -59,7 +61,7 @@ public sealed partial class PrefPageView
         Section(page, "volume", false, null, null, out var volume);
         var rows = new GridContainer { Name = "sound_volumes", Columns = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         rows.AddThemeConstantOverride("h_separation", 10);
-        rows.AddThemeConstantOverride("v_separation", 6);
+        rows.AddThemeConstantOverride("v_separation", 4);
         volume.AddChild(rows);
         AddVolumeRow(rows, "master", AudioLevels.Master.Key, AudioLevels.MuteMaster.Key);
         AddVolumeRow(rows, "sounds", AudioLevels.Sounds.Key, AudioLevels.MuteSounds.Key);

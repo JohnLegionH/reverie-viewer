@@ -86,7 +86,7 @@ public partial class TestRender
         float rightmost = 0;
         foreach (var node in page.FindChildren("*", "Control", true, false).OfType<Control>())
         {
-            if (!node.IsVisibleInTree() || node is Container || node.Size.X <= 0)
+            if (!node.IsVisibleInTree() || node is Container || node is ScrollBar || node.Size.X <= 0)
                 continue;
             if (node is Label label && label.Text.Length > 0 && !IsNote(label))
             {

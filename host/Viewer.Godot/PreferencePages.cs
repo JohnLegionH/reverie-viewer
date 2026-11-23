@@ -108,7 +108,7 @@ public sealed partial class PrefPageView : ScrollContainer
     private Dictionary<string, VBoxContainer> BuildStandardPage(VBoxContainer box, PrefPage page)
     {
         var bodies = new Dictionary<string, VBoxContainer>();
-        var content = PageRoot(box, "page_" + page.ToString().ToLowerInvariant());
+        var content = PageRoot(box, page.ToString().ToLowerInvariant() + "_layout");
         foreach (var section in PreferencePageLayout.For(page))
         {
             var defs = section.Keys.Select(k => PreferenceCatalog.Find(k)!).ToList();
@@ -120,7 +120,7 @@ public sealed partial class PrefPageView : ScrollContainer
             // one note for a section whose settings all need the same thing (a restart), rather than the same line under each
             var shared = defs.Select(NoteKeyOf).Where(n => n is not null && n != "prefs.backend.notice").GroupBy(n => n).FirstOrDefault(g => g.Count() >= 2)?.Key;
             if (shared is not null)
-                body.AddChild(Caption(_strings.Get(shared), "note_section_" + section.Id));
+                body.AddChild(Caption(_strings.Get(shared), "note_" + defs.First(d => NoteKeyOf(d) == shared).Key));
             foreach (var def in defs)
                 AddSetting(body, def, noteSuppressed: shared is not null && NoteKeyOf(def) == shared);
         }
@@ -137,7 +137,7 @@ public sealed partial class PrefPageView : ScrollContainer
             margin.AddThemeConstantOverride(side, (int)PanelPadding.Inner);
         width.AddChild(margin);
         var content = new VBoxContainer { Name = name + "_content", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        content.AddThemeConstantOverride("separation", 8);
+        content.AddThemeConstantOverride("separation", 6);
         margin.AddChild(content);
         return content;
     }
