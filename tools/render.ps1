@@ -96,7 +96,9 @@
 #                           engineerrors_control_keep_vulkan (a logger that hands nothing over) must FAIL
 #   engineerrors_optimised_<be>  the same check with every method optimised from its first call (DOTNET_TieredCompilation=0):
 #                           the worker's errors must still be logged, with no crash in the engine's error call
-# -Propose     writes missing goldens as PROPOSALS (committed ones only with -Propose; a person approves after viewing).
+# -Propose     saves a picture for each case that has no golden, as a PROPOSAL a person approves after viewing. Needs -ProposeDir <folder outside the repository>: without it, or with a folder inside the repository, the run is refused (exit 2) and writes nothing. Proposals never go into the committed goldens.
+# -FailOnNoGolden  a case drawn with no golden to compare with (status NO GOLDEN) fails the run. Without it such a case is reported and does not fail it.
+# Case statuses: PASS (compared, or its own check passed), FAIL, NO GOLDEN (drawn, no golden for its size and backend), NO RESULT (the run gave no result), SKIP. The summary counts passed, failed, no golden, no result and skipped.
 # -Measure     also runs the ADR-003 measurement (nodes vs RenderingServer, 1024x1024) on both backends.
 # -Residency   also runs the camera-path residency measurements: the (local-only region A v5 / region B v3 captures) and
 #              the synthetic heavy scene (committed generator) at five budgets, paced by wall-clock time.
@@ -155,7 +157,7 @@
 #     powershell -NoProfile -File <repo>\tools\render.ps1 [-Propose] [-Measure] [-Residency] [-UploadBench] [-ShowPaths]
 # =====================================================================================
 [CmdletBinding()]
-param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$HandlesOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$ParallelBackends,[switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "", [string]$ExpectedCommit = "", [switch]$AllowStaleBuild)
+param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$HandlesOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$ParallelBackends,[switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "", [string]$ExpectedCommit = "", [switch]$AllowStaleBuild, [string]$ProposeDir = "", [switch]$FailOnNoGolden)
 
 $ErrorActionPreference = "Stop"
 # The full render set is slow and takes the machine for a long time, so it never starts by accident: it needs -All. With no section
@@ -168,7 +170,7 @@ if (-not $sectionGiven) {
     Write-Output "  -All                 the full render set, every case on every backend (slow: run it on a quiet machine)"
     foreach ($s in ($sectionSwitches | Sort-Object)) { Write-Output ("  -{0}" -f $s) }
     Write-Output "  -UiSceneOnly <name>  one interface scene"
-    Write-Output "Options that are not sections: -Propose, -Backends, -DiagDir, -MeasureOnly, -PathExe, -PathTagSuffix, -PathFilter, -PathExtra, -MeasureFrames, -UploadRepeats, -OneProcessPerCase, -SkipTiming, -OnlyTiming, -OutDir, -PlanOnly, -OnlyCases."
+    Write-Output "Options that are not sections: -Propose, -ProposeDir, -FailOnNoGolden, -Backends, -DiagDir, -MeasureOnly, -PathExe, -PathTagSuffix, -PathFilter, -PathExtra, -MeasureFrames, -UploadRepeats, -OneProcessPerCase, -SkipTiming, -OnlyTiming, -OutDir, -PlanOnly, -OnlyCases."
     Write-Output "The header of this script says what each section runs."
     Write-Output "RENDERED NO CASE: no section was given (-OnlyCases filters a section; the full set filtered is -All -OnlyCases '<cases>')"
     exit 2
@@ -197,6 +199,35 @@ if ($Propose -and (Test-FixturesLocalOverride)) {
     exit 2
 }
 if ($ShowPaths) { Write-Output "fixtures-local: $local"; exit 0 }
+# -Propose saves the pictures of cases that have no golden for a person to look at. They go only into -ProposeDir, a folder outside this repository: the
+# committed goldens (fixtures\) are installed by a person after viewing, never by a run. Without such a folder the run is refused before anything is drawn.
+$script:ProposeRoot = ""
+if ($Propose) {
+    $why = ""
+    if (-not $ProposeDir) { $why = "-Propose needs -ProposeDir <a folder outside the repository>" }
+    else {
+        $full = [System.IO.Path]::GetFullPath($ProposeDir).TrimEnd('\', '/')
+        $root = [System.IO.Path]::GetFullPath($repo).TrimEnd('\', '/')
+        if ($full -ieq $root -or $full.StartsWith($root + "\", [System.StringComparison]::OrdinalIgnoreCase)) { $why = "-ProposeDir $full is inside the repository $root" }
+        else { $script:ProposeRoot = $full }
+    }
+    if ($why) {
+        Write-Output "REFUSED: $why. Proposed pictures are never written into the repository (the committed goldens). Nothing was written."
+        exit 2
+    }
+}
+# where -Propose saves the picture proposed for a golden: -ProposeDir, under the golden's own file name
+function Get-ProposalTarget([string]$golden) {
+    New-Item -ItemType Directory -Force -Path $script:ProposeRoot | Out-Null
+    return (Join-Path $script:ProposeRoot (Split-Path -Leaf $golden))
+}
+# The status of a case that has no golden to be compared with, from the render it was drawn in: NO GOLDEN when it drew and found nothing wrong,
+# NO RESULT when the run gave no result at all, FAIL when it drew and a check of its own failed.
+function Get-NoGoldenStatus($r, [string]$be) {
+    if (-not $r -or -not $r.Json) { return "NO RESULT" }
+    if ($r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) { return "NO GOLDEN" }
+    return "FAIL"
+}
 $build = Join-Path $repo "host\Viewer.Godot\build"
 $exe = Join-Path $build "Reverie.console.exe"
 $godot = Join-Path $PSScriptRoot "godot.ps1"
@@ -251,14 +282,16 @@ if ($wantParallel) {
     # a case both children report (one ran it, the other left it to the first, or a check that is not a process) is one case: the one that ran
     $merged = @($merged | Group-Object { $_.name } | ForEach-Object { $ran = @($_.Group | Where-Object { -not $_.skipped }); if ($ran.Count -gt 0) { $ran[0] } else { $_.Group[0] } })
     $mfail = @($merged | Where-Object { $_.failure }).Count
-    $mskip = @($merged | Where-Object { $_.skipped }).Count
+    $mnoResult = @($merged | Where-Object { $_.error }).Count
+    $mnoGolden = @($merged | Where-Object { $_.skipped -and $_.skipped.type -eq "NO GOLDEN" }).Count
+    $mskip = @($merged | Where-Object { $_.skipped }).Count - $mnoGolden
     $mx = New-Object System.Text.StringBuilder
     [void]$mx.AppendLine('<?xml version="1.0" encoding="utf-8"?>')
-    [void]$mx.AppendLine("<testsuites><testsuite name=""Render"" tests=""$($merged.Count)"" failures=""$mfail"" skipped=""$mskip"" errors=""0"">")
+    [void]$mx.AppendLine("<testsuites><testsuite name=""Render"" tests=""$($merged.Count)"" failures=""$mfail"" skipped=""$($mskip + $mnoGolden)"" nogolden=""$mnoGolden"" errors=""$mnoResult"">")
     foreach ($tc in $merged) { [void]$mx.AppendLine($tc.OuterXml) }
     [void]$mx.AppendLine("</testsuite></testsuites>")
     Set-Content -LiteralPath (Join-Path $out "Render.junit.xml") -Value $mx.ToString() -Encoding utf8
-    Write-Output ("Render summary (backends run in parallel): total {0}, passed {1}, failed {2}, skipped {3}" -f $merged.Count, ($merged.Count - $mfail - $mskip), $mfail, $mskip)
+    Write-Output ("Render summary (backends run in parallel): total {0}, passed {1}, failed {2}, no golden {3}, no result {4}, skipped {5}" -f $merged.Count, ($merged.Count - $mfail - $mnoGolden - $mnoResult - $mskip), $mfail, $mnoGolden, $mnoResult, $mskip)
     # the exit code a single run over both backends gives: 3 only when no backend rendered a case, 2 for no section, 1 for any failure
     $final = if (@($codes | Where-Object { $_ -ne 3 }).Count -eq 0) { 3 } elseif ($codes -contains 2) { 2 } elseif (@($codes | Where-Object { $_ -notin @(0, 3) }).Count -gt 0) { 1 } else { 0 }
     exit $final
@@ -303,6 +336,8 @@ function Esc([string]$s) { [System.Security.SecurityElement]::Escape($s) }
 # nothing on purpose.
 function Exit-Render([int]$code) {
     Write-JUnit
+    # a case with no result never reads as a pass; a case with no golden fails the run only under -FailOnNoGolden
+    if ($code -eq 0 -and (@($cases | Where-Object Status -eq "NO RESULT").Count -gt 0 -or ($FailOnNoGolden -and @($cases | Where-Object Status -eq "NO GOLDEN").Count -gt 0))) { $code = 1 }
     if (-not $PlanOnly -and @($cases | Where-Object Status -ne "SKIP").Count -eq 0) {
         Write-Output "RENDERED NO CASE: $($cases.Count) case(s) reported, all skipped$(if ($OnlyCases) { " (-OnlyCases '$OnlyCases' matched none of the cases these sections render)" })"
         exit 3
@@ -312,13 +347,19 @@ function Exit-Render([int]$code) {
 function Write-JUnit {
     $fail = @($cases | Where-Object Status -eq "FAIL").Count
     $skip = @($cases | Where-Object Status -eq "SKIP").Count
+    $noGolden = @($cases | Where-Object Status -eq "NO GOLDEN").Count
+    $noResult = @($cases | Where-Object Status -eq "NO RESULT").Count
     $xml = New-Object System.Text.StringBuilder
     [void]$xml.AppendLine('<?xml version="1.0" encoding="utf-8"?>')
-    [void]$xml.AppendLine("<testsuites><testsuite name=""Render"" tests=""$($cases.Count)"" failures=""$fail"" skipped=""$skip"" errors=""0"">")
+    # JUnit has no status for "drawn, but nothing to compare with": such a case is written as skipped (type NO GOLDEN), so a tool that reads only the
+    # standard fields never counts it as a pass; "nogolden" says how many of the skipped are of that kind. A case with no result is an error.
+    [void]$xml.AppendLine("<testsuites><testsuite name=""Render"" tests=""$($cases.Count)"" failures=""$fail"" skipped=""$($skip + $noGolden)"" nogolden=""$noGolden"" errors=""$noResult"">")
     foreach ($c in $cases) {
         [void]$xml.Append("<testcase classname=""Render"" name=""$(Esc $c.Name)"" time=""$($c.Seconds)"">")
         if ($c.Status -eq "FAIL") { [void]$xml.Append("<failure message=""$(Esc $c.Detail)"" />") }
         elseif ($c.Status -eq "SKIP") { [void]$xml.Append("<skipped message=""$(Esc $c.Detail)"" />") }
+        elseif ($c.Status -eq "NO GOLDEN") { [void]$xml.Append("<skipped type=""NO GOLDEN"" message=""$(Esc $c.Detail)"" />") }
+        elseif ($c.Status -eq "NO RESULT") { [void]$xml.Append("<error type=""NO RESULT"" message=""$(Esc $c.Detail)"" />") }
         else { [void]$xml.Append("<system-out>$(Esc $c.Detail)</system-out>") }
         [void]$xml.AppendLine("</testcase>")
     }
@@ -332,7 +373,7 @@ function Write-JUnit {
         $script:Plan | Where-Object Kind -eq "own-process" | Group-Object Why | Sort-Object Count -Descending | ForEach-Object { Write-Output ("  {0,4}  {1}" -f $_.Count, $_.Name) }
     }
     Set-Content -LiteralPath (Join-Path $(if ($OutDir) { $out } else { $results }) $(if ($env:NV_RENDER_JUNIT_NAME) { $env:NV_RENDER_JUNIT_NAME } else { "Render.junit.xml" })) -Value $xml.ToString() -Encoding utf8
-    Write-Output ("Render summary: total {0}, passed {1}, failed {2}, skipped {3}" -f $cases.Count, @($cases | Where-Object Status -eq "PASS").Count, $fail, $skip)
+    Write-Output ("Render summary: total {0}, passed {1}, failed {2}, no golden {3}, no result {4}, skipped {5}" -f $cases.Count, @($cases | Where-Object Status -eq "PASS").Count, $fail, $noGolden, $noResult, $skip)
     $st = Get-ServeStats
     Write-Output ("Render batch: {0} renders in batch processes ({1} started, {2} could not start), {3} in a process of their own, {4} left out by the timing switches" -f $script:Counts.Served, $st.Starts, $st.Failures, $script:Counts.OwnProcess, $script:Counts.Skipped)
 }
@@ -413,10 +454,10 @@ function Invoke-GlowCases([string]$be) {
         Add-Case "glow_order_${sky}_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "$(if ($pr) { "$($pr.checked_probes) probes checked, tolerance $($pr.tolerance), sky [$($pr.sky -join ',')]" } else { 'no probes' })$(if ($bad.Count) { '; wrong (' + $bad.Count + '): ' + (($bad | Select-Object -First 6) -join '; ') })$(if (-not $r.Json) { '; no result, exit ' + $r.Exit })" $r.Seconds
         if (-not $hasGolden) {
             if ($Propose -and $r.Json -and $r.Json.backend.driver -eq $be -and (Test-Path -LiteralPath (Join-Path $out "$tag.png"))) {
-                Copy-Item -LiteralPath (Join-Path $out "$tag.png") -Destination $golden
-                Add-Case "glow_${sky}_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
+                Copy-Item -LiteralPath (Join-Path $out "$tag.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "glow_${sky}_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
             } else {
-                Add-Case "glow_${sky}_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
+                Add-Case "glow_${sky}_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
             }
         } else {
             $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be
@@ -471,9 +512,9 @@ function Invoke-ProjectorCases {
     $lit = $r.Exit -ne 5 -and $pj -and $pj.spot_lights -eq 4
     if (-not $hasGolden) {
         if ($Propose -and $r.Json -and (Test-Path -LiteralPath (Join-Path $out "projector-vulkan.png"))) {
-            Copy-Item -LiteralPath (Join-Path $out "projector-vulkan.png") -Destination $golden
-            Add-Case "projector_vulkan" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-        } else { Add-Case "projector_vulkan" "FAIL" "no committed golden $golden (render exit $($r.Exit))" $r.Seconds }
+            Copy-Item -LiteralPath (Join-Path $out "projector-vulkan.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "projector_vulkan" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+        } else { Add-Case "projector_vulkan" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit))" $r.Seconds }
     } else {
         $ok = $r.Exit -eq 0 -and $lit -and $r.Json.diff.pass
         Add-Case "projector_vulkan" ($(if ($ok) { "PASS" } else { "FAIL" })) "$($pj.spot_lights) spot lights, $($r.Json.diff.summary)$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
@@ -602,9 +643,9 @@ function Invoke-BanLineCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-banlines-$be" "`"--tr-fixture=$fixture`" --tr-banlines=ban $look"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "proposal-banlines-$be.png") -Destination $golden
-                Add-Case "banlines_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "banlines_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-banlines-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "banlines_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "banlines_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "banlines-$be" "`"--tr-fixture=$fixture`" `"--tr-golden=$golden`" --tr-banlines=ban $look"
@@ -629,9 +670,9 @@ function Invoke-ObjectCases {
             if (-not (Test-Path -LiteralPath $golden)) {
                 $r = Invoke-Render $be "proposal-$kind-$be" "`"--tr-fixture=$fixture`" --tr-interact=$kind $look"
                 if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                    Copy-Item -LiteralPath (Join-Path $out "proposal-$kind-$be.png") -Destination $golden
-                    Add-Case "${kind}_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-                } else { Add-Case "${kind}_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                    Copy-Item -LiteralPath (Join-Path $out "proposal-$kind-$be.png") -Destination (Get-ProposalTarget $golden)
+                    Add-Case "${kind}_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+                } else { Add-Case "${kind}_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
                 continue
             }
             $r = Invoke-Render $be "$kind-$be" "`"--tr-fixture=$fixture`" `"--tr-golden=$golden`" --tr-interact=$kind $look"
@@ -656,10 +697,9 @@ function Invoke-DialogCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-dialog12-$be" "`"--tr-fixture=$fixture`" --tr-dialog=12 $look"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-dialog12-$be.png") -Destination $golden
-                Add-Case "dialog12_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "dialog12_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-dialog12-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "dialog12_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "dialog12_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "dialog12-$be" "`"--tr-fixture=$fixture`" `"--tr-golden=$golden`" --tr-dialog=12 $look"
@@ -691,10 +731,9 @@ function Invoke-UiSceneCases {
             if (-not (Test-Path -LiteralPath $golden)) {
                 $r = Invoke-Render $be "proposal-ui-$sc-$look-$be" "--tr-ui=$sc --tr-theme=$look"
                 if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                    Copy-Item -LiteralPath (Join-Path $out "proposal-ui-$sc-$look-$be.png") -Destination $golden
-                    Add-Case $name "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-                } else { Add-Case $name "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                    Copy-Item -LiteralPath (Join-Path $out "proposal-ui-$sc-$look-$be.png") -Destination (Get-ProposalTarget $golden)
+                    Add-Case $name "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+                } else { Add-Case $name (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
                 continue
             }
             $r = Invoke-Render $be "ui-$sc-$look-$be" "`"--tr-golden=$golden`" --tr-ui=$sc --tr-theme=$look"
@@ -720,30 +759,27 @@ function Invoke-UiSceneCases {
 }
 
 function Invoke-UiChromeCases {
-    # the in-world frame at the interface sizes 100, 150 and 200 % in three window sizes, on each backend (--tr-uichrome=PCT:WxH). Every case asserts that the
+    # the in-world frame at the interface sizes 100, 150 and 200 % in three window sizes, on each backend (--tr-uichrome=PCT:WxH). Every case is compared with the golden of its own size and backend, and asserts that the
     # top bar, chat bar, dock and status area are wholly inside the window, that the dock sits above the chat bar with every button shown inside it, and that
-    # the open windows are inside the main view. The 1152x648 cases (the stressed size) also have a golden: fixtures\ui\golden-uichrome-<pct>-1152x648-<backend>.png.
+    # the open windows are inside the main view. The golden is fixtures\ui\golden-uichrome-<pct>-<WxH>-<backend>.png; a case with none ends as NO GOLDEN.
     foreach ($be in $Backends) {
         foreach ($win in @("1152x648", "1280x720", "1920x1080")) {
             foreach ($pct in @(100, 150, 200)) {
                 $name = "ui_chrome_${pct}_${win}_$be"
                 $golden = Join-Path $repo "fixtures\ui\golden-uichrome-$pct-$win-$be.png"
-                $wantsGolden = $win -eq "1152x648"
-                if ($wantsGolden -and -not (Test-Path -LiteralPath $golden)) {
+                if (-not (Test-Path -LiteralPath $golden)) {
                     $r = Invoke-Render $be "proposal-uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win"
                     $okGeometry = $r.Json -and $r.Json.backend.driver -eq $be -and $r.Json.ui_chrome -and -not @($r.Json.ui_chrome.problems).Count
                     if ($Propose -and $okGeometry) {
-                        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                        Copy-Item -LiteralPath (Join-Path $out "proposal-uichrome-$pct-$win-$be.png") -Destination $golden
-                        Add-Case $name "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-                    } else { Add-Case $name "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { (@($r.Json.failures) -join ' | ') }))" $r.Seconds }
+                        Copy-Item -LiteralPath (Join-Path $out "proposal-uichrome-$pct-$win-$be.png") -Destination (Get-ProposalTarget $golden)
+                        Add-Case $name "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+                    } else { Add-Case $name (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { (@($r.Json.failures) -join ' | ') }))" $r.Seconds }
                     continue
                 }
-                $goldenArg = if ($wantsGolden) { "`"--tr-golden=$golden`"" } else { "" }
-                $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win $goldenArg"
+                $r = Invoke-Render $be "uichrome-$pct-$win-$be" "--tr-uichrome=${pct}:$win `"--tr-golden=$golden`""
                 $c = $r.Json.ui_chrome
                 $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $c -and -not @($c.problems).Count
-                Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) logical $($c.logical), $($c.dock_buttons) dock buttons in $($c.dock_rows) row(s)$(if ($wantsGolden -and $r.Json.diff) { '; ' + $r.Json.diff.summary })$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
+                Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) logical $($c.logical), $($c.dock_buttons) dock buttons in $($c.dock_rows) row(s)$(if ($r.Json.diff) { '; ' + $r.Json.diff.summary })$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
             }
         }
     }
@@ -789,10 +825,9 @@ function Invoke-HandleCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-handles-$mode-$be" "--tr-handles=$mode"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-handles-$mode-$be.png") -Destination $golden
-                Add-Case "handles_${mode}_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "handles_${mode}_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-handles-$mode-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "handles_${mode}_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "handles_${mode}_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "handles-$mode-$be" "`"--tr-golden=$golden`" --tr-handles=$mode"
@@ -839,10 +874,9 @@ function Invoke-NeighbourCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-neighbours-$be" "--tr-neighbours=on"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-neighbours-$be.png") -Destination $golden
-                Add-Case "neighbours_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "neighbours_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-neighbours-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "neighbours_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "neighbours_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "neighbours-$be" "`"--tr-golden=$golden`" --tr-neighbours=on"
@@ -875,10 +909,9 @@ function Invoke-TreeCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-trees-$be" "--tr-trees=on"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-trees-$be.png") -Destination $golden
-                Add-Case "trees_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it); instances $($r.Json.trees.instances) of $($r.Json.trees.expected_parts)" $r.Seconds
-            } else { Add-Case "trees_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }); instances $($r.Json.trees.instances) of $($r.Json.trees.expected_parts))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-trees-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "trees_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it); instances $($r.Json.trees.instances) of $($r.Json.trees.expected_parts)" $r.Seconds
+            } else { Add-Case "trees_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }); instances $($r.Json.trees.instances) of $($r.Json.trees.expected_parts))" $r.Seconds }
         } else {
             $r = Invoke-Render $be "trees-$be" "`"--tr-golden=$golden`" --tr-trees=on"
             $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be -and $r.Json.trees.instances -eq $r.Json.trees.expected_parts
@@ -904,9 +937,9 @@ function Invoke-NeighbourWaterCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-neighbours-water-$be" "--tr-neighbours=on --tr-water=16,29"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "proposal-neighbours-water-$be.png") -Destination $golden
-                Add-Case "neighbours_water_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "neighbours_water_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-neighbours-water-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "neighbours_water_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "neighbours_water_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "neighbours-water-$be" "`"--tr-golden=$golden`" --tr-neighbours=on --tr-water=16,29"
@@ -922,9 +955,9 @@ function Invoke-NeighbourWaterCases {
         if (-not (Test-Path -LiteralPath $bgolden)) {
             $b = Invoke-Render $be "proposal-neighbours-ban-$be" "--tr-neighbours=on --tr-ban=east"
             if ($Propose -and $b.Exit -eq 0 -and $b.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "proposal-neighbours-ban-$be.png") -Destination $bgolden
-                Add-Case "neighbours_ban_$be" "FAIL" "no golden: PROPOSED $bgolden (rerun to diff against it)" $b.Seconds
-            } else { Add-Case "neighbours_ban_$be" "FAIL" "no committed golden $bgolden (render exit $($b.Exit): $(if ($b.Json) { $b.Json.failures -join ' | ' }))" $b.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-neighbours-ban-$be.png") -Destination (Get-ProposalTarget $bgolden)
+                Add-Case "neighbours_ban_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $bgolden) (not installed; approve it after viewing, then install it)" $b.Seconds
+            } else { Add-Case "neighbours_ban_$be" (Get-NoGoldenStatus $b $be) "no committed golden $bgolden (render exit $($b.Exit): $(if ($b.Json) { $b.Json.failures -join ' | ' }))" $b.Seconds }
         } else {
             $b = Invoke-Render $be "neighbours-ban-$be" "`"--tr-golden=$bgolden`" --tr-neighbours=on --tr-ban=east"
             $ok = $b.Exit -eq 0 -and $b.Json.diff.pass -and $b.Json.backend.driver -eq $be -and $b.Json.ban.shown -and $b.Json.ban.pieces -gt 0
@@ -1002,10 +1035,9 @@ function Invoke-LoginScreenCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-loginscreen-$be" "--tr-loginscreen=en"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-loginscreen-$be.png") -Destination $golden
-                Add-Case "loginscreen_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "loginscreen_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-loginscreen-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "loginscreen_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "loginscreen_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "loginscreen-$be" "`"--tr-golden=$golden`" --tr-loginscreen=en"
@@ -1032,10 +1064,9 @@ function Invoke-LoginCardCases {
                 $r = Invoke-Render $be "proposal-$name-$be" "--tr-logincard=$what"
                 $geometry = if ($r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) { "geometry PASS $($r.Json.logincard | ConvertTo-Json -Compress)" } else { "geometry FAIL (exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" }
                 if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $golden) | Out-Null
-                    Copy-Item -LiteralPath (Join-Path $out "proposal-$name-$be.png") -Destination $golden
-                    Add-Case "$($name.Replace('-', '_'))_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it); $geometry" $r.Seconds
-                } else { Add-Case "$($name.Replace('-', '_'))_$be" "FAIL" "no committed golden $golden; $geometry" $r.Seconds }
+                    Copy-Item -LiteralPath (Join-Path $out "proposal-$name-$be.png") -Destination (Get-ProposalTarget $golden)
+                    Add-Case "$($name.Replace('-', '_'))_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it); $geometry" $r.Seconds
+                } else { Add-Case "$($name.Replace('-', '_'))_$be" "NO GOLDEN" "no committed golden $golden; $geometry" $r.Seconds }
                 continue
             }
             $r = Invoke-Render $be "$name-$be" "`"--tr-golden=$golden`" --tr-logincard=$what"
@@ -1060,9 +1091,9 @@ function Invoke-TimeOfDayCases {
             if (-not (Test-Path -LiteralPath $golden)) {
                 $r = Invoke-Render $be "proposal-sky-$name-$be" "`"--tr-fixture=$skyScene`" --tr-timeofday=$name"
                 if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                    Copy-Item -LiteralPath (Join-Path $out "proposal-sky-$name-$be.png") -Destination $golden
-                    Add-Case "sky_${name}_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-                } else { Add-Case "sky_${name}_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+                    Copy-Item -LiteralPath (Join-Path $out "proposal-sky-$name-$be.png") -Destination (Get-ProposalTarget $golden)
+                    Add-Case "sky_${name}_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+                } else { Add-Case "sky_${name}_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
                 continue
             }
             $r = Invoke-Render $be "sky-$name-$be" "`"--tr-fixture=$skyScene`" `"--tr-golden=$golden`" --tr-timeofday=$name"
@@ -1127,9 +1158,9 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-shared-env-$be" "--tr-trees=on --tr-sharedenv=dusk `"--tr-environment=$duskThick`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-shared-env-$be.png") -Destination $golden
-            Add-Case "shared_env_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-        } else { Add-Case "shared_env_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
+            Copy-Item -LiteralPath (Join-Path $out "proposal-shared-env-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "shared_env_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+        } else { Add-Case "shared_env_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $(if ($r.Json) { $r.Json.failures -join ' | ' }))" $r.Seconds }
     } else {
         $r = Invoke-Render $be "shared-env-$be" "`"--tr-golden=$golden`" --tr-trees=on --tr-sharedenv=dusk `"--tr-environment=$duskThick`""
         $se = $r.Json.shared_env
@@ -1147,9 +1178,9 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-water-$be" "`"--tr-fixture=$waterScene`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-water-$be.png") -Destination $golden
-            Add-Case "water_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-        } else { Add-Case "water_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+            Copy-Item -LiteralPath (Join-Path $out "proposal-water-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "water_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+        } else { Add-Case "water_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
         continue
     }
     $r = Invoke-Render $be "water-$be" "`"--tr-fixture=$waterScene`" `"--tr-golden=$golden`""
@@ -1177,9 +1208,9 @@ foreach ($be in $Backends) {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-water-$($v.Name)-$be" $base
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "proposal-water-$($v.Name)-$be.png") -Destination $golden
-                Add-Case "water_$($v.Name)_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "water_$($v.Name)_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-water-$($v.Name)-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "water_$($v.Name)_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "water_$($v.Name)_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
         } else {
             $r = Invoke-Render $be "water-$($v.Name)-$be" "$base `"--tr-golden=$golden`""
             $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be
@@ -1451,9 +1482,9 @@ function Invoke-CloudCases {
                 $r = Invoke-Render $be "proposal-clouds-$name-$be" $common
                 $cp = $r.Json.cloud_probes
                 if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                    Copy-Item -LiteralPath (Join-Path $out "proposal-clouds-$name-$be.png") -Destination $golden
-                    Add-Case "clouds_${name}_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it); probes in view $($cp.probes), on cloud $($cp.on_cloud), within 0.03: $($cp.within_0_03), mean difference $($cp.mean_abs_diff)" $r.Seconds
-                } else { Add-Case "clouds_${name}_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+                    Copy-Item -LiteralPath (Join-Path $out "proposal-clouds-$name-$be.png") -Destination (Get-ProposalTarget $golden)
+                    Add-Case "clouds_${name}_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it); probes in view $($cp.probes), on cloud $($cp.on_cloud), within 0.03: $($cp.within_0_03), mean difference $($cp.mean_abs_diff)" $r.Seconds
+                } else { Add-Case "clouds_${name}_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
             } else {
                 $r = Invoke-Render $be "clouds-$name-$be" "$common `"--tr-golden=$golden`""
                 $cp = $r.Json.cloud_probes
@@ -1608,8 +1639,8 @@ function Invoke-EditLookCases {
             $r = Invoke-AvatarRender $be "proposal-avatars-edit-height-$be" "--tr-avatars=editlook"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
                 New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-edit-height-$be-edit.png") -Destination $golden
-                Add-Case $name "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-edit-height-$be-edit.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case $name "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
             } else { Add-Case $name "FAIL" "no local golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
             continue
         }
@@ -1667,9 +1698,9 @@ function Invoke-NameTagCases {
             $r = Invoke-Render $be "proposal-nametags-$be" "--tr-nametags"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
                 New-Item -ItemType Directory -Force -Path $goldenDir | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-nametags-$be.png") -Destination $golden
-                Add-Case $name "FAIL" "no golden: PROPOSED $golden" $r.Seconds
-            } else { Add-Case $name "FAIL" "no golden $golden (render exit $($r.Exit))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-nametags-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case $name "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
+            } else { Add-Case $name (Get-NoGoldenStatus $r $be) "no golden $golden (render exit $($r.Exit))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "nametags-$be" "--tr-nametags `"--tr-golden=$golden`""
@@ -1689,7 +1720,7 @@ function Invoke-NameTagCases {
         $n = Invoke-Render "vulkan" "nametags-negative-vulkan" "--tr-nametags --tr-alter=notags `"--tr-golden=$golden`""
         if ($n.Exit -eq 1 -and $n.Json.diff -and -not $n.Json.diff.pass) { Add-Case "nametags_negative_vulkan" "PASS" "tags switched off rejected: $($n.Json.diff.summary)" $n.Seconds }
         else { Add-Case "nametags_negative_vulkan" "FAIL" "tags switched off NOT rejected (exit $($n.Exit)): $($n.Json.diff.summary)" $n.Seconds }
-    } else { Add-Case "nametags_negative_vulkan" "FAIL" "no golden $golden" 0 }
+    } else { Add-Case "nametags_negative_vulkan" "NO GOLDEN" "no golden $golden" 0 }
 }
 if ($NameTagsOnly) {   # -NameTagsOnly: just the name tag cases
     Invoke-NameTagCases
@@ -1708,9 +1739,9 @@ function Invoke-CutOutCases {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-auto-mask-$be" "`"--tr-fixture=$zoo`""
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "proposal-auto-mask-$be.png") -Destination $golden
-                Add-Case "auto_mask_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "auto_mask_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-auto-mask-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "auto_mask_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "auto_mask_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "auto-mask-$be" "`"--tr-fixture=$zoo`" `"--tr-golden=$golden`""
@@ -1744,10 +1775,10 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-synthetic-$be" "`"--tr-fixture=$fixture`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-synthetic-$be.png") -Destination $golden
-            Add-Case "golden_$be" "FAIL" "no golden: PROPOSED $golden (needs approval after viewing; rerun to diff against it)" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-synthetic-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "golden_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (needs approval after viewing; not installed; approve it after viewing, then install it)" $r.Seconds
         } else {
-            Add-Case "golden_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit); -Propose writes a proposal)" $r.Seconds
+            Add-Case "golden_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit); -Propose writes a proposal)" $r.Seconds
         }
         continue
     }
@@ -1783,10 +1814,10 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-zoo-$be" "`"--tr-fixture=$zoo`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-zoo-$be.png") -Destination $golden
-            Add-Case "zoo_$be" "FAIL" "no golden: PROPOSED $golden (needs approval after viewing; rerun to diff against it)" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-zoo-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "zoo_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (needs approval after viewing; not installed; approve it after viewing, then install it)" $r.Seconds
         } else {
-            Add-Case "zoo_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
+            Add-Case "zoo_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
         }
         continue
     }
@@ -1809,10 +1840,10 @@ foreach ($be in $Backends) {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-mesh-$cam-$be" "`"--tr-fixture=$meshZoo`" --tr-camera=$cam"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "proposal-mesh-$cam-$be.png") -Destination $golden
-                Add-Case "mesh_${cam}_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
+                Copy-Item -LiteralPath (Join-Path $out "proposal-mesh-$cam-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "mesh_${cam}_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
             } else {
-                Add-Case "mesh_${cam}_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
+                Add-Case "mesh_${cam}_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
             }
             continue
         }
@@ -1848,10 +1879,10 @@ foreach ($be in $Backends) {
     Add-Case "detail_levels_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "meshes at LODs [$($meshLods -join ',')] (official 3,2,2,1 at the factor 1.5); textures wanted [$($texWanted -join ',')], on the GPU [$($texOnGpu -join ',')] (official 0,2,3,4)$(if (-not $r.Json) { '; no result, exit ' + $r.Exit })" $r.Seconds
     if (-not $hasGolden) {
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "detail-$be.png") -Destination $golden
-            Add-Case "detail_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "detail-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "detail_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
         } else {
-            Add-Case "detail_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
+            Add-Case "detail_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
         }
     } else {
         $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be
@@ -1875,10 +1906,10 @@ foreach ($be in $Backends) {
         Add-Case "$($ls.Name)_order_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "$(if ($pr) { "$($pr.checked_probes) probes checked, tolerance $($pr.tolerance)" } else { 'no probes' })$(if ($bad.Count) { '; wrong: ' + ($bad -join '; ') })$(if (-not $r.Json) { '; no result, exit ' + $r.Exit })" $r.Seconds
         if (-not $hasGolden) {
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "$tag.png") -Destination $golden
-                Add-Case "$($ls.Name)_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
+                Copy-Item -LiteralPath (Join-Path $out "$tag.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "$($ls.Name)_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
             } else {
-                Add-Case "$($ls.Name)_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
+                Add-Case "$($ls.Name)_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds
             }
         } else {
             $ok = $r.Exit -eq 0 -and $r.Json.diff.pass -and $r.Json.backend.driver -eq $be
@@ -2102,9 +2133,9 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-tex-$be" "`"--tr-fixture=$texZoo`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-tex-$be.png") -Destination $golden
-            Add-Case "tex_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-        } else { Add-Case "tex_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+            Copy-Item -LiteralPath (Join-Path $out "proposal-tex-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "tex_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+        } else { Add-Case "tex_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
         continue
     }
     $r = Invoke-Render $be "tex-$be" "`"--tr-fixture=$texZoo`" `"--tr-golden=$golden`""
@@ -2125,9 +2156,9 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-mat-$be" "`"--tr-fixture=$matZoo`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-mat-$be.png") -Destination $golden
-            Add-Case "mat_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-        } else { Add-Case "mat_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+            Copy-Item -LiteralPath (Join-Path $out "proposal-mat-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "mat_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+        } else { Add-Case "mat_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
         continue
     }
     $r = Invoke-Render $be "mat-$be" "`"--tr-fixture=$matZoo`" `"--tr-golden=$golden`""
@@ -2146,9 +2177,9 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-alphazoo-$be" "`"--tr-fixture=$alphaZoo`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-alphazoo-$be.png") -Destination $golden
-            Add-Case "alphazoo_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-        } else { Add-Case "alphazoo_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+            Copy-Item -LiteralPath (Join-Path $out "proposal-alphazoo-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "alphazoo_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+        } else { Add-Case "alphazoo_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
         continue
     }
     $r = Invoke-Render $be "alphazoo-$be" "`"--tr-fixture=$alphaZoo`" `"--tr-golden=$golden`""
@@ -2172,7 +2203,7 @@ function FallbackShown($r) { $h = $r.Json.prims.fallback.held; return [bool]($h 
 function FallbackDetail($r) { $fb = $r.Json.prims.fallback; $h = $fb.held; return "held $($h.state): legacy $($h.fallback_faces), blank $($h.waiting_faces) (others settled $($h.others_settled)); end: switches $($fb.switches), legacy $($fb.faces_end), blank $($fb.waiting_end); $($r.Json.diff.summary)" }
 foreach ($be in $Backends) {
     $golden = Join-Path $repo "fixtures\materials\golden-material-zoo-$be.png"
-    if (-not (Test-Path -LiteralPath $golden)) { Add-Case "mat_fallback_$be" "FAIL" "no committed golden $golden" 0; continue }
+    if (-not (Test-Path -LiteralPath $golden)) { Add-Case "mat_fallback_$be" "NO GOLDEN" "no committed golden $golden" 0; continue }
     $base = "`"--tr-fixture=$matZoo`" `"--tr-golden=$golden`" --tr-hold-texture=$heldBase"
     $on = Invoke-Render $be "mat-fallback-$be" $base
     $off = Invoke-Render $be "mat-fallback-off-$be" "$base --tr-legacy-fallback=off"
@@ -2226,9 +2257,9 @@ foreach ($bc in $budgetCases) {
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-$($bc.Name)-$be" "`"--tr-fixture=$texZoo`" --tr-budget=$($bc.Budget)"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-                Copy-Item -LiteralPath (Join-Path $out "proposal-$($bc.Name)-$be.png") -Destination $golden
-                Add-Case "$($bc.Name)_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-            } else { Add-Case "$($bc.Name)_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+                Copy-Item -LiteralPath (Join-Path $out "proposal-$($bc.Name)-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case "$($bc.Name)_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+            } else { Add-Case "$($bc.Name)_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
             continue
         }
         $r = Invoke-Render $be "$($bc.Name)-$be" "`"--tr-fixture=$texZoo`" --tr-budget=$($bc.Budget) `"--tr-golden=$golden`""
@@ -2300,9 +2331,9 @@ foreach ($be in $Backends) {
     if (-not (Test-Path -LiteralPath $golden)) {
         $r = Invoke-Render $be "proposal-sculpt-$be" "`"--tr-fixture=$sculptZoo`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
-            Copy-Item -LiteralPath (Join-Path $out "proposal-sculpt-$be.png") -Destination $golden
-            Add-Case "sculpt_$be" "FAIL" "no golden: PROPOSED $golden (rerun to diff against it)" $r.Seconds
-        } else { Add-Case "sculpt_$be" "FAIL" "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
+            Copy-Item -LiteralPath (Join-Path $out "proposal-sculpt-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "sculpt_$be" "NO GOLDEN" "no golden: PROPOSED $(Get-ProposalTarget $golden) (not installed; approve it after viewing, then install it)" $r.Seconds
+        } else { Add-Case "sculpt_$be" (Get-NoGoldenStatus $r $be) "no committed golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
         continue
     }
     $r = Invoke-Render $be "sculpt-$be" "`"--tr-fixture=$sculptZoo`" `"--tr-golden=$golden`""
@@ -2326,8 +2357,8 @@ foreach ($be in $Backends) {
         $r = Invoke-Render $be "proposal-region-a-v2-$be" $args2
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
             New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v2-$be.png") -Destination $golden
-            Add-Case "region_a_v2_$be" "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v2-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "region_a_v2_$be" "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
         } else { Add-Case "region_a_v2_$be" "FAIL" "no local golden $golden (render exit $($r.Exit))" $r.Seconds }
         continue
     }
@@ -2350,8 +2381,8 @@ foreach ($be in $Backends) {
         $r = Invoke-Render $be "proposal-region-a-v3-sculpts-$be" $args3
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
             New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v3-sculpts-$be.png") -Destination $golden
-            Add-Case "region_a_v3_$be" "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v3-sculpts-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "region_a_v3_$be" "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
         } else { Add-Case "region_a_v3_$be" "FAIL" "no local golden $golden (render exit $($r.Exit))" $r.Seconds }
         continue
     }
@@ -2374,8 +2405,8 @@ foreach ($be in $Backends) {
         $r = Invoke-Render $be "proposal-region-a-v5-$be" $args5
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
             New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v5-$be.png") -Destination $golden
-            Add-Case "region_a_v5_$be" "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v5-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "region_a_v5_$be" "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
         } else { Add-Case "region_a_v5_$be" "FAIL" "no local golden $golden (render exit $($r.Exit))" $r.Seconds }
         continue
     }
@@ -2399,8 +2430,8 @@ foreach ($be in $Backends) {
         $r = Invoke-Render $be "proposal-region-a-v9-$be" $args9
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
             New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v9-$be.png") -Destination $golden
-            Add-Case "region_a_v9_$be" "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v9-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "region_a_v9_$be" "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
         } else { Add-Case "region_a_v9_$be" "FAIL" "no local golden $golden (render exit $($r.Exit))" $r.Seconds }
         continue
     }
@@ -2537,8 +2568,8 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
                 $r = Invoke-AvatarRender $be "proposal-$($case.File)-$be" "--tr-avatars=render $($case.Extra)"
                 if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
                     New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-                    Copy-Item -LiteralPath (Join-Path $out "proposal-$($case.File)-$be.png") -Destination $golden
-                    Add-Case $name "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+                    Copy-Item -LiteralPath (Join-Path $out "proposal-$($case.File)-$be.png") -Destination (Get-ProposalTarget $golden)
+                    Add-Case $name "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
                 } else { Add-Case $name "FAIL" "no local golden $golden (render exit $($r.Exit))" $r.Seconds }
                 continue
             }
@@ -2561,7 +2592,7 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             Add-Case "avatars_face_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary)" $r.Seconds
         } else {
             $r = Invoke-AvatarRender $be "proposal-avatars-face-$be" "--tr-avatars=face --tr-bakes"
-            Add-Case "avatars_face_$be" "FAIL" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-$be.png")" $r.Seconds
+            Add-Case "avatars_face_$be" "NO GOLDEN" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-$be.png")" $r.Seconds
         }
     }
     # the same face under the stock Midday (Legacy) sky, so the official classic lighting is held by a picture of an avatar (a local golden; absent, the picture is proposed and the case fails as PROPOSED)
@@ -2573,7 +2604,7 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             Add-Case "avatars_face_legacy_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary)" $r.Seconds
         } else {
             $r = Invoke-AvatarRender $be "proposal-avatars-face-legacy-$be" "--tr-avatars=face --tr-bakes --tr-alter=legacysky"
-            Add-Case "avatars_face_legacy_$be" "FAIL" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-legacy-$be.png")" $r.Seconds
+            Add-Case "avatars_face_legacy_$be" "NO GOLDEN" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-legacy-$be.png")" $r.Seconds
         }
     }
     # and under a stock Midday sky that sets a reflection probe ambiance (the tone-mapped path with the sky probe's ambient), so that ambient is held by a picture of an avatar (a local golden, proposed when absent)
@@ -2585,7 +2616,7 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             Add-Case "avatars_face_eep_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $($r.Json.diff.summary)" $r.Seconds
         } else {
             $r = Invoke-AvatarRender $be "proposal-avatars-face-eep-$be" "--tr-avatars=face --tr-bakes --tr-alter=eepsky"
-            Add-Case "avatars_face_eep_$be" "FAIL" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-eep-$be.png")" $r.Seconds
+            Add-Case "avatars_face_eep_$be" "NO GOLDEN" "no golden ${golden}: picture proposed as $(Join-Path $out "proposal-avatars-face-eep-$be.png")" $r.Seconds
         }
     }
     $golden = Join-Path $localGoldens "golden-avatars-vulkan.png"
@@ -2601,8 +2632,8 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             $r = Invoke-AvatarRender $be "proposal-avatars-live-$be" "--tr-avatars=live"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
                 New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-live-$be.png") -Destination $golden
-                Add-Case $name "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-live-$be.png") -Destination (Get-ProposalTarget $golden)
+                Add-Case $name "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
             } else { Add-Case $name "FAIL" "no local golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
             continue
         }
@@ -2631,9 +2662,9 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             $r = Invoke-AvatarRender $be "proposal-avatars-attach-$be" "--tr-avatars=attach"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
                 New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-attach-$be.png") -Destination $golden
-                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-attach-$be-back.png") -Destination $goldenBack
-                Add-Case $name "FAIL" "no local golden: PROPOSED $golden and $goldenBack" $r.Seconds
+                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-attach-$be.png") -Destination (Get-ProposalTarget $golden)
+                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-attach-$be-back.png") -Destination (Get-ProposalTarget $goldenBack)
+                Add-Case $name "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden) and $goldenBack" $r.Seconds
             } else { Add-Case $name "FAIL" "no local golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
             continue
         }
@@ -2662,10 +2693,10 @@ if ($env:NV_CHARACTER_DIR -and -not (Test-Path -LiteralPath $env:NV_CHARACTER_DI
             $r = Invoke-AvatarRender $be "proposal-avatars-rigged-$be" "--tr-avatars=rigged"
             if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
                 New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-rigged-$be.png") -Destination $golden
-                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-rigged-$be-back.png") -Destination $goldenBack
-                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-rigged-$be-face.png") -Destination $goldenFace
-                Add-Case $name "FAIL" "no local golden: PROPOSED $golden, $goldenBack and $goldenFace" $r.Seconds
+                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-rigged-$be.png") -Destination (Get-ProposalTarget $golden)
+                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-rigged-$be-back.png") -Destination (Get-ProposalTarget $goldenBack)
+                Copy-Item -LiteralPath (Join-Path $out "proposal-avatars-rigged-$be-face.png") -Destination (Get-ProposalTarget $goldenFace)
+                Add-Case $name "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden), $goldenBack and $goldenFace" $r.Seconds
             } else { Add-Case $name "FAIL" "no local golden $golden (render exit $($r.Exit): $($r.Json.failures -join ' | '))" $r.Seconds }
             continue
         }
@@ -2827,8 +2858,8 @@ foreach ($be in $Backends) {
         $r = Invoke-Render $be "proposal-region-a-v4-$be" $args4
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
             New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v4-$be.png") -Destination $golden
-            Add-Case "region_a_v4_$be" "FAIL" "no local golden: PROPOSED $golden" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-region-a-v4-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "region_a_v4_$be" "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden)" $r.Seconds
         } else { Add-Case "region_a_v4_$be" "FAIL" "no local golden $golden (render exit $($r.Exit))" $r.Seconds }
         continue
     }
@@ -2866,8 +2897,8 @@ foreach ($be in $Backends) {
         $r = Invoke-Render $be "proposal-region-b-$be" "`"--tr-fixture=$regionB`""
         if ($Propose -and $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be) {
             New-Item -ItemType Directory -Force -Path $localGoldens | Out-Null
-            Copy-Item -LiteralPath (Join-Path $out "proposal-region-b-$be.png") -Destination $golden
-            Add-Case "region_b_$be" "FAIL" "no local golden: PROPOSED $golden (local only; needs approval after viewing)" $r.Seconds
+            Copy-Item -LiteralPath (Join-Path $out "proposal-region-b-$be.png") -Destination (Get-ProposalTarget $golden)
+            Add-Case "region_b_$be" "FAIL" "no local golden: PROPOSED $(Get-ProposalTarget $golden) (local only; needs approval after viewing)" $r.Seconds
         } else {
             Add-Case "region_b_$be" "FAIL" "no local golden $golden (render exit $($r.Exit))" $r.Seconds
         }
