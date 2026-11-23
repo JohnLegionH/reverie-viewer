@@ -84,7 +84,7 @@
 ^host/Viewer\.Automation/	smoke
 ^host/Viewer\.Shell/(SitReport|OwnAvatarDriver|ObjectInterpolator|MotionTrace|Social)/?	smoke
 # Building and the handles.
-^host/Viewer\.Godot/(Main\.(Build|Edit|Handles)|TestRender\.(Handles|EditLook)|Presentation/(HandleOverlay|SelectionOutline))\.cs$	build
+^host/Viewer\.Godot/(Main\.(Build|Edit|Handles)|TestRender\.(Handles|EditLook|BuildLayout)|Presentation/(HandleOverlay|SelectionOutline))\.cs$	build
 ^host/Viewer\.Shell/Build/	build
 # The edit controller sends the object and build updates.
 ^host/Viewer\.Shell/Build/EditController[.A-Za-z]*\.cs$	build,smoke

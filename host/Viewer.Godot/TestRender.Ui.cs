@@ -52,7 +52,7 @@ public partial class TestRender
         "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
-        "build-look", "build-search", "build-create", "build-object", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
+        "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-placement", "build-placement-150", "build-placement-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
@@ -256,6 +256,22 @@ public partial class TestRender
         return window;
     }
 
+    /// <summary>Scrolls the Build window so the section's card is at the top of its view (the section comes after others and may be below the fold).</summary>
+    private async Task ScrollSectionToTop(ShellRoot shell, string section)
+    {
+        if (shell.FindChild("section_box_" + section, true, false) is not Control box)
+            return;
+        ScrollContainer? scroll = null;
+        for (Node? n = box.GetParent(); n is not null && scroll is null; n = n.GetParent())
+            scroll = n as ScrollContainer;
+        if (scroll is not null && box.GetParent() is Control card)
+        {
+            scroll.ScrollVertical = (int)(card.GetGlobalRect().Position.Y - scroll.GetGlobalRect().Position.Y + scroll.ScrollVertical);
+            await Frames(4);
+        }
+    }
+
+
     /// <summary>The Build window with an example box selected (the Edit tool; a hollowed, twisted box), on an in-memory world with no
     /// session or grid. <paramref name="scene"/>: "build" every section closed (each shows its summary); "build-look" only Look open;
     /// "build-search" a search for "hollow" (the Shape section open on its two rows); the colour picker scenes as "build".</summary>
@@ -284,14 +300,15 @@ public partial class TestRender
             edit.ChooseShape(Viewer.Core.Building.CreateShape.Torus);
         }
         if (scene == "build-contents")
-            edit.Receive(new TaskInventoryReceived(G(31), ExampleTaskItems()));
+            edit.Receive(new TaskInventoryReceived(G(31), [.. ExampleTaskItems(), ExampleLongTaskItem()]));   // one name too long for the list: it must end in an ellipsis
         // the owner and creator are named as the session's name cache would name them (a neutral example name)
         var panel = new EditPanel(strings, () => edit, null, new SettingsService(null), () => G(32), id => id == G(32) ? "Test User" : null);
         shell.AddFloater(new FloaterSpec(EditPanel.FloaterId, "edit.title", new UiSize(460, 680), new UiSize(400, 520)), panel);
         foreach (var section in Viewer.Shell.Build.BuildLayout.Sections)
             panel.SetOpen(section, scene == "build-look" && section == Viewer.Shell.Build.BuildSection.Look
                 || scene == "build-contents" && section == Viewer.Shell.Build.BuildSection.Contents
-                || scene == "build-object" && section == Viewer.Shell.Build.BuildSection.Object);
+                || scene == "build-object" && section == Viewer.Shell.Build.BuildSection.Object
+                || scene == "build-placement" && section is Viewer.Shell.Build.BuildSection.Placement or Viewer.Shell.Build.BuildSection.Shape);
         if (scene == "build-search")
             panel.SearchText = "hollow";
         panel.Refresh();
@@ -316,7 +333,9 @@ public partial class TestRender
         bool soundOpen = scene.StartsWith("preferences-sound-open", StringComparison.Ordinal);
         if (scene.StartsWith("preferences-sound", StringComparison.Ordinal))
             scene = soundOpen ? "preferences-sound" : scene;
-        if (pct != 100)
+        if (pct != 100 && scene.StartsWith("build", StringComparison.Ordinal))
+            scene = scene[..^4];   // a Build case at 150 or 200 %: the same window, drawn larger
+        else if (pct != 100)
             scene = "preferences-sound";
         int picW = UiWidth * pct / 100, picH = UiHeight * pct / 100;
         var strings = StringTable.English();
@@ -469,7 +488,7 @@ public partial class TestRender
                     "inspect" => InteractFeature.InspectId,
                     "land" => InteractFeature.LandId,
                     "personal" => PersonalLightingFeature.FloaterId,
-                    "build" or "build-look" or "build-search" or "build-contents" or "build-create" or "build-object" => EditPanel.FloaterId,
+                    "build" or "build-look" or "build-placement" or "build-search" or "build-contents" or "build-create" or "build-object" => EditPanel.FloaterId,
                     "colourpicker" or "texturepicker" or "gridoptions" or "takefolder" or "objectcontents" or "buy" or "objectinfo" or "addons" or "addon-ao" or "addon-rlv" => "",
                     "upload-image" => BuildFeature.ImageFloaterId,
                     "upload-bulk" => BuildFeature.BulkFloaterId,
@@ -529,8 +548,10 @@ public partial class TestRender
         }
         if (scene == "build-contents" && contentsPanel is not null)
         {
-            contentsPanel.ContentTab.OpenMenuOnRow(1);   // the right-click menu on the second row (the notecard)
+            contentsPanel.ContentTab.OpenMenuOnRow(1);   // the right-click menu on the second row (the notecard): its entries are read by the layout check
             await Frames(10);
+            contentsPanel.ContentTab.CloseMenu();   // the picture shows the list without the menu over the row ends, where a long name must end in an ellipsis
+            await Frames(4);
         }
         if (scene == "build-object" && shell.FindChild("section_box_object", true, false) is Control objectBox)
         {
@@ -559,6 +580,20 @@ public partial class TestRender
             else
                 _failures.Add("build-object: the Object section's scroll area was not found");
         }
+        if (scene == "build-placement" && shell.FindChild("rotation_line", true, false) is Control rotationLine)
+        {
+            // the Placement section is open above the Shape section: the window is scrolled to the Rotation row, so the last three-value row, the
+            // copy and paste buttons and the first Shape rows are in the picture (Position and Size stand above it, checked by the layout check)
+            await Frames(4);
+            ScrollContainer? placeScroll = null;
+            for (Node? n = rotationLine.GetParent(); n is not null && placeScroll is null; n = n.GetParent())
+                placeScroll = n as ScrollContainer;
+            if (placeScroll is not null)
+            {
+                placeScroll.ScrollVertical = (int)(rotationLine.GetGlobalRect().Position.Y - placeScroll.GetGlobalRect().Position.Y + placeScroll.ScrollVertical - 8);
+                await Frames(4);
+            }
+        }
         if (scene == "build-look" && shell.FindChild("section_box_look", true, false) is Control lookBox)
         {
             // the case shows the open Look section: its body must be in the Build window's view, not below the fold
@@ -583,6 +618,34 @@ public partial class TestRender
                 if (b.Position.Y < view.Position.Y - 0.5f || b.Position.Y + 24 > view.End.Y)
                     _failures.Add($"build-look: the Look section's body ({b.Position.Y:F0}) is not in the Build window's view ({view.Position.Y:F0} to {view.End.Y:F0})");
             }
+        }
+        if (scene == "build-contents")
+        {
+            CheckBuildLayout(shell, scene, pct, contentsPanel, " as opened");   // the window as it opens: the Contents buttons must be whole there too
+            await ScrollSectionToTop(shell, "contents");   // the Contents card at the top of the window: its buttons are checked there, and the picture shows them
+        }
+        if (scene.StartsWith("build", StringComparison.Ordinal))
+        {
+            CheckBuildLayout(shell, scene, pct, contentsPanel);
+            // and again in the Build window's smallest size (400 x 520), where the same layout rules hold
+            FloaterFrame? buildFrame = null;
+            for (Node? n = shell.FindChild("edit_panel", true, false); n is not null && buildFrame is null; n = n.GetParent())
+                buildFrame = n as FloaterFrame;
+            if (buildFrame is not null)
+            {
+                var keepSize = buildFrame.Size;
+                buildFrame.Size = new Vector2(400, 520);
+                await Frames(6);
+                if (scene == "build-contents")
+                    await ScrollSectionToTop(shell, "contents");
+                CheckBuildLayout(shell, scene, pct, contentsPanel, " smallest");
+                buildFrame.Size = keepSize;   // the picture is of the window at its usual size
+                await Frames(6);
+                if (scene == "build-contents")
+                    await ScrollSectionToTop(shell, "contents");
+            }
+            else
+                _failures.Add($"{scene}@{pct}: the Build window's frame was not found, so its smallest size was not checked");
         }
         if (loginShown is not null && loginShown.ById["password"] is LineEdit field && loginShown.ById["reveal"] is Control eye)
         {

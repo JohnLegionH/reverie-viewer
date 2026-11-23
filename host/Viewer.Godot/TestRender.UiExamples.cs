@@ -149,6 +149,11 @@ public partial class TestRender
         shell.Shell.Floaters.Open(GridPanel.FloaterId);
     }
 
+    /// <summary>An item whose name is longer than the Contents list at every interface size.</summary>
+    private static TaskItem ExampleLongTaskItem() =>
+        new(new Guid("00000000-0000-4000-8000-000000000043"), "A script with a deliberately long name that cannot fit in the list at any interface size", 10, 10,
+            new Guid("00000000-0000-4000-8000-000000000001"), 0x7fffffff, 0, AssetId: new Guid("00000000-0000-4000-8000-000000000053"), CreatorId: new Guid("00000000-0000-4000-8000-000000000001"));
+
     /// <summary>The items of the example box the Contents tab and the object contents window list: a script, a notecard and a texture.</summary>
     private static TaskItem[] ExampleTaskItems()
     {

@@ -148,6 +148,37 @@ public class BuildLayoutTests
             Assert.DoesNotContain("[[", S.Get(BuildLayout.TitleKey(section)));
     }
 
+    [Fact]
+    public void The_search_line_names_what_a_search_found_and_what_it_did_not()
+    {
+        string hollow = BuildLayout.SearchLine("hollow", BuildLayout.Search("hollow", S), S);
+        Assert.Contains("Shape", hollow);
+        Assert.Contains("Hollow", hollow);
+        Assert.Equal(S.Get("edit.search.none", "zzz"), BuildLayout.SearchLine("zzz", BuildLayout.Search("zzz", S), S));
+        Assert.Contains("Grab", BuildLayout.SearchLine("Move Tool", BuildLayout.Search("Move Tool", S), S));
+        Assert.Equal("", BuildLayout.SearchLine("  ", BuildLayout.Search("  ", S), S));
+    }
+
+    [Fact]
+    public void A_tool_that_is_not_built_is_not_found_by_the_search()
+    {
+        Assert.DoesNotContain(BuildLayout.Rows, r => r.Id == "tool_land");
+        Assert.Empty(BuildLayout.Search("terraform", S));
+    }
+
+    [Fact]
+    public void A_texture_is_named_never_shown_as_a_long_id()
+    {
+        var plywood = new Guid("89556747-24cb-43ed-920b-47caed15465f");
+        Assert.Equal("Plywood", BuildNames.Texture(plywood, null, S));
+        Assert.Equal("My floor", BuildNames.Texture(plywood, "My floor", S));
+        var other = new Guid("12345678-1234-4234-8234-123456789abc");
+        string unknown = BuildNames.Texture(other, null, S);
+        Assert.False(Guid.TryParse(unknown, out _));
+        Assert.True(unknown.Length <= 14, unknown);
+        Assert.StartsWith("12345678", unknown);
+    }
+
     // ---------------- hint line ----------------
 
     [Fact]
@@ -181,8 +212,8 @@ public class BuildLayoutTests
         Assert.Contains("BuildLayout.Search", panel);
         Assert.Contains("BuildLayout.Summary", panel);
         Assert.Contains("BuildLayout.Hint", panel);
-        // one segmented tool row with the five tools, Land included, and Undo and Redo beside the modes
-        foreach (var tool in new[] { "Focus", "Move", "Edit", "Create", "Land" })
+        // one segmented tool row with the four built tools (Land is not built, so it has no segment), and Undo and Redo beside the modes
+        foreach (var tool in new[] { "Focus", "Move", "Edit", "Create" })
             Assert.Matches(new Regex(@"BuildTool\." + tool + @"\b"), panel);
         Assert.Contains("\"undo\"", panel);
         Assert.Contains("\"redo\"", panel);

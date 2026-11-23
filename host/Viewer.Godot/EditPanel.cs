@@ -26,14 +26,35 @@ public partial class EditPanel : VBoxContainer
 {
     public const string FloaterId = "build";
 
-    private sealed record SectionParts(BuildSection Id, Button Header, Label Summary, VBoxContainer Body);
+    /// <summary>Whether the Land tool exists. It is not built, so the window has no segment for it (UI-STANDARD U9: an unbuilt feature is
+    /// absent, not shown greyed). Set when the land tools are built.</summary>
+    private static bool LandToolBuilt => EditController.LandToolBuilt;
+
+    /// <summary>The width of the label column: every label of Placement, Shape, Look and Object stands in a column this wide with its control
+    /// beside it (UI-STANDARD U1).</summary>
+    internal const float LabelColumn = 150;
+
+    private static Label LabelCell(string name, string text) => new() { Name = name, Text = text, CustomMinimumSize = new Vector2(LabelColumn, 0), VerticalAlignment = VerticalAlignment.Center };
+
+    /// <summary>A label in the label column with its control beside it; the line is named "&lt;row&gt;_line" so a search hides it with the row.</summary>
+    private HBoxContainer Line(string name, string key, Control control)
+    {
+        var line = new HBoxContainer { Name = name + "_line" };
+        line.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        control.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        line.AddChild(control);
+        return line;
+    }
+
+    private sealed record SectionParts(BuildSection Id, Button Header, Label Summary, VBoxContainer Body, Control Card);
 
     private readonly StringTable _s;
     private readonly Func<EditController?> _edit;
     private readonly Dictionary<BuildTool, Button> _tools = new();
     private readonly Dictionary<ManipMode, Button> _manips = new();
-    private readonly HBoxContainer _manipRow;
+    private readonly HFlowContainer _manipRow;
     private readonly PanelContainer _manipTrack;
+    private readonly RvCard _card;
     private readonly Button _faceMode, _undo, _redo;
     private readonly CheckBox _linked, _snap, _both, _stretchTex, _ownedOnly;
     private readonly Label _status, _hint, _cardName, _cardPicked, _cardOwner, _searchStatus;
@@ -107,7 +128,7 @@ public partial class EditPanel : VBoxContainer
         var tools = new HBoxContainer { Name = "tools" };
         tools.AddThemeConstantOverride("separation", 2);
         foreach (var (tool, key) in new[] { (BuildTool.Focus, "edit.tool.focus"), (BuildTool.Move, "edit.tool.move"), (BuildTool.Edit, "edit.tool.edit"),
-                     (BuildTool.Create, "edit.tool.create"), (BuildTool.Land, "edit.tool.land") })
+                     (BuildTool.Create, "edit.tool.create"), (BuildTool.Land, "edit.tool.land") }.Where(t => t.Item1 != BuildTool.Land || LandToolBuilt))
         {
             // each tool's tooltip names it with its shortcut (the Build menu's Ctrl+1 to Ctrl+5)
             var b = new Button
@@ -117,8 +138,6 @@ public partial class EditPanel : VBoxContainer
             };
             b.AccessibilityName = b.Text;
             b.Pressed += () => ToolChosen?.Invoke(tool);
-            // the land tools are not built yet: the segment is shown, as in the official floater, and says so
-            b.Disabled = tool == BuildTool.Land;
             tools.AddChild(b);
             _tools[tool] = b;
         }
@@ -128,7 +147,7 @@ public partial class EditPanel : VBoxContainer
         // ---------------- the Edit modes, with Undo and Redo beside them ----------------
         // Move, Rotate, Stretch or Face: which handles the Edit and Grab tools show (floater_tools.xml's radio group; Ctrl and Ctrl+Shift
         // switch while held); Face is the official Select Face
-        _manipRow = new HBoxContainer { Name = "manip" };
+        _manipRow = new HFlowContainer { Name = "manip" };   // Undo and Redo wrap under the modes when the window is at its narrowest
         _manipTrack = new PanelContainer { Name = "manip_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _manipTrack.AccessibilityName = strings.Get("edit.modes");
         var manips = new HBoxContainer();
@@ -160,11 +179,13 @@ public partial class EditPanel : VBoxContainer
         // CreateToolKeepSelected); shown only while Create is the tool, as the official window shows it
         _createRow = new VBoxContainer { Name = "create_options" };
         // the fifteen shape buttons in the official order (floater_tools.xml ToolCube to ToolGrass); pressing one also turns Copy selection off
-        var shapeRow = new HFlowContainer { Name = "create_shapes" };
+        // three equal columns, so the rows line up (the names are up to twelve letters; the window's smallest width holds three)
+        var shapeRow = new GridContainer { Name = "create_shapes", Columns = 3 };
         foreach (var kind in Viewer.Core.Building.CreateShapes.All)
         {
             string key = "edit.shape." + kind.ToString().ToLowerInvariant();
-            var b = new Button { Name = "shape_" + kind.ToString().ToLowerInvariant(), Text = strings.Get(key), TooltipText = strings.Get(key), ToggleMode = true, ThemeTypeVariation = ReverieStyle.Segment };
+            var b = new Button { Name = "shape_" + kind.ToString().ToLowerInvariant(), Text = strings.Get(key), TooltipText = strings.Get(key), ToggleMode = true, ThemeTypeVariation = ReverieStyle.Segment, CustomMinimumSize = new Vector2(112, 0),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill };
             b.AccessibilityName = strings.Get(key);
             var chosen = kind;
             b.Pressed += () => { _edit()?.ChooseShape(chosen); Refresh(); };
@@ -185,13 +206,18 @@ public partial class EditPanel : VBoxContainer
         AddChild(_hint);
 
         // ---------------- the selection card ----------------
-        var card = new RvCard(null, null) { Name = "selection_card" };
+        // the card is the first thing in the scrolled column, so the sections get the height below the tools (it is not shown for Create)
+        var card = _card = new RvCard(null, null) { Name = "selection_card" };
         _cardName = new Label { Name = "card_name", ThemeTypeVariation = ReverieStyle.CardHeading, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _cardPicked = new Label { Name = "card_picked", ThemeTypeVariation = ReverieStyle.Caption };
-        _cardOwner = new Label { Name = "card_owner", ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        _cardOwner = new Label { Name = "card_owner", ThemeTypeVariation = ReverieStyle.Caption };
         card.Body.AddChild(_cardName);
-        card.Body.AddChild(_cardPicked);
-        card.Body.AddChild(_cardOwner);
+        // what is picked and who owns it share a line (they wrap only when the window is at its narrowest)
+        var cardFacts = new HFlowContainer { Name = "card_facts" };
+        cardFacts.AddThemeConstantOverride("h_separation", 16);
+        cardFacts.AddChild(_cardPicked);
+        cardFacts.AddChild(_cardOwner);
+        card.Body.AddChild(cardFacts);
         // "N objects selected, land impact X" (the official status line), from the region's GetObjectCost answer
         _impact = new Label { Name = "land_impact", ThemeTypeVariation = ReverieStyle.Caption };
         _impact.AccessibilityName = strings.Get("edit.card.land_impact");
@@ -199,14 +225,18 @@ public partial class EditPanel : VBoxContainer
         _status = new Label { Name = "status", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _status.AccessibilityName = strings.Get("edit.title");
         card.Body.AddChild(_status);
-        AddChild(card);
 
         // ---------------- the sections, in one scrolled column ----------------
         var scroll = new ScrollContainer { Name = "sections_scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        // the cards stop a little before the scroll bar, so they do not touch it
+        var gutter = new MarginContainer { Name = "sections_gutter", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        gutter.AddThemeConstantOverride("margin_right", 10);
         var column = new VBoxContainer { Name = "sections", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 6);
-        scroll.AddChild(column);
+        column.AddThemeConstantOverride("separation", 4);
+        gutter.AddChild(column);
+        scroll.AddChild(gutter);
         AddChild(scroll);
+        column.AddChild(card);
         foreach (var section in BuildLayout.Sections)
             _sections[section] = MakeSection(column, section);
 
@@ -238,22 +268,20 @@ public partial class EditPanel : VBoxContainer
 
         // ---------------- Shape ----------------
         var shape = Body(BuildSection.Shape);
-        shape.AddChild(new Label { Name = "prim_type_label", Text = strings.Get("edit.prim_type") });
         _type = new OptionButton { Name = "prim_type" };
         _type.AccessibilityName = strings.Get("edit.prim_type");
         foreach (var k in Enum.GetValues<PrimKind>())
             _type.AddItem(strings.Get("edit.type." + k.ToString().ToLowerInvariant()), (int)k);
         _type.ItemSelected += i => { if (!_filling && (PrimKind)_type.GetItemId((int)i) is var k && k != PrimKind.Sculpt) _edit()?.SetShape(ShapeRules.OfKind(k)); };
-        shape.AddChild(_type);
+        shape.AddChild(Line("prim_type", "edit.prim_type", _type));
         ShapeRow(shape, "path_cut", "edit.path_cut", 0, 1, 0.025, true);
         ShapeRow(shape, "hollow", "edit.hollow", 0, 95, 5, false);
-        shape.AddChild(new Label { Name = "hollow_shape_label", Text = strings.Get("edit.hollow_shape") });
         _hole = new OptionButton { Name = "hollow_shape" };
         _hole.AccessibilityName = strings.Get("edit.hollow_shape");
         foreach (var (key, id) in new[] { ("same", 0x00), ("circle", 0x10), ("square", 0x20), ("triangle", 0x30) })
             _hole.AddItem(strings.Get("edit.hole." + key), id);
         _hole.ItemSelected += _ => SendShape();
-        shape.AddChild(_hole);
+        shape.AddChild(Line("hollow_shape", "edit.hollow_shape", _hole));
         ShapeRow(shape, "twist", "edit.twist", -360, 360, 1, true);
         ShapeRow(shape, "taper", "edit.taper", -1, 1, 0.01, true);
         ShapeRow(shape, "top_shear", "edit.top_shear", -0.5, 0.5, 0.01, true);
@@ -280,15 +308,22 @@ public partial class EditPanel : VBoxContainer
         _shareGroup = Tick(general, "share_group", "edit.share_group", on => _edit()?.SetPermission(0x04, modify | move | copy, on));
         _anyMove = Tick(general, "anyone_move", "edit.anyone_move", on => _edit()?.SetPermission(0x08, move, on));
         _anyCopy = Tick(general, "anyone_copy", "edit.anyone_copy", on => _edit()?.SetPermission(0x08, copy, on));
-        var nextRow = new HBoxContainer { Name = "next_row" };
-        nextRow.AddChild(new Label { Name = "next_owner", Text = strings.Get("edit.next_owner") });
+        // the label stands in the label column like its neighbours; the three ticks wrap as whole controls in a narrow window
+        var nextRow = new HFlowContainer { Name = "next_row" };
+        nextRow.AddChild(LabelCell("next_owner", strings.Get("edit.next_owner")));
         _nextModify = Tick(nextRow, "next_modify", "edit.perm.modify", on => _edit()?.SetPermission(0x10, modify, on));
         _nextCopy = Tick(nextRow, "next_copy", "edit.perm.copy", on => _edit()?.SetPermission(0x10, copy, on));
         _nextTransfer = Tick(nextRow, "next_transfer", "edit.perm.transfer", on => _edit()?.SetPermission(0x10, transfer, on));
         general.AddChild(nextRow);
-        var saleRow = new HFlowContainer { Name = "sale_row" };
+        var saleRow = new HBoxContainer { Name = "sale_row" };
         saleRow.AddThemeConstantOverride("h_separation", 8);   // the price unit and the price box do not touch
-        _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true));
+        // "For sale": its label in the label column, the tick box (no text of its own) beside it, then the price; the sale type has its own
+        // labelled row below, so no line of controls stands without a label
+        var saleLabel = LabelCell("for_sale_label", strings.Get("edit.for_sale"));
+        saleRow.AddChild(saleLabel);
+        _forSale = Tick(saleRow, "for_sale", "edit.for_sale", _ => SendSale(true), showText: false);
+        saleLabel.MouseFilter = MouseFilterEnum.Stop;
+        saleLabel.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } && !_forSale.Disabled) _forSale.ButtonPressed = !_forSale.ButtonPressed; };
         _priceLabel = new Label { Name = "sale_price_unit", Text = strings.Get("edit.sale_price") };
         saleRow.AddChild(_priceLabel);
         _price = new SpinBox { Name = "sale_price", MinValue = 0, MaxValue = 999999999, Step = 1, Rounded = true, AllowGreater = false, CustomMinimumSize = new Vector2(120, 0) };
@@ -300,10 +335,10 @@ public partial class EditPanel : VBoxContainer
         foreach (var (type, key) in new[] { (Viewer.Core.Building.SaleKind.Copy, "copy"), (Viewer.Core.Building.SaleKind.Contents, "contents"), (Viewer.Core.Building.SaleKind.Original, "original") })
             _saleType.AddItem(strings.Get("edit.sale_type." + key), (int)type);
         _saleType.ItemSelected += _ => { if (!_filling) SendSale(false); };
-        saleRow.AddChild(_saleType);
         general.AddChild(saleRow);
+        general.AddChild(Line("sale_type", "edit.sale_type", _saleType));
         var clickRow = new HBoxContainer { Name = "click_row" };
-        clickRow.AddChild(new Label { Name = "click_action_label", Text = strings.Get("edit.click_action") });
+        clickRow.AddChild(LabelCell("click_action_label", strings.Get("edit.click_action")));
         _clickAction = new OptionButton { Name = "click_action", TooltipText = strings.Get("edit.click_action.tip") };
         _clickAction.AccessibilityName = strings.Get("edit.click_action");
         foreach (var choice in Viewer.Core.Interaction.ClickChoices.All)
@@ -357,10 +392,12 @@ public partial class EditPanel : VBoxContainer
         string title = _s.Get(BuildLayout.TitleKey(id));
         var card = new PanelContainer { Name = "section_card_" + name, ThemeTypeVariation = ReverieStyle.Card };
         var box = new VBoxContainer { Name = "section_box_" + name };
+        // the name and, while the section is closed, its one-line summary share one line (a header of fixed width keeps the summaries in a column)
+        var line = new HBoxContainer { Name = "section_line_" + name };
         var header = new Button
         {
             Name = "section_" + name, Text = title, ToggleMode = true, Flat = true, Alignment = HorizontalAlignment.Left,
-            TooltipText = _s.Get("edit.section.toggle.tip", title),
+            TooltipText = _s.Get("edit.section.toggle.tip", title), CustomMinimumSize = new Vector2(112, 0),
         };
         header.AccessibilityName = title;
         header.Toggled += open =>
@@ -368,14 +405,16 @@ public partial class EditPanel : VBoxContainer
             ShowSection(id, open);
             _memory.Set(id, open);
         };
-        box.AddChild(header);
-        var summary = new Label { Name = "summary_" + name, ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
-        box.AddChild(summary);
+        line.AddChild(header);
+        var summary = new Label { Name = "summary_" + name, ThemeTypeVariation = ReverieStyle.Caption, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, VerticalAlignment = VerticalAlignment.Center };
+        line.AddChild(summary);
+        box.AddChild(line);
         var body = new VBoxContainer { Name = name + "_page", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddChild(body);
         card.AddChild(box);
         column.AddChild(card);
-        return new SectionParts(id, header, summary, body);
+        return new SectionParts(id, header, summary, body, card);
     }
 
     private VBoxContainer Body(BuildSection s) => _sections[s].Body;
@@ -436,7 +475,7 @@ public partial class EditPanel : VBoxContainer
         {
             bool show = open.Contains(section);
             var p = _sections[section];
-            HideIf(p.Header.GetParent().GetParent<Control>(), !show);
+            HideIf(p.Card, !show);
             if (!show) continue;
             // shown open for this search only; the kept choice is not changed
             p.Header.SetPressedNoSignal(true);
@@ -456,10 +495,7 @@ public partial class EditPanel : VBoxContainer
                      .Concat(_manips.Select(kv => ("manip_" + kv.Key.ToString().ToLowerInvariant(), kv.Value)))
                      .Append(("manip_face", _faceMode)).Append(("undo", _undo)).Append(("redo", _redo)))
             b.Modulate = b.Modulate with { A = toolHits.Count > 0 && !found.Contains(id) ? 0.45f : 1f };
-        _searchStatus.Visible = true;
-        _searchStatus.Text = hits.Count == 0 ? _s.Get("edit.search.none", query.Trim())
-            : toolHits.Count > 0 ? _s.Get("edit.search.tools", string.Join(", ", toolHits.Select(h => _s.Get(h.LabelKey))))
-            : "";
+        _searchStatus.Text = BuildLayout.SearchLine(query, hits, _s);   // what the search found, or that it found nothing
         _searchStatus.Visible = _searchStatus.Text.Length > 0;
     }
 
@@ -475,7 +511,12 @@ public partial class EditPanel : VBoxContainer
     {
         foreach (var name in new[] { id, id + "_label" })
             if (body.FindChild(name, true, false) is Control c)
+            {
                 yield return c;
+                // a label and its control share a line (a holder named "<row>_line"): the line goes with them, so no empty gap stays
+                if (c.GetParent() is Control { } holder && holder.Name.ToString().EndsWith("_line", StringComparison.Ordinal))
+                    yield return holder;
+            }
         if (id.EndsWith("_row", StringComparison.Ordinal) && body.FindChild(id[..^4] + "_label", true, false) is Control l && l.GetParent()?.Name != id)
             yield return l;
     }
@@ -517,10 +558,12 @@ public partial class EditPanel : VBoxContainer
             _status.Text = _s.Get("edit." + why);
     }
 
-    private CheckBox Tick(Container parent, string name, string key, Action<bool> changed)
+    /// <summary>A tick box named by the string table; <paramref name="showText"/> false leaves the box without text of its own when a label in the
+    /// label column names it (the accessible name stays).</summary>
+    private CheckBox Tick(Container parent, string name, string key, Action<bool> changed, bool showText = true)
     {
-        var c = new CheckBox { Name = name, Text = _s.Get(key) };
-        c.AccessibilityName = c.Text;
+        var c = new CheckBox { Name = name, Text = showText ? _s.Get(key) : string.Empty };
+        c.AccessibilityName = _s.Get(key);
         c.Toggled += on => { if (!_filling) changed(on); };
         parent.AddChild(c);
         return c;
@@ -528,20 +571,19 @@ public partial class EditPanel : VBoxContainer
 
     private LineEdit Field(Container parent, string name, string key, Action<string> commit)
     {
-        parent.AddChild(new Label { Name = name + "_label", Text = _s.Get(key) });
         var e = new LineEdit { Name = name };
         e.AccessibilityName = _s.Get(key);
         e.TextSubmitted += t => commit(t);
         e.FocusExited += () => { if (!_filling) commit(e.Text); };
-        parent.AddChild(e);
+        parent.AddChild(Line(name, key, e));
         return e;
     }
 
     private Label Info(Container parent, string name, string key)
     {
         var row = new HBoxContainer { Name = name + "_row" };
-        row.AddChild(new Label { Text = _s.Get(key) });
-        var v = new Label { Name = name, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        row.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        var v = new Label { Name = name, VerticalAlignment = VerticalAlignment.Center, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         v.AccessibilityName = _s.Get(key);
         row.AddChild(v);
         parent.AddChild(row);
@@ -556,24 +598,30 @@ public partial class EditPanel : VBoxContainer
 
     private void Triple(Container parent, string name, string key, SpinBox[] boxes, double min, double max, double step, Action<System.Numerics.Vector3> commit)
     {
-        parent.AddChild(new Label { Name = name + "_label", Text = _s.Get(key) });
-        var row = new HBoxContainer { Name = name };
+        // a row of three values keeps its label on its own line with the three boxes on one line below it, equal in width and never wrapping
+        // (the official viewer's grouping; UI-STANDARD U1, exception for X Y Z rows)
+        var line = new VBoxContainer { Name = name + "_line" };
+        line.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        var row = new HBoxContainer { Name = name, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         string[] axes = ["edit.x", "edit.y", "edit.z"];
         for (int i = 0; i < 3; i++)
         {
-            row.AddChild(new Label { Text = _s.Get(axes[i]) });
+            var axis = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            axis.AddChild(new Label { Text = _s.Get(axes[i]), VerticalAlignment = VerticalAlignment.Center, CustomMinimumSize = new Vector2(16, 0) });   // one letter width, so the boxes are equal
             boxes[i] = Spin($"{name}_{"xyz"[i]}", _s.Get(key) + " " + _s.Get(axes[i]), min, max, step);
             boxes[i].ValueChanged += _ => { if (!_filling) commit(new System.Numerics.Vector3((float)boxes[0].Value, (float)boxes[1].Value, (float)boxes[2].Value)); };
-            row.AddChild(boxes[i]);
+            axis.AddChild(boxes[i]);
+            row.AddChild(axis);
         }
-        parent.AddChild(row);
+        line.AddChild(row);
+        parent.AddChild(line);
     }
 
     private void ShapeRow(Container parent, string name, string key, double min, double max, double step, bool pair)
     {
-        var holder = new VBoxContainer { Name = name };
-        holder.AddChild(new Label { Text = _s.Get(key) });
-        var row = new HBoxContainer();
+        var holder = new HBoxContainer { Name = name };
+        holder.AddChild(LabelCell(name + "_label", _s.Get(key)));
+        var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         var a = Spin(name + "_a", _s.Get(key), min, max, step);
         a.ValueChanged += _ => SendShape();
         row.AddChild(a);
@@ -719,6 +767,7 @@ public partial class EditPanel : VBoxContainer
                 b.Disabled = !(e?.CanPaste(what) ?? false);
             _manipTrack.Visible = e is null || e is { Tool: BuildTool.Edit or BuildTool.Move };
             _createRow.Visible = e is { BuildMode: true, Tool: BuildTool.Create };
+            _card.Visible = !_createRow.Visible;   // Create has no selection to describe
             _keepTool.SetPressedNoSignal(e?.KeepToolSelected ?? false);
             // with Copy selection on no shape button shows chosen, as in the official window
             foreach (var (shape, b) in _shapeButtons)

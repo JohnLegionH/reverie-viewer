@@ -195,8 +195,8 @@ public partial class Main
 
     private void ChooseTool(BuildTool tool)
     {
-        if (_edit is not { } e || _shell is null)
-            return;
+        if (_edit is not { } e || _shell is null || tool == BuildTool.Land && !EditController.LandToolBuilt)
+            return;   // an unbuilt tool does nothing, not even opening the window
         e.SelectTool(tool);
         _shell.Shell.Floaters.Open(EditPanel.FloaterId);
         if (tool == BuildTool.Create)
@@ -375,7 +375,7 @@ public partial class Main
         {
             case "toggle": ToggleBuild(); break;
             case "tool":
-                if (Enum.TryParse<BuildTool>(text, true, out var tool)) ChooseTool(tool);
+                if (EditController.TryParseTool(text, out var tool)) ChooseTool(tool);
                 break;
             case "click":
                 if (Screen(p) is { } px) done = e.Click(PickAt(px), shift);

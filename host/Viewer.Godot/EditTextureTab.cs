@@ -43,36 +43,45 @@ public sealed class EditTextureTab
         _inventory = inventory;
         _owner = owner;
 
-        page.AddChild(new Label { Name = "texture_label", Text = strings.Get("edit.tex.texture") });
-        var texRow = new HBoxContainer { Name = "texture_row" };
-        _texture = new Label { Name = "texture_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true };
+        // the name beside its label; the button on the line below, so the name keeps its room in the smallest window
+        var texRow = new VBoxContainer { Name = "texture_row" };
+        var texLine = new HBoxContainer();
+        texLine.AddChild(LabelCell("texture_label", "edit.tex.texture"));
+        _texture = new Label { Name = "texture_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _texture.AccessibilityName = strings.Get("edit.tex.texture");
-        texRow.AddChild(_texture);
+        texLine.AddChild(_texture);
+        texRow.AddChild(texLine);
         var choose = Btn("texture_choose", "edit.tex.choose", () => OpenPicker(ItemKind.Texture));
         texRow.AddChild(choose);
         page.AddChild(texRow);
 
-        page.AddChild(new Label { Name = "colour_label", Text = strings.Get("edit.tex.colour") });
         // the face's colour as a swatch; a press opens the shared colour picker window (which stays open while the person clicks
         // elsewhere). Its changes go to the selected faces, and Cancel puts back each face's own colour (the official selectionRevertColors)
         _colour = new ColourButton { Name = "colour", TitleKey = "edit.picker.colour.title", TooltipText = strings.Get("colour.swatch.tip") };
         _colour.AccessibilityName = strings.Get("edit.tex.colour");
         _colour.Request = FaceColourRequest;
-        page.AddChild(_colour);
+        page.AddChild(Line("colour", "edit.tex.colour", _colour));
         _transparency = Spin(page, "transparency", "edit.tex.transparency", 0, 100, 1, v => new FaceChange(Transparency: (float)v));
         _glow = Spin(page, "glow", "edit.tex.glow", 0, 1, 0.01, v => new FaceChange(Glow: (float)v));
-        _fullbright = new CheckBox { Name = "fullbright", Text = strings.Get("edit.tex.fullbright") };
-        _fullbright.AccessibilityName = _fullbright.Text;
+        // the label stands in the label column like its neighbours, with the tick box (no text of its own) beside it; a click on the label ticks it
+        _fullbright = new CheckBox { Name = "fullbright" };
+        _fullbright.AccessibilityName = strings.Get("edit.tex.fullbright");
         _fullbright.Toggled += on => { if (!_filling) _edit()?.EditFaces(new FaceChange(Fullbright: on)); };
-        page.AddChild(_fullbright);
+        var fullbrightLine = Line("fullbright", "edit.tex.fullbright", _fullbright);
+        _fullbright.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+        if (fullbrightLine.GetChild(0) is Label fullbrightLabel)
+        {
+            fullbrightLabel.MouseFilter = Control.MouseFilterEnum.Stop;
+            fullbrightLabel.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } && !_fullbright.Disabled) _fullbright.ButtonPressed = !_fullbright.ButtonPressed; };
+        }
+        page.AddChild(fullbrightLine);
 
-        page.AddChild(new Label { Name = "mapping_label", Text = strings.Get("edit.tex.mapping") });
         _mapping = new OptionButton { Name = "mapping" };
         _mapping.AccessibilityName = strings.Get("edit.tex.mapping");
         _mapping.AddItem(strings.Get("edit.tex.mapping.default"), (int)TexGen.Default);
         _mapping.AddItem(strings.Get("edit.tex.mapping.planar"), (int)TexGen.Planar);
         _mapping.ItemSelected += i => { if (!_filling) _edit()?.EditFaces(new FaceChange(TexGen: (TexGen)_mapping.GetItemId((int)i))); };
-        page.AddChild(_mapping);
+        page.AddChild(Line("mapping", "edit.tex.mapping", _mapping));
         _scaleU = Spin(page, "scale_u", "edit.tex.scale_u", -100, 100, 0.01, v => new FaceChange(RepeatU: (float)v));
         _scaleV = Spin(page, "scale_v", "edit.tex.scale_v", -100, 100, 0.01, v => new FaceChange(RepeatV: (float)v));
         _perMetre = Spin(page, "per_metre", "edit.tex.per_metre", 0, 100, 0.01, null);
@@ -93,13 +102,18 @@ public sealed class EditTextureTab
         page.AddChild(clip);
 
         page.AddChild(new HSeparator());
-        page.AddChild(new Label { Name = "material_label", Text = strings.Get("edit.tex.material") });
-        var matRow = new HBoxContainer { Name = "material_row" };
-        _material = new Label { Name = "material_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true };
+        // the material's name beside its label; its two buttons wrap on the line below, so no button is squeezed
+        var matRow = new VBoxContainer { Name = "material_row" };
+        var matName = new HBoxContainer();
+        matName.AddChild(LabelCell("material_label", "edit.tex.material"));
+        _material = new Label { Name = "material_name", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart };   // a long name wraps, it is not cut
         _material.AccessibilityName = strings.Get("edit.tex.material");
-        matRow.AddChild(_material);
-        matRow.AddChild(Btn("material_choose", "edit.tex.material.choose", () => OpenPicker(ItemKind.Material)));
-        matRow.AddChild(Btn("material_remove", "edit.tex.material.remove", () => _edit()?.RemoveMaterial()));
+        matName.AddChild(_material);
+        matRow.AddChild(matName);
+        var matButtons = new HFlowContainer();
+        matButtons.AddChild(Btn("material_choose", "edit.tex.material.choose", () => OpenPicker(ItemKind.Material)));
+        matButtons.AddChild(Btn("material_remove", "edit.tex.material.remove", () => _edit()?.RemoveMaterial()));
+        matRow.AddChild(matButtons);
         page.AddChild(matRow);
         _pbrScaleU = Spin(page, "pbr_scale_u", "edit.tex.pbr_scale_u", -100, 100, 0.01, null);
         _pbrScaleV = Spin(page, "pbr_scale_v", "edit.tex.pbr_scale_v", -100, 100, 0.01, null);
@@ -120,7 +134,6 @@ public sealed class EditTextureTab
 
     private SpinBox Spin(Container page, string name, string key, double min, double max, double step, Func<double, FaceChange>? change)
     {
-        page.AddChild(new Label { Name = name + "_label", Text = _s.Get(key) });
         var s = new SpinBox
         {
             Name = name, MinValue = min, MaxValue = max, Step = step, AllowGreater = false, AllowLesser = false,
@@ -128,8 +141,23 @@ public sealed class EditTextureTab
         };
         if (change is not null)
             s.ValueChanged += v => { if (!_filling) _edit()?.EditFaces(change(v)); };
-        page.AddChild(s);
+        page.AddChild(Line(name, key, s));
         return s;
+    }
+
+    /// <summary>The label column of the Look section: wide enough for its longest name ("Repeats per meter"), so every control starts at the same x.</summary>
+    private const float LabelColumn = 150;
+
+    private Label LabelCell(string name, string key) => new() { Name = name, Text = _s.Get(key), CustomMinimumSize = new Vector2(LabelColumn, 0), VerticalAlignment = VerticalAlignment.Center };
+
+    /// <summary>A label in a fixed column with its control beside it (UI-STANDARD U1); the line is named "&lt;row&gt;_line" so a search hides it with the row.</summary>
+    private HBoxContainer Line(string name, string key, Control control)
+    {
+        var line = new HBoxContainer { Name = name + "_line" };
+        line.AddChild(LabelCell(name + "_label", key));
+        control.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        line.AddChild(control);
+        return line;
     }
 
     private void SendPbrTransform()
@@ -153,7 +181,10 @@ public sealed class EditTextureTab
     }
 
     /// <summary>The shown face's texture, by name where the inventory has it.</summary>
-    public string TextureName => _texture.Text;
+    public string TextureName => _textureFull;
+    private string _textureFull = "";
+    /// <summary>Whether the shown texture is named (an inventory name or a standard texture) and not just an id.</summary>
+    public bool TextureNamed => !Guid.TryParse(_textureFull, out _);
 
     /// <summary>The face colour's swatch (it opens the shared colour picker).</summary>
     public ColourButton Colour => _colour;
@@ -183,7 +214,7 @@ public sealed class EditTextureTab
         {
             var f = e?.FaceShown();
             bool editable = f is not null && e?.Primary is { } p && e.Access(p).CanReshape;
-            _texture.Text = f is { } face ? NameOf(face.TextureId) : "";
+            _textureFull = f is { } face ? Show(_texture, face.TextureId) : Clear(_texture);
             if (f is { } shown)
             {
                 _colour.Color = ShellTheme.DataColour(shown.Colour.R, shown.Colour.G, shown.Colour.B);   // the face's own colour, not a theme colour
@@ -206,7 +237,8 @@ public sealed class EditTextureTab
             _colour.Disabled = !editable;
             _paste.Disabled = !(e?.CanPasteFaces ?? false) || !editable;
             Guid material = e?.ShownMaterial ?? Guid.Empty;
-            _material.Text = material == Guid.Empty ? _s.Get("edit.tex.material.none") : NameOf(material);
+            if (material == Guid.Empty) { Clear(_material); _material.Text = _s.Get("edit.tex.material.none"); }
+            else Show(_material, material);
             var t = e?.ShownMaterialTransform ?? TextureTransform.Identity;
             Set(_pbrScaleU, t.ScaleU);
             Set(_pbrScaleV, t.ScaleV);
@@ -226,17 +258,30 @@ public sealed class EditTextureTab
     }
 
     /// <summary>An asset's name from the inventory when an item there holds it, else its id.</summary>
-    private string NameOf(Guid asset)
+    private string NameOf(Guid asset) =>
+        _inventory()?.AllItems().FirstOrDefault(i => i.AssetId == asset) is { } item ? item.Name : asset.ToString();
+
+    private static string Clear(Label label)
     {
-        if (_inventory()?.AllItems().FirstOrDefault(i => i.AssetId == asset) is { } item)
-            return item.Name;
-        return asset.ToString();
+        label.Text = label.TooltipText = string.Empty;
+        return string.Empty;
+    }
+
+    /// <summary>Shows an asset on a label by its name (a standard texture by its own name, else the first part of its id), with the whole
+    /// id as the tooltip when the name is not an inventory name; the automation's text keeps what <see cref="NameOf"/> gives.</summary>
+    private string Show(Label label, Guid asset)
+    {
+        string full = NameOf(asset);
+        bool named = full != asset.ToString();
+        label.Text = BuildNames.Texture(asset, named ? full : null, _s);
+        label.TooltipText = named ? string.Empty : asset.ToString();
+        return full;
     }
 
     /// <summary>The tab's texts for the automation: the shown face's values as the fields show them.</summary>
     public object Texts() => new
     {
-        texture = _texture.Text,
+        texture = _textureFull,
         material = _material.Text,
         transparency = _transparency.Value, glow = _glow.Value, fullbright = _fullbright.ButtonPressed,
         mapping = _mapping.Selected >= 0 ? _mapping.GetItemText(_mapping.Selected) : null,
