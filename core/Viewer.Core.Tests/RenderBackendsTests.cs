@@ -32,6 +32,7 @@ public sealed class RenderBackendsTests
         // a complete export: the data folder with the host assembly beside the executable (render.ps1 starts nothing without it)
         Directory.CreateDirectory(Path.Combine(build, "data_Viewer.Godot_windows_x86_64"));
         File.WriteAllText(Path.Combine(build, "data_Viewer.Godot_windows_x86_64", "Viewer.Godot.dll"), "");
+        File.WriteAllText(Path.Combine(build, "build-stamp.txt"), $"commit={FakeExport.Commit}\n");   // the stamp render.ps1 checks (BuildStampGuardTests)
         string local = Path.Combine(root, "fixtures-local");
         Directory.CreateDirectory(Path.Combine(local, "assets"));
         File.WriteAllText(Path.Combine(local, "assets", "6ed24bd8-91aa-4b12-ccc7-c97c857ab4e0.anim"), "");   // the avatar cases look for this file; with it they run, and every run goes to the stand-in launcher
@@ -46,7 +47,7 @@ public sealed class RenderBackendsTests
         string temp = Path.Combine(root, "temp");
         Directory.CreateDirectory(temp);
 
-        var args = new List<string> { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(tools, "render.ps1"), "-AvatarsOnly" };
+        var args = new List<string> { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(tools, "render.ps1"), "-ExpectedCommit", FakeExport.Commit, "-AvatarsOnly" };
         if (backend is not null) { args.Add("-Backends"); args.Add(backend); }   // no switch at all means the default, both
         var env = new Dictionary<string, string?>
         {
