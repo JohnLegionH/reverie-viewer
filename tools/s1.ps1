@@ -129,7 +129,7 @@ $size = (Get-ChildItem -LiteralPath $build -Recurse -File | Where-Object { $_.Fu
 $rc = Get-Content -Raw -LiteralPath (Join-Path $build "data_Viewer.Godot_windows_x86_64\Viewer.Godot.runtimeconfig.json") | ConvertFrom-Json
 $selfContained = [bool]($rc.runtimeOptions.includedFrameworks)
 Add-Case "export" "PASS" ("export ok; self-contained={0}; size={1:N1} MiB" -f $selfContained, ($size / 1MB)) $secs
-# The stamp: the commit this export was made from, read by toolsender.ps1 (it refuses a render of any other build).
+# The stamp: the commit this export was made from, read by tools\render.ps1 (it refuses a render of any other build).
 if (-not $existing) {
     . (Join-Path $PSScriptRoot "build-stamp.ps1")
     $stamped = Write-BuildStamp $build $repo
