@@ -183,6 +183,8 @@ public partial class Main
     {
         if (_edit is not { } e || _shell is null)
             return;
+        if (e.BuildMode)
+            _editPanel?.ContentTab.CommitPendingEdit();   // Ctrl+B while a name is being typed: it is sent before build mode (and with it the right to edit) ends
         e.ToggleBuild();
         if (e.BuildMode)
         {
@@ -216,6 +218,7 @@ public partial class Main
     /// <summary>Esc or the window's close: build mode ends, Edit linked goes off, the selection clears and the window closes.</summary>
     private void LeaveBuild()
     {
+        _editPanel?.ContentTab.CommitPendingEdit();   // a rename being typed is kept while the item is still selected
         _edit?.CloseBuild();
         _interact?.CancelCreate();
         _editDrag = null;
@@ -585,6 +588,7 @@ public partial class Main
             owned_only = e.SelectOwnedOnly,
             pending = e.Pending,
             contents = e.ContentsKnown ? e.Contents.Select(i => i.Name).ToArray() : null,
+            content_status = _editPanel.ContentTab.StatusText,
             features = e.Features() is { } ft ? new
             {
                 flexible = ft.Flexible is { } fx ? new[] { fx.Softness, fx.Gravity, fx.Drag, fx.Wind, fx.Tension } : null,

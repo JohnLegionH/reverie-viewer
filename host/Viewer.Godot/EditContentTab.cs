@@ -67,12 +67,6 @@ public sealed class EditContentTab
     /// <summary>Folders dropped before their contents had been read from the grid: their items go in once they have.</summary>
     private readonly List<Guid> _waitingFolders = new();
 
-    private const int MenuOpen = 0, MenuProperties = 1, MenuRename = 2, MenuDelete = 3, MenuCopy = 5;
-
-    private static int MenuIdOf(ContentAction action) => action switch
-    {
-        ContentAction.Open => MenuOpen, ContentAction.Properties => MenuProperties, ContentAction.Rename => MenuRename, ContentAction.Delete => MenuDelete, _ => MenuCopy,
-    };
 
     public EditContentTab(StringTable strings, Func<EditController?> edit, Func<InventoryModel?> inventory, VBoxContainer page,
         Func<Guid>? agent = null, Func<Guid, string?>? names = null)
@@ -133,7 +127,7 @@ public sealed class EditContentTab
         _properties = Btn("content_properties", "edit.content.properties", () => { if (Chosen() is { } id) ShowProperties(id, false); });
         _rename = Btn("content_rename", "edit.content.rename", () => { if (Chosen() is { } id) ShowProperties(id, true); });
         _delete = Btn("content_delete", "edit.content.delete", () => { if (Chosen() is { } id) Delete(id); });
-        _copy = Btn("content_copy", "edit.content.copy", () => { if (Chosen() is { } id) _edit()?.CopyItemToInventory(id); });
+        _copy = Btn("content_copy", "edit.content.copy", () => { if (Chosen() is { } id) Copy(id); });
         foreach (var b in new[] { _open, _properties, _rename, _delete, _copy })
             row.AddChild(b);
         page.AddChild(row);   // above the list: the buttons stay in view however many rows the list has
@@ -147,6 +141,17 @@ public sealed class EditContentTab
         _propDesc.AccessibilityName = strings.Get("edit.content.prop.description");
         _propName.TextSubmitted += _ => SaveProperties();
         _propDesc.TextSubmitted += _ => SaveProperties();
+        // a field that loses the keyboard keeps what was typed, as the official rename field does (llfolderview.cpp, commit_on_focus_lost):
+        // a new name typed and then a click elsewhere (Copy to inventory, another row) is sent, not dropped
+        _propName.FocusExited += SaveProperties;
+        _propDesc.FocusExited += SaveProperties;
+        // Esc in a field puts back the item's text and leaves the field, as the official renamer reverts on Escape (llfolderview.cpp)
+        // The shell's Esc handling (ShellRoot._Input) lets go of a text field before the field sees the key, which saved the typed name through
+        // the focus-loss save above. A field that takes Esc itself is marked, as the add-on text fields are, so this handler runs first.
+        _propName.SetMeta(ShellRoot.TakesEscapeMeta, true);
+        _propDesc.SetMeta(ShellRoot.TakesEscapeMeta, true);
+        _propName.GuiInput += e => CancelOnEscape(e, _propName);
+        _propDesc.GuiInput += e => CancelOnEscape(e, _propDesc);
         _props.AddChild(Field("edit.content.prop.name", _propName));
         _props.AddChild(Field("edit.content.prop.description", _propDesc));
         _propCreator = InfoLine("content_prop_creator");
@@ -253,7 +258,7 @@ public sealed class EditContentTab
         foreach (var action in ContentMenuRules.All)
         {
             var (enabled, reason) = ContentMenuRules.State(action, item, modify, youOwn, _agent());
-            _menu.AddItem(_s.Get(ContentMenuRules.TextKey(action)), MenuIdOf(action));
+            _menu.AddItem(_s.Get(ContentMenuRules.TextKey(action)), ContentMenuRules.MenuId(action));
             int entry = _menu.ItemCount - 1;
             _menu.SetItemDisabled(entry, !enabled);
             if (!enabled && reason is not null)
@@ -337,14 +342,21 @@ public sealed class EditContentTab
     {
         if (Chosen() is not { } item)
             return;
-        switch (id)
+        switch (ContentMenuRules.ActionOfMenuId(id))
         {
-            case MenuOpen: OpenRequested?.Invoke(item); break;
-            case MenuProperties: ShowProperties(item, false); break;
-            case MenuRename: ShowProperties(item, true); break;
-            case MenuDelete: Delete(item); break;
-            case MenuCopy: _edit()?.CopyItemToInventory(item); break;
+            case ContentAction.Open: OpenRequested?.Invoke(item); break;
+            case ContentAction.Properties: ShowProperties(item, false); break;
+            case ContentAction.Rename: ShowProperties(item, true); break;
+            case ContentAction.Delete: Delete(item); break;
+            case ContentAction.Copy: Copy(item); break;
         }
+    }
+
+    /// <summary>Copy to inventory, from the button or the menu: one copy, and the status line names the item (ContentMenuRules.Copy).</summary>
+    private void Copy(Guid item)
+    {
+        if (_edit() is { } e && ContentMenuRules.Copy(e, item, _agent(), _s) is { } line)
+            _status.Text = line;
     }
 
     /// <summary>Shows the item's properties under the list; with <paramref name="rename"/> the name field takes the keyboard, selected.</summary>
@@ -387,6 +399,27 @@ public sealed class EditContentTab
         if ((mask & TaskItemRules.Transfer) != 0)
             parts.Add(_s.Get("edit.content.prop.transfer"));
         return parts.Count == 0 ? _s.Get("edit.content.prop.none") : string.Join(", ", parts);
+    }
+
+    private void CancelOnEscape(InputEvent e, LineEdit field)
+    {
+        if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+            return;
+        if (ItemOf(_propItem) is { } item)
+        {
+            _propName.Text = item.Name;
+            _propDesc.Text = item.Description;
+        }
+        field.AcceptEvent();
+        field.ReleaseFocus();   // the text equals the item's again, so the save on leaving the field sends nothing
+    }
+
+    /// <summary>Sends a name or description still being typed (the Build window is closing, and its fields lose the keyboard only after
+    /// the selection is gone).</summary>
+    public void CommitPendingEdit()
+    {
+        if (_props.Visible && (_propName.HasFocus() || _propDesc.HasFocus()))
+            SaveProperties();
     }
 
     private void SaveProperties()
@@ -496,6 +529,9 @@ public sealed class EditContentTab
         else if (o is not null && _status.Text == _s.Get("edit.content.loading"))
             _status.Text = items.Count == 0 ? _s.Get("edit.content.empty") : string.Empty;
     }
+
+    /// <summary>The line under the list as it stands (the automation reads it).</summary>
+    public string StatusText => _status.Text;
 
     /// <summary>A line under the list (a refusal from the host: a script that may not be opened).</summary>
     public void Say(string text) => _status.Text = text;

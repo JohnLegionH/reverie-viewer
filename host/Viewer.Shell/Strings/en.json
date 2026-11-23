@@ -1066,6 +1066,8 @@
   "edit.content.list": "Contents",
   "edit.content.delete": "Delete",
   "edit.content.copy": "Copy to inventory",
+  "edit.content.copied": "Copied {0} to your inventory.",
+  "edit.content.moved": "Moved {0} to your inventory.",
   "edit.content.hint": "Drag items or a whole folder from your inventory onto the list to put them in the object.",
   "edit.content.folder_queued": "Adding {0} from the folder, one at a time.",
   "edit.content.loading": "Loading contents...",
