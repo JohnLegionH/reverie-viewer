@@ -142,6 +142,14 @@ public sealed partial class PrefPageView : ScrollContainer
         return content;
     }
 
+    /// <summary>Opens the closed section a setting is in (its "More"), so the row can be shown, scrolled to and focused.</summary>
+    public void RevealSetting(string key)
+    {
+        foreach (var section in PreferencePageLayout.For(Page))
+            if (section.Collapsed && section.Keys.Contains(key) && FindChild("section_" + section.Id + "_toggle", true, false) is Button { ButtonPressed: false } toggle)
+                toggle.ButtonPressed = true;
+    }
+
     /// <summary>A setting's value in words, for a closed section's summary line.</summary>
     private string ValueText(PrefDef def)
     {

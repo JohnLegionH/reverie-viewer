@@ -61,9 +61,22 @@ public partial class TestRender
                     problems.AddRange(found.Select(p => $"at {pct} %, width {w:F0}, page {category}: {p}"));
                 }
             }
+            // a setting inside a closed More is opened and shown when the command list asks for it
+            if (pct == 100)
+                foreach (var more in PreferencePageLayout.For(PrefPage.Graphics).Concat(PreferencePageLayout.For(PrefPage.MoveView)).Concat(PreferencePageLayout.For(PrefPage.Building)).Where(sec => sec.Collapsed))
+                    foreach (var key in more.Keys)
+                    {
+                        prefs.ShowSetting(key);
+                        await Frames(6);
+                        if (prefs.ControlFor(key) is not { } shown || !shown.IsVisibleInTree())
+                            problems.Add($"the setting {key} in a closed More is not shown when asked for");
+                    }
             rig.Viewport.QueueFree();
             await Frames(2);
         }
+        int expected = 3 * 2 * (PreferencesPanel.Categories.Length - 1);
+        if (table.Count != expected)
+            problems.Add($"{table.Count} pages were examined, expected {expected}");
         _result["preferences_layout"] = new { pages = table, problems = problems.Count };
         foreach (var line in problems.Take(12))
             _failures.Add("preferences layout: " + line);

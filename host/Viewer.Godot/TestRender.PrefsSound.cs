@@ -88,7 +88,9 @@ public partial class TestRender
 
         // thresholds: whole numbers
         foreach (var key in new[] { Viewer.Shell.Sound.UiSoundSettings.MoneyThreshold.Key, Viewer.Shell.Sound.UiSoundSettings.HealthThreshold.Key })
-            if (Find<SpinBox>("pref_" + key) is { } spin && !Regex.IsMatch(spin.GetLineEdit().Text, @"^\d+$"))
+            if (Find<SpinBox>("pref_" + key) is not { } spin)
+                problems.Add($"threshold: {key} has no field");
+            else if (!Regex.IsMatch(spin.GetLineEdit().Text, @"^\d+$"))
                 problems.Add($"threshold: {key} shows '{spin.GetLineEdit().Text}' instead of a whole number");
 
         // no row label wraps or is cut off, the content is capped, each control is beside its label

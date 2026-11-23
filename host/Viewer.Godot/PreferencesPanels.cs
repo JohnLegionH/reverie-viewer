@@ -417,6 +417,8 @@ public sealed partial class PreferencesPanel : VBoxContainer
         ShowCategory(def.Page.ToString().ToLowerInvariant());
         if (ControlFor(key) is not { } control)
             return false;
+        foreach (var view in _views.Values)
+            view.RevealSetting(key);
         // once the row shows (the window may open in the same frame, and takes the keyboard as it opens), for at most ten frames
         var tree = GetTree();
         int frames = 0;
