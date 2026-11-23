@@ -21,21 +21,47 @@
 ^tools/(select-checks\.ps1|CheckSelector\.cs|check-map\.tsv|check-areas\.tsv|test\.sh)$	none
 ^tools/(capture|laptop-kit|release)/	none
 # The check scripts themselves: a change to how checks run is proven by the full set.
+# full because: these scripts start, drive and guard every render and test run, so a change to one can alter any case and no narrower set shows it.
 ^tools/(render|render-serve|godot|s1|test|test-launch|claim-guard|job-guard|own-processes|temp-root|fixtures-local|crash-watch|job-guard)\.ps1$	full
+# full because: it places the window every render run opens; a fault in it shows in any case.
 ^tools/TestWindowPlacement\.cs$	full
 ^tools/(stock-smoke|stock-server|stock-settings)\.ps1$	smoke
 # Build and tool settings shared by everything.
+# full because: project, package and solution settings decide how every project builds and which versions it runs against; any picture can change.
 ^(?!core/Viewer\.Core\.Tests/|tools/)([^/]+/)*([^/]+\.csproj|packages\.lock\.json)$|^Directory\.|^nuget|^Viewer\.sln$|^nuget-feed/|^native/(?!.*LICENSE)	full
 ^vendor/second-life-character/	avatars
+# full because: vendored libraries and data (parsers, keyword lists, native physics) are loaded by the whole viewer; no one area owns them.
 ^vendor/(?!second-life-character/)	full
+# full because: engine project settings (rendering, windows, export) apply to every picture on both backends.
 ^host/Viewer\.Godot/(project\.godot|export_presets\.cfg|icon|default_env)	full
+# full because: a shader is compiled for and used by every case that draws with it, across areas.
 \.(gdshader|gdshaderinc|glsl)$|/Shaders?/	full
 # The engine side: what every picture goes through.
+# full because: the render harness and the engine start-up, window and diagnostics code run in every render case.
 ^host/Viewer\.Godot/(TestRender\.cs|TestRender\.Serve\.cs|TestRender\.FrameFigures\.cs|StartupCheck\.cs|TestWindow\.cs|GraphicsBackendInfo\.cs|PresentDiagnostics\.cs|FrameSentinel\.cs|EngineLogger\.cs|MemorySplit\.cs)$	full
+# full because: the world presenter, texture hub, warm-up and engine-resource bookkeeping draw or free everything every case shows.
 ^host/Viewer\.Godot/Presentation/(WorldPresenter|Rids|KeptCollections|PipelineWarmup|JitWarmup|PreparedUpload|VideoMemory|LoggedErrorReleases|HeldValues|FrameProbe|TextureHub)[.A-Za-z]*\.cs$	full
-^core/Viewer\.Core/(World|Camera|Replay|Platform)/	full
+# full because: the camera, the capture replay and the platform paths and settings are read by every render run (the replay feeds the world model as the session does).
+^core/Viewer\.Core/(Camera|Replay|Platform)/	full
+# World files whose users the code shows: only the areas of those users, found by who names each file's types in host and core
+# (the engine layer that draws it, its own render cases). The sky and the water are drawn by EnvironmentLayer.
+^core/Viewer\.Core/World/(CloudNoise|CloudLighting|SunDisc|WaterShading|WaterWaves|FixedSkyStore|KnownSkies)\.cs$	environment
+# WaterPlan: the environment layer's water and the neighbour stack's water (terrain). SkyProbe and ToneMap: the sky layer and the avatar skin-light cases.
+^core/Viewer\.Core/World/WaterPlan\.cs$	environment,terrain
+^core/Viewer\.Core/World/(SkyProbe|ToneMap)\.cs$	environment,avatars
+# Glow and the projector picture: the prim layer and the glow pass (objects). Glow and AutoMask are also read by the avatar face shader.
+^core/Viewer\.Core/World/(GlowChooser|ProjectorPicture|ViewFrustum)\.cs$	objects
+^core/Viewer\.Core/World/(Glow|AutoMask)\.cs$	avatars,objects
+# GlowOccluders: the glow pass and the terrain view. TreeNoise: the tree mesher (trees are in the terrain and object cases).
+^core/Viewer\.Core/World/(GlowOccluders|TreeNoise)\.cs$	objects,terrain
+# LookSummary: read only by the neighbour code. BlendOrder: blended faces, the face shader, the environment layer and the face rules.
+^core/Viewer\.Core/World/LookSummary\.cs$	terrain
+^core/Viewer\.Core/World/BlendOrder\.cs$	objects,avatars,environment,build
+# full because: any other World file (WorldState, the object table, materials, lights, motion, appearance, trees, terrain data) is the shared model the protocol fills and every layer reads, or is used by a hub or the session as well; the code shows no narrower set. A new World file lands here until it is placed above.
+^core/Viewer\.Core/World/(?!(CloudNoise|CloudLighting|SunDisc|WaterShading|WaterWaves|FixedSkyStore|KnownSkies|WaterPlan|SkyProbe|ToneMap|GlowChooser|ProjectorPicture|ViewFrustum|Glow|AutoMask|GlowOccluders|TreeNoise|LookSummary|BlendOrder)\.cs$)	full
 # Main.cs alone: one render case from each area on Vulkan; the next full gate runs the full set.
 ^host/Viewer\.Godot/Main\.cs$	mainsample
+# full because: the presentation policy, frame budget, camera, backend choice and device code in the shell decide how every picture is drawn and paced.
 ^host/Viewer\.Shell/(PresentationCoordinator|PresentationPolicy|DisplayPlan|RenderFloor|FrameBudget|FrameClock|DeferredDisposals|LiveRidLedger|StagedHandOver|NearestFirstSet|UnitCostModel|SliceStats|ImageDiff|CameraDefaults|FollowCamera|DrawDistanceView|BackendChoice|BackendRelaunch|BackendStatus|DeviceProbe|NativeMemory|EngineLogRoute)\.cs$	full
 # The interface: the theme and the frame are shared by every window, so they run every interface case.
 ^host/Viewer\.Godot/(ShellTheme|ColourPickerWindow|ShellRoot|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.UiExamples|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.PrefsSound|PreferencePages\.Sound|TestRender\.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
@@ -88,3 +114,21 @@
 ^fixtures/(prims|primmesher|meshes|sculpts|textures|materials|colour|orientation)/	objects
 ^host/Viewer\.Godot/Main\.Rlv\.cs$	smoke,ui
 ^host/Viewer\.Godot/Main\.Overrider\.cs$	avatars
+# Files that were not placed before; each placed by what its code does.
+# Draw nothing and are proven by the unit tests, S-1 or the stock smoke: the core's identity string, the data the unit tests read, the quit watchdog (runs only after the scene is gone), S-1's physics-library check, the test-only crash switch, an engine ignore file, the keyword generator.
+^core/Viewer\.Core/CoreInfo\.cs$|^fixtures/(expectations|pacing)/|^host/Viewer\.Godot/(CrashTest\.cs|build/\.gdignore)$|^host/Viewer\.Shell/(QuitWatchdog|JoltcModuleCheck)\.cs$|^tools/generate-slua-words\.ps1$	none
+# Measuring code the render harness and the start-up log use: one sample case from each area shows if it broke.
+^host/Viewer\.Godot/(AllocFrames|FrameLog|CpuMeter|ConsoleLogSink)\.cs$	mainsample
+# full because: CompileWatch counts the pipelines compiled in every render run and the pre-warm-up and busy-scene code report through it.
+^host/Viewer\.Godot/CompileWatch\.cs$	full
+# full because: Main.tscn is the main scene every run of the viewer opens, so any picture can change.
+^host/Viewer\.Godot/Main\.tscn$	full
+# full because: the host solution file lists the host projects and is the same kind of file as Viewer.sln above.
+^host/Viewer\.Godot/Viewer\.Godot\.sln$	full
+# The S-1 smoke scene belongs with S1Smoke.cs (login).
+^host/Viewer\.Godot/S1Smoke\.tscn$	login
+# Interface: the Gestures window reads the Gestures inventory folder; the link strip, the window mode and the mouse-look setting are interface code.
+^host/Viewer\.Godot/GesturesWindow\.cs$	ui,smoke
+^host/Viewer\.Godot/(LinkStrip|Main\.Window|MouseLookSetting)\.cs$|^host/Viewer\.Shell/WindowMenu\.cs$	ui
+# The soak run (test only) cycles the object scenes.
+^host/Viewer\.Shell/SoakTools\.cs$	objects
