@@ -88,9 +88,9 @@ $j = Get-Content -Raw -LiteralPath $tf.FullName | ConvertFrom-Json
 $port = [int]$j.port; $token = [string]$j.token
 $login = Invoke-Raw $port "session" $token (@{ action = "login"; accounts_file = $Credentials; account = $Account; login_uri = $loginUri; start = $Start } | ConvertTo-Json -Compress)
 $loginUri = $null
-Note "login requested: $($login.Status)"
+Note "login requested: $($login.Status) $(if ($login.Status -ne 200) { $login.Body })"
 $stable = 0; $last = -1; $o = $null
-$deadline = (Get-Date).AddSeconds(150)
+$deadline = if ($login.Status -eq 200) { (Get-Date).AddSeconds(150) } else { Get-Date }
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 2
     $o = Parse (Invoke-Raw $port "observe" $token).Body
@@ -108,7 +108,11 @@ $rows = New-Object System.Collections.Generic.List[object]
 
 function In([hashtable]$b) { Parse (Invoke-Raw $port "input" $token ($b | ConvertTo-Json -Compress)).Body }
 function Key([string]$k, [bool]$down) { In @{ kind = "key"; key = $k; down = $down } }
+# a movement key as a focused window's keyboard gives it (the automation keys command): a test window that has no focus ignores real keys
+function Walk([string]$k, [bool]$down) { Parse (Invoke-Raw $port "keys" $token (@{ key = $k; down = $down } | ConvertTo-Json -Compress)).Body }
 function Mouse([string]$button, [bool]$down, [double]$x, [double]$y) { In @{ kind = "mouse"; button = $button; down = $down; x = $x; y = $y } }
+function Pos() { $ob = Parse (Invoke-Raw $port "observe" $token).Body; return @($ob.self.region_position) }
+function Flat($a, $b) { [math]::Sqrt([math]::Pow([double]$a[0] - [double]$b[0], 2) + [math]::Pow([double]$a[1] - [double]$b[1], 2)) }
 function Turn([double]$from, [double]$to) { $d = $to - $from; while ($d -gt 180) { $d -= 360 }; while ($d -lt -180) { $d += 360 }; return $d }
 function Bearing($from, $to) { return [math]::Atan2([double]$to[1] - [double]$from[1], [double]$to[0] - [double]$from[0]) * 180 / [math]::PI }
 function Elevation($from, $to) {
@@ -153,19 +157,48 @@ if ($o -and $o.self) {
     $w = [double]$s0.view[0]; $h = [double]$s0.view[1]
     Note ("view {0}x{1}, heading {2:N2}, avatar on screen {3}" -f $w, $h, $s0.heading, ($s0.self_screen -join ","))
     Shot "steer_01_start"
+    # 3 ground between the camera and the avatar: the official viewer turns the other way there (lltoolpie.cpp startCameraSteering, mClockwise)
+        $s4 = Snap; $me = Pos
+    $near = $false; $pr = $null; $gx = 0; $gy = 0
+    foreach ($fx in 0.5, 0.4, 0.6, 0.3, 0.7) {
+        foreach ($gy0 in 530, 520, 510, 500) {
+            $gx = $w * $fx; $gy = $gy0
+            $pr = In @{ kind = "probe"; x = $gx; y = $gy }
+            $near = $pr.probe_point -and (-not $pr.probe_own) -and ((Flat $s4.eye $pr.probe_point) -lt (Flat $s4.eye $me))
+            if ($near) { break }
+        }
+        if ($near) { break }
+    }
+    Check "the ground pixel picks a point between the camera and the avatar" (($pr.probe_kind -ne "None") -and (-not $pr.probe_own) -and $near) ("{0} at {1}" -f $pr.probe_kind, ($pr.probe_point -join ","))
+    $a = Snap; [void](Drag $gx $gy 200 0); $b = Snap
+    Check "ground near, 200 px right turns the avatar right" ((Turn $a.heading $b.heading) -lt -2) ("{0:N2} deg" -f (Turn $a.heading $b.heading))
+
+    [void](Key "ESC" $true); [void](Key "ESC" $false); Start-Sleep -Milliseconds 800
+    # the keys walk before any drag (a baseline for the walk check below)
+    [void](Invoke-Raw $port "typing" $token '{"action":"focus"}'); Start-Sleep -Milliseconds 300; [void](Invoke-Raw $port "typing" $token '{"action":"release"}'); Start-Sleep -Milliseconds 300
+    $q0 = Pos; [void](Walk "UP" $true); Start-Sleep -Milliseconds 1000; [void](Walk "UP" $false); Start-Sleep -Milliseconds 600; $q1 = Pos
+    $f0 = (Parse (Invoke-Raw $port "observe" $token).Body).self.focused
+    Note ("diag: before any drag the Up key walked {0:N2} m; input focused {1}" -f (Flat $q0 $q1), $f0)
+    [void](Key "ESC" $true); [void](Key "ESC" $false); Start-Sleep -Milliseconds 800
 
     # 1 the own avatar: a pixel that picks it (its centre, then up the body)
-    $press = $null
-    foreach ($up in 0, 20, 40, 60, 80) {
-        if (-not $s0.self_screen) { break }
-        $px = [double]$s0.self_screen[0]; $py = [double]$s0.self_screen[1] - $up
-        $pr = In @{ kind = "probe"; x = $px; y = $py }
-        if ($pr.probe_own) { $press = @($px, $py); break }
+    function FindSelf() {
+        $now = Snap
+        foreach ($up in 60, 40, 20, 0, 80, 100, -20, -40, -60, -80, 120, 140, 160) {
+            if (-not $now.self_screen) { return $null }
+            $px = [double]$now.self_screen[0]; $py = [double]$now.self_screen[1] - $up
+            $pr = In @{ kind = "probe"; x = $px; y = $py }
+            if ($pr.probe_own -and $py -gt 20 -and $py -lt $h - 130) { return @($px, $py) }
+        }
+        Write-Host ("no pixel picks the own avatar; its centre is at {0}" -f ($now.self_screen -join ","))
+        return $null
     }
+    $press = FindSelf
     Check "a pixel on the own avatar picks it" ($null -ne $press) ("at {0}" -f ($press -join ","))
     if ($press) {
         # 1a 200 px right: the avatar turns right by 200 * 360 / width, the camera with it
         $a = Snap; $held = Drag $press[0] $press[1] 200 0; $b = Snap
+        Note ("diag: after the first drag input focused {0}" -f (Parse (Invoke-Raw $port "observe" $token).Body).self.focused)
         Check "own-avatar drag runs the camera tool with steering" ([bool]$held.camera_tool_steering) ("camera_tool {0}, steering {1}" -f $held.camera_tool, $held.camera_tool_steering)
         Row "own avatar, 200 px right" $a $b "heading change" (-200 * 360 / $w) (Turn $a.heading $b.heading)
         Row "own avatar, 200 px right" $a $b "camera yaw change" (-200 * 360 / $w) (Turn $a.cam_yaw $b.cam_yaw)
@@ -173,40 +206,52 @@ if ($o -and $o.self) {
         # 1b 200 px left: back again
         $a = Snap; [void](Drag $press[0] $press[1] -200 0); $b = Snap
         Row "own avatar, 200 px left" $a $b "heading change" (200 * 360 / $w) (Turn $a.heading $b.heading)
-        # 1c 100 px down (window y down; with y up it is -100): the agent pitches down by 100 * 360 / width, the camera rises and looks down
-        $a = Snap; [void](Drag $press[0] $press[1] 0 100); $b = Snap
-        Row "own avatar, 100 px down" $a $b "agent pitch change" (100 * 360 / $w) ($b.pitch - $a.pitch)
-        Row "own avatar, 100 px down" $a $b "heading change" 0 (Turn $a.heading $b.heading)
-        Check "own avatar, 100 px down: the camera rises and looks further down" (([double]$b.eye[2] -gt [double]$a.eye[2] + 0.2) -and ($b.cam_pitch -lt $a.cam_pitch - 2)) ("eye z {0:N2} -> {1:N2}, camera pitch {2:N2} -> {3:N2}" -f $a.eye[2], $b.eye[2], $a.cam_pitch, $b.cam_pitch)
-        Shot "steer_03_avatar_down"
+        # each press on the own avatar resets the agent's axes first (setFocusOnAvatar with reset_axes), so the pitch after is the drag's alone
+        $press = FindSelf
+        if ($press) {
+            $a = Snap; [void](Drag $press[0] $press[1] 0 50); $b = Snap
+            Row "own avatar, 50 px down" $a $b "agent pitch after" (50 * 360 / $w) $b.pitch
+        } else { Check "own avatar, 50 px down" $false "no pixel on the avatar" }
+        Check "own avatar, 50 px down: the camera rises and looks further down" (([double]$b.eye[2] -gt [double]$a.eye[2] + 0.1) -and ($b.cam_pitch -lt $a.cam_pitch - 2)) ("eye z {0:N2} -> {1:N2}, camera pitch {2:N2} -> {3:N2}" -f $a.eye[2], $b.eye[2], $a.cam_pitch, $b.cam_pitch)
+        [void](Key "ESC" $true); [void](Key "ESC" $false); Start-Sleep -Milliseconds 800
+        $press = FindSelf
+        # 1c 100 px up (window y up is a positive dy): the agent pitches up by 100 * 360 / width, the camera goes down and looks up;
+        # then 50 px down. (The drags stay above the bottom bar: an injected pointer over a panel gives the panel its movement, which a
+        # captured pointer held in place does not.)
+        $a = Snap; [void](Drag $press[0] $press[1] 0 -100); $b = Snap
+        Row "own avatar, 100 px up" $a $b "agent pitch change" (-100 * 360 / $w) ($b.pitch - $a.pitch)
+        Row "own avatar, 100 px up" $a $b "heading change" 0 (Turn $a.heading $b.heading)
+        Check "own avatar, 100 px up: the camera goes down and looks further up" (([double]$b.eye[2] -lt [double]$a.eye[2] - 0.2) -and ($b.cam_pitch -gt $a.cam_pitch + 2)) ("eye z {0:N2} -> {1:N2}, camera pitch {2:N2} -> {3:N2}" -f $a.eye[2], $b.eye[2], $a.cam_pitch, $b.cam_pitch)
+        Shot "steer_03_avatar_up"
         # 1d a walk key held levels the pitch (resetView with the button up); Esc clears it
-        $before = (Snap).pitch
-        [void](Key "UP" $true); Start-Sleep -Milliseconds 1500; [void](Key "UP" $false); Start-Sleep -Milliseconds 500
-        $walked = (Snap).pitch
-        Check "walking levels the pitch" (([math]::Abs($before) -gt 3) -and ([math]::Abs($walked) -lt [math]::Abs($before) * 0.25)) ("pitch {0:N2} -> {1:N2} deg" -f $before, $walked)
-        $s3 = Snap
-        $py = if ($s3.self_screen) { [double]$s3.self_screen[1] } else { $press[1] }
-        $px = if ($s3.self_screen) { [double]$s3.self_screen[0] } else { $press[0] }
-        [void](Drag $px $py 0 80); $mid = Snap
+        [void](Invoke-Raw $port "typing" $token '{"action":"focus"}'); Start-Sleep -Milliseconds 300; [void](Invoke-Raw $port "typing" $token '{"action":"release"}'); Start-Sleep -Milliseconds 300
+        $before = (Snap).pitch; $p0 = Pos
+        [void](Walk "UP" $true); Start-Sleep -Milliseconds 700; $hold = In @{ kind = "state" }; Start-Sleep -Milliseconds 800; [void](Walk "UP" $false); Start-Sleep -Milliseconds 500
+        Note ("diag walk: keys_held={0} owner={1} camera_tool={2} steer_pressed={3}" -f ($hold.keys_held -join ","), $hold.focus_owner, $hold.camera_tool, $hold.steer_pressed)
+        $walked = (Snap).pitch; $p1 = Pos
+        Check "walking levels the pitch" (([math]::Abs($before) -gt 3) -and ([math]::Abs($walked) -lt [math]::Abs($before) * 0.25)) ("pitch {0:N2} -> {1:N2} deg, walked {2:N2} m" -f $before, $walked, (Flat $p0 $p1))
+        $press = FindSelf
+        if ($press) { [void](Drag $press[0] $press[1] 0 -80) }; $mid = Snap
         [void](Key "ESC" $true); [void](Key "ESC" $false); Start-Sleep -Milliseconds 800
         $esc = (Snap).pitch
         Check "Esc clears the pitch" (([math]::Abs($mid.pitch) -gt 3) -and ([math]::Abs($esc) -lt 0.01)) ("pitch {0:N2} -> {1:N2} deg" -f $mid.pitch, $esc)
     }
 
-    # 2 open ground: the grabbed point stays under the pointer (seen from the camera, the grabbed point and the point under the pointer
-    # have the same bearing after the drag)
-    $s2 = Snap
-    $gx = $w / 2; $gy = [math]::Min($h - 40, [double]$s2.self_screen[1] + 0.25 * $h)
+    # 2 open ground beyond the avatar: the grabbed point stays under the pointer (seen from the camera, the grabbed point and the point
+    # under the pointer have the same bearing after the drag), and a drag to the right turns the avatar left
+    $s2 = Snap; $me = Pos
+    $gx = $w * 0.2; $gy = [double]$s2.self_screen[1] - 20
     $pr = In @{ kind = "probe"; x = $gx; y = $gy }
-    Check "the ground pixel picks the ground" (($pr.probe_kind -ne "None") -and (-not $pr.probe_own)) ("{0} at {1}" -f $pr.probe_kind, ($pr.probe_point -join ","))
     $grab = $pr.probe_point
+    $beyond = $grab -and ((Flat $s2.eye $grab) -gt (Flat $s2.eye $me) + 0.5)
+    Check "the ground pixel picks a point beyond the avatar" (($pr.probe_kind -ne "None") -and (-not $pr.probe_own) -and $beyond) ("{0} at {1}" -f $pr.probe_kind, ($grab -join ","))
     $a = Snap; $held = Drag $gx $gy 200 0; $b = Snap
     Check "a ground drag steers (not the camera tool)" (($held.steering -eq $true) -and (-not $held.camera_tool)) ("steering {0}, camera_tool {1}" -f $held.steering, $held.camera_tool)
     $under = In @{ kind = "probe"; x = ($gx + 200); y = $gy }
     $offBy = Turn (Bearing $b.eye $grab) (Bearing $b.eye $under.probe_point)
-    Row "ground, 200 px right" $a $b "grabbed point's bearing from the camera vs the pointer's" 0 $offBy
-    Check "ground, 200 px right turns the avatar left" ((Turn $a.heading $b.heading) -gt 2) ("{0:N2} deg" -f (Turn $a.heading $b.heading))
-    Shot "steer_04_ground_right"
+    Row "ground beyond, 200 px right" $a $b "grabbed point's bearing from the camera vs the pointer's" 0 $offBy
+    Check "ground beyond, 200 px right turns the avatar left" ((Turn $a.heading $b.heading) -gt 2) ("{0:N2} deg" -f (Turn $a.heading $b.heading))
+    Shot "steer_04_ground_beyond_right"
     $report.completed = $true
 }
 $report.checks = $checks
