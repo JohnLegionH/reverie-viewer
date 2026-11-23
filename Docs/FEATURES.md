@@ -71,7 +71,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 ## The world and land
 
-- Teleport, go home, set home: **World > Teleport…**, **Go home** (Ctrl+Shift+H), **Set home to here**.
+- Teleport, go home, set home: **World > Teleport…**, **Go home** (Ctrl+Shift+H), **Set home to here**. A teleport whose destination refuses the arrival ends with the reason shown, and you stay in the region you were in.
 - World map (Ctrl+M) with region search and Mini-map (Ctrl+Shift+M): **World** menu, or the dock.
 - Sun, sky and water: **World > Environment**. Sunrise (Ctrl+Shift+O), Midday (Ctrl+Shift+Y), Midday (Legacy) (Ctrl+Shift+T), Sunset (Ctrl+Shift+N), Midnight (Ctrl+Shift+Z), Use Shared Environment, Personal Lighting…, Pause Clouds. F9 steps through Use Shared Environment, Sunrise, Midday, Sunset and Midnight (it skips Midday (Legacy)); an active gesture on F9 takes the key instead. Only the sky in use has a check mark in the menu. Your choice is kept for the next login until you choose Use Shared Environment (Preferences > Graphics > Keep my sky choice for the next login turns that off); Preferences > Graphics can also put the region's sky back after a teleport (off).
 - About Land: **World > About Land**, or right-click the ground.

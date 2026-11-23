@@ -13,9 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Protocol library (ADR-007): exactly 3.3.0. It pulls in its Assets, Protocol and Transport packages; the lock files pin them.
-         3.3.0 and not 3.2.1: 3.2.1 hashes only the first 16 characters of the password for every grid; 3.3.0 does so only on Second Life. -->
-    <PackageVersion Include="LibreMetaverse" Version="[3.3.0]" />
+    <!-- Protocol library (ADR-007): exactly 3.3.0-reverie.2. It pulls in its Assets, Protocol and Transport packages; the lock files pin them.
+         3.3.0 and not 3.2.1: 3.2.1 hashes only the first 16 characters of the password for every grid; 3.3.0 does so only on Second Life.
+         3.3.0-reverie.2 is LibreMetaverse 3.3.0 plus one fix, built from a fork and kept in the folder feed nuget-feed\ with its six
+         split packages (nuget.config maps LibreMetaverse and LibreMetaverse.* to that feed): a teleport whose destination never answers
+         CompleteAgentMovement no longer moves the agent there; a TeleportFailed during that wait ends it, and the agent stays in its
+         region, as in the Second Life viewer. Source: THIRD-PARTY-NOTICES.md. Exact pin. -->
+    <PackageVersion Include="LibreMetaverse" Version="[3.3.0-reverie.2]" />
 
     <!-- JPEG 2000 decoder. LibreMetaverse depends on CoreJ2K 2.4.1.108 or later; the viewer references it directly so this
          version wins over the one LibreMetaverse names. It is a pre-release build of a fork of CoreJ2K 2.4.1 at one commit, from

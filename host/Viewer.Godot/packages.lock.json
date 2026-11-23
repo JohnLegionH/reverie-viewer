@@ -31,13 +31,13 @@
       },
       "LibreMetaverse.Assets": {
         "type": "Transitive",
-        "resolved": "3.3.0",
-        "contentHash": "7Jc9hPZwle2k+1ZHzjLjPhPc9alKkLTcIED/0KdpajySquBzX5j34xXDR1fvxH9zirGYF6qmSwj33xKS7ZRarg==",
+        "resolved": "3.3.0-reverie.2",
+        "contentHash": "nvxmSNpeaTd1UA2KxLCcxiy15+/Hk+lZy/5A+oO436tSyASLv566EogE0aEVN8ugaIjBET2RRETc/KAUr24rNA==",
         "dependencies": {
           "CoreJ2K": "2.4.1.108",
-          "LibreMetaverse.Imaging.Abstractions": "3.3.0",
-          "LibreMetaverse.StructuredData": "3.3.0",
-          "LibreMetaverse.Types": "3.3.0",
+          "LibreMetaverse.Imaging.Abstractions": "3.3.0-reverie.2",
+          "LibreMetaverse.StructuredData": "3.3.0-reverie.2",
+          "LibreMetaverse.Types": "3.3.0-reverie.2",
           "MessagePack": "3.1.12",
           "Microsoft.Extensions.Logging": "10.0.13",
           "Microsoft.Extensions.Logging.Console": "10.0.13",
@@ -49,44 +49,44 @@
       },
       "LibreMetaverse.Imaging.Abstractions": {
         "type": "Transitive",
-        "resolved": "3.3.0",
-        "contentHash": "UfhiiFwcdzmjPfdaAPV4thEvkdT3WJkvaes/J7dnc5C2/XY5NR+5kepj/oGrY1JMntAvcaibcgg+0d8Et2wclw=="
+        "resolved": "3.3.0-reverie.2",
+        "contentHash": "NueNciQwsEdbHD77lbCm5179Bym8GXwMGOaZ9DlTzUK4BunkppRCQnmrxhn3ZW3dC6dyLdJFFrujZ+O8mRy1Aw=="
       },
       "LibreMetaverse.Protocol": {
         "type": "Transitive",
-        "resolved": "3.3.0",
-        "contentHash": "wJWXQs/MVwp1CKivwqb9qkRyZ1GmhOte2ryNp8bvXZMDlU9POyeG5+wew55d8I+yYWcNoL3kGkJiMFj9nJsyMw==",
+        "resolved": "3.3.0-reverie.2",
+        "contentHash": "Fjx9XrfT9zjCjg4ctPdIoPXZt8fIFtiXQc/6jghCqjGOyoUSEi+qJSp019UesuRzQp1lyidurX3PwxkW6YPPiA==",
         "dependencies": {
-          "LibreMetaverse.Assets": "3.3.0",
-          "LibreMetaverse.StructuredData": "3.3.0",
-          "LibreMetaverse.Types": "3.3.0"
+          "LibreMetaverse.Assets": "3.3.0-reverie.2",
+          "LibreMetaverse.StructuredData": "3.3.0-reverie.2",
+          "LibreMetaverse.Types": "3.3.0-reverie.2"
         }
       },
       "LibreMetaverse.StructuredData": {
         "type": "Transitive",
-        "resolved": "3.3.0",
-        "contentHash": "8olWG6+tsSXAYrUwWDDxGbwxH29e60xVnfc4jBO3N9Fof87HmtbUS1dDyK57c0KcILclSKfsRNuBbMk/c9cY+A==",
+        "resolved": "3.3.0-reverie.2",
+        "contentHash": "HDVBb6zMMwEh+P0ehV5NdgcUM2ySj0ioITsUBIn1x/LRmNzvjwWg7YFZWQznCoEFFPlcnBtBTcPaZaKeRQ21lw==",
         "dependencies": {
-          "LibreMetaverse.Types": "3.3.0",
+          "LibreMetaverse.Types": "3.3.0-reverie.2",
           "Microsoft.Bcl.AsyncInterfaces": "10.0.13"
         }
       },
       "LibreMetaverse.Transport": {
         "type": "Transitive",
-        "resolved": "3.3.0",
-        "contentHash": "nsRRTntO8gQD1e/oPveteIZvuGYy+pkTHaZbi0+VIOOHs4/JsMLFo808LEhI0ocTV/8135jrRkTIP63uhv22AA==",
+        "resolved": "3.3.0-reverie.2",
+        "contentHash": "gjUdm65PD94Cqg5tqucpIbtec+MjisOamfi+UfPAP2C09Nz5Z2n8NaaFXKEHm+efFEP6jePBcgqooYib7yfhmw==",
         "dependencies": {
-          "LibreMetaverse.Assets": "3.3.0",
-          "LibreMetaverse.Protocol": "3.3.0",
-          "LibreMetaverse.Types": "3.3.0",
+          "LibreMetaverse.Assets": "3.3.0-reverie.2",
+          "LibreMetaverse.Protocol": "3.3.0-reverie.2",
+          "LibreMetaverse.Types": "3.3.0-reverie.2",
           "Microsoft.Extensions.ObjectPool": "10.0.13",
           "System.Threading.RateLimiting": "10.0.13"
         }
       },
       "LibreMetaverse.Types": {
         "type": "Transitive",
-        "resolved": "3.3.0",
-        "contentHash": "s/dHRILy6/2gVV59W5J9cFkc8xxWRd/+tr9CCMcNDMjih+0JzYnkg9maCKE9HPg1Xu3IY90/8OBHMeMPFrr9Eg=="
+        "resolved": "3.3.0-reverie.2",
+        "contentHash": "0CtjzQBU4vpZG+SEfec9gWhnj/P8xh158V79EiLv8iPnUEUtEZ2/OCKhmy7CbCxoOVs2O/36aGXb7ziY5YOwRQ=="
       },
       "MessagePack.Annotations": {
         "type": "Transitive",
@@ -270,7 +270,7 @@
         "type": "Project",
         "dependencies": {
           "CoreJ2K": "[2.4.1.109-alloc.1, 2.4.1.109-alloc.1]",
-          "LibreMetaverse": "[3.3.0, 3.3.0]"
+          "LibreMetaverse": "[3.3.0-reverie.2, 3.3.0-reverie.2]"
         }
       },
       "viewer.core": {
@@ -279,7 +279,7 @@
           "CoreJ2K": "[2.4.1.109-alloc.1, 2.4.1.109-alloc.1]",
           "JoltPhysics.Native": "[1.0.4, 1.0.4]",
           "JoltPhysicsSharp": "[2.19.1, 2.19.1]",
-          "LibreMetaverse": "[3.3.0, 3.3.0]",
+          "LibreMetaverse": "[3.3.0-reverie.2, 3.3.0-reverie.2]",
           "System.Security.Cryptography.ProtectedData": "[10.0.12, 10.0.12]",
           "Viewer.Baking": "[1.0.0, )",
           "Viewer.Motion": "[0.1.0, )"
@@ -296,7 +296,7 @@
         "dependencies": {
           "JoltPhysics.Native": "[1.0.4, 1.0.4]",
           "Viewer.Addons.Api": "[0.1.0, )",
-          "Viewer.Core": "[0.1.0, )",
+          "Viewer.Core": "[0.1.3, )",
           "Viewer.Motion": "[0.1.0, )",
           "Viewer.Overrider": "[0.1.0, )"
         }
@@ -318,17 +318,17 @@
       },
       "LibreMetaverse": {
         "type": "CentralTransitive",
-        "requested": "[3.3.0, 3.3.0]",
-        "resolved": "3.3.0",
-        "contentHash": "7aUjB1pBtNflWJiB/sOpGNga8AjfxXM7wsak8qj+MIYbcug9387OgMCjo4hjQXhP3nyUM05o9A3gCwBSoRIa2w==",
+        "requested": "[3.3.0-reverie.2, 3.3.0-reverie.2]",
+        "resolved": "3.3.0-reverie.2",
+        "contentHash": "+81R4XfANMdZbOoOYv/tMXQX1GxjjBEb/eor+UWW0WYi17FWiwZMELooUG+80pjIYCIP/ty7AMtJfnDfuQeHQA==",
         "dependencies": {
           "CoreJ2K": "2.4.1.108",
-          "LibreMetaverse.Assets": "3.3.0",
-          "LibreMetaverse.Imaging.Abstractions": "3.3.0",
-          "LibreMetaverse.Protocol": "3.3.0",
-          "LibreMetaverse.StructuredData": "3.3.0",
-          "LibreMetaverse.Transport": "3.3.0",
-          "LibreMetaverse.Types": "3.3.0",
+          "LibreMetaverse.Assets": "3.3.0-reverie.2",
+          "LibreMetaverse.Imaging.Abstractions": "3.3.0-reverie.2",
+          "LibreMetaverse.Protocol": "3.3.0-reverie.2",
+          "LibreMetaverse.StructuredData": "3.3.0-reverie.2",
+          "LibreMetaverse.Transport": "3.3.0-reverie.2",
+          "LibreMetaverse.Types": "3.3.0-reverie.2",
           "MessagePack": "3.1.12",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.13",
           "Microsoft.Extensions.Logging": "10.0.13",
