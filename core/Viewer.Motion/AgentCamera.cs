@@ -322,7 +322,8 @@ public class AgentCamera
         if (FocusOnAvatar && Mode == CameraViewMode.ThirdPerson)
         {
             angle = LimitAvatarPitch(angle);
-            if (MathF.Abs(angle) > 1e-4f) AvatarPitch += angle;
+            // a seated agent's frame is flattened every frame (llagentcamera.cpp 1838-1846), so it keeps no pitch
+            if (MathF.Abs(angle) > 1e-4f && SeatRotation is null) AvatarPitch += angle;
             PitchAvatar?.Invoke(angle);
             return;
         }
@@ -333,8 +334,24 @@ public class AgentCamera
         ZoomIn(1f);
     }
 
-    /// <summary>A left press on the own avatar: the focus goes back on the avatar with its axes reset.</summary>
-    public void LockOnAvatarForSteering() { }
+    /// <summary>A left press on the own avatar: the camera tool's pick unlocks the view and the press then puts the focus back on the avatar with
+    /// its axes reset (lltoolfocus.cpp pickCallback, lltoolpie.cpp handleLeftClickPick; llagentcamera.cpp setFocusOnAvatar with reset_axes): in third
+    /// person, unless seated, the agent turns to face the camera's flattened at axis, which also clears its pitch.</summary>
+    public void LockOnAvatarForSteering()
+    {
+        if (Mode == CameraViewMode.ThirdPerson && SeatRotation is null)
+        {
+            var (forward, _) = Axes();
+            if (forward.X * forward.X + forward.Y * forward.Y > 1e-8f) FaceHeading?.Invoke(MathF.Atan2(forward.Y, forward.X));
+            AvatarPitch = 0;
+        }
+        if (FocusOnAvatar) return;
+        FocusOnAvatar = true;
+        _focusFollow = null;
+        _focusIsAvatar = _focusIsObject = false;
+        _smoothedOffset = null;
+        _smoothedGlobal = null;
+    }
 
     /// <summary>LLAgent::pitch's limits: turning down stops with the at axis 179 degrees from up; turning up stops with the camera's
     /// line to the focus 5 degrees from straight up.</summary>

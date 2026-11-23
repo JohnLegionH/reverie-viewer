@@ -533,6 +533,8 @@ public partial class Main : Node
             _driver.Input.LookBy(_lookDx, _lookDy, dt);   // the mouse turns the heading and tilts the view before the camera reads them
             _lookDx = _lookDy = 0;
         }
+        // a reset of the view levels the agent's pitch only while the left button is up (llagentcamera.cpp resetView reads the button's state)
+        _follow.LeftMouseDown = Input.IsMouseButtonPressed(MouseButton.Left);
         _driver?.Frame(now, dt, _eye, _look);   // the keys turn the heading before the camera reads it
         FlushArrowTrace();
         // the own avatar of the region the agent is in, or, until that region has stated it after a crossing, of the region it came from
@@ -618,8 +620,6 @@ public partial class Main : Node
                     return;
             }
         }
-        // a reset of the view levels the agent's pitch only while the left button is up (llagentcamera.cpp resetView: getLeftMouseDown)
-        if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } leftButton) _follow.LeftMouseDown = leftButton.Pressed;
         if (CameraToolInput(e))
         {
             GetViewport().SetInputAsHandled();
@@ -706,6 +706,7 @@ public partial class Main : Node
                     // handleHover); the click itself is not passed on
                     bool steering = Viewer.Motion.CameraControls.SteersOnOwnAvatar(MaskOf(b), _follow.Mode == Viewer.Motion.CameraViewMode.ThirdPerson,
                         freezeTime: false, hitOwnAvatar: true);
+                    _follow.LockOnAvatarForSteering();   // the focus back on the avatar with its axes reset, as the press does there
                     Controls.MouseDown(MaskOf(b), validPoint: true, mouseSteering: steering);
                     _cameraTool = true;
                     _cameraToolPressAt = b.Position;
@@ -748,11 +749,17 @@ public partial class Main : Node
         if (pick is null) return false;
         if (pick.Kind == Viewer.Core.Interaction.PickKind.Avatar) return pick.Avatar?.AgentId == shown.AgentId;
         if (pick.Kind != Viewer.Core.Interaction.PickKind.Object || pick.Hit is not { } hit) return false;
+        // from the prim hit up to the attachment's root: a prim with a touch handler stops the walk (it is touched), a HUD stops it too;
+        // the attachment's root is the prim the wearer is named on
         var o = shown.World.Object(hit.Id);
-        if (o is null || o.WearerAgentId != shown.AgentId) return false;
-        var root = shown.World.Object(new Viewer.Core.World.ObjectId(o.Id.Epoch, o.ParentLocalId));
-        uint flags = (o.Interaction?.Flags ?? 0) | (root?.WearerAgentId == shown.AgentId ? root.Interaction?.Flags ?? 0 : 0);
-        return (flags & Viewer.Core.Interaction.ObjectFlagBits.HandleTouch) == 0;
+        for (int depth = 0; o is not null && depth < 256; depth++)
+        {
+            if (((o.Interaction?.Flags ?? 0) & Viewer.Core.Interaction.ObjectFlagBits.HandleTouch) != 0) return false;
+            if (o.WearerAgentId is { } wearer)
+                return wearer == shown.AgentId && !(o.AttachmentPoint is { } point && Viewer.Core.World.Interest.IsHudPoint(point));
+            o = o.ParentLocalId == 0 ? null : shown.World.Object(new Viewer.Core.World.ObjectId(o.Id.Epoch, o.ParentLocalId));
+        }
+        return false;
     }
 
     private void BeginSteering(Viewer.Core.Session.ViewerSession shown)
@@ -808,8 +815,9 @@ public partial class Main : Node
                 if (!_mouseLook.Active)
                 {
                     Input.MouseMode = Input.MouseModeEnum.Visible;
-                    // after mouse steering the pointer comes back where the button went down (lltoolfocus.cpp handleMouseUp)
-                    if (steered && _cameraToolPressAt is { } back) GetViewport().WarpMouse(back);
+                    // after mouse steering the pointer comes back where the button went down (lltoolfocus.cpp handleMouseUp); only a window
+                    // that has the system's focus moves the pointer, so a window working in the background never takes it
+                    if (steered && _cameraToolPressAt is { } back && GetWindow().HasFocus()) GetViewport().WarpMouse(back);
                 }
                 _cameraToolPressAt = null;
                 return true;
