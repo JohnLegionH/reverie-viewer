@@ -32,6 +32,7 @@ public sealed class RenderAllSwitchTests
         // a complete export: the data folder with the host assembly beside the executable (render.ps1 starts nothing without it)
         Directory.CreateDirectory(Path.Combine(build, "data_Viewer.Godot_windows_x86_64"));
         File.WriteAllText(Path.Combine(build, "data_Viewer.Godot_windows_x86_64", "Viewer.Godot.dll"), "");
+        File.WriteAllText(Path.Combine(build, "build-stamp.txt"), $"commit={FakeExport.Commit}\n");   // the stamp render.ps1 checks (BuildStampGuardTests)
         string local = Path.Combine(root, "fixtures-local");
         Directory.CreateDirectory(Path.Combine(local, "assets"));
         string characters = Path.Combine(root, "characters");
@@ -45,7 +46,7 @@ public sealed class RenderAllSwitchTests
         string temp = Path.Combine(root, "temp");
         Directory.CreateDirectory(temp);
 
-        var args = new List<string> { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(tools, "render.ps1") };
+        var args = new List<string> { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(tools, "render.ps1"), "-ExpectedCommit", FakeExport.Commit };
         args.AddRange(scriptArgs);
         var env = new Dictionary<string, string?>
         {

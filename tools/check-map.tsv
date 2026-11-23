@@ -115,8 +115,8 @@
 ^host/Viewer\.Godot/Main\.Rlv\.cs$	smoke,ui
 ^host/Viewer\.Godot/Main\.Overrider\.cs$	avatars
 # Files that were not placed before; each placed by what its code does.
-# Draw nothing and are proven by the unit tests, S-1 or the stock smoke: the core's identity string, the data the unit tests read, the quit watchdog (runs only after the scene is gone), S-1's physics-library check, the test-only crash switch, an engine ignore file, the keyword generator.
-^core/Viewer\.Core/CoreInfo\.cs$|^fixtures/(expectations|pacing)/|^host/Viewer\.Godot/(CrashTest\.cs|build/\.gdignore)$|^host/Viewer\.Shell/(QuitWatchdog|JoltcModuleCheck)\.cs$|^tools/generate-slua-words\.ps1$	none
+# Draw nothing and are proven by the unit tests, S-1 or the stock smoke: the core's identity string, the data the unit tests read, S-1's physics-library check, the test-only crash switch, an engine ignore file, the keyword generator.
+^core/Viewer\.Core/CoreInfo\.cs$|^fixtures/(expectations|pacing)/|^host/Viewer\.Godot/(CrashTest\.cs|build/\.gdignore)$|^host/Viewer\.Shell/JoltcModuleCheck\.cs$|^tools/generate-slua-words\.ps1$	none
 # Measuring code the render harness and the start-up log use: one sample case from each area shows if it broke.
 ^host/Viewer\.Godot/(AllocFrames|FrameLog|CpuMeter|ConsoleLogSink)\.cs$	mainsample
 # full because: CompileWatch counts the pipelines compiled in every render run and the pre-warm-up and busy-scene code report through it.
@@ -132,3 +132,6 @@
 ^host/Viewer\.Godot/(LinkStrip|Main\.Window|MouseLookSetting)\.cs$|^host/Viewer\.Shell/WindowMenu\.cs$	ui
 # The soak run (test only) cycles the object scenes.
 ^host/Viewer\.Shell/SoakTools\.cs$	objects
+# The quit watchdog draws nothing, but it runs on the quit path: a stuck quit is ended by it. Only a real start followed by a real quit
+# exercises that, and the stock smoke does both, so it selects the smoke and no render case (a "none" here skipped the one check that reaches it).
+^host/Viewer\.Shell/QuitWatchdog\.cs$	smoke

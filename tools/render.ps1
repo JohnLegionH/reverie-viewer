@@ -140,6 +140,9 @@
 # -SkipTiming  leaves out the timing cases (a time limit is part of the check: stall, stress, crossing, arrival, crowd and the like); each is reported as a SKIP.
 # -OnlyTiming  runs only the timing cases, each alone in a process of its own, one after another (the other cases are reported as SKIP).
 # -OutDir      the folder the pictures, sidecars and the JUnit file go to (default tools\test-results\render).
+# Build stamp: tools\s1.ps1 writes build-stamp.txt ("commit=<sha>") beside the export. A run that renders refuses (exit 2) when the stamp
+#              is missing or is not the commit under test (-ExpectedCommit, default the repository HEAD), so it never draws a stale build.
+#              -AllowStaleBuild is the explicit override: the run goes on, prints what it overrode and records a build_stamp case.
 # -OnlyCases   a regular expression on the case's tag (the name of its picture, e.g. 'rigged|shape-look'): the other cases are left out and reported as SKIP.
 #              It filters the sections given; alone it is no section (use -All -OnlyCases '<cases>' for the full set filtered).
 # Exit codes: 0 every rendered case passed; 1 a case failed; 2 no section was given (nothing rendered); 3 the sections given rendered
@@ -152,7 +155,7 @@
 #     powershell -NoProfile -File <repo>\tools\render.ps1 [-Propose] [-Measure] [-Residency] [-UploadBench] [-ShowPaths]
 # =====================================================================================
 [CmdletBinding()]
-param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$HandlesOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$ParallelBackends,[switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "")
+param([switch]$All, [switch]$CutOutOnly, [switch]$SeamsOnly, [switch]$TreesOnly, [switch]$EditLookOnly, [switch]$AvatarsOnly, [switch]$NameTagsOnly, [switch]$GlowOnly, [switch]$GateOnly, [switch]$WarmOnly, [switch]$SkyOnly, [switch]$BanOnly, [switch]$ObjectOnly, [switch]$DialogOnly, [switch]$LoginOnly, [switch]$LiveRepeatOnly, [switch]$NeighboursOnly, [switch]$TeardownOnly, [switch]$WaterSkyOnly, [switch]$BusyOnly, [switch]$ChurnOnly, [switch]$WindowOnly, [switch]$ReuseOnly, [switch]$SkyCycleOnly, [switch]$CloudsOnly, [switch]$UiOnly, [string]$UiSceneOnly = "", [switch]$UiChromeOnly, [switch]$ProportionsOnly, [switch]$HandlesOnly, [switch]$Propose, [switch]$Measure, [int]$MeasureFrames = 300, [switch]$Residency, [switch]$UploadBench, [int]$UploadRepeats = 40, [switch]$ShowPaths, [switch]$Resolutions, [string]$PathExe = "", [string]$PathTagSuffix = "", [string]$PathFilter = "", [switch]$MeasureOnly, [string]$PathExtra = "", [switch]$Memory, [switch]$Budget, [switch]$TextureServer, [string]$DiagDir = "", [switch]$HangCheck, [string[]]$Backends = @("vulkan", "d3d12"), [switch]$OneProcessPerCase, [switch]$ParallelBackends,[switch]$SkipTiming, [switch]$OnlyTiming, [string]$OutDir = "", [switch]$PlanOnly, [string]$OnlyCases = "", [string]$ExpectedCommit = "", [switch]$AllowStaleBuild)
 
 $ErrorActionPreference = "Stop"
 # The full render set is slow and takes the machine for a long time, so it never starts by accident: it needs -All. With no section
@@ -1226,6 +1229,19 @@ Write-Output "Render stage (exported build)"
 if (-not (Test-Path -LiteralPath $exe) -or -not (Test-ExportComplete (Split-Path -Parent $exe))) {
     Add-Case "all" "SKIP" "no complete exported build at $exe (the data folder with Viewer.Godot.dll must be beside it; run tools\s1.ps1 first)" 0
     Exit-Render 0
+}
+
+. (Join-Path $PSScriptRoot "build-stamp.ps1")
+if (-not $PlanOnly) {   # a plan renders nothing, so it has no build to be stale
+    $stampProblem = Test-BuildStamp (Split-Path -Parent $exe) $repo $ExpectedCommit
+    if ($stampProblem -and -not $AllowStaleBuild) {
+        Write-Output "REFUSED: stale or unstamped export: $stampProblem. Nothing was rendered. Re-export with tools\s1.ps1 -ExportOnly, or pass -AllowStaleBuild to render this build anyway (it is logged)."
+        exit 2
+    }
+    if ($stampProblem) {
+        Write-Output "WARNING: -AllowStaleBuild: rendering a build that does not match the commit under test: $stampProblem"
+        Add-Case "build_stamp" "PASS" "overridden with -AllowStaleBuild: $stampProblem" 0
+    }
 }
 
 function Invoke-WindowCases {
