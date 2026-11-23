@@ -183,6 +183,8 @@ public partial class Main
     {
         if (_edit is not { } e || _shell is null)
             return;
+        if (e.BuildMode)
+            _editPanel?.ContentTab.CommitPendingEdit();   // Ctrl+B while a name is being typed: it is sent before build mode (and with it the right to edit) ends
         e.ToggleBuild();
         if (e.BuildMode)
         {

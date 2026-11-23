@@ -146,6 +146,10 @@ public sealed class EditContentTab
         _propName.FocusExited += SaveProperties;
         _propDesc.FocusExited += SaveProperties;
         // Esc in a field puts back the item's text and leaves the field, as the official renamer reverts on Escape (llfolderview.cpp)
+        // The shell's Esc handling (ShellRoot._Input) lets go of a text field before the field sees the key, which saved the typed name through
+        // the focus-loss save above. A field that takes Esc itself is marked, as the add-on text fields are, so this handler runs first.
+        _propName.SetMeta(ShellRoot.TakesEscapeMeta, true);
+        _propDesc.SetMeta(ShellRoot.TakesEscapeMeta, true);
         _propName.GuiInput += e => CancelOnEscape(e, _propName);
         _propDesc.GuiInput += e => CancelOnEscape(e, _propDesc);
         _props.AddChild(Field("edit.content.prop.name", _propName));
