@@ -338,7 +338,7 @@ public partial class ScriptEditorPanel : VBoxContainer
         UnsavedPrompt.AddChild(promptAnswers);
         AddChild(UnsavedPrompt);
         // while the question shows, the error list and the status row give up their room (UnsavedQuestion), so the answer buttons keep their full height in a short window
-        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, Errors, foot);
+        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, Errors, foot, bar, FindBar, GoToBar);   // the tool row is wider than the smallest window, so it goes too: the reason of a failed save wraps inside the window
 
         UiTheme.Changed += ApplyTheme;
         TreeExiting += () => UiTheme.Changed -= ApplyTheme;
@@ -657,10 +657,18 @@ public partial class ScriptEditorPanel : VBoxContainer
             return;
         e.SaveFinished(result);
         Sync();
+        ReasonUnderQuestion(result);
         if (e.CloseAfterSave)
             Closing?.Invoke();
         else if (e.InObject && result.Status == ScriptSaveStatus.Saved && _transport is { } t)
             AskRunning(t, e, _token);   // the region restarts a saved script as the Running tick says
+    }
+
+    /// <summary>A save that failed while the question shows: the status row is hidden then, so the reason is shown in the question.</summary>
+    private void ReasonUnderQuestion(ScriptSaveResult result)
+    {
+        if (result.Status != ScriptSaveStatus.Saved && UnsavedPrompt.Visible)
+            UnsavedQuestion.Reason(UnsavedPrompt, StatusLabel.Text);
     }
 
     private void OnRunningToggled(bool on)
@@ -840,6 +848,7 @@ public partial class ScriptEditorPanel : VBoxContainer
             return;
         e.SaveFinished(result);
         Sync();
+        ReasonUnderQuestion(result);
     }
 }
 

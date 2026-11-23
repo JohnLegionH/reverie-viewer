@@ -97,9 +97,9 @@ internal static class AppearanceExample
     }
 
     /// <summary>What an interface scene shows: the Outfit tab, the Edit tab on the shape (the Height slider moved, so there are unsaved changes) or on the shirt.</summary>
-    public static async Task Show(AppearancePanel panel, string scene)
+    public static async Task Show(AppearancePanel panel, string scene, Func<ActionIntent, ActionResult>? submit = null)
     {
-        var ids = Bind(panel);
+        var ids = Bind(panel, submit);
         panel.Outfit.Rebuild();
         if (scene == "appearance")
         {

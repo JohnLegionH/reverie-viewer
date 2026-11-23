@@ -183,7 +183,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         body.Resized += UpdateNavigation;
 
         // as every other page: wider than its place, it scrolls sideways inside the window's margin
-        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, CustomMinimumSize = new Vector2(PageWidth, 0) };   // asks for the same width as the other pages, so the window keeps its width from page to page
+        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };   // asks for no width of its own: a floor of the usual page width made the window's content wider than the window (at 700 units, the default) and pushed the footer past the right border
         content.AddChild(scroll);
         _interfaceScroll = scroll;
         foreach (var pageId in Enum.GetValues<PrefPage>())
@@ -459,7 +459,6 @@ public sealed partial class PreferencesPanel : VBoxContainer
         {
             // the pages stop asking for their usual width when the window cannot give it (they would scroll sideways)
             _compactPages = narrow;
-            _interfaceScroll.CustomMinimumSize = new Vector2(narrow ? 0 : PageWidth, 0);
             foreach (var view in _views.Values)
                 view.Compact = narrow;
         }

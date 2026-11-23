@@ -559,7 +559,7 @@ public partial class NotecardPanel : VBoxContainer
         AddChild(UnsavedPrompt);
         // while the question shows, the rows of embedded items and the status row give up their room, so the answer buttons keep their full height in a short window
         UnsavedPrompt.VisibilityChanged += () => ItemRows.Visible = !UnsavedPrompt.Visible;
-        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, foot);
+        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, foot, Toolbar, FindBar, descRow);   // the reason of a failed save needs a line of its own in the smallest window
 
         Editor.Items = () => _session is { } s ? s.Buffer.ItemSpans(Editor.Text) : [];
         Clear();
@@ -900,6 +900,8 @@ public partial class NotecardPanel : VBoxContainer
             _ => "notecard.save.failed",
         });
         Sync();
+        if (result.Status != NotecardSaveStatus.Saved && UnsavedPrompt.Visible)
+            UnsavedQuestion.Reason(UnsavedPrompt, StatusLabel.Text);   // the status row is hidden while the question shows
         if (result.Status == NotecardSaveStatus.Saved)
         {
             SavedItem?.Invoke(s.Access);

@@ -827,7 +827,7 @@ public partial class TestRender
             if (appearance)
             {
                 var appearancePanel = AppearanceFeature.Install(shell, redrawGapMs: 0);
-                await AppearanceExample.Show(appearancePanel, scene);   // the shape open on the Edit tab with a slider moved: unsaved changes
+                await AppearanceExample.Show(appearancePanel, scene, _ => new ActionResult(ActionStatus.Failed, 0, "failed"));   // the shape open on the Edit tab with a slider moved: unsaved changes; the grid refuses a save
                 shell.Shell.Floaters.Open(AppearanceFeature.FloaterId);
                 panel = appearancePanel;
             }
@@ -853,6 +853,46 @@ public partial class TestRender
                 floaters.Resize(id, w, h);
                 await Frames(4);
                 var box = frame.GetGlobalRect();
+                // a save that fails while the question shows: its reason must be seen in the window, and the answers stay whole
+                string? reasonWanted = null;
+                if (appearance)
+                {
+                    ((AppearancePanel)panel).PromptSave.EmitSignal(BaseButton.SignalName.Pressed);
+                    await Frames(4);   // the window shows the model's state on its next frames
+                    reasonWanted = ((AppearancePanel)panel).StatusLabel.Text;
+                }
+                else if (panel is ScriptEditorPanel scriptPanel)
+                {
+                    scriptPanel.ShowAnswer(Viewer.Core.Inventory.ScriptSaveResult.Of(Viewer.Core.Inventory.ScriptSaveStatus.Failed, "failed"));
+                    reasonWanted = scriptPanel.StatusLabel.Text;
+                }
+                else if (panel is NotecardPanel notecardPanel)
+                {
+                    notecardPanel.ShowAnswer(Viewer.Core.Inventory.NotecardSaveResult.Of(Viewer.Core.Inventory.NotecardSaveStatus.Failed, "failed"));
+                    reasonWanted = notecardPanel.StatusLabel.Text;
+                }
+                await Frames(4);
+                if (!question.Visible)
+                    problems.Add($"{kind} at {pct} %, window {label}: the question went away after the failed save");
+                if (string.IsNullOrEmpty(reasonWanted))
+                    problems.Add($"{kind} at {pct} %, window {label}: the failed save left no reason text");
+                else
+                {
+                    measured++;
+                    var reasonLabel = panel.FindChild("unsaved_reason", true, false) as Label;
+                    if (reasonLabel is null || !reasonLabel.IsVisibleInTree() || reasonLabel.Text != reasonWanted)
+                        problems.Add($"{kind} at {pct} %, window {label}: the reason \"{reasonWanted}\" is not shown with the question (shown: \"{reasonLabel?.Text}\", visible {reasonLabel?.IsVisibleInTree()})");
+                    else
+                    {
+                        var seenReason = reasonLabel.GetGlobalRect();
+                        for (var a = reasonLabel.GetParent() as Control; a is not null && a != frame; a = a.GetParent() as Control)
+                            if (a.ClipContents)
+                                seenReason = seenReason.Intersection(a.GetGlobalRect());
+                        seenReason = seenReason.Intersection(box);
+                        if (seenReason.Size.X < reasonLabel.GetGlobalRect().Size.X - slack || seenReason.Size.Y < reasonLabel.GetGlobalRect().Size.Y - slack)
+                            problems.Add($"{kind} at {pct} %, window {label}: the reason is cut off ({reasonLabel.GetGlobalRect()} seen as {seenReason})");
+                    }
+                }
                 foreach (var name in buttonNames)
                 {
                     if (panel.FindChild(name, true, false) is not Control button || !button.IsVisibleInTree())

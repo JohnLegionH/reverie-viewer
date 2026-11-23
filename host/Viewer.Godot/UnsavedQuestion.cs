@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+using System;
 using Godot;
 
 namespace Viewer.Godot;
@@ -12,6 +13,34 @@ namespace Viewer.Godot;
 /// </summary>
 internal static class UnsavedQuestion
 {
+    /// <summary>Name of the label inside the question that gives the reason a save failed.</summary>
+    public const string ReasonName = "unsaved_reason";
+
+    /// <summary>
+    /// Shows <paramref name="text"/> inside the question, above the answer buttons. The status rows are hidden while the question shows (GiveUpRoom),
+    /// so a failed save's reason is put here, where the user is looking. The reason goes when the question does.
+    /// </summary>
+    public static void Reason(Control prompt, string text)
+    {
+        var box = prompt is PanelContainer && prompt.GetChildCount() > 0 ? prompt.GetChild(0) as Container : prompt as Container;
+        if (box is null)
+            return;
+        var label = box.FindChild(ReasonName, false, false) as Label;
+        if (label is null)
+        {
+            label = new Label { Name = ReasonName, Visible = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(48, 0), ThemeTypeVariation = UiTheme.ErrorLabel };
+            box.AddChild(label);
+            box.MoveChild(label, Math.Max(0, box.GetChildCount() - 2));   // the answer buttons stay last
+            prompt.VisibilityChanged += () =>
+            {
+                if (!prompt.Visible)
+                    label.Visible = false;
+            };
+        }
+        label.Text = text;
+        label.Visible = text.Length > 0;
+    }
+
     /// <summary>Hides the given rows while <paramref name="prompt"/> is shown and puts each back as it was when the question goes.</summary>
     public static void GiveUpRoom(Control prompt, params Control[] rows)
     {
