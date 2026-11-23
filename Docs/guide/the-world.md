@@ -144,7 +144,7 @@ You can pick a different sky for yourself. Nobody else sees your choice.
 
 To go back to what the region sends, choose **Use Shared Environment**.
 
-Your choice stays when you teleport, and is not kept for the next login unless you turn on **Keep my sky choice for the next login** under **Preferences > Graphics**. **Use the region's sky again after a teleport** (also under Graphics) puts the region's own sky back each time a teleport ends. Both start off. If a sky cannot be loaded, the sky you had stays.
+Your choice stays when you teleport, and is kept for the next login until you choose **Use Shared Environment**; turn off **Keep my sky choice for the next login** under **Preferences > Graphics** to start each login on the region's sky. **Use the region's sky again after a teleport** (also under Graphics) puts the region's own sky back each time a teleport ends. That one starts off. If a sky cannot be loaded, the sky you had stays.
 
 ### The F9 cycle
 

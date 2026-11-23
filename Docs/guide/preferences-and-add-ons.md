@@ -44,7 +44,7 @@ You do not need to know the page. Press **Ctrl+Shift+K**, type the setting's nam
 - **Largest texture (pixels across).** From 256 to 2048.
 - **Frame-rate limit.** 0 means no limit. Up to 360.
 - **Vertical sync**, **Clouds** and **Show neighbouring regions**. The last one applies at your next login.
-- **Keep my sky choice for the next login** and **Use the region's sky again after a teleport**. Both start off (see the sky section of the world guide).
+- **Keep my sky choice for the next login** and **Use the region's sky again after a teleport**. The first starts on and the second off (see the sky section of the world guide).
 - **Rendering backend.** **Automatic**, **Vulkan** or **Direct3D 12**. Needs a restart. If a backend will not start, choose **Automatic** and start the viewer again (see [Fixing problems](fixing-problems.md#switch-the-graphics-backend)).
 - **Window at startup.** How the viewer opens: **Maximized window** (the default), **Last size and position**, or **Full screen**. A change to or from **Full screen** applies at once. In a window you have the system title bar and a taskbar button and can minimize at any time. To switch between full screen and a window while the viewer runs, use **Me > Full screen** or Ctrl+Alt+F; **Me > Minimize** sends the window to the taskbar. If the screen the window was last on is gone, it opens maximized on your main screen.
 
@@ -52,12 +52,12 @@ Shadows, anti-aliasing and other advanced graphics settings are not in Reverie y
 
 ### Sound
 
-- **Master volume**, **Mute all sounds**, and **Mono audio** (the same sound in both ears).
-- **Sounds (objects in the world)** and **Ambient (footsteps)**, each with a volume and a mute.
-- Whether collisions and gestures make sounds. A footstep the grid has no sound for is silent.
-- **Interface sounds.** A volume, a mute, and a mute for while the viewer is minimized. Below them, each event has a row: for example Alert, Click, Region restart and Teleport. Each row has a **Play** button and a choice of **Grid's** or **Off**. **Set all to Grid's** changes every row back. Reverie plays each grid's own interface sounds: it fetches them from the grid you are connected to when you log in, by the same sound ids the official viewer uses, and keeps them for that grid only, so one grid's sounds never play on another. A sound the grid does not have is silent (the row says "not on this grid"). On the login screen, the sounds of the grid chosen there play if you have connected to it before; otherwise nothing plays.
+- **Volume.** One row each for **Master**, **Sounds** (objects in the world), **Ambient** (footsteps) and **Interface sounds**: a slider, its value and a **Mute** button. Muting Master is the same as **Mute all sounds**.
+- **Options.** Whether collisions and gestures make sounds, **Mono audio** (both ears get the same sound) and muting while the viewer is minimized. A footstep the grid has no sound for is silent.
+- **More** (closed at first) holds the balance-change amounts above which the money sound and the pain sound play.
+- **Interface sounds** (closed at first; its summary says how many of the sounds are on). Open it and each event has a row: for example Alert, Click, Region restart and Teleport. Each row has a **Play** button and a choice of **Grid's** or **Off**. **Set all to Grid's** changes every row back. Reverie plays each grid's own interface sounds: it fetches them from the grid you are connected to when you log in, by the same sound ids the official viewer uses, and keeps them for that grid only, so one grid's sounds never play on another. A sound the grid does not have is silent (the row says "not on this grid"). On the login screen, the sounds of the grid chosen there play if you have connected to it before; otherwise nothing plays.
 
-Music, media and voice are not in Reverie yet. The page says so.
+Music, media and voice are not in Reverie yet.
 
 ### Chat
 
