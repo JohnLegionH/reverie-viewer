@@ -337,8 +337,8 @@ public partial class ScriptEditorPanel : VBoxContainer
         promptAnswers.AddChild(PromptCancel);
         UnsavedPrompt.AddChild(promptAnswers);
         AddChild(UnsavedPrompt);
-        // while the question shows, the error list gives up its height, so the question fits in a short window (at a large interface size)
-        UnsavedPrompt.VisibilityChanged += () => Errors.CustomMinimumSize = new Vector2(0, UnsavedPrompt.Visible ? 24 : 72);
+        // while the question shows, the error list and the status row give up their room (UnsavedQuestion), so the answer buttons keep their full height in a short window
+        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, Errors, foot);
 
         UiTheme.Changed += ApplyTheme;
         TreeExiting += () => UiTheme.Changed -= ApplyTheme;

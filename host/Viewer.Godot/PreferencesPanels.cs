@@ -58,8 +58,23 @@ public sealed partial class PreferencesPanel : VBoxContainer
     private readonly Dictionary<PrefPage, PrefPageView> _views = new();
     private readonly Label _title;
     private readonly ScrollContainer _interfaceScroll;
+    private readonly ScrollContainer _navScroll;
+    private readonly VBoxContainer _navList;
+    private readonly HBoxContainer _body;
+    private readonly OptionButton _navDropdown;
+    private bool _dropdownMode;
+    private bool _compactPages;
+    private VBoxContainer _content = null!;
+    private HBoxContainer _footer = null!;
     private readonly Label _status;
     private string _current = "general";
+
+    /// <summary>The width every page asks for in a window that has the room, in interface units.</summary>
+    private const float PageWidth = 640;
+
+    /// <summary>The window width, in interface units, from which the category list stands beside a page of <see cref="PageWidth"/> with the window frame and
+    /// padding around them; below it the list is a drop-down and the pages ask only for what they need.</summary>
+    private const float WideWindow = 850;
 
     /// <summary>The categories in the order shown: the official viewer's order, with the Interface page where its Colors tab is.</summary>
     public static readonly string[] Categories = ["general", "graphics", "sound", "chat", "moveview", "interface", "privacy", "cache", "building"];
@@ -131,12 +146,15 @@ public sealed partial class PreferencesPanel : VBoxContainer
         // to the main view and keep the buttons below in sight
         var navScroll = new ScrollContainer { Name = "categories_scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, CustomMinimumSize = new Vector2(150, 0) };
         body.AddChild(navScroll);
+        _body = body;
+        _navScroll = navScroll;
         var nav = new VBoxContainer { Name = "categories", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         // when the list is taller than its place (a theme with deeper buttons put the last one behind a scroll bar at the window's usual
         // size), the buttons close up with no gap between them; the list only scrolls when even that does not fit (a large interface size)
         navScroll.Resized += () => FitCategories(navScroll, nav);
         nav.AccessibilityName = strings.Get("prefs.categories");
         navScroll.AddChild(nav);
+        _navList = nav;
         foreach (var id in Categories)
         {
             var go = new Button { Name = "category_" + id, Text = strings.Get("prefs.category." + id), ToggleMode = true, Alignment = HorizontalAlignment.Left };
@@ -150,11 +168,22 @@ public sealed partial class PreferencesPanel : VBoxContainer
         // the window frame pads the outside; the gap between the category list and every page is the shared inner padding too
         body.AddThemeConstantOverride("separation", (int)PanelPadding.Inner);
         body.AddChild(content);
+        // in a window too narrow for the list beside a page, the list is this drop-down, in the footer beside the page's own Reset button
+        // (UpdateNavigation): it takes no height from the page, which has little in a small window at a large interface size, and the title
+        // is left out as the drop-down shows the same name
+        _content = content;
+        _navDropdown = new OptionButton { Name = "categories_dropdown", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+        _navDropdown.AccessibilityName = strings.Get("prefs.categories");
+        foreach (var id in Categories)
+            _navDropdown.AddItem(strings.Get("prefs.category." + id));
+        _navDropdown.ItemSelected += index => ShowCategory(Categories[(int)index]);
+        content.AddChild(_navDropdown);
         _title = new Label { Name = "category", ThemeTypeVariation = UiTheme.TitleLabel };
         content.AddChild(_title);
+        body.Resized += UpdateNavigation;
 
         // as every other page: wider than its place, it scrolls sideways inside the window's margin
-        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, CustomMinimumSize = new Vector2(640, 0) };   // asks for the same width as the other pages, so the window keeps its width from page to page
+        var scroll = new ScrollContainer { Name = "scroll", SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, CustomMinimumSize = new Vector2(PageWidth, 0) };   // asks for the same width as the other pages, so the window keeps its width from page to page
         content.AddChild(scroll);
         _interfaceScroll = scroll;
         foreach (var pageId in Enum.GetValues<PrefPage>())
@@ -305,6 +334,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         ResetButton = Button(strings.Get("prefs.reset"), "reset");
         ResetButton.Pressed += ResetCurrent;
         footer.AddChild(ResetButton);
+        _footer = footer;
         footer.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
         CancelButton = Button(strings.Get("prefs.cancel"), "cancel");
         CancelButton.Pressed += CancelAndClose;
@@ -389,6 +419,67 @@ public sealed partial class PreferencesPanel : VBoxContainer
             nav.AddThemeConstantOverride("separation", 0);
     }
 
+    /// <summary>
+    /// The category list stands beside the page while the window has room for both (the list's width, the gap, and the widest page's
+    /// content), and the buttons are all in view; otherwise a drop-down above the page stands in for it, so no sideways scroll bar
+    /// appears and no category is cut off or behind a scroll bar.
+    /// </summary>
+    public override void _EnterTree()
+    {
+        // the layout is also chosen when the usable width changes without this panel's own size changing: the interface size (the
+        // window's content scale) changes the width in interface units, and the window may be moved or resized around the panel
+        UiTheme.Changed += UpdateNavigationLater;
+        GetViewport().SizeChanged += UpdateNavigationLater;
+        UpdateNavigationLater();
+    }
+
+    public override void _ExitTree()
+    {
+        UiTheme.Changed -= UpdateNavigationLater;
+        if (GetViewport() is { } viewport)
+            viewport.SizeChanged -= UpdateNavigationLater;
+    }
+
+    /// <summary>Chooses the layout after the frame's other size changes (the window's content scale follows the theme change).</summary>
+    private void UpdateNavigationLater() => CallDeferred(MethodName.UpdateNavigation);
+
+    private void UpdateNavigation()
+    {
+        float buttonsHeight = 0;
+        foreach (var c in _navList.GetChildren())
+            if (c is Control { Visible: true } button)
+                buttonsHeight += button.GetCombinedMinimumSize().Y;
+        // judged from the window, not from this panel's own size: the pages' minimum width sizes the window when it has room, so the panel's
+        // size would answer with whatever it was last given
+        float window = GetViewport()?.GetVisibleRect().Size.X ?? 0;
+        bool narrow = window > 0 && window + 0.5f < WideWindow;
+        bool tall = buttonsHeight > _body.Size.Y + 0.5f;
+        bool dropdown = narrow || tall;
+        if (narrow != _compactPages)
+        {
+            // the pages stop asking for their usual width when the window cannot give it (they would scroll sideways)
+            _compactPages = narrow;
+            _interfaceScroll.CustomMinimumSize = new Vector2(narrow ? 0 : PageWidth, 0);
+            foreach (var view in _views.Values)
+                view.Compact = narrow;
+        }
+        if (dropdown == _dropdownMode)
+            return;
+        // a control that is hidden or taken out of the tree loses the keyboard focus: the one now showing takes it, so a person using the
+        // keyboard stays on the category control
+        bool hadFocus = _navDropdown.HasFocus() || (_nav.TryGetValue(_current, out var currentButton) && currentButton.HasFocus());
+        _dropdownMode = dropdown;
+        _navScroll.Visible = !dropdown;
+        _navDropdown.Reparent(dropdown ? _footer : _content, false);
+        if (dropdown)
+            _footer.MoveChild(_navDropdown, 0);
+        _navDropdown.Visible = dropdown;
+        _title.Visible = !dropdown;
+        _navDropdown.Select(Array.IndexOf(Categories, _current));
+        if (hadFocus)
+            (dropdown ? (Control)_navDropdown : _nav.TryGetValue(_current, out var back) ? back : null)?.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
     /// <summary>Shows one category's page (a name from <see cref="Categories"/>).</summary>
     public void ShowCategory(string id)
     {
@@ -399,6 +490,7 @@ public sealed partial class PreferencesPanel : VBoxContainer
         _title.AccessibilityName = _title.Text;
         foreach (var (key, button) in _nav)
             button.SetPressedNoSignal(key == id);
+        _navDropdown.Select(Array.IndexOf(Categories, id));
         _interfaceScroll.Visible = id == "interface";
         foreach (var (page, view) in _views)
             view.Visible = id == page.ToString().ToLowerInvariant();

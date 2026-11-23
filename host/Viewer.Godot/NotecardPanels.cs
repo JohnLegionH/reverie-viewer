@@ -557,8 +557,9 @@ public partial class NotecardPanel : VBoxContainer
         promptAnswers.AddChild(PromptCancel);
         UnsavedPrompt.AddChild(promptAnswers);
         AddChild(UnsavedPrompt);
-        // while the question shows, the rows of embedded items give up their room, so the question fits in a short window (at a large interface size)
+        // while the question shows, the rows of embedded items and the status row give up their room, so the answer buttons keep their full height in a short window
         UnsavedPrompt.VisibilityChanged += () => ItemRows.Visible = !UnsavedPrompt.Visible;
+        UnsavedQuestion.GiveUpRoom(UnsavedPrompt, foot);
 
         Editor.Items = () => _session is { } s ? s.Buffer.ItemSpans(Editor.Text) : [];
         Clear();
