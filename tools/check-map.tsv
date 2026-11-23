@@ -88,3 +88,6 @@
 ^fixtures/(prims|primmesher|meshes|sculpts|textures|materials|colour|orientation)/	objects
 ^host/Viewer\.Godot/Main\.Rlv\.cs$	smoke,ui
 ^host/Viewer\.Godot/Main\.Overrider\.cs$	avatars
+# The quit watchdog draws nothing, but it runs on the quit path: a stuck quit is ended by it. Only a real start followed by a real quit
+# exercises that, and the stock smoke does both, so it selects the smoke and no render case (a "none" here skipped the one check that reaches it).
+^host/Viewer\.Shell/QuitWatchdog\.cs$	smoke

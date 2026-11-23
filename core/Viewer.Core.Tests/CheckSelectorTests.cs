@@ -55,6 +55,19 @@ public class CheckSelectorTests
         Assert.True(s.Smoke, file);
     }
 
+    // The quit watchdog draws nothing, but it runs on the quit path, which only a real start and a real quit exercise: the stock
+    // smoke does both. It is placed in "smoke" (a start and a quit, no render case), never in "none" and never left unplaced.
+    [Fact]
+    public void The_quit_watchdog_runs_the_stock_smoke_and_no_render_case()
+    {
+        var s = Select("host/Viewer.Shell/QuitWatchdog.cs");
+        Assert.Empty(s.Unplaced);
+        Assert.False(s.Full);
+        Assert.True(s.Smoke);
+        Assert.Equal("smoke", Assert.Single(s.FileAreas).Value.Single());
+        Assert.False(CheckSelector.Picks(s, "ui_build_classic_vulkan"));
+    }
+
     [Theory]
     [InlineData("host/Viewer.Godot/Reverie/TopBar.cs")]
     [InlineData("host/Viewer.Shell/TerrainPatch.cs")]
