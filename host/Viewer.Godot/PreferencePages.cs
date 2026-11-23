@@ -42,6 +42,27 @@ public sealed partial class PrefPageView : ScrollContainer
     /// <summary>The control for a setting by key (for the render cases and checks).</summary>
     public Control? ControlFor(string key) => _controls.GetValueOrDefault(key);
 
+    /// <summary>The width the page's content needs to be shown whole, in interface units (the window may give it more).</summary>
+    private readonly List<MaxWidthBox> _widthBoxes = new();
+    private bool _compact;
+
+    /// <summary>True in a window too narrow for the usual page width (see <see cref="MaxWidthBox.Compact"/>): the page asks only for what it needs.</summary>
+    public bool Compact
+    {
+        get => _compact;
+        set
+        {
+            _compact = value;
+            foreach (var box in _widthBoxes)
+                box.Compact = value;
+            FitOptions?.Invoke();
+        }
+    }
+
+    private Action? FitOptions;
+
+    public float NeededWidth => FindChild("page", false, false) is Control box ? box.GetCombinedMinimumSize().X : 0;
+
     public PrefPageView(StringTable strings, PrefPage page, Func<PreferencesModel> model, Action<string, bool> say,
         Func<int>? clearCache, Func<bool>? clearNames, Func<UiSounds?>? sounds = null)
     {
@@ -132,6 +153,7 @@ public sealed partial class PrefPageView : ScrollContainer
     {
         var width = new MaxWidthBox { Name = name + "_width", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddChild(width);
+        _widthBoxes.Add(width);
         var margin = new MarginContainer { Name = name + "_margin" };
         foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
             margin.AddThemeConstantOverride(side, (int)PanelPadding.Inner);

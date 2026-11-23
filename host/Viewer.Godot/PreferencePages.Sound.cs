@@ -19,14 +19,33 @@ public sealed partial class MaxWidthBox : Container
     /// <summary>The widest the child is made, in interface units.</summary>
     public float MaxWidth { get; set; } = 620;
 
+    private bool _compact;
+
+    /// <summary>
+    /// False (the usual): every page asks for MaxWidth, so the window keeps its width from page to page. True, in a window too narrow for
+    /// that: the page asks only for what its content needs, so it is shown whole instead of scrolling sideways.
+    /// </summary>
+    public bool Compact
+    {
+        get => _compact;
+        set
+        {
+            if (_compact == value)
+                return;
+            _compact = value;
+            UpdateMinimumSize();
+        }
+    }
+
     public override Vector2 _GetMinimumSize()
     {
         var min = Vector2.Zero;
         foreach (var node in GetChildren())
             if (node is Control { Visible: true } c)
                 min = min.Max(c.GetCombinedMinimumSize());
-        // every page asks for the same width, so the window does not change width from page to page
-        min.X = Math.Max(min.X, MaxWidth);
+        // every page asks for the same width, so the window does not change width from page to page (unless compact)
+        if (!_compact)
+            min.X = Math.Max(min.X, MaxWidth);
         return min;
     }
 
@@ -75,6 +94,8 @@ public sealed partial class PrefPageView
         optionGrid.AddThemeConstantOverride("h_separation", 24);
         optionGrid.AddThemeConstantOverride("v_separation", 4);
         options.AddChild(optionGrid);
+        FitOptions = () => FitOptionColumns(optionGrid);
+        Resized += () => FitOptions();
         foreach (var key in new[] { AudioLevels.CollisionSounds.Key, AudioLevels.GestureSounds.Key, AudioLevels.Mono.Key, UiSoundSettings.MuteWhenMinimized.Key })
             AddSetting(optionGrid, PreferenceCatalog.Find(key)!);
         if (_controls.GetValueOrDefault(AudioLevels.Mono.Key) is { } mono)
@@ -169,6 +190,26 @@ public sealed partial class PrefPageView
 
     private static string Percent(double level) => Math.Round(level * 100).ToString("0", System.Globalization.CultureInfo.CurrentCulture) + "%";
 
+    private float _optionsTwoColumnWidth;
+
+    /// <summary>The Options tick boxes stand two to a line while the page has the width for that, and one to a line when it has not
+    /// (a small window at a large interface size), so the page never needs a sideways scroll bar.</summary>
+    private void FitOptionColumns(GridContainer grid)
+    {
+        if (!_compact)
+        {
+            grid.Columns = 2;
+            return;
+        }
+        if (grid.Columns == 2 && NeededWidth > Size.X + 0.5f)
+        {
+            _optionsTwoColumnWidth = NeededWidth;
+            grid.Columns = 1;
+        }
+        else if (grid.Columns == 1 && Size.X + 0.5f >= _optionsTwoColumnWidth)
+            grid.Columns = 2;
+    }
+
     /// <summary>One volume: the name, the slider, the value and the mute button, on one row.</summary>
     private void AddVolumeRow(GridContainer grid, string row, string levelKey, string muteKey)
     {
@@ -181,7 +222,7 @@ public sealed partial class PrefPageView
         grid.AddChild(name);
 
         var slider = Slider("pref_" + levelKey, title, () => (double)_model().Value(level)!, v => Edit(level, v), levelKey);
-        slider.CustomMinimumSize = new Vector2(160, 20);
+        slider.CustomMinimumSize = new Vector2(120, 20);   // the narrowest the row may be squeezed to in a small window at a large interface size; it grows with the window
         slider.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         grid.AddChild(slider);
 
