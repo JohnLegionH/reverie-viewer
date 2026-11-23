@@ -73,7 +73,26 @@ public partial class TestRender
             if (!open && !Regex.IsMatch(summary.Text, pattern))
                 problems.Add($"section summary: the closed {id} section says '{summary.Text}'");
             rows.Add($"{id}: body visible {body.Visible}, summary '{summary.Text}' visible {summary.Visible}");
+            // the closed header is whole in the page as first opened, not cut off at the window's bottom
+            if (!open && Find<Control>("section_" + id + "_header") is { } header && !view.Encloses(header.GetGlobalRect()))
+                problems.Add($"closed header: the {id} header ({header.GetGlobalRect().Position.Y:F0} to {header.GetGlobalRect().End.Y:F0}) is not whole inside the page ({view.Position.Y:F0} to {view.End.Y:F0})");
         }
+
+        // mute: the speaker icon button with a tooltip, a word only for people who cannot see it (the accessibility name)
+        foreach (var (row, _, mute) in SoundRows)
+            if (Find<Button>("pref_" + mute) is { } muteButton)
+            {
+                if (muteButton.Icon is null || muteButton.Text.Length > 0 || muteButton.TooltipText.Length == 0)
+                    problems.Add($"mute button: the {row} mute is not an icon button with a tooltip (icon {(muteButton.Icon is null ? "none" : "set")}, text '{muteButton.Text}', tooltip '{muteButton.TooltipText}')");
+            }
+
+        // thresholds: whole numbers
+        foreach (var key in new[] { Viewer.Shell.Sound.UiSoundSettings.MoneyThreshold.Key, Viewer.Shell.Sound.UiSoundSettings.HealthThreshold.Key })
+            if (Find<SpinBox>("pref_" + key) is { } spin && !Regex.IsMatch(spin.GetLineEdit().Text, @"^\d+$"))
+                problems.Add($"threshold: {key} shows '{spin.GetLineEdit().Text}' instead of a whole number");
+
+        // no row label wraps or is cut off, the content is capped, each control is beside its label
+        problems.AddRange(PrefsPageProblems(page, "sound"));
 
         // the table: one line a sound
         int lines = 0;

@@ -646,7 +646,10 @@ public partial class TestRender
         }
         shell.QueueFree();
         if (scene == "preferences" && !wrongToken)
+        {
             await PreferencesFit(strings, tokens);
+            await PreferencesLayout(strings, tokens);
+        }
         if (scene is "script" or "notecard" && !wrongToken)
             await UnsavedPromptFit(scene, strings, tokens);
         UiTheme.Apply(ThemePresets.Get(ThemePresets.Classic), 100);
