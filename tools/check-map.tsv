@@ -22,7 +22,7 @@
 ^tools/(capture|laptop-kit|release)/	none
 # The check scripts themselves: a change to how checks run is proven by the full set.
 # full because: these scripts start, drive and guard every render and test run, so a change to one can alter any case and no narrower set shows it.
-^tools/(render|render-serve|godot|s1|test|test-launch|claim-guard|job-guard|own-processes|temp-root|fixtures-local|crash-watch|job-guard)\.ps1$	full
+^tools/(render|render-serve|godot|s1|build-stamp|test|test-launch|claim-guard|job-guard|own-processes|temp-root|fixtures-local|crash-watch|job-guard)\.ps1$	full
 # full because: it places the window every render run opens; a fault in it shows in any case.
 ^tools/TestWindowPlacement\.cs$	full
 ^tools/(stock-smoke|stock-server|stock-settings)\.ps1$	smoke

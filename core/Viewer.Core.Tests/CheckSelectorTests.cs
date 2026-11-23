@@ -324,7 +324,7 @@ public class CheckSelectorTests
     [InlineData("core/Viewer.Core/World/WaterPlan.cs", "environment,terrain")]
     [InlineData("core/Viewer.Core/World/Glow.cs", "avatars,objects")]
     [InlineData("core/Viewer.Core/World/GlowOccluders.cs", "objects,terrain")]
-    [InlineData("host/Viewer.Shell/QuitWatchdog.cs", "none")]
+    [InlineData("host/Viewer.Shell/QuitWatchdog.cs", "smoke")]
     [InlineData("host/Viewer.Godot/Main.Window.cs", "ui")]
     public void Placed_files_select_the_areas_of_their_users_and_not_the_full_set(string file, string areas)
     {
