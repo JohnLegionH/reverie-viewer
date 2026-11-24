@@ -1020,7 +1020,7 @@
   "edit.stretch_textures": "Stretch Textures",
   "edit.snap": "Snap to grid",
   "edit.snap_objects": "Snap to objects",
-  "edit.snap_objects.tip": "A Move drag catches flush on other objects and lines up edges and middles. It goes by each object's box, so round and mesh shapes catch at their box. Hold Alt to let go.",
+  "edit.snap_objects.tip": "A Move drag catches flush on other objects\nand lines up edges and middles. It goes by\neach object's box, so round and mesh shapes\ncatch at their box. Hold Alt to let go.",
   "edit.align": "Align axis",
   "edit.align.to": "Align to",
   "edit.align.edge": "Align edge",
