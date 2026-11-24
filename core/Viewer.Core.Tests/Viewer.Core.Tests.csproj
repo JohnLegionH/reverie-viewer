@@ -25,6 +25,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Two seconds of a 440 Hz tone in each stream format the parcel music player reads (made with ffmpeg; no music, no copyright). -->
+    <Content Include="Music\Data\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Viewer.Core\Viewer.Core.csproj" />
     <!-- The host logic (floor, string table, engine-log route, login model) is plain .NET and tested here. -->
     <ProjectReference Include="..\..\host\Viewer.Shell\Viewer.Shell.csproj" />

@@ -88,7 +88,7 @@ public static class CaptureFile
         or GroupsListed or ActiveGroupChanged or GroupTitlesListed or GroupChatJoined or GroupNoticeReceived
         or TeleportProgressed or TeleportOffered or TeleportRequested or ServerAlert or ParcelCollision or CoarseLocationsUpdated or FriendLocated
         or Viewer.Core.Inventory.InventorySkeletonReceived or Viewer.Core.Inventory.InventoryFolderFetched or Viewer.Core.Inventory.InventoryChanged or Viewer.Core.Inventory.OutfitCommandFinished or Viewer.Core.Inventory.LookRebuildFinished
-        or SitResponded or ObjectPropertiesReceived or ParcelDetailsReceived or AgentParcelChanged
+        or SitResponded or ObjectPropertiesReceived or ParcelDetailsReceived or AgentParcelChanged or ParcelMusicReceived
         or TaskInventoryReceived or ContentsCopied or PayPriceReceived
         or ScriptDialogReceived or ScriptPermissionRequested or LoadUrlRequested or MapDestinationRequested or ObjectInstantMessage or InventoryOffered);
 

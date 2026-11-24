@@ -55,6 +55,8 @@ public static class PreferenceCatalog
         P(Sound.AudioLevels.MuteSounds, PrefPage.Sound, PrefApply.Live),
         P(Sound.AudioLevels.Ambient, PrefPage.Sound, PrefApply.Live, 0, 1),
         P(Sound.AudioLevels.MuteAmbient, PrefPage.Sound, PrefApply.Live),
+        P(Sound.AudioLevels.Music, PrefPage.Sound, PrefApply.Live, 0, 1),
+        P(Sound.AudioLevels.MuteMusic, PrefPage.Sound, PrefApply.Live),
         P(Sound.AudioLevels.CollisionSounds, PrefPage.Sound, PrefApply.Live),
         P(Sound.AudioLevels.GestureSounds, PrefPage.Sound, PrefApply.Live),
         P(Sound.UiSoundSettings.Volume, PrefPage.Sound, PrefApply.Live, 0, 1),

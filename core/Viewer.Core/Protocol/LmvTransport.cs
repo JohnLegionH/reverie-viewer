@@ -1194,7 +1194,9 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     {
         if (e.SequenceID == ParcelInfoSequence && e.Parcel is { } pr)
             Raise(ToParcelDetails(pr));
-        if (ToAgentParcel(e.SequenceID, e.Parcel?.Name, e.Parcel?.LocalID ?? 0, MapOrNull(e.Simulator), e.Parcel?.Flags.HasFlag(ParcelFlags.SoundLocal) == true, e.Parcel?.Bitmap) is { } here)
+        if (ToParcelMusic(e.SequenceID, e.Parcel?.LocalID ?? 0, e.Parcel?.MusicURL, MapOrNull(e.Simulator)) is { } music)
+            Raise(music);
+        if (ToAgentParcel(e.SequenceID, e.Parcel?.Name, e.Parcel?.LocalID ?? 0, MapOrNull(e.Simulator), e.Parcel?.Flags.HasFlag(ParcelFlags.SoundLocal) == true, e.Parcel?.Bitmap, e.Parcel?.MusicURL) is { } here)
         {
             Raise(here);
             if (here.LocalId > 0 && e.Simulator is { } hereSim && IsAgentsRegion(hereSim))
@@ -1206,8 +1208,13 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
 
     /// <summary>The agent's own parcel from a parcel-properties message; null for the numbers that mean something else (a selected
     /// parcel, one that denies entry, the one under the pointer, About Land's request).</summary>
-    internal static AgentParcelChanged? ToAgentParcel(int sequenceId, string? name, int localId, SimRef? sim, bool soundLocal = false, byte[]? bitmap = null) =>
-        sequenceId >= 0 && sequenceId != ParcelInfoSequence && sim is not null ? new AgentParcelChanged(sim, name ?? "", localId, soundLocal, bitmap) : null;
+    internal static AgentParcelChanged? ToAgentParcel(int sequenceId, string? name, int localId, SimRef? sim, bool soundLocal = false, byte[]? bitmap = null, string? musicUrl = null) =>
+        sequenceId >= 0 && sequenceId != ParcelInfoSequence && sim is not null ? new AgentParcelChanged(sim, name ?? "", localId, soundLocal, bitmap, musicUrl ?? "") : null;
+
+    /// <summary>The music address of the parcel a parcel-properties message describes, with any sequence number except the ones that mean the
+    /// message describes no parcel the agent could stand in (a parcel that keeps the agent out); null for those and for a message without a parcel.</summary>
+    internal static ParcelMusicReceived? ToParcelMusic(int sequenceId, int localId, string? musicUrl, SimRef? sim) =>
+        sim is not null && localId > 0 && ToParcelCollision(sequenceId) is null ? new ParcelMusicReceived(sim, localId, musicUrl ?? "") : null;
 
     /// <summary>A parcel as About Land shows it.</summary>
     internal static ParcelDetailsReceived ToParcelDetails(Parcel pr) => new(pr.LocalID, pr.Name ?? "", pr.Desc ?? "", pr.OwnerID.Guid, pr.IsGroupOwned, pr.Area,

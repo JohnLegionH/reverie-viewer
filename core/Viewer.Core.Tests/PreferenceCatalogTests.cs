@@ -55,6 +55,8 @@ public class PreferenceCatalogTests
         new("audio_mute_sounds", PrefPage.Sound, PrefKind.Switch, Live, PrefScope.Global, false),
         new("audio_level_ambient", PrefPage.Sound, PrefKind.Real, Live, PrefScope.Global, 0.5, 0, 1),
         new("audio_mute_ambient", PrefPage.Sound, PrefKind.Switch, Live, PrefScope.Global, false),
+        new("audio_level_music", PrefPage.Sound, PrefKind.Real, Live, PrefScope.Global, 0.5, 0, 1),
+        new("audio_mute_music", PrefPage.Sound, PrefKind.Switch, Live, PrefScope.Global, false),
         new("audio_collision_sounds", PrefPage.Sound, PrefKind.Switch, Live, PrefScope.Global, true),
         new("audio_gesture_sounds", PrefPage.Sound, PrefKind.Switch, Live, PrefScope.Global, true),
         new("ui_sound_volume", PrefPage.Sound, PrefKind.Real, Live, PrefScope.Global, 0.5, 0, 1),
