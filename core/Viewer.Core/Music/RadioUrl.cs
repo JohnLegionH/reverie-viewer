@@ -103,12 +103,12 @@ public static class FormatSniffer
         return sampleIndex < 12 && length >= 7 ? length : 0;
     }
 
-    private static readonly int[] V1L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
-    private static readonly int[] V1L2 = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384];
-    private static readonly int[] V1L1 = [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448];
-    private static readonly int[] V2L3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
-    private static readonly int[] V2L1 = [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256];
-    private static readonly int[] Rates = [44100, 48000, 32000];
+    private static ReadOnlySpan<int> V1L3 => [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+    private static ReadOnlySpan<int> V1L2 => [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384];
+    private static ReadOnlySpan<int> V1L1 => [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448];
+    private static ReadOnlySpan<int> V2L3 => [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+    private static ReadOnlySpan<int> V2L1 => [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256];
+    private static ReadOnlySpan<int> Rates => [44100, 48000, 32000];
 
     /// <summary>The length of an MPEG audio frame (layers I to III) from its header, or 0 when the header does not hold together.</summary>
     internal static int MpegLength(ReadOnlySpan<byte> h)
@@ -122,9 +122,9 @@ public static class FormatSniffer
         int rate = Rates[rateIndex] / (v1 ? 1 : version == 2 ? 2 : 4);
         int kbps = layer switch
         {
-            3 => (v1 ? V1L1 : V2L1)[bitrateIndex],
-            2 => (v1 ? V1L2 : V2L3)[bitrateIndex],
-            _ => (v1 ? V1L3 : V2L3)[bitrateIndex],
+            3 => v1 ? V1L1[bitrateIndex] : V2L1[bitrateIndex],
+            2 => v1 ? V1L2[bitrateIndex] : V2L3[bitrateIndex],
+            _ => v1 ? V1L3[bitrateIndex] : V2L3[bitrateIndex],
         };
         return layer == 3 ? (12 * kbps * 1000 / rate + padding) * 4
             : layer == 1 && !v1 ? 72 * kbps * 1000 / rate + padding

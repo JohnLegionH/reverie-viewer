@@ -83,7 +83,7 @@ public sealed class ParcelMusicControllerTests
 
     [Theory]
     [InlineData("ftp://radio.example.org/x")]
-    [InlineData("file:///c:/x.mp3")]
+    [InlineData("file:///music/x.mp3")]
     [InlineData("not an address")]
     public void AnAddressThatIsNotHttpIsNeverPlayed(string address)
     {

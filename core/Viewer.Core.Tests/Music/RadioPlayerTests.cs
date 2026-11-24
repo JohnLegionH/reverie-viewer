@@ -154,7 +154,7 @@ public sealed class RadioPlayerTests
     [InlineData("https://example.org:8443/live.mp3", true)]
     [InlineData("  http://example.org:8040  ", true)]
     [InlineData("HTTP://EXAMPLE.ORG/x", true)]
-    [InlineData("file:///c:/music.mp3", false)]
+    [InlineData("file:///music/a.mp3", false)]
     [InlineData("ftp://example.org/x.mp3", false)]
     [InlineData("rtsp://example.org/x", false)]
     [InlineData("example.org/stream", false)]
@@ -167,7 +167,7 @@ public sealed class RadioPlayerTests
 
     [Fact]
     public void ASiteIsTheHostNameInLowerCase() =>
-        Assert.Equal("uk7.internet-radio.com", RadioUrl.Site(new Uri("http://UK7.internet-radio.com:8040/x")));
+        Assert.Equal("radio.example.org", RadioUrl.Site(new Uri("http://Radio.Example.ORG:8040/x")));
 
     [Fact]
     public void PlaylistsAreReadForTheirStreams()
@@ -175,7 +175,7 @@ public sealed class RadioPlayerTests
         var b = new Uri("http://example.org/dir/list.pls");
         Assert.Equal(["http://a.example.org/s", "http://b.example.org/t"], PlaylistParser.Parse("[playlist]\nNumberOfEntries=2\nFile1=http://a.example.org/s\nTitle1=A\nFile2=http://b.example.org/t\n", b).Select(u => u.ToString()));
         Assert.Equal(["http://a.example.org/s", "http://example.org/dir/rel.mp3"], PlaylistParser.Parse("#EXTM3U\n#EXTINF:-1,A\nhttp://a.example.org/s\n\nrel.mp3\n", b).Select(u => u.ToString()));
-        Assert.Empty(PlaylistParser.Parse("[playlist]\nFile1=file:///c:/x.mp3\nFile2=ftp://example.org/x\n", b));
+        Assert.Empty(PlaylistParser.Parse("[playlist]\nFile1=file:///music/x.mp3\nFile2=ftp://example.org/x\n", b));
     }
 
     [Fact]
