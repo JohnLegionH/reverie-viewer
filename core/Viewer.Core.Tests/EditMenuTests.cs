@@ -143,6 +143,57 @@ public class EditMenuTests
     }
 
     [Fact]
+    public void An_object_worn_by_someone_else_has_neither_Edit_nor_Delete()
+    {
+        var other = new PrimInteraction(0, Own);
+        var ids = ContextMenus.ForObject(new ObjectMenuContext(other, other, Attachment: false, SittingOnIt: false, Sitting: false, WornByOther: true)).Select(e => e.Id).ToList();
+        Assert.DoesNotContain("edit", ids);
+        Assert.DoesNotContain("delete", ids);
+        Assert.Contains("touch", ids);   // the rest of the menu is as before
+    }
+
+    [Fact]
+    public void Edit_on_an_object_already_in_the_build_selection_sends_its_select_again_after_the_right_click_released_it()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.E.SelectTool(BuildTool.Edit);
+        r.E.SelectMany([1], shift: false);
+        r.Sent.Clear();
+        Assert.True(r.E.EditObject(1));
+        Assert.Equal([1u], r.E.Selection);
+        Assert.Contains(r.Sent, i => i is ObjectPropertiesIntent { Hold: true });   // the region is told it is selected
+    }
+
+    [Fact]
+    public void Edit_selects_the_object_even_with_Select_Only_My_Objects_on_as_the_official_menu_does()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), 0);   // not mine
+        r.Prim(3, new Vector3(50, 50, 30), Own);
+        r.E.SelectTool(BuildTool.Edit);
+        r.E.SelectMany([3], shift: false);
+        r.E.SelectOwnedOnly = true;
+        Assert.True(r.E.EditObject(1));
+        Assert.Equal([1u], r.E.Selection);
+    }
+
+    [Fact]
+    public void Edit_takes_the_root_with_Edit_linked_on_and_lets_go_of_a_selected_part()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Own);
+        r.Prim(2, new Vector3(10, 10, 32), Own, parent: 1);
+        r.E.SelectTool(BuildTool.Edit);
+        r.E.EditLinked = true;
+        r.E.SelectMany([2], shift: false);
+        Assert.Equal([2u], r.E.Selection);
+        Assert.True(r.E.EditObject(2));
+        Assert.Equal([1u], r.E.Selection);
+        Assert.True(r.E.EditLinked);
+    }
+
+    [Fact]
     public void Edit_refuses_an_object_that_is_not_in_the_world_or_is_worn()
     {
         var r = new Rig();

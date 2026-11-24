@@ -187,7 +187,14 @@ public sealed partial class EditController
             return false;
         SelectTool(BuildTool.Edit);
         _faceSelection.Clear();
-        SelectMany([RootOf(local)], shift: false);   // the root, whatever Edit linked says: the right-click Edit takes the whole linkset
+        // the root, whatever Edit linked says (the right-click Edit takes the whole linkset), and whatever Select Only My Objects says
+        // (the official menu's Edit does not look at it); the select is sent even when the root was already in the selection, because
+        // the right-click let go of it on the region just before
+        uint root = RootOf(local);
+        SendDeselect(_selection.Where(s => s != root));
+        _selection.Clear();
+        Add(root);
+        Changed?.Invoke();
         return true;
     }
 
