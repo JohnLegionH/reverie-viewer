@@ -88,13 +88,12 @@ public sealed partial class PrefPageView
         AddVolumeRow(rows, "music", AudioLevels.Music.Key, AudioLevels.MuteMusic.Key);
         AddVolumeRow(rows, "interface", UiSoundSettings.Volume.Key, UiSoundSettings.MuteAll.Key);
 
-        // Options: plain tick boxes
-        Section(page, "options", false, null, null, out var options);
-        // two to a line, so the closed More and Interface sounds headers below are in view when the page is first opened
+        // Options: plain tick boxes, two to a line, under the volumes in the same section. A heading of their own cost the page the height
+        // of a row, which pushed the closed Interface sounds header out of view once the Music row was added.
         var optionGrid = new GridContainer { Name = "sound_options", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         optionGrid.AddThemeConstantOverride("h_separation", 24);
         optionGrid.AddThemeConstantOverride("v_separation", 4);
-        options.AddChild(optionGrid);
+        volume.AddChild(optionGrid);
         FitOptions = () => FitOptionColumns(optionGrid);
         Resized += () => FitOptions();
         foreach (var key in new[] { AudioLevels.CollisionSounds.Key, AudioLevels.GestureSounds.Key, AudioLevels.Mono.Key, UiSoundSettings.MuteWhenMinimized.Key })
