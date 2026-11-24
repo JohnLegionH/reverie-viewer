@@ -17,7 +17,7 @@ public readonly record struct MirrorPart(uint Local, uint Parent, Vector3 Positi
 /// a sphere, most prims) onto the image of the old one: the image of the part's frame is a left-handed frame, and flipping the local axis
 /// that lies most nearly along the plane's normal makes it right-handed again, which leaves an unturned part unturned. Mirroring twice
 /// therefore gives the starting place and turn back. A part that is not symmetric (a sculpt, a mesh, a twisted or sheared prim) is only
-/// placed this way; its shape is the next step's work. Our own code, no source adapted.
+/// placed this way here; <see cref="ShapeMirror"/> flips its shape. Our own code, no source adapted.
 /// </summary>
 public static class MirrorRules
 {
@@ -37,14 +37,15 @@ public static class MirrorRules
     }
 
     /// <summary>The turn of the image of a part turned by <paramref name="rotation"/>: the reflection of the part's frame, with the local
-    /// axis most nearly along the normal flipped so that the result is a proper rotation (the lowest axis wins a tie).</summary>
-    public static Quaternion Rotation(Quaternion rotation, Vector3 normal)
+    /// axis most nearly along the normal flipped so that the result is a proper rotation (the lowest axis wins a tie).
+    /// <paramref name="allowed"/> is a mask of the local axes (1 X, 2 Y, 4 Z) the part's shape can be flipped about; only those are
+    /// considered, so a part whose shape can be flipped about X alone is turned to be flipped about X.</summary>
+    public static Quaternion Rotation(Quaternion rotation, Vector3 normal, int allowed = 7)
     {
         var n = Vector3.Normalize(normal);
         var q = Quaternion.Normalize(rotation);
         var axes = new[] { Vector3.Transform(Vector3.UnitX, q), Vector3.Transform(Vector3.UnitY, q), Vector3.Transform(Vector3.UnitZ, q) };
-        float best = axes.Max(a => MathF.Abs(Vector3.Dot(a, n)));
-        int flip = Array.FindIndex(axes, a => MathF.Abs(Vector3.Dot(a, n)) >= best - 1e-4f);
+        int flip = FlipAxis(rotation, normal, allowed);
         var image = axes.Select(a => a - 2f * Vector3.Dot(a, n) * n).ToArray();
         image[flip] = -image[flip];
         var m = new Matrix4x4(image[0].X, image[0].Y, image[0].Z, 0, image[1].X, image[1].Y, image[1].Z, 0, image[2].X, image[2].Y, image[2].Z, 0, 0, 0, 0, 1);
@@ -52,7 +53,23 @@ public static class MirrorRules
         return turned.W < 0 ? new Quaternion(-turned.X, -turned.Y, -turned.Z, -turned.W) : turned;
     }
 
+    /// <summary>The local axis (0 X, 1 Y, 2 Z) of a part turned by <paramref name="rotation"/> that <see cref="Rotation"/> flips: of the
+    /// axes in <paramref name="allowed"/> (a mask; none counts as all), the one lying most nearly along the normal, the lowest on a tie.</summary>
+    public static int FlipAxis(Quaternion rotation, Vector3 normal, int allowed = 7)
+    {
+        if ((allowed & 7) == 0)
+            allowed = 7;
+        var n = Vector3.Normalize(normal);
+        var q = Quaternion.Normalize(rotation);
+        var along = new[] { Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ }.Select(a => MathF.Abs(Vector3.Dot(Vector3.Transform(a, q), n))).ToArray();
+        float best = Enumerable.Range(0, 3).Where(i => (allowed & (1 << i)) != 0).Max(i => along[i]);
+        return Enumerable.Range(0, 3).First(i => (allowed & (1 << i)) != 0 && along[i] >= best - 1e-4f);
+    }
+
     /// <summary>Every part's image about the plane, in the same order with the same ids.</summary>
-    public static IReadOnlyList<MirrorPart> Mirror(IReadOnlyList<MirrorPart> parts, Vector3 point, Vector3 normal) =>
-        [.. parts.Select(p => p with { Position = Reflect(p.Position, point, normal), Rotation = Rotation(p.Rotation, normal) })];
+    public static IReadOnlyList<MirrorPart> Mirror(IReadOnlyList<MirrorPart> parts, Vector3 point, Vector3 normal) => Mirror(parts, point, normal, _ => 7);
+
+    /// <summary>As above, each part turned to be flipped about one of the local axes <paramref name="allowed"/> gives for its id.</summary>
+    public static IReadOnlyList<MirrorPart> Mirror(IReadOnlyList<MirrorPart> parts, Vector3 point, Vector3 normal, Func<uint, int> allowed) =>
+        [.. parts.Select(p => p with { Position = Reflect(p.Position, point, normal), Rotation = Rotation(p.Rotation, normal, allowed(p.Local)) })];
 }

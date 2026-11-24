@@ -101,6 +101,7 @@ public static class BuildLayout
         R("mirror_axis", BuildSection.Arrange, "edit.mirror", "Mirror", "reflect", "flip", "symmetric", "axis"),
         R("mirror_plane", BuildSection.Arrange, "edit.mirror.plane", "Mirror", "plane", "selection centre", "pivot"),
         R("mirror_button", BuildSection.Arrange, "edit.mirror.apply", "Mirror", "reflect", "flip", "symmetric"),
+        R("mirror_copy_button", BuildSection.Arrange, "edit.mirror.copy.apply", "Mirror a copy", "copy", "duplicate", "reflect", "symmetric"),
 
         // Shape (the official Object tab's building block)
         R("prim_type", BuildSection.Shape, "edit.prim_type", "Building Block Type", "prim type", "shape"),

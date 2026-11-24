@@ -78,7 +78,9 @@ public partial class EditPanel : VBoxContainer
     private readonly OptionButton _distributeAxis;
     private readonly Button[] _distributeMode = new Button[2];
     private readonly OptionButton _mirrorAxis, _mirrorPlane;
-    private readonly Button _mirror;
+    private readonly Button _mirror, _mirrorCopy, _mirrorNoticeOk;
+    private readonly VBoxContainer _mirrorNotice;
+    private readonly Label _mirrorNoticeText;
     private readonly CheckBox _locked, _physical, _temporary, _phantom;
     private readonly OptionButton _type, _hole;
     private readonly Dictionary<string, (Control Row, SpinBox A, SpinBox? B)> _shape = new();
@@ -344,6 +346,20 @@ public partial class EditPanel : VBoxContainer
         _mirror.AccessibilityName = _mirror.Text;
         _mirror.Pressed += () => _edit()?.Mirror((ArrangeAxis)_mirrorAxis.GetItemId(_mirrorAxis.Selected), (MirrorPlane)_mirrorPlane.GetItemId(_mirrorPlane.Selected));
         arrange.AddChild(Line("mirror_button", "edit.mirror.apply", _mirror));
+        // Mirror a copy: copy the linkset where it stands, then mirror the copy (the originals stay)
+        _mirrorCopy = new Button { Name = "mirror_copy", Text = _s.Get("edit.mirror.copy"), TooltipText = _s.Get("edit.mirror.copy.tip"), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _mirrorCopy.AccessibilityName = _mirrorCopy.Text;
+        _mirrorCopy.Pressed += () => _edit()?.MirrorCopy((ArrangeAxis)_mirrorAxis.GetItemId(_mirrorAxis.Selected), (MirrorPlane)_mirrorPlane.GetItemId(_mirrorPlane.Selected));
+        arrange.AddChild(Line("mirror_copy_button", "edit.mirror.copy.apply", _mirrorCopy));
+        // the notice naming the parts Mirror could only place (a mesh keeps its own handedness); it closes with OK
+        _mirrorNotice = new VBoxContainer { Name = "mirror_notice", Visible = false };
+        _mirrorNoticeText = new Label { Name = "mirror_notice_text", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _mirrorNotice.AddChild(_mirrorNoticeText);
+        _mirrorNoticeOk = new Button { Name = "mirror_notice_ok", Text = _s.Get("edit.mirror.notice.ok"), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
+        _mirrorNoticeOk.AccessibilityName = _mirrorNoticeOk.Text;
+        _mirrorNoticeOk.Pressed += () => _edit()?.CloseMirrorNotice();
+        _mirrorNotice.AddChild(_mirrorNoticeOk);
+        arrange.AddChild(_mirrorNotice);
 
         // ---------------- Shape ----------------
         var shape = Body(BuildSection.Shape);
@@ -894,6 +910,11 @@ public partial class EditPanel : VBoxContainer
             var mirrorStatus = e?.MirrorStatus ?? ArrangeRefusal.TooFew;
             _mirror.Disabled = mirrorStatus != ArrangeRefusal.None;
             _mirror.TooltipText = _s.Get(e?.MirrorRefusalKey ?? (e is null ? "edit.mirror.no.few" : "edit.mirror.tip"));
+            _mirrorCopy.Disabled = e is null || !e.CanMirrorCopy;
+            _mirrorCopy.TooltipText = _s.Get(e is { CanMirrorCopy: true } ? "edit.mirror.copy.tip" : e?.MirrorRefusalKey ?? "edit.mirror.no.copy");
+            var notice = e?.MirrorNotice ?? [];
+            _mirrorNotice.Visible = notice.Count > 0;
+            _mirrorNoticeText.Text = notice.Count > 0 ? _s.Get("edit.mirror.notice", string.Join(", ", notice)) : "";
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);
             _ownedOnly.SetPressedNoSignal(e?.SelectOwnedOnly ?? false);

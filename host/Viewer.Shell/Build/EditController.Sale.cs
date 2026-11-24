@@ -82,6 +82,7 @@ public sealed partial class EditController
     /// (the notification NoCopyPermsNoObject).</summary>
     public string? Duplicate()
     {
+        _mirrorCopy = null;   // a plain Duplicate cancels a Mirror a copy still waiting
         if (_selection.Count == 0)
             return "duplicate.none";
         if (_selection.Any(l => Find(l) is { AttachmentPoint: not null }))
@@ -108,6 +109,14 @@ public sealed partial class EditController
     /// <summary>An object arrived: when it is a copy Duplicate asked for (the region sends it flagged as made selected, owned by the agent),
     /// it becomes part of the selection. True when it was one.</summary>
     public bool CopyArrived(ObjectState o)
+    {
+        bool joined = CopyJoins(o);
+        if (_mirrorCopy is { } pending)
+            MirrorCopyStep(pending, o, joined);   // Mirror a copy: mirror the copies once they are all here
+        return joined;
+    }
+
+    private bool CopyJoins(ObjectState o)
     {
         if (_copiesAt.Count == 0 || _clock() > _copiesUntil)
         {

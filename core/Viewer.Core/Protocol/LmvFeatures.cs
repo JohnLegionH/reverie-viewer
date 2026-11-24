@@ -18,7 +18,7 @@ namespace Viewer.Core.Protocol;
 internal static class LmvFeatures
 {
     /// <summary>ObjectExtraParams' block types: flexible, light, the light's image.</summary>
-    public const ushort ParamFlexible = 0x10, ParamLight = 0x20, ParamLightImage = 0x40;
+    public const ushort ParamFlexible = 0x10, ParamLight = 0x20, ParamSculpt = 0x30, ParamLightImage = 0x40;
 
     /// <summary>A script's asset and inventory types (LSL text).</summary>
     public const sbyte TypeLsl = 10, InvTypeLsl = 10;
@@ -31,6 +31,14 @@ internal static class LmvFeatures
             ? new Primitive.FlexibleData { Softness = v.Softness, Gravity = v.Gravity, Drag = v.Drag, Wind = v.Wind, Tension = v.Tension,
                 Force = new LibreMetaverse.Vector3(v.Force.X, v.Force.Y, v.Force.Z) }.GetBytes()
             : null)],
+    };
+
+    /// <summary>The sculpt block: the map's id and the sculpt type with its invert and mirror bits in one byte (17 bytes, as
+    /// LLSculptParams packs them).</summary>
+    public static ObjectExtraParamsPacket Sculpt(UUID agent, UUID session, uint local, Guid texture, int typeAndFlags) => new()
+    {
+        AgentData = { AgentID = agent, SessionID = session },
+        ObjectData = [Block(local, ParamSculpt, [.. new UUID(texture).GetBytes(), (byte)typeAndFlags])],
     };
 
     /// <summary>One block: in use with its data, or not in use (the official viewer sends a block it turns off with no data).</summary>
@@ -119,6 +127,7 @@ internal static class LmvFeatures
     public static Packet? Packet(UUID agent, UUID session, UUID group, Viewer.Core.Actions.ActionIntent edit) => edit switch
     {
         Viewer.Core.Actions.SetFlexibleIntent f => Flexible(agent, session, f.LocalId, f.Flexible),
+        Viewer.Core.Actions.SetSculptIntent sc => Sculpt(agent, session, sc.LocalId, sc.Texture, sc.TypeAndFlags),
         Viewer.Core.Actions.SetLightIntent l => Light(agent, session, l.LocalId, l.Light, l.Projector),
         Viewer.Core.Actions.SetPhysicsIntent p => Physics(agent, session, p.LocalId, p.Physics, p.Physical, p.Temporary, p.Phantom),
         Viewer.Core.Actions.SetObjectMaterialIntent m => Material(agent, session, m.LocalId, m.Material),

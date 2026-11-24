@@ -195,6 +195,15 @@ public sealed record SetFlexibleIntent(uint LocalId, FlexibleParams? Flexible) :
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
 
+/// <summary>A sculpted prim's map and type: the sculpt block of ObjectExtraParams. <paramref name="TypeAndFlags"/> is the sculpt type with the
+/// invert (0x40) and mirror (0x80) bits, as the protocol carries them.</summary>
+public sealed record SetSculptIntent(uint LocalId, Guid Texture, int TypeAndFlags) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => EditText.Object(LocalId);
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
+
 /// <summary>A prim's light on (with its settings and, when given, its projector) or off (<paramref name="Light"/> null).</summary>
 public sealed record SetLightIntent(uint LocalId, LightParams? Light, ProjectorParams? Projector) : ActionIntent
 {

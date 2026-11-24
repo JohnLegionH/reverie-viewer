@@ -455,6 +455,10 @@ public partial class Main
                         "path_begin" => shape with { PathBegin = v },
                         "path_end" => shape with { PathEnd = v },
                         "taper_x" => shape with { PathScaleX = 1 - v },
+                        "shear_x" => shape with { PathShearX = v },
+                        "shear_y" => shape with { PathShearY = v },
+                        "profile_begin" => shape with { ProfileBegin = v },
+                        "profile_end" => shape with { ProfileEnd = v },
                         "taper_y" => shape with { PathScaleY = 1 - v },
                         _ => shape,
                     };
@@ -505,6 +509,14 @@ public partial class Main
                 var mi = (text ?? "").Split(':');
                 if (mi.Length == 2 && Enum.TryParse<ArrangeAxis>(mi[0], true, out var mirrorAxis))
                     done = e.Mirror(mirrorAxis, mi[1].StartsWith("p", StringComparison.OrdinalIgnoreCase) ? MirrorPlane.Pivot : MirrorPlane.SelectionCentre);
+                break;
+            }
+            case "mirror_copy":
+            {
+                // text: axis:plane (as for mirror): copy the selection where it stands, then mirror the copy about the original's plane
+                var mc = (text ?? "").Split(':');
+                if (mc.Length == 2 && Enum.TryParse<ArrangeAxis>(mc[0], true, out var copyAxis))
+                    done = e.MirrorCopy(copyAxis, mc[1].StartsWith("p", StringComparison.OrdinalIgnoreCase) ? MirrorPlane.Pivot : MirrorPlane.SelectionCentre);
                 break;
             }
             case "mirror_plan":
@@ -614,7 +626,7 @@ public partial class Main
             tool = e.Tool.ToString().ToLowerInvariant(),
             manip = e.Manip.ToString().ToLowerInvariant(),
             snap = e.SnapEnabled,
-            arrange = new { linksets = e.ArrangeLinksets, refusal = e.ArrangeStatus.ToString().ToLowerInvariant(), distribute_refusal = e.DistributeStatus.ToString().ToLowerInvariant(), mirror_refusal = e.MirrorStatus.ToString().ToLowerInvariant() },
+            arrange = new { linksets = e.ArrangeLinksets, refusal = e.ArrangeStatus.ToString().ToLowerInvariant(), distribute_refusal = e.DistributeStatus.ToString().ToLowerInvariant(), mirror_refusal = e.MirrorStatus.ToString().ToLowerInvariant(), mirror_copy = e.CanMirrorCopy, mirror_notice = e.MirrorNotice.ToArray() },
             pivot = new
             {
                 mode = e.PivotChoice.ToString().ToLowerInvariant(), unit = e.PivotUnitChoice.ToString().ToLowerInvariant(),
@@ -668,6 +680,9 @@ public partial class Main
                 rotation = new[] { EditNumbers.ToEulerDegrees(prim.Rotation).X, EditNumbers.ToEulerDegrees(prim.Rotation).Y, EditNumbers.ToEulerDegrees(prim.Rotation).Z },
                 type = shapeNow is null ? null : ShapeRules.KindOf(shapeNow).ToString(),
                 hollow = shapeNow?.ProfileHollow, twist_begin = shapeNow?.PathTwistBegin, twist_end = shapeNow?.PathTwist,
+                shear_x = shapeNow?.PathShearX, shear_y = shapeNow?.PathShearY, scale_x = shapeNow?.PathScaleX, scale_y = shapeNow?.PathScaleY,
+                path_begin = shapeNow?.PathBegin, path_end = shapeNow?.PathEnd, profile_begin = shapeNow?.ProfileBegin, profile_end = shapeNow?.ProfileEnd,
+                sculpt_type = shapeNow?.SculptType, sculpt_flags = shapeNow?.SculptFlags,
                 read_only = access?.ReadOnly, can_place = access?.CanPlace, can_reshape = access?.CanReshape, locked = access?.Locked,
                 prims_in_linkset = s.World.Snapshot().Objects.Values.Count(o => o.Id.LocalId == prim.Id.LocalId || o.ParentLocalId == prim.Id.LocalId),
             },
