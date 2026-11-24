@@ -306,6 +306,19 @@ public class ArrangeTests
     }
 
     [Fact]
+    public void A_part_of_a_worn_object_refuses_the_align()
+    {
+        var r = ThreeBoxes();
+        r.Prim(5, new Vector3(0.3f, 0, 0), Vector3.One, parent: 500, attach: 2);
+        r.Prim(6, new Vector3(0.1f, 0, 0), Vector3.One, parent: 5);   // a part of the worn object: only its root carries the attachment point
+        r.C.EditLinked = true;
+        r.C.SelectMany([1, 2, 6], shift: false);
+        Assert.Equal(ArrangeRefusal.Attachment, r.C.ArrangeStatus);
+        Assert.False(r.C.Align(ArrangeAxis.X, ArrangeEdge.Max, ArrangeTarget.SelectionBox));
+        Assert.DoesNotContain(r.Sent, i => i is MoveLinksetsIntent);
+    }
+
+    [Fact]
     public void Nothing_selected_has_nothing_to_align()
     {
         var r = ThreeBoxes();

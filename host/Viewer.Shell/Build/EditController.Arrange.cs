@@ -29,7 +29,7 @@ public sealed partial class EditController
         get
         {
             var roots = ArrangeRoots();
-            bool worn = _selection.Any(l => Find(l)?.AttachmentPoint is not null);
+            bool worn = _selection.Any(l => Find(RootOf(l))?.AttachmentPoint is not null || Find(l)?.AttachmentPoint is not null);
             return ArrangeRules.Refusal(roots.Count, worn, roots.All(r => Access(r).CanPlace));
         }
     }
