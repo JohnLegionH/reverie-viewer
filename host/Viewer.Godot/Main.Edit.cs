@@ -646,6 +646,13 @@ public partial class Main
                         planar = st.TexGen == Viewer.Core.World.TexGen.Planar, material = fo.Materials?[f.Face].RenderMaterialId ?? Guid.Empty }
                     : null,
             }).ToArray(),
+            frame = (long)Engine.GetFramesDrawn(),
+            release = _releaseFrame < 0 ? null : new
+            {
+                frame = _releaseFrame,
+                first_frame = _firstDrawnAfterRelease?.Frame,
+                first_centre = _firstDrawnAfterRelease is { } fd ? new[] { fd.Centre.X, fd.Centre.Y, fd.Centre.Z } : null,
+            },
             handles_centre = _handlesDrawnAt is { } hc && (_handles?.Visible ?? false) ? new[] { hc.X, hc.Y, hc.Z } : null,
             face = e.FaceShown() is { } fs ? new
             {

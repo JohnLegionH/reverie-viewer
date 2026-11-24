@@ -41,7 +41,8 @@ $ErrorActionPreference = "Stop"
 Assert-ClaimGranted
 $script:port = $null; $script:token = $null; $script:proc = $null
 # The viewer this script started (and only that tree) is stopped when the script ends before the normal logout and quit
-function Stop-OwnViewer { if ($script:proc -and -not $script:proc.HasExited) { try { & taskkill /PID $script:proc.Id /T /F | Out-Null } catch { } } }
+. (Join-Path $PSScriptRoot "own-processes.ps1")
+function Stop-OwnViewer { if ($script:proc -and -not $script:proc.HasExited) { [void](Stop-OwnedTree $script:proc.Id) } }
 trap {
     Write-Output ("ERROR " + $_.Exception.GetType().Name + ": " + $_.Exception.Message); Write-Output $_.InvocationInfo.PositionMessage
     if ($script:port -and $script:token) { try { [void](Invoke-Raw $script:port "session" $script:token ('{"action":"logout"}')); Start-Sleep -Seconds 3; [void](Invoke-Raw $script:port "quit" $script:token) } catch { } }
