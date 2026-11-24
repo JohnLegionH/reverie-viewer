@@ -866,7 +866,7 @@ public partial class EditPanel : VBoxContainer
             var distributeStatus = e?.DistributeStatus ?? ArrangeRefusal.TooFew;
             string distributeWhy = distributeStatus switch
             {
-                ArrangeRefusal.Attachment => _s.Get("edit.align.no.attachment"),
+                ArrangeRefusal.Attachment => _s.Get("edit.distribute.no.attachment"),
                 ArrangeRefusal.NoMove => _s.Get("edit.align.no.move"),
                 ArrangeRefusal.TooFew => _s.Get("edit.distribute.no.few"),
                 _ => null,

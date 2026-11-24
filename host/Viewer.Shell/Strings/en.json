@@ -1041,6 +1041,7 @@
   "edit.distribute.tip_centres": "Space the selected linksets so the steps between their centres are equal; the two outermost stay where they are",
   "edit.distribute.tip_gaps": "Space the selected linksets so the gaps between their boxes are equal; the two outermost stay where they are",
   "edit.distribute.no.few": "Select three or more linksets to distribute them.",
+  "edit.distribute.no.attachment": "Worn objects cannot be distributed.",
   "edit.pivot": "Pivot point",
   "edit.pivot.centre": "Centre",
   "edit.pivot.root": "Root",
