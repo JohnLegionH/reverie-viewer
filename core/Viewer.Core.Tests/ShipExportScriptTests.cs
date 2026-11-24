@@ -171,4 +171,35 @@ public sealed class ShipExportScriptTests
         Assert.Equal("old pck", File.ReadAllText(Path.Combine(r.Dst, "Reverie.pck")));
         Assert.True(File.Exists(Path.Combine(r.Dst, "Old.dll")));
     }
+
+    [Fact]
+    public void The_exports_dev_folder_is_never_copied()
+    {
+        var r = new Rig();
+        r.Write(r.Src, "Reverie.pck", "new pck");
+        r.Write(r.Src, "dev/Reverie.exe", "a development export");
+        r.Write(r.Src, "dev/data_Viewer.Godot_windows_x86_64/NLayer.dll", "a development library");
+        var run = r.Ship();
+        Assert.Equal(0, run.ExitCode);
+        Assert.Equal("new pck", File.ReadAllText(Path.Combine(r.Dst, "Reverie.pck")));
+        Assert.False(Directory.Exists(Path.Combine(r.Dst, "dev")), run.Output);
+    }
+
+    [Fact]
+    public void A_destination_that_holds_a_dev_folder_is_refused_before_anything_is_copied_or_moved()
+    {
+        var r = new Rig();
+        r.Write(r.Src, "Reverie.pck", "new pck");
+        r.Write(r.Dst, "Reverie.pck", "old pck");
+        r.Write(r.Dst, "Old.dll", "an old library");
+        r.Write(r.Dst, "dev/Reverie.exe", "a development export");
+        var run = r.Ship();
+        Assert.Equal(1, run.ExitCode);
+        Assert.Contains("dev\\", run.Output);
+        Assert.Contains("FAILED", run.Output);
+        Assert.Equal("old pck", File.ReadAllText(Path.Combine(r.Dst, "Reverie.pck")));
+        Assert.True(File.Exists(Path.Combine(r.Dst, "Old.dll")));
+        Assert.True(File.Exists(Path.Combine(r.Dst, "dev", "Reverie.exe")));
+        Assert.False(Directory.Exists(r.Aside));
+    }
 }
