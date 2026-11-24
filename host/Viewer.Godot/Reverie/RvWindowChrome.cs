@@ -23,7 +23,8 @@ public partial class RvWindowChrome : Control
     private readonly Action<string> _save;
     private readonly Vector2 _default, _minimum;
     private Vector2 _dragFrom;
-    private Rect2 _startRect;
+    private Rect2 _startRect, _beforeMinimise;
+    private float _travel;
     private int _grab;   // 0 none; 1 move; else a bit per edge: 2 left, 4 right, 8 top, 16 bottom
     private bool _placed;
 
@@ -105,12 +106,26 @@ public partial class RvWindowChrome : Control
 
     public void SetMinimised(bool on)
     {
+        if (on == Minimised)
+            return;
+        if (on)
+            _beforeMinimise = new Rect2(Position, Size);
         Minimised = on;
         Content.Visible = !on;
-        Size = new Vector2(Size.X, on ? ReverieTheme.TitleBarHeight + Edge : Math.Max(_startRect.Size.Y, _minimum.Y));
+        if (on)
+            Size = new Vector2(Size.X, ReverieTheme.TitleBarHeight + Edge);
+        else
+        {
+            Position = _beforeMinimise.Position;
+            Size = _beforeMinimise.Size;
+        }
     }
 
-    private void Remember() => _save(WindowChromePlace.Write(new ChromeRect(Position.X, Position.Y, Size.X, Size.Y)));
+    private void Remember()
+    {
+        var r = Minimised ? _beforeMinimise : new Rect2(Position, Size);
+        _save(WindowChromePlace.Write(new ChromeRect(r.Position.X, r.Position.Y, r.Size.X, r.Size.Y)));
+    }
 
     private void TitleInput(InputEvent e)
     {
@@ -156,11 +171,15 @@ public partial class RvWindowChrome : Control
     {
         if (grab == 0 && _grab != 0)
         {
+            bool click = _grab == 1 && _travel <= 4;
             _grab = 0;
+            if (click && Minimised)
+                SetMinimised(false);   // one click on a minimised window's bar restores it
             Remember();   // a move or a resize is kept when the button comes up
             return;
         }
         _grab = grab;
+        _travel = 0;
         _dragFrom = at;
         _startRect = new Rect2(Position, Size);
     }
@@ -176,6 +195,9 @@ public partial class RvWindowChrome : Control
             return;
         }
         var d = m.GlobalPosition - _dragFrom;
+        _travel = Math.Max(_travel, Math.Max(Math.Abs(d.X), Math.Abs(d.Y)));
+        if (Minimised && _grab != 1)
+            return;   // a minimised window moves but does not resize
         var r = _startRect;
         if (_grab == 1)
             r.Position += d;

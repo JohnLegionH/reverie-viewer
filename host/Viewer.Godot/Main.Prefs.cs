@@ -557,6 +557,7 @@ public partial class Main
     /// <summary>Arrow keys keep moving the avatar while the chat bar has the keyboard, when Preferences says so: the key is taken before the text field sees it.</summary>
     public override void _Input(InputEvent e)
     {
+        DragBoxInput(e);
         if (_shell is null || _driver is null || e is not InputEventKey k)
             return;
         var focus = _shell.Shell.Focus;

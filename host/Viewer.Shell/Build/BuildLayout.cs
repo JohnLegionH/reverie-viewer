@@ -87,7 +87,7 @@ public static class BuildLayout
         R("object_clipboard", BuildSection.Placement, "edit.copy_all", "copy", "paste", "clipboard"),
         R("pivot", BuildSection.Placement, "edit.pivot", "Pivot point", "Root", "Custom pivot", "Actual root"),
         R("pivot_offset", BuildSection.Placement, "edit.pivot.custom", "Pivot point", "Pivot X Y Z"),
-        R("pivot_unit", BuildSection.Placement, "edit.pivot.unit", "Pivot point", "Percent", "Metres"),
+        R("pivot_unit", BuildSection.Placement, "edit.pivot.unit", "Pivot point", "Percent", "Meters", "Metres"),
         R("snap", BuildSection.Placement, "edit.snap", "Snap", "Snap to grid", "grid"),
         R("stretch_both", BuildSection.Placement, "edit.stretch_both", "Stretch Both Sides"),
         R("stretch_textures", BuildSection.Placement, "edit.stretch_textures", "Stretch Textures"),
@@ -99,7 +99,7 @@ public static class BuildLayout
         R("distribute_axis", BuildSection.Arrange, "edit.distribute", "Distribute", "axis", "space evenly"),
         R("distribute_mode", BuildSection.Arrange, "edit.distribute.mode", "Distribute", "even", "equal", "spacing", "centres", "centers", "gaps"),
         R("mirror_axis", BuildSection.Arrange, "edit.mirror", "Mirror", "reflect", "flip", "symmetric", "axis"),
-        R("mirror_plane", BuildSection.Arrange, "edit.mirror.plane", "Mirror", "plane", "selection centre", "pivot"),
+        R("mirror_plane", BuildSection.Arrange, "edit.mirror.plane", "Mirror", "plane", "selection center", "selection centre", "pivot"),
         R("mirror_button", BuildSection.Arrange, "edit.mirror.apply", "Mirror", "reflect", "flip", "symmetric"),
         R("mirror_copy_button", BuildSection.Arrange, "edit.mirror.copy.apply", "Mirror a copy", "copy", "duplicate", "reflect", "symmetric"),
 
@@ -214,6 +214,10 @@ public static class BuildLayout
     /// <summary>The sections a search opens: those holding a row it found.</summary>
     public static IReadOnlyList<BuildSection> SectionsOf(IEnumerable<BuildRow> hits) =>
         hits.Where(r => r.Section is not null).Select(r => r.Section!.Value).Distinct().OrderBy(s => s).ToArray();
+
+    /// <summary>The count of selected linksets and parts that the window shows whatever is open or closed.</summary>
+    public static string SelectionCountLine(int linksets, int parts, StringTable strings) =>
+        strings.Get("edit.counts", new Counted("edit.counts.linksets", linksets), new Counted("edit.counts.parts", parts));
 
     /// <summary>The line under the search field: the tools a search found, else the sections and rows it found, or that nothing matched; empty
     /// for an empty search.</summary>

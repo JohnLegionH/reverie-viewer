@@ -9,8 +9,8 @@ namespace Viewer.Godot;
 /// <summary>
 /// One floating panel's frame, built in code from a <see cref="FloaterSpec"/>: a 24-unit title bar (dragged to move it) with a
 /// minimize and a close button only, the panel's content below, and a grip in the bottom-right corner (dragged to resize) when
-/// the spec allows it. Minimize folds the window up to its title bar; the same button opens it again. Where it is and whether
-/// it is open belong to the <see cref="FloaterManager"/>; this only draws that and reports the pointer's drags back to it.
+/// the spec allows it. Minimize folds the window up to its title bar; the same button, or one click on the bar, restores it at the
+/// size and place it had. Where it is, whether it is open and whether it is minimized belong to the <see cref="FloaterManager"/>; this only draws that and reports the pointer's drags back to it.
 /// Behaviour taken from the usual floating-window conventions, not from any viewer's layout files.
 /// </summary>
 public partial class FloaterFrame : PanelContainer
@@ -34,7 +34,9 @@ public partial class FloaterFrame : PanelContainer
     public PanelContainer TitleBar { get; }
 
     /// <summary>True while the window is folded up to its title bar.</summary>
-    public bool Minimized { get; private set; }
+    public bool Minimized => _floaters.IsMinimized(_id);
+
+    private bool _shownMinimized;
 
     public FloaterFrame(FloaterManager floaters, FloaterSpec spec, StringTable strings)
     {
@@ -127,17 +129,26 @@ public partial class FloaterFrame : PanelContainer
     private MarginContainer? _footer;
 
     /// <summary>Folds the window up to its title bar, or opens it again.</summary>
-    public void ToggleMinimized()
+    public void ToggleMinimized() => SetMinimized(!Minimized);
+
+    private void SetMinimized(bool on)
     {
-        Minimized = !Minimized;
+        _floaters.SetMinimized(_id, on);
+        if (!on)
+            _floaters.Focus(_id);
+    }
+
+    /// <summary>Draws the window as the manager has it, whole or as its title bar; the shell calls it as it puts the window in place.</summary>
+    public void ShowMinimized()
+    {
+        bool on = Minimized;
+        if (on == _shownMinimized)
+            return;
+        _shownMinimized = on;
         foreach (var child in Body.GetChildren())
             if (child is Control c && c != TitleBar)
-                c.Visible = !Minimized;
-        CustomMinimumSize = Minimized ? new Vector2(CustomMinimumSize.X, TitleBarHeight) : _restoreMinimum;
-        if (Minimized)
-            Size = new Vector2(Size.X, TitleBarHeight);
-        else
-            _floaters.Focus(_id);   // the manager's own size is put back on the next sync
+                c.Visible = !on;
+        CustomMinimumSize = on ? new Vector2(CustomMinimumSize.X, TitleBarHeight) : _restoreMinimum;
     }
 
     private Vector2 _restoreMinimum;
@@ -245,8 +256,8 @@ public partial class FloaterFrame : PanelContainer
                     _floaters.Focus(_id);
                     _drag.Begin(_floaters, _id, edges, b.GlobalPosition.X, b.GlobalPosition.Y);
                 }
-                else
-                    _drag.End();
+                else if (_drag.End() && Minimized)
+                    SetMinimized(false);   // one click on a minimized window's bar restores it
                 break;
             case InputEventMouseMotion m when _drag.Active:
                 _drag.Track(_floaters, _id, m.GlobalPosition.X, m.GlobalPosition.Y, (m.ButtonMask & MouseButtonMask.Left) != 0);
