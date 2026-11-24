@@ -75,7 +75,8 @@ public partial class Main
         if (!e.Selection.Any(l => e.Access(l).CanPlace))
             return false;
         // after a drag the handles stay where it left the selection until the region's own update arrives (EditController.EndManip)
-        centre = e.ManipCentre ?? pivot;
+        // Move and Rotate stand on the pivot; the Stretch box stands on the selection's own box, whatever the pivot is
+        centre = e.ManipCentre ?? (mode == ManipMode.Scale ? e.BoxCentre ?? pivot : pivot);
         size = e.ManipSize ?? e.HandleSize;
         if (mode == ManipMode.Scale)
         {

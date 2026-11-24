@@ -378,6 +378,12 @@ public sealed partial class EditController
     private List<Start>? _manip;
     private Vector3 _manipPivot;
 
+    /// <summary>The middle of the selection's box of extents whatever the pivot is: where the Stretch handles stand.</summary>
+    public Vector3? BoxCentre => Boxes() is { Count: > 0 } boxes ? PivotRules.Centre(boxes) : null;
+
+    private List<PivotBox> Boxes() => _selection.Select(l => (Pose: WorldOf(l), O: Find(l))).Where(x => x.Pose is not null && x.O is not null)
+        .Select(x => new PivotBox(x.Pose!.Value.Position, x.Pose.Value.Rotation, x.O!.Scale)).ToList();
+
     private PivotMode _pivotMode;
     private PivotUnit _pivotUnit = PivotUnit.Percent;
     private Vector3 _pivotOffset;
@@ -392,8 +398,7 @@ public sealed partial class EditController
     {
         get
         {
-            var boxes = _selection.Select(l => (Pose: WorldOf(l), O: Find(l))).Where(x => x.Pose is not null && x.O is not null)
-                .Select(x => new PivotBox(x.Pose!.Value.Position, x.Pose.Value.Rotation, x.O!.Scale)).ToList();
+            var boxes = Boxes();
             if (boxes.Count == 0)
                 return null;
             switch (PivotChoice)
@@ -428,6 +433,7 @@ public sealed partial class EditController
     {
         _pivotMode = mode;
         _pivotFor = SelectionKey();
+        _held = null;   // handles kept after a drag stood on the old pivot
         Changed?.Invoke();
     }
 
@@ -478,6 +484,7 @@ public sealed partial class EditController
         _held = null;
         _manipPivot = Pivot ?? starts[0].Position;
         _manipCentre = _manipPivot;
+        _manipBox = BoxCentre ?? _manipPivot;
         _manipSize = _manipStartSize = HandleSize;
         return true;
     }
@@ -497,7 +504,7 @@ public sealed partial class EditController
     /// <summary>How long after a drag the handles wait for the region's update of the moved objects (the region may refuse the move).</summary>
     public const long HoldMilliseconds = 2000;
 
-    private Vector3 _manipCentre, _manipSize, _manipStartSize;
+    private Vector3 _manipCentre, _manipSize, _manipStartSize, _manipBox;
     private (Vector3 Centre, Vector3 Size, long Until)? _held;
 
     /// <summary>The kept place of the handles after a drag, while it still stands: until the world's selection has reached it (the region's
@@ -576,7 +583,8 @@ public sealed partial class EditController
             float min = physical ? lim.MinPhysScale : lim.MinScale, max = physical ? lim.MaxPhysScale : lim.MaxScale;
             ratio = ScaleHandles.Corner(s.Scale, ratio, min, max).X / s.Scale.X;
         }
-        _manipCentre = _manipPivot;
+        // the Stretch box stands on the selection's middle, which spreads about the pivot with the objects (one object grows about its own middle)
+        _manipCentre = starts.Count > 1 ? _manipPivot + (_manipBox - _manipPivot) * ratio : _manipBox;
         _manipSize = _manipStartSize * ratio;
         bool any = false;
         foreach (var s in starts.Where(s => Access(s.Local).CanReshape))

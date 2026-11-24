@@ -213,6 +213,55 @@ public class PivotTests
         r.C.EndManip();
     }
 
+    // ---------------- the handles stand right ----------------
+
+    [Fact]
+    public void The_Stretch_handles_stand_on_the_boxs_middle_not_on_the_pivot()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(20, 30, 40), new Vector3(2, 4, 6), Z(45));
+        r.C.SelectMany([1], shift: false);
+        r.C.SetPivot(PivotMode.Custom);
+        r.C.SetCustomPivot(Vector3.Zero, PivotUnit.Percent);
+        Assert.True(r.Pivot() != new Vector3(20, 30, 40));
+        Near(new Vector3(20, 30, 40), r.C.BoxCentre ?? new Vector3(float.NaN));
+        Assert.True(r.C.BeginManip());
+        Assert.True(r.C.ManipScaleCorner(2));                                  // one object grows about its own middle
+        Near(new Vector3(20, 30, 40), r.C.ManipCentre ?? new Vector3(float.NaN));
+        r.C.EndManip();
+    }
+
+    [Fact]
+    public void Several_objects_stretched_by_a_corner_spread_about_the_pivot_and_the_boxs_middle_follows()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), new Vector3(1, 1, 1));
+        r.Prim(3, new Vector3(14, 10, 30), new Vector3(1, 1, 1));
+        r.C.SelectMany([1, 3], shift: false);
+        r.C.SetCustomPivot(Vector3.Zero, PivotUnit.Percent);                  // the box's minimum corner (9.5, 9.5, 29.5)
+        Assert.True(r.C.BeginManip());
+        Assert.True(r.C.ManipScaleCorner(2));
+        // the middle (12, 10, 30) is 2.5 m east, 0.5 north and 0.5 up of the corner: doubled
+        Near(new Vector3(14.5f, 10.5f, 30.5f), r.C.ManipCentre ?? new Vector3(float.NaN));
+        r.C.EndManip();
+    }
+
+    [Fact]
+    public void Changing_the_pivot_drops_the_handles_held_after_a_drag()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(20, 30, 40), new Vector3(2, 2, 2));
+        r.C.SelectMany([1], shift: false);
+        r.C.SetCustomPivot(Vector3.Zero, PivotUnit.Percent);
+        r.C.SnapEnabled = false;
+        Assert.True(r.C.BeginManip());
+        Assert.True(r.C.ManipMove(new Vector3(1, 0, 0)));
+        r.C.EndManip();
+        Assert.NotNull(r.C.ManipCentre);                                       // held where the drag left them
+        r.C.SetPivot(PivotMode.Centre);
+        Assert.Null(r.C.ManipCentre);
+    }
+
     // ---------------- the Placement summary ----------------
 
     [Fact]

@@ -86,6 +86,8 @@ public static class BuildLayout
         R("rotation", BuildSection.Placement, "edit.rotation", "Rotation (degrees)", "angle"),
         R("object_clipboard", BuildSection.Placement, "edit.copy_all", "copy", "paste", "clipboard"),
         R("pivot", BuildSection.Placement, "edit.pivot", "Pivot point", "Root", "Custom pivot", "Actual root"),
+        R("pivot_offset", BuildSection.Placement, "edit.pivot.custom", "Pivot point", "Pivot X Y Z"),
+        R("pivot_unit", BuildSection.Placement, "edit.pivot.unit", "Pivot point", "Percent", "Metres"),
         R("snap", BuildSection.Placement, "edit.snap", "Snap", "Snap to grid", "grid"),
         R("stretch_both", BuildSection.Placement, "edit.stretch_both", "Stretch Both Sides"),
         R("stretch_textures", BuildSection.Placement, "edit.stretch_textures", "Stretch Textures"),
