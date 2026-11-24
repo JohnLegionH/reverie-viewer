@@ -28,6 +28,9 @@ public interface IMusicAsker
 {
     /// <summary>Shows the question for <paramref name="site"/>; <paramref name="answered"/> is called with true for Play and false for Don't play.</summary>
     void Ask(string site, Uri url, Action<bool> answered);
+
+    /// <summary>The question is not wanted any more (the person left the parcel or went to another site): take it away without an answer.</summary>
+    void Cancel() { }
 }
 
 /// <summary>
@@ -97,6 +100,11 @@ public sealed class ParcelMusicController
 
     private void Evaluate()
     {
+        if (_asking is not null && (_url is null || RadioUrl.Site(_url) != _asking))
+        {
+            _asking = null;
+            _asker.Cancel();
+        }
         if (_url is null || !_prefs.On)
         {
             Stop();

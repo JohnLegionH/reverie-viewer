@@ -20,6 +20,9 @@ public sealed class RadioPlayer : IDisposable
     private const int MaxPlaylistDepth = 3;
     private const int MaxFailures = 4;
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan FirstBytesTimeout = TimeSpan.FromSeconds(15);
+    /// <summary>Seconds of audio a connection must have given before a drop starts the count of failures again.</summary>
+    private const int GoodSeconds = 5;
 
     private readonly object _gate = new();
     private CancellationTokenSource? _cts;
@@ -118,7 +121,7 @@ public sealed class RadioPlayer : IDisposable
             }
             if (ct.IsCancellationRequested)
                 return;
-            failures = Output.TotalFrames > before ? 1 : failures + 1;   // a stream that played for a while and dropped starts the count again
+            failures = Output.TotalFrames - before >= (long)Math.Max(1, Output.SampleRate) * GoodSeconds ? 1 : failures + 1;   // a stream that played for a while and dropped starts the count again
             if (failures > MaxFailures)
             {
                 Set(generation, () => { _state = RadioState.Failed; _error = why; });
@@ -141,9 +144,13 @@ public sealed class RadioPlayer : IDisposable
         {
             using var response = await RadioHttp.GetAsync(target, ct);
             using var closer = ct.Register(response.Dispose);   // a stop closes the connection, which ends a read that is waiting
+            if (response.Status >= 500)
+                throw new IOException($"the server answered {response.Status}");   // busy or down: worth trying again
             if (response.Status != 200)
                 throw new StreamRefused($"the server answered {response.Status}");
-            var head = await ReadHead(response.Body, ct);
+            using var firstBytes = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            firstBytes.CancelAfter(FirstBytesTimeout);
+            var head = await ReadHead(response.Body, firstBytes.Token);
             string type = response.Header("content-type").ToLowerInvariant();
             var format = FormatSniffer.Detect(head);
             if (format == AudioFormat.Unknown)

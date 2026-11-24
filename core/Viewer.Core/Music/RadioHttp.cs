@@ -47,7 +47,7 @@ internal static class RadioHttp
 {
     private const int MaxRedirects = 5;
     private const int MaxHeaderBytes = 16 * 1024;
-    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan OpenTimeout = TimeSpan.FromSeconds(15);
     private const int ReadTimeoutMs = 15000;
 
     public static async Task<RadioResponse> GetAsync(Uri uri, CancellationToken ct)
@@ -72,13 +72,14 @@ internal static class RadioHttp
     {
         var client = new TcpClient { NoDelay = true };
         Stream? network = null;
+        // one limit for the connection, the handshake and the answer's header; when it passes (or the caller cancels) the socket is closed,
+        // which also ends a handshake or a read that cannot be given a token
+        using var guard = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        guard.CancelAfter(OpenTimeout);
+        using var closer = guard.Token.Register(() => { try { network?.Dispose(); } catch { } try { client.Dispose(); } catch { } });
         try
         {
-            using (var connect = CancellationTokenSource.CreateLinkedTokenSource(ct))
-            {
-                connect.CancelAfter(ConnectTimeout);
-                await client.ConnectAsync(uri.Host, uri.Port, connect.Token);
-            }
+            await client.ConnectAsync(uri.Host, uri.Port, guard.Token);
             client.ReceiveTimeout = ReadTimeoutMs;
             client.GetStream().ReadTimeout = ReadTimeoutMs;
             network = client.GetStream();
@@ -86,13 +87,14 @@ internal static class RadioHttp
             {
                 var tls = new SslStream(network);
                 network = tls;
-                await tls.AuthenticateAsClientAsync(uri.Host);
+                await tls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = uri.Host }, guard.Token);
             }
             string host = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
             string target = uri.PathAndQuery.Length == 0 ? "/" : uri.PathAndQuery;
             var request = Encoding.ASCII.GetBytes($"GET {target} HTTP/1.0\r\nHost: {host}\r\nUser-Agent: Reverie-Radio/1.0\r\nAccept: */*\r\nIcy-MetaData: 1\r\nConnection: close\r\n\r\n");
-            await network.WriteAsync(request, ct);
-            var (status, headers) = await ReadHead(network, ct);
+            await network.WriteAsync(request, guard.Token);
+            var (status, headers) = await ReadHead(network, guard.Token);
+            guard.CancelAfter(Timeout.InfiniteTimeSpan);
             Stream body = network;
             if (headers.TryGetValue("icy-metaint", out var interval) && int.TryParse(interval, out int metaint) && metaint > 0)
                 body = new IcyStripStream(network, metaint);

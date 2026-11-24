@@ -26,6 +26,7 @@ public partial class Main
     private ConfirmationDialog? _musicAsk;
     private Action<bool>? _musicAnswer;
     private bool _musicWired, _musicWasActive;
+    private (string Site, Action<bool> Answered)? _musicWaitingAsk;
     private (bool Has, bool Playing, bool Muted, double Level) _musicShown = (false, false, false, -1);
     private readonly float[] _musicFrames = new float[4096 * 2];
 
@@ -51,6 +52,7 @@ public partial class Main
     private sealed class MusicAsker(Main main) : IMusicAsker
     {
         public void Ask(string site, Uri url, Action<bool> answered) => main.AskMusic(site, answered);
+        public void Cancel() => main.CancelMusicAsk();
     }
 
     /// <summary>Every frame: the parcel's music address to the controller, the decoded music to the speakers, the control in the top bar.</summary>
@@ -62,6 +64,8 @@ public partial class Main
             _radio = new RadioPlayer();
             _parcelMusic = new ParcelMusicController(new MusicPlayback(_radio), new MusicPrefs(settings), new MusicAsker(this));
         }
+        if (_musicWaitingAsk is { } waiting)
+            AskMusic(waiting.Site, waiting.Answered);
         _parcelMusic.ParcelAddress(session?.ParcelMusicUrl);
         PumpMusic(settings);
         SyncMusicControl(settings, session is not null);
@@ -93,18 +97,22 @@ public partial class Main
             return;
         }
         _musicWasActive = true;
-        int frames = Math.Min(playback.GetFramesAvailable(), _musicFrames.Length / 2);
-        if (frames <= 0)
-            return;
-        int got = radio.Output.Read(_musicFrames, frames);
         float gain = settings.Get(AudioLevels.MuteMusic) ? 0f : (float)settings.Get(AudioLevels.Music);
         bool mono = settings.Get(AudioLevels.Mono);
-        for (int i = 0; i < got; i++)
+        // fill the generator as far as the decoded music reaches (a slow frame must not leave it short)
+        for (int free = playback.GetFramesAvailable(); free > 0;)
         {
-            float l = _musicFrames[i * 2] * gain, r = _musicFrames[i * 2 + 1] * gain;
-            if (mono)
-                l = r = (l + r) / 2;
-            playback.PushFrame(new Vector2(l, r));
+            int got = radio.Output.Read(_musicFrames, Math.Min(free, _musicFrames.Length / 2));
+            if (got == 0)
+                break;
+            for (int i = 0; i < got; i++)
+            {
+                float l = _musicFrames[i * 2] * gain, r = _musicFrames[i * 2 + 1] * gain;
+                if (mono)
+                    l = r = (l + r) / 2;
+                playback.PushFrame(new Vector2(l, r));
+            }
+            free -= got;
         }
     }
 
@@ -132,9 +140,10 @@ public partial class Main
     {
         if (_strings is not { } strings)
         {
-            answered(false);
+            _musicWaitingAsk = (site, answered);   // the words are not ready yet: asked on a later frame, never answered for the person
             return;
         }
+        _musicWaitingAsk = null;
         if (_musicAsk is null)
         {
             _musicAsk = new ConfirmationDialog { Name = "music_ask", Title = strings.Get("music.ask.title"), OkButtonText = strings.Get("music.ask.play"), CancelButtonText = strings.Get("music.ask.dontplay") };
@@ -145,6 +154,14 @@ public partial class Main
         _musicAnswer = answered;
         _musicAsk.DialogText = strings.Get("music.ask.text", site);
         _musicAsk.PopupCentered();
+    }
+
+    private void CancelMusicAsk()
+    {
+        _musicWaitingAsk = null;
+        _musicAnswer = null;
+        if (_musicAsk is { Visible: true })
+            _musicAsk.Hide();
     }
 
     private void Answer(bool play)

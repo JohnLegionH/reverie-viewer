@@ -26,6 +26,8 @@ public sealed class ParcelMusicControllerTests
     private sealed class Asker : IMusicAsker
     {
         public List<(string Site, Uri Url, Action<bool> Answer)> Asked { get; } = [];
+        public int Cancelled { get; private set; }
+        public void Cancel() => Cancelled++;
         public void Ask(string site, Uri url, Action<bool> answered) => Asked.Add((site, url, answered));
     }
 
@@ -171,6 +173,7 @@ public sealed class ParcelMusicControllerTests
         var (c, p, pr, a) = Make(answer: null);
         c.ParcelAddress("http://radio.example.org/one");
         c.LeftParcel();
+        Assert.Equal(1, a.Cancelled);   // the question is taken away when the parcel is left
         a.Asked[0].Answer(true);   // answered after the person walked away
         Assert.Equal(SiteAnswer.Play, pr.AnswerFor("radio.example.org"));
         Assert.Empty(p.Log);
