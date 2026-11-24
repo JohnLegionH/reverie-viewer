@@ -501,6 +501,20 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
+## Parcel music decoders (MIT)
+
+Parcel music is read and decoded in managed code. None of the three decoders needs a native library; together they add 0.68 MB to
+the export, about 0.34 MB compressed (NLayer.dll 77 KB, NVorbis.dll 81 KB, SharpJaad.AAC.dll 518 KB).
+
+- **NLayer 3.0.1** (MIT, MPEG 1, 2 and 2.5 layers I to III, MP3): "Copyright (c) 2018 Mark Heath, Andrew Ward & Contributors"
+  (https://github.com/naudio/NLayer, the `LICENSE` at commit `c88b0d8abfa15c1e506106931ea8410170dc6326`, kept as it is in
+  `ThirdPartyLicenses/LICENSE-NLayer.txt`). The package carries no licence file.
+- **NVorbis 0.10.5** (MIT, Ogg Vorbis): "Copyright (c) 2020 Andrew Ward" (https://github.com/NVorbis/NVorbis, the `LICENSE` in the
+  package, kept as it is in `ThirdPartyLicenses/LICENSE-NVorbis.txt`).
+- **SharpJaad.AAC 0.2.0** (MIT, AAC-LC and HE-AAC): "Copyright (c) 2023 Lukas Volf" (https://github.com/jimm98y/SharpJaad, the
+  `LICENSE` at commit `13bbfb616fe64c6142458cff1d1db33f26f0ec87`, kept as it is in `ThirdPartyLicenses/LICENSE-SharpJaad.txt`). It is a
+  C# port of the JAAD decoder (https://sourceforge.net/projects/jaadec/); the terms of JAAD itself are not in the package.
+
 ## Tabler Icons (MIT)
 
 - **Files:** `host/Viewer.Shell/Assets/Icons/*.svg`, the outline icons the interface uses, unchanged (their own comment

@@ -64,6 +64,10 @@
     <!-- Managed Jolt binding, pinned at 2.19.1 for native ABI (see Directory.Packages.props). -->
     <PackageReference Include="JoltPhysicsSharp" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <!-- Parcel music decoders: MP3, Ogg Vorbis and AAC (Directory.Packages.props). -->
+    <PackageReference Include="NLayer" />
+    <PackageReference Include="NVorbis" />
+    <PackageReference Include="SharpJaad.AAC" />
     <!-- Mirrors the grid exactly: its physics add-on project at 1bb1131cfd
          (OpenSim/Addons, the physics add-on's .csproj).
          Suppress the STOCK native. JoltPhysicsSharp pulls JoltPhysics.Native 1.0.4 (stock joltc);

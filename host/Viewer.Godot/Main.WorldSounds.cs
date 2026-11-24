@@ -57,6 +57,7 @@ public partial class Main
         var session = Model?.Session;
         bool inWorld = session is not null && !session.IsEnded && session.AgentId != Guid.Empty;
         var wanted = inWorld ? session : null;
+        UpdateParcelMusic(wanted);
         if (!ReferenceEquals(_worldSoundsFor, wanted) && !_soundsFed)
             FollowSession(wanted, player);
         if (_worldSounds is not { } sounds)

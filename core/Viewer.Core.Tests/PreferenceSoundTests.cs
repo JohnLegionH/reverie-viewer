@@ -22,9 +22,9 @@ public class PreferenceSoundTests
     }
 
     [Fact]
-    public void The_sound_page_holds_the_master_sounds_and_ambient_levels_and_mutes_then_the_interface_level_the_two_mutes_and_the_two_thresholds()
+    public void The_sound_page_holds_the_master_sounds_ambient_and_music_levels_and_mutes_then_the_interface_level_the_two_mutes_and_the_two_thresholds()
     {
-        Assert.Equal(["audio_level_master", "audio_mute_master", "audio_mono", "audio_level_sounds", "audio_mute_sounds", "audio_level_ambient", "audio_mute_ambient",
+        Assert.Equal(["audio_level_master", "audio_mute_master", "audio_mono", "audio_level_sounds", "audio_mute_sounds", "audio_level_ambient", "audio_mute_ambient", "audio_level_music", "audio_mute_music",
             "audio_collision_sounds", "audio_gesture_sounds", "ui_sound_volume", "ui_sound_mute_all", "ui_sound_mute_minimized", "ui_sound_money_threshold", "ui_sound_health_threshold"],
             PreferenceCatalog.OfPage(PrefPage.Sound).Select(d => d.Key));
         Assert.All(PreferenceCatalog.OfPage(PrefPage.Sound), d => Assert.Equal(PrefApply.Live, d.Apply));

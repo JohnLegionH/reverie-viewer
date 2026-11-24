@@ -438,6 +438,65 @@ public partial class RvLocationField : PanelContainer
 }
 
 /// <summary>
+/// The parcel music control in the top bar, shown only while the parcel has music: a music button that turns the stream off and on, and beside it
+/// the mute button (the speaker icon of the Sound page, crossed out while muted) and a volume slider. The volume and the mute are the Sound page's
+/// Music row; this control only shows and sets that one setting.
+/// </summary>
+public partial class RvMusicControl : HBoxContainer
+{
+    private readonly StringTable _strings;
+    private bool _syncing;
+
+    public RvIconButton Toggle { get; }
+    public RvIconButton Mute { get; }
+    public HSlider Volume { get; }
+
+    /// <summary>The person clicked the music button.</summary>
+    public event Action? ToggleRequested;
+    /// <summary>The person clicked the mute button.</summary>
+    public event Action? MuteRequested;
+    /// <summary>The person moved the volume slider (0 to 1).</summary>
+    public event Action<double>? VolumeRequested;
+
+    public RvMusicControl(StringTable strings)
+    {
+        _strings = strings;
+        Name = "music";
+        Visible = false;
+        AccessibilityName = strings.Get("topbar.music.group");
+        AddThemeConstantOverride("separation", 4);
+        Toggle = new RvIconButton(LucideIcons.Music, strings.Get("topbar.music.off")) { Name = "music_toggle", SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        Toggle.Pressed += () => ToggleRequested?.Invoke();
+        Mute = new RvIconButton(LucideIcons.Volume, strings.Get("topbar.music.mute")) { Name = "music_mute", SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        Mute.Pressed += () => MuteRequested?.Invoke();
+        Volume = new HSlider { Name = "music_volume", MinValue = 0, MaxValue = 1, Step = 0.01, CustomMinimumSize = new Vector2(72, 20), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        Volume.AccessibilityName = strings.Get("topbar.music.volume");
+        Volume.TooltipText = strings.Get("topbar.music.volume");
+        Volume.ValueChanged += v => { if (!_syncing) VolumeRequested?.Invoke(v); };
+        AddChild(Toggle);
+        AddChild(Mute);
+        AddChild(Volume);
+    }
+
+    /// <summary>Shows the state: whether the stream plays, whether it is muted, and the level.</summary>
+    public void Show(bool playing, bool muted, double level)
+    {
+        _syncing = true;
+        Volume.Value = level;
+        _syncing = false;
+        string toggle = _strings.Get(playing ? "topbar.music.off" : "topbar.music.on");
+        Toggle.TooltipText = toggle;
+        Toggle.AccessibilityName = toggle;
+        Toggle.Modulate = new Color(1, 1, 1, playing ? 1f : 0.45f);   // dimmed while the stream is off
+        Mute.Icon = ReverieIcons.Get(muted ? LucideIcons.Muted : LucideIcons.Volume);
+        string mute = _strings.Get(muted ? "topbar.music.unmute" : "topbar.music.mute");
+        Mute.TooltipText = mute;
+        Mute.AccessibilityName = mute;
+        Volume.Modulate = new Color(1, 1, 1, muted ? 0.5f : 1f);
+    }
+}
+
+/// <summary>
 /// The top bar: solid, full width, 38 high, in three zones. Left: the app menu (the accent mark and the app's name) and the official
 /// top-level menus. Centre: Back, Home and the location field. Right: the status area (the grid's name with a globe, the local time,
 /// the connection dot with its state, and a balance only on grids with a currency), plain text that takes neither focus nor clicks.
@@ -457,6 +516,9 @@ public partial class TopBar : PanelContainer
     public RvIconButton Home { get; }
     public RvStatusChip Grid { get; }
     public RvStatusChip Connection { get; }
+
+    /// <summary>The parcel music control: shown only while the parcel has music.</summary>
+    public RvMusicControl Music { get; }
 
     /// <summary>The search box (a search icon): opens the command list (Ctrl+Shift+K).</summary>
     public Button Search { get; }
@@ -500,6 +562,8 @@ public partial class TopBar : PanelContainer
         Connection.DotColour = "muted";
         // the search box: the search icon, as small as Back and Home, so the narrow-window rule still holds
         Search = new RvIconButton(LucideIcons.Search, strings.Get("cmdlist.box.tip")) { Name = "search", SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        Music = new RvMusicControl(strings);
+        _right.AddChild(Music);
         _right.AddChild(Search);
         _right.AddChild(Grid);
         _right.AddChild(_balance);
@@ -551,6 +615,15 @@ public partial class TopBar : PanelContainer
     public void ShowSearch(bool shown)
     {
         Search.Visible = shown;
+        _laidOutFor = -1;   // the right zone's width changed: lay the zones out again
+    }
+
+    /// <summary>Shows or hides the parcel music control (shown only while the parcel has music).</summary>
+    public void ShowMusic(bool shown)
+    {
+        if (Music.Visible == shown)
+            return;
+        Music.Visible = shown;
         _laidOutFor = -1;   // the right zone's width changed: lay the zones out again
     }
 

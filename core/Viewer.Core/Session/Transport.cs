@@ -426,7 +426,14 @@ public sealed record ObjectPropertiesReceived(Guid ObjectId, string Name, string
 /// <summary>The parcel the agent stands in, as its region reports it when the agent arrives and whenever the agent crosses into another.</summary>
 /// <param name="SoundLocal">The parcel lets sounds be heard only inside it (its "sounds only within parcel" flag).</param>
 /// <param name="Bitmap">The parcel's cells (one bit per 4 m square of the region, row by row from the south-west corner), when the region sent them.</param>
-public sealed record AgentParcelChanged(SimRef Sim, string Name, int LocalId, bool SoundLocal = false, byte[]? Bitmap = null) : TransportEvent;
+/// <param name="MusicUrl">The parcel's music address as the region sent it (empty when it has none).</param>
+public sealed record AgentParcelChanged(SimRef Sim, string Name, int LocalId, bool SoundLocal = false, byte[]? Bitmap = null, string MusicUrl = "") : TransportEvent;
+
+/// <summary>A parcel's music address, as any parcel-properties message of the region carries it, whatever its sequence number: About Land's
+/// update after a save arrives with the number of About Land's own request (or the last request for the parcel), which is not the number
+/// that announces the agent's parcel, and a grid whose server does not send the agent-parcel number for that update would otherwise leave the
+/// music as it was. The session applies it to the agent's parcel only.</summary>
+public sealed record ParcelMusicReceived(SimRef Sim, int LocalId, string Url) : TransportEvent;
 
 // ---------------- sounds in the world ----------------
 

@@ -245,7 +245,7 @@ public sealed partial class PrefPageView : ScrollContainer
     {
         switch (def.Kind)
         {
-            case PrefKind.Real when def.Key == UiSoundSettings.Volume.Key || def.Key == AudioLevels.Master.Key || def.Key == AudioLevels.Sounds.Key || def.Key == AudioLevels.Ambient.Key:
+            case PrefKind.Real when def.Key == UiSoundSettings.Volume.Key || def.Key == AudioLevels.Master.Key || def.Key == AudioLevels.Sounds.Key || def.Key == AudioLevels.Ambient.Key || def.Key == AudioLevels.Music.Key:
                 return Slider("pref_" + def.Key, label, () => (double)_model().Value(def)!, v => Edit(def, v), def.Key);
             case PrefKind.Whole when def.Key == Settings.MaxTextureResolution.Key:
                 return Options(def, label, TextureSizes.Select(s => s.ToString(CultureInfo.InvariantCulture)).ToList(),

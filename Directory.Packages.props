@@ -32,6 +32,13 @@
          buffer length limits); every version below 3.1.9 from 3.0.0 on is affected. LibreMetaverse 3.3.0 asks for 3.1.12 or later. Exact pin. -->
     <PackageVersion Include="MessagePack" Version="[3.1.12]" />
 
+    <!-- Parcel music decoders (all managed, MIT; notices in ThirdPartyLicenses and THIRD-PARTY-NOTICES.md). NLayer reads MP3 (MPEG-1/2/2.5
+         layers I to III), NVorbis reads Ogg Vorbis, SharpJaad.AAC reads AAC-LC and HE-AAC frames (a C# port of the JAAD decoder). They read
+         the stream in the managed host; none of them needs a native library. Exact pins. -->
+    <PackageVersion Include="NLayer" Version="[3.0.1]" />
+    <PackageVersion Include="NVorbis" Version="[0.10.5]" />
+    <PackageVersion Include="SharpJaad.AAC" Version="[0.2.0]" />
+
     <!-- Jolt binding (ADR-009): pinned exactly as the grid pins it. The patched joltc is built from
          the joltc commit behind JoltPhysics.Native 1.0.4, so the managed binding cannot move without
          rebuilding the patch (native/joltc/README.md). -->

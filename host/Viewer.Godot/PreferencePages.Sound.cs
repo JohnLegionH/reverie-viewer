@@ -85,6 +85,7 @@ public sealed partial class PrefPageView
         AddVolumeRow(rows, "master", AudioLevels.Master.Key, AudioLevels.MuteMaster.Key);
         AddVolumeRow(rows, "sounds", AudioLevels.Sounds.Key, AudioLevels.MuteSounds.Key);
         AddVolumeRow(rows, "ambient", AudioLevels.Ambient.Key, AudioLevels.MuteAmbient.Key);
+        AddVolumeRow(rows, "music", AudioLevels.Music.Key, AudioLevels.MuteMusic.Key);
         AddVolumeRow(rows, "interface", UiSoundSettings.Volume.Key, UiSoundSettings.MuteAll.Key);
 
         // Options: plain tick boxes

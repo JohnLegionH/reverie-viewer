@@ -31,7 +31,7 @@ public class WindowPlacesWiringTests
         Assert.Matches(@"Floaters\.SavePlaces\(\)", all);
     }
 
-    // system dialogs the engine draws for the operating system's file choosers and one yes/no question; none is a viewer window
+    // system dialogs the engine draws for the operating system's file choosers and two yes/no questions; none is a viewer window
     private static readonly Dictionary<string, string> AllowedDialogs = new()
     {
         ["BuildPanels.cs"] = "FileDialog",
@@ -39,6 +39,7 @@ public class WindowPlacesWiringTests
         ["PreferencesPanels.cs"] = "FileDialog",
         ["PreferencePages.cs"] = "FileDialog",
         ["AddonPanels.cs"] = "ConfirmationDialog",
+        ["Main.Music.cs"] = "ConfirmationDialog",   // the question asked once per site: play its parcel music or not
     };
 
     [Fact]

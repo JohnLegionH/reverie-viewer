@@ -161,6 +161,11 @@ public sealed class ViewerSession : IDisposable
 
     private string? _agentParcel;
     private int? _agentParcelId;   // the local id of the parcel the agent stands in, when the region has said
+    private string _parcelMusic = "";
+
+    /// <summary>The music address of the parcel the agent stands in, as the region last said it (empty when the parcel has none or the region has not said yet).
+    /// It changes when the agent moves to a parcel, and when the region reports a new address for that parcel whatever the update's sequence number was.</summary>
+    public string ParcelMusicUrl { get { lock (_lock) return _parcelMusic; } }
 
     /// <summary>The camera constraint plane the region last sent (normal x, y, z, distance w; all zero: none).</summary>
     public System.Numerics.Vector4 CameraCollidePlane { get; private set; }
@@ -922,7 +927,12 @@ public sealed class ViewerSession : IDisposable
                 break;
             case AgentParcelChanged parcel:
                 if (IsCurrent(parcel.Sim))
-                    lock (_lock) { _agentParcel = parcel.Name; _agentParcelId = parcel.LocalId; }
+                    lock (_lock) { _agentParcel = parcel.Name; _agentParcelId = parcel.LocalId; _parcelMusic = parcel.MusicUrl; }
+                break;
+            case ParcelMusicReceived music:
+                // the agent's own parcel only: another parcel's message (a selection, a neighbour) says nothing about what plays here
+                if (IsCurrent(music.Sim))
+                    lock (_lock) { if (_agentParcelId == music.LocalId) _parcelMusic = music.Url; }
                 break;
             case ParcelEnvironmentReceived parcelEnv when IsCurrent(parcelEnv.Sim):
                 if (parcelEnv.Llsd is not { } parcelAnswer)
@@ -1363,6 +1373,7 @@ public sealed class ViewerSession : IDisposable
             _coarse = [];
             _agentParcel = null;   // the new region names the parcel the agent lands on
             _agentParcelId = null;
+            _parcelMusic = "";   // and says what plays there
         }
         _world.UpdateRegion(region);
         _world.ChooseAppearanceMode(c.Sim.Name, c.ServerBakedAppearance);
@@ -1470,7 +1481,7 @@ public sealed class ViewerSession : IDisposable
                 _originSim = c.Sim;   // a landing anchors the frame on the new region; a repeat connect keeps it
             _currentSim = c.Sim;
         }
-        lock (_lock) { _coarse = []; _agentParcel = null; }   // the new region starts its own list and says which parcel the agent is on
+        lock (_lock) { _coarse = []; _agentParcel = null; _parcelMusic = ""; }   // the new region starts its own list and says which parcel the agent is on
         if (ReferenceEquals(_originSim, c.Sim))
             World.SetOriginOffset(System.Numerics.Vector3.Zero);
         World.BeginRegion(c.Sim, region);

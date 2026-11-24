@@ -40,6 +40,9 @@ Linden Lab's own privacy policy covers what it does with this.
   GitHub sees your IP address and the request.
 - **Links** (a grid's help, terms, sign-up or password page, a link in chat or a notecard, this policy) open in your web
   browser only when you click them.
+- **Parcel music**, when a parcel names a music stream, you have music turned on and you answered Play for the stream's site:
+  Reverie connects to the address the parcel names (any site its owner chooses) to play it. That site sees your IP address, the
+  request and the name Reverie-Radio. Reverie asks once per site first, and the music button in the top bar turns it off.
 - Nothing else. No analytics, no crash reports, no background checks. Saved passwords and two-factor hashes stay on this
   computer, protected for your user account.
 - **Add-ons you install yourself** can do more than Reverie itself does, including sending data elsewhere; this policy covers

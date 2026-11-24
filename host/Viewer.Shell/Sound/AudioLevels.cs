@@ -5,8 +5,8 @@ namespace Viewer.Shell.Sound;
 
 /// <summary>
 /// The Sound page's levels beside the interface level: Master (over everything), Sounds (objects in the world) and Ambient (footsteps,
-/// wind), each with its mute, at the official viewer's defaults (master 1.0, sounds 0.5, ambient 0.5). Music, media and voice are shown
-/// on the page as not built yet and have no setting. Mute when minimized (the interface sounds' setting) silences these too. The page also
+/// wind) and Music (the stream of a parcel), each with its mute, at the official viewer's defaults (master 1.0, sounds 0.5, ambient 0.5, music 0.5). Media and voice
+/// are not built yet and have no setting. Mute when minimized (the interface sounds' setting) silences these too. The page also
 /// holds the official collision-sound and gesture-sound switches (EnableCollisionSounds, EnableGestureSounds; both on by default) and the
 /// switch for our own footstep where a grid has no step sound (on by default).
 /// </summary>
@@ -20,13 +20,21 @@ public static class AudioLevels
     public static readonly Setting<bool> MuteSounds = new("audio_mute_sounds", false, v => v);
     public static readonly Setting<double> Ambient = new("audio_level_ambient", 0.5, Level);
     public static readonly Setting<bool> MuteAmbient = new("audio_mute_ambient", false, v => v);
+    /// <summary>Parcel music: the stream a parcel names (an internet radio address). Its level and mute are the Sound page's Music row and
+    /// the top bar's volume beside the music control (one setting, so the two stay in step); official default 0.5.</summary>
+    public static readonly Setting<double> Music = new("audio_level_music", 0.5, Level);
+    public static readonly Setting<bool> MuteMusic = new("audio_mute_music", false, v => v);
+    /// <summary>The person's switch for parcel music (the music control in the top bar). Off stays off across parcels and relogs until the person turns it on.</summary>
+    public static readonly Setting<bool> MusicOn = new("audio_music_on", true, v => v);
+    /// <summary>The settings key of the answers to the question asked once per site (see <see cref="MusicSiteAnswers"/>).</summary>
+    public const string MusicSitesKey = "audio_music_sites";
     public static readonly Setting<bool> CollisionSounds = new("audio_collision_sounds", true, v => v);
     public static readonly Setting<bool> GestureSounds = new("audio_gesture_sounds", true, v => v);
     /// <summary>Mono: both ears get the same mix (for one-sided hearing or one earphone). Off by default.</summary>
     public static readonly Setting<bool> Mono = new("audio_mono", false, v => v);
 
     public static IReadOnlyList<string> Keys { get; } = [Master.Key, MuteMaster.Key, Sounds.Key, MuteSounds.Key, Ambient.Key, MuteAmbient.Key,
-        CollisionSounds.Key, GestureSounds.Key, Mono.Key];
+        Music.Key, MuteMusic.Key, MusicOn.Key, CollisionSounds.Key, GestureSounds.Key, Mono.Key];
 
     /// <summary>The level of a kind of world sound (0 when it is muted), master not included.</summary>
     public static float KindLevel(SettingsService settings, WorldSoundKind kind) => kind switch
