@@ -17,7 +17,7 @@ namespace Viewer.Core.Tests;
 /// <summary>
 /// The Edit entry of the right-click menu of an object in the world, as in the official viewer's object menu: it opens build mode with the
 /// Edit tool and the object's linkset selected (a child prim selects its root). Delete in the same menu keeps the Build window's Delete rules.
-/// Neither entry is offered on avatars, land or a worn object. Each test builds its own world, so the class runs in parallel.
+/// Neither entry is offered on avatars or land; an object another avatar wears has neither, and an own worn object has Edit but not Delete. Each test builds its own world, so the class runs in parallel.
 /// </summary>
 public class EditMenuTests
 {
@@ -63,12 +63,53 @@ public class EditMenuTests
     }
 
     [Fact]
-    public void A_worn_object_has_neither_Edit_nor_Delete_in_its_menu()
+    public void An_own_worn_object_offers_Edit_but_not_Delete_in_its_menu()
     {
         var mine = new PrimInteraction(0, Own);
-        var ids = ContextMenus.ForObject(new ObjectMenuContext(mine, mine, Attachment: true, false, false)).Select(e => e.Id).ToList();
+        var list = ContextMenus.ForObject(new ObjectMenuContext(mine, mine, Attachment: true, false, false));
+        var ids = list.Select(e => e.Id).ToList();
+        Assert.Contains("edit", ids);
+        Assert.True(list.Single(e => e.Id == "edit").Enabled);
+        Assert.Equal("menu.edit", list.Single(e => e.Id == "edit").LabelKey);
+        Assert.DoesNotContain("delete", ids);
+    }
+
+    [Fact]
+    public void An_object_another_avatar_wears_has_neither_Edit_nor_Delete_in_its_menu()
+    {
+        var theirs = new PrimInteraction(0, 0);
+        var ids = ContextMenus.ForObject(new ObjectMenuContext(theirs, theirs, false, false, false, WornByOther: true)).Select(e => e.Id).ToList();
         Assert.DoesNotContain("edit", ids);
         Assert.DoesNotContain("delete", ids);
+    }
+
+    [Fact]
+    public void Choosing_Edit_on_an_own_worn_object_asks_for_its_root_even_when_a_child_prim_was_clicked()
+    {
+        var r = new WireRig();
+        r.Worn(10, 6, Guid.NewGuid(), i: new PrimInteraction(0, Own));
+        r.Prim(11, new Vector3(0, 0, 1.5f), new PrimInteraction(0, Own), parent: 10);
+        var asked = new List<uint>();
+        r.C.EditRequested += id => asked.Add(id);
+        r.C.RightClick(r.DownAtWorn());
+        Assert.Contains(r.C.Entries, e => e.Id == "edit");
+        Assert.True(r.C.Choose("edit"));
+        Assert.Equal([10u], asked);
+    }
+
+    [Fact]
+    public void Edit_is_not_offered_or_chosen_on_an_object_another_avatar_wears()
+    {
+        var r = new WireRig();
+        r.Worn(10, 6, Guid.NewGuid(), i: new PrimInteraction(0, 0), parent: 501);   // the other avatar's
+        var asked = new List<uint>();
+        r.C.EditRequested += id => asked.Add(id);
+        r.C.RightClick(ObjectPicker.Pick(r.World, new PickRay(new Vector3(50, 50, 60), new Vector3(0, 0, -1)), (_, _) => 20f, ignoreAgent: WireRig.Me,
+            attachmentFrame: o => Matrix4x4.CreateTranslation(50, 50, 30)));
+        Assert.Equal(MenuKind.Object, r.C.Menu);
+        Assert.DoesNotContain(r.C.Entries, e => e.Id is "edit" or "delete");
+        Assert.False(r.C.Choose("edit"));
+        Assert.Empty(asked);
     }
 
     [Fact]
@@ -194,15 +235,24 @@ public class EditMenuTests
     }
 
     [Fact]
-    public void Edit_refuses_an_object_that_is_not_in_the_world_or_is_worn()
+    public void Edit_refuses_an_object_that_is_not_in_the_world()
     {
         var r = new Rig();
         Assert.False(r.E.EditObject(99));
         Assert.False(r.E.BuildMode);
+        Assert.Empty(r.E.Selection);
+    }
+
+    [Fact]
+    public void Edit_on_a_worn_object_opens_build_mode_with_that_object_selected()
+    {
+        var r = new Rig();
         r.World.ApplyObject(Sim, new PrimData(7, G(7), 500, 5, new Vector3(1, 1, 1), Quaternion.Identity, new Vector3(1, 1, 1), Interaction: new PrimInteraction(0, Own)), eventIsAttachment: true);
         Assert.NotNull(r.World.Snapshot().Objects.Values.Single(o => o.Id.LocalId == 7).AttachmentPoint);   // it is worn: the world says so
-        Assert.False(r.E.EditObject(7));
-        Assert.Empty(r.E.Selection);
+        Assert.True(r.E.EditObject(7));
+        Assert.True(r.E.BuildMode);
+        Assert.Equal(BuildTool.Edit, r.E.Tool);
+        Assert.Equal([7u], r.E.Selection);
     }
 
     [Fact]

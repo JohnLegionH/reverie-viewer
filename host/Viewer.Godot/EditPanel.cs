@@ -893,13 +893,7 @@ public partial class EditPanel : VBoxContainer
             }
             var mirrorStatus = e?.MirrorStatus ?? ArrangeRefusal.TooFew;
             _mirror.Disabled = mirrorStatus != ArrangeRefusal.None;
-            _mirror.TooltipText = mirrorStatus switch
-            {
-                ArrangeRefusal.Attachment => _s.Get("edit.mirror.no.attachment"),
-                ArrangeRefusal.NoMove => _s.Get("edit.mirror.no.move"),
-                ArrangeRefusal.TooFew => _s.Get("edit.mirror.no.few"),
-                _ => _s.Get("edit.mirror.tip"),
-            };
+            _mirror.TooltipText = _s.Get(e?.MirrorRefusalKey ?? (e is null ? "edit.mirror.no.few" : "edit.mirror.tip"));
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);
             _ownedOnly.SetPressedNoSignal(e?.SelectOwnedOnly ?? false);

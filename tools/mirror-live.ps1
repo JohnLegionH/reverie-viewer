@@ -40,9 +40,12 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "claim-guard.ps1")
 Assert-ClaimGranted
 $script:port = $null; $script:token = $null; $script:proc = $null
+# The viewer this script started (and only that tree) is stopped when the script ends before the normal logout and quit
+function Stop-OwnViewer { if ($script:proc -and -not $script:proc.HasExited) { try { & taskkill /PID $script:proc.Id /T /F | Out-Null } catch { } } }
 trap {
     Write-Output ("ERROR " + $_.Exception.GetType().Name + ": " + $_.Exception.Message); Write-Output $_.InvocationInfo.PositionMessage
     if ($script:port -and $script:token) { try { [void](Invoke-Raw $script:port "session" $script:token ('{"action":"logout"}')); Start-Sleep -Seconds 3; [void](Invoke-Raw $script:port "quit" $script:token) } catch { } }
+    Stop-OwnViewer
     break
 }
 $godot = Join-Path $PSScriptRoot "godot.ps1"
@@ -111,14 +114,14 @@ Note "viewer started through godot.ps1, pid $($script:proc.Id)"
 $tokDir = Join-Path $local "ReverieViewer\Automation"
 $tf = $null
 for ($i = 0; $i -lt ($StartSeconds * 4) -and -not $tf; $i++) { Start-Sleep -Milliseconds 250; $tf = @(Get-ChildItem -LiteralPath $tokDir -Filter "automation-*.json" -ErrorAction SilentlyContinue) | Select-Object -First 1 }
-if (-not $tf) { Note "no automation token file: stopping"; exit 5 }
+if (-not $tf) { Note "no automation token file: stopping"; Stop-OwnViewer; exit 5 }
 Start-Sleep -Milliseconds 300
 $j = Get-Content -Raw -LiteralPath $tf.FullName | ConvertFrom-Json
 $script:port = [int]$j.port; $script:token = [string]$j.token
 $login = Invoke-Raw $script:port "session" $script:token (@{ action = "login"; accounts_file = $Credentials; account = $Account; login_uri = $loginUri; start = $Start } | ConvertTo-Json -Compress)
 Note "login requested: $($login.Status)"
 $inWorld = Wait-Until { $o = Obs; if ($o -and $o.stage -eq "InWorld" -and $o.terrain.complete -and $o.self) { $o } } 150
-if (-not $inWorld) { Note "not in the world: stopping"; [void](Invoke-Raw $script:port "quit" $script:token); exit 5 }
+if (-not $inWorld) { Note "not in the world: stopping"; [void](Invoke-Raw $script:port "quit" $script:token); $script:proc.WaitForExit(30000) | Out-Null; Stop-OwnViewer; exit 5 }
 Start-Sleep -Seconds 4
 
 function OwnObj([uint32]$local) { @(@((Build @{ action = "state" }).own_objects) | Where-Object { [uint32]$_.local -eq $local }) | Select-Object -First 1 }

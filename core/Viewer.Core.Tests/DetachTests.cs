@@ -87,10 +87,10 @@ public class DetachTests
     // ---------------- the menus ----------------
 
     [Fact]
-    public void The_menu_of_a_worn_object_has_touch_inspect_and_detach_and_nothing_for_a_world_object()
+    public void The_menu_of_a_worn_object_has_touch_inspect_edit_and_detach_and_nothing_for_a_world_object()
     {
         var entries = ContextMenus.ForObject(new ObjectMenuContext(Mine, Mine, Attachment: true, false, false, CanDetach: true));
-        Assert.Equal(["touch", "inspect", "detach", "drop"], entries.Select(e => e.Id).ToArray());
+        Assert.Equal(["touch", "inspect", "edit", "detach", "drop"], entries.Select(e => e.Id).ToArray());
         var detach = Assert.Single(entries, e => e.Id == "detach");
         Assert.Equal("menu.detach", detach.LabelKey);
         Assert.True(detach.Enabled);
@@ -136,7 +136,7 @@ public class DetachTests
         d.Rig.Worn(10, 6, Item, i: Mine);
         d.Rig.C.RightClick(d.Rig.DownAtWorn());
         Assert.Equal(MenuKind.Object, d.Rig.C.Menu);
-        Assert.Equal(["touch", "inspect", "detach", "drop"], d.Rig.C.Entries.Take(4).Select(e => e.Id).ToArray());   // the own avatar's part follows
+        Assert.Equal(["touch", "inspect", "edit", "detach", "drop"], d.Rig.C.Entries.Take(5).Select(e => e.Id).ToArray());   // the own avatar's part follows
         d.Rig.Sent.Clear();
         Assert.True(d.Rig.C.Choose("detach"));
         Assert.Equal([Item], d.Detached);

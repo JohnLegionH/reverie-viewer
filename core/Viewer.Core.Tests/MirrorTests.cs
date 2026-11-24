@@ -311,7 +311,9 @@ public class MirrorTests
         var update = Assert.Single(r.Updates);
         Assert.Equal(2u, update.LocalId);
         Assert.False(update.Linkset);
+        Assert.NotNull(update.Rotation);   // the part's turn is sent too, in its root's frame
         var after = Apply(r, r.Sent);
+        Assert.True(Angle(MirrorRules.Rotation(before[2].Rotation, Vector3.UnitX), after[2].Rotation) < 1e-3, "the part's turn is the image's turn");
         Near(before[1].Position, after[1].Position);
         Near(before[3].Position, after[3].Position);
         var image = MirrorRules.Reflect(before[2].Position, before[2].Position, Vector3.UnitX);   // the plane goes through the part's own middle
@@ -327,9 +329,41 @@ public class MirrorTests
         var before = Apply(r, []);
         Assert.True(r.C.Mirror(ArrangeAxis.Z, MirrorPlane.SelectionCentre));
         var after = Apply(r, r.Sent);
-        float mid = (before[2].Position.Z + before[3].Position.Z) / 2f;   // within the parts' boxes' middle, checked loosely below
-        Assert.True(MathF.Abs((after[2].Position.Z - mid) + (before[2].Position.Z - mid)) < 1.5f, "part 2 is on the other side of a plane near the parts' middle");
+        // the plane stands through the middle of the two parts' boxes, worked out here from the world before the call
+        var middle = PivotRules.Centre([new PivotBox(before[2].Position, before[2].Rotation, new Vector3(1, 1, 2)), new PivotBox(before[3].Position, before[3].Rotation, new Vector3(2, 1, 1))]);
+        foreach (var k in new uint[] { 2, 3 })
+            Near(MirrorRules.Reflect(before[k].Position, middle, Vector3.UnitZ), after[k].Position, 1e-3f);
         Near(before[1].Position, after[1].Position);
+    }
+
+    [Theory]
+    [InlineData(ArrangeAxis.X, 0)]
+    [InlineData(ArrangeAxis.X, 90)]
+    [InlineData(ArrangeAxis.X, 180)]
+    [InlineData(ArrangeAxis.Y, 90)]
+    [InlineData(ArrangeAxis.Y, 270)]
+    [InlineData(ArrangeAxis.Z, 90)]
+    public void A_single_prim_mirrored_through_its_own_middle_about_a_plane_it_is_symmetric_across_sends_nothing(ArrangeAxis axis, float degrees)
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(20, 30, 40), new Vector3(1, 2, 3), Turn(Vector3.UnitZ, degrees));
+        r.C.SelectMany([1], shift: false);
+        Assert.False(r.C.Mirror(axis, MirrorPlane.SelectionCentre));   // nothing needs to change: no message, however the arithmetic rounds
+        Assert.Empty(r.Updates);
+    }
+
+    [Fact]
+    public void The_reason_Mirror_is_refused_names_what_the_person_can_do()
+    {
+        var r = Linkset();
+        Assert.Equal("edit.mirror.no.few", r.C.MirrorRefusalKey);         // nothing selected
+        r.C.SelectMany([1], shift: false);
+        Assert.Null(r.C.MirrorRefusalKey);
+        r.C.EditLinked = true;                                             // the root alone: with Edit linked parts only parts are mirrored
+        r.C.SelectMany([1], shift: false);
+        Assert.Equal("edit.mirror.no.parts", r.C.MirrorRefusalKey);
+        r.C.SelectMany([2], shift: false);
+        Assert.Null(r.C.MirrorRefusalKey);
     }
 
     [Fact]
@@ -367,7 +401,7 @@ public class MirrorTests
     public void The_arrange_summary_lists_mirror_and_says_what_needs_more()
     {
         Assert.Equal("3 linksets: align, distribute, mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 3), S));
-        Assert.Equal("2 linksets: align, mirror, distribute needs 3 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 2), S));
-        Assert.Equal("1 linkset: mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 1), S));
+        Assert.Equal("2 linksets: align, mirror; distribute needs 3 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 2), S));
+        Assert.Equal("1 linkset: mirror; align needs 2 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 1), S));
     }
 }

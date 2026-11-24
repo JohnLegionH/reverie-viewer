@@ -40,6 +40,16 @@ public sealed partial class EditController
         }
     }
 
+    /// <summary>The string key of why Mirror is not offered (the button's tip), or null when it is offered.</summary>
+    public string? MirrorRefusalKey => MirrorStatus switch
+    {
+        ArrangeRefusal.None => null,
+        ArrangeRefusal.Attachment => "edit.mirror.no.attachment",
+        ArrangeRefusal.NoMove => "edit.mirror.no.move",
+        // Edit linked parts with only a root picked: a root cannot move on its own there, so the person is told to pick parts
+        _ => _editLinked && _selection.Count > 0 ? "edit.mirror.no.parts" : "edit.mirror.no.few",
+    };
+
     /// <summary>Mirror: the selected linksets (or the parts picked with Edit linked parts) are reflected about a plane square to one axis of
     /// the grid's frame, through the middle of what is mirrored or through the pivot point. Each root goes first (its group position, then
     /// its own turn); each part then gets its place and turn in its root's new frame. Region undo steps one part back at a time. False when
@@ -66,8 +76,8 @@ public sealed partial class EditController
             }
             var old = parts.First(p => p.Local == root);
             var children = mirrored.Where(p => p.Parent == root).ToList();
-            bool moved = Vector3.DistanceSquared(old.Position, now.Position) > 1e-10f;
-            bool turned = MathF.Abs(Quaternion.Dot(Quaternion.Normalize(old.Rotation), Quaternion.Normalize(now.Rotation))) < 1f - 1e-9f;
+            bool moved = Vector3.DistanceSquared(old.Position, now.Position) > 1e-8f;   // 0.1 mm: below what the region keeps
+            bool turned = MathF.Abs(Quaternion.Dot(Quaternion.Normalize(old.Rotation), Quaternion.Normalize(now.Rotation))) < 1f - 1e-6f;   // about 0.16 degrees; a float cannot tell 1 - 1e-9 from 1
             if (children.Count == 0)
             {
                 if (moved || turned)

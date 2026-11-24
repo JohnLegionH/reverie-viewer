@@ -183,8 +183,8 @@ public sealed partial class EditController
     /// <summary>Right-click Edit: build mode opens with the Edit tool and only this object's linkset selected.</summary>
     public bool EditObject(uint local)
     {
-        if (Find(local) is not { AttachmentPoint: null })
-            return false;
+        if (Find(local) is null)
+            return false;   // a worn object is allowed: the right-click menu offers Edit only on the agent's own
         SelectTool(BuildTool.Edit);
         _faceSelection.Clear();
         // the root, whatever Edit linked says (the right-click Edit takes the whole linkset), and whatever Select Only My Objects says
@@ -500,6 +500,7 @@ public sealed partial class EditController
             return false;
         _manip = starts;
         _held = null;
+        _turned = null;
         _manipPivot = Pivot ?? starts[0].Position;
         _manipCentre = _manipPivot;
         _manipBox = BoxCentre ?? _manipPivot;
@@ -514,9 +515,12 @@ public sealed partial class EditController
     {
         if (_manip is not null)
         {
-            _held = (_manipCentre, _manipSize, _clock() + HoldMilliseconds);
+            // after a turn the box the selection stands in has changed: the handles go to the box the turn gives, which is what the
+            // region will report, so they neither sit on the old box nor wait for the hold to run out
+            _held = (_turned?.Centre ?? _manipCentre, _turned?.Size ?? _manipSize, _clock() + HoldMilliseconds);
         }
         _manip = null;
+        _turned = null;
     }
 
     /// <summary>How long after a drag the handles wait for the region's update of the moved objects (the region may refuse the move).</summary>
@@ -524,6 +528,7 @@ public sealed partial class EditController
 
     private Vector3 _manipCentre, _manipSize, _manipStartSize, _manipBox;
     private (Vector3 Centre, Vector3 Size, long Until)? _held;
+    private (Vector3 Centre, Vector3 Size)? _turned;   // where the handles stand once the drag's turn has been applied
 
     /// <summary>The kept place of the handles after a drag, while it still stands: until the world's selection has reached it (the region's
     /// update arrived: the same centre and box within a centimetre), the time runs out, the selection is empty, or a new drag starts.</summary>
@@ -583,9 +588,50 @@ public sealed partial class EditController
         var q = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), degrees * MathF.PI / 180f);
         _manipCentre = _manipPivot;   // a turn round the centre leaves it where it is
         bool any = false;
+        var turned = new List<(uint Local, Vector3 Position, Quaternion Rotation)>();
         foreach (var s in starts)
-            any |= SendPose(s, _manipPivot + Vector3.Transform(s.Position - _manipPivot, q), Quaternion.Normalize(q * s.Rotation), null);
+        {
+            var place = _manipPivot + Vector3.Transform(s.Position - _manipPivot, q);
+            var turn = Quaternion.Normalize(q * s.Rotation);
+            turned.Add((s.Local, place, turn));
+            any |= SendPose(s, place, turn, null);
+        }
+        _turned = AfterTurn(turned);
         return any;
+    }
+
+    /// <summary>Where the handles stand once the selected objects are at these places and turns: the pivot the person chose and the Stretch box,
+    /// worked out the way <see cref="Pivot"/> and <see cref="HandleSize"/> read them from the world.</summary>
+    private (Vector3 Centre, Vector3 Size)? AfterTurn(List<(uint Local, Vector3 Position, Quaternion Rotation)> poses)
+    {
+        var boxes = new List<PivotBox>();
+        var scales = new List<Vector3>();
+        foreach (var (local, place, turn) in poses)
+        {
+            if (Find(local) is not { } o)
+                return null;
+            boxes.Add(new PivotBox(place, turn, o.Scale));
+            scales.Add(o.Scale);
+        }
+        if (boxes.Count == 0)
+            return null;
+        var centre = PivotChoice switch
+        {
+            PivotMode.Root when poses.FirstOrDefault(p => p.Local == RootOf(_selection[0])) is { Local: not 0 } root => root.Position,
+            PivotMode.Root when WorldOf(RootOf(_selection[0])) is { } root => root.Position,
+            PivotMode.Custom => PivotRules.Custom(boxes, _pivotOffset, _pivotUnit),
+            _ => PivotRules.Centre(boxes),
+        };
+        Vector3 size;
+        if (boxes.Count == 1)
+            size = _manipSize;   // the one object's size as the drag has it (a turn does not change it)
+        else
+        {
+            var min = boxes.Select((b, i) => b.Position - scales[i] / 2).Aggregate(Vector3.Min);
+            var max = boxes.Select((b, i) => b.Position + scales[i] / 2).Aggregate(Vector3.Max);
+            size = max - min;
+        }
+        return (centre, size);
     }
 
     /// <summary>A corner box's drag: every selected object grows by <paramref name="ratio"/> (held so no size leaves the limits) and, with several,
