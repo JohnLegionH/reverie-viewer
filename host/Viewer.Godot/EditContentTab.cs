@@ -150,6 +150,9 @@ public sealed class EditContentTab
         // the focus-loss save above. A field that takes Esc itself is marked, as the add-on text fields are, so this handler runs first.
         _propName.SetMeta(ShellRoot.TakesEscapeMeta, true);
         _propDesc.SetMeta(ShellRoot.TakesEscapeMeta, true);
+        // a press anywhere else (an empty part of the Build window included) sends the typed name too, as clicking outside the window does
+        _propName.SetMeta(ShellRoot.CommitsOnPressOutsideMeta, true);
+        _propDesc.SetMeta(ShellRoot.CommitsOnPressOutsideMeta, true);
         _propName.GuiInput += e => CancelOnEscape(e, _propName);
         _propDesc.GuiInput += e => CancelOnEscape(e, _propDesc);
         _props.AddChild(Field("edit.content.prop.name", _propName));
@@ -538,6 +541,9 @@ public sealed class EditContentTab
 
     /// <summary>The list, for the automation: the item names shown.</summary>
     public IReadOnlyList<string> Names => Enumerable.Range(0, _list.ItemCount).Select(i => _list.GetItemText(i)).ToList();
+
+    /// <summary>The names of the rows chosen now, for the automation.</summary>
+    public IReadOnlyList<string> ChosenNames => _list.GetSelectedItems().Select(i => _list.GetItemText(i)).ToList();
 
     /// <summary>Chooses the row with this name, for the automation (as a click on it would).</summary>
     public bool Choose(string name)

@@ -54,6 +54,18 @@ public static class BuildRules
         !locked && copyable && owned ? null
             : "ConfirmObjectDelete" + (locked ? "Lock" : "") + (copyable ? "" : "NoCopy") + (owned ? "" : "NoOwn");
 
+    /// <summary>The question Delete asks for several objects at once: one question for the whole set, as the official viewer asks it
+    /// (llselectmgr.cpp, selectDelete): some object is locked, some cannot be copied, or the agent does not own all of them. Null when
+    /// Delete may go ahead at once. An empty set asks nothing.</summary>
+    public static string? DeleteConfirmationForSet(IEnumerable<uint> flagsOfRoots)
+    {
+        var all = flagsOfRoots.ToList();
+        if (all.Count == 0)
+            return null;
+        return DeleteConfirmation(all.Any(f => (f & ObjectFlagBits.Move) == 0), all.All(f => (f & ObjectFlagBits.Copy) != 0),
+            all.All(f => (f & ObjectFlagBits.YouOwner) != 0));
+    }
+
     /// <summary>Where Create puts the box for a click: from the camera through the click; on the ground the spot itself, on an object the region
     /// casts the ray on past it. Null for a click on nothing, an avatar, or too far away.</summary>
     public static Placement? CreatePlacement(PickResult pick, Vector3 cameraPosition, Vector3 cameraAt, Vector3 rayDirection, float nearClip)

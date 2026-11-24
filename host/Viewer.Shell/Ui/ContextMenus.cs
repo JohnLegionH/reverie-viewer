@@ -84,7 +84,8 @@ public static class ContextMenus
                 list.Add(new("take_copy", "menu.take_copy"));
             // Delete sends the object to the agent's Trash. It asks first, with the official question, only for an object that is locked,
             // cannot be copied or is not the agent's own (llselectmgr.cpp, selectDelete); the controller opens that dialog when the entry is chosen.
-            list.Add(new("delete", "menu.delete", Viewer.Core.Building.BuildRules.CanDelete(flags, c.Attachment)));
+            bool canDelete = Viewer.Core.Building.BuildRules.CanDelete(flags, c.Attachment);
+            list.Add(new("delete", "menu.delete", canDelete, ReasonKey: canDelete ? null : "menu.delete.reason.not_allowed"));
             // "Put on" in the official viewer's object menu (menu_object.xml): Attach and Attach HUD, each a list of points. Enabled only for an
             // object the user owns and is not sitting on (llviewermenu.cpp, object_is_wearable)
             bool wearable = (flags & ObjectFlagBits.YouOwner) != 0 && !c.SittingOnIt;

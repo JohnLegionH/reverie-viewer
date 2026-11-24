@@ -40,6 +40,8 @@ public partial class Main
         public Vector2 DownAt;
         public ulong LastSent;
         public Action? Pending;
+        /// <summary>What lay under the pointer when a Shift press landed on a handle: a click that never became a drag selects it, or lets it go.</summary>
+        public Viewer.Core.Interaction.PickResult? ShiftClick;
     }
 
     private static NVector3 RegionOf(Vector3 engine) => new(engine.X, -engine.Z, engine.Y);
@@ -144,7 +146,8 @@ public partial class Main
         var h = Manipulator.Hit(mode, centre, frame, size, HandleViewNow(), ProjectN, new NVector2(at.X, at.Y));
         if (h.Kind == HandleKind.None || !e.BeginManip())
             return false;
-        _handleDrag = new HandleDragState { Handle = h, Mode = mode, Start = RayAt(at), Centre = centre, Frame = frame, Size = size, DownAt = at };
+        _handleDrag = new HandleDragState { Handle = h, Mode = mode, Start = RayAt(at), Centre = centre, Frame = frame, Size = size, DownAt = at,
+            ShiftClick = shift ? PickAt(at) : null };
         return true;
     }
 
@@ -224,6 +227,9 @@ public partial class Main
         }
         _handleDrag = null;
         e.EndManip();
+        // a Shift-click that lands on a handle and does not become a drag still adds the object under it to the selection, or takes it out
+        if (!d.OutsideSlop && d.ShiftClick is { } click)
+            e.Click(click, shift: true);
     }
 
     /// <summary>A drag's last step held back until its copy has arrived (or two seconds have passed).</summary>

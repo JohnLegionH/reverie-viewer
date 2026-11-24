@@ -330,6 +330,32 @@ public sealed class InteractionController
 
     private void Ask(global::Viewer.Shell.Notifications.Notification question) => ConfirmationRequested?.Invoke(question);
 
+    /// <summary>The objects Delete takes when it is chosen on a root: null for that object alone.</summary>
+    public Func<uint, IReadOnlyList<(uint Root, uint Flags)>?>? DeleteSetFor { get; set; }
+
+    /// <summary>Delete was sent for these roots (the build selection lets them go).</summary>
+    public event Action<IReadOnlyList<uint>>? ObjectsDeleted;
+
+    /// <summary>Deletes these roots with one question for the whole set.</summary>
+    public void DeleteObjects(IReadOnlyList<(uint Root, uint Flags)> set)
+    {
+        if (set.Count == 0)
+            return;
+        var roots = set.Select(s => s.Root).Distinct().ToArray();
+        void Go()
+        {
+            foreach (var root in roots)
+                _submit(new DeleteObjectIntent(root));
+            ObjectsDeleted?.Invoke(roots);
+        }
+        // no sound: the official viewer only preloads its delete sound and never plays it (llvieweraudio.cpp); one question for the whole set
+        var question = Viewer.Core.Building.BuildRules.DeleteConfirmationForSet(set.Select(s => s.Flags));
+        if (question is null)
+            Go();
+        else
+            Ask(Confirmations.DeleteObjects(question, Go));
+    }
+
 
     private AvatarState? Me() => _world.FindAvatar(_self);
 
@@ -603,15 +629,10 @@ public sealed class InteractionController
                         break;
                     case "delete":
                     {
-                        // no sound: the official viewer only preloads its delete sound and never plays it (llvieweraudio.cpp)
+                        // an object that is one of the build selection takes the whole selection with it (the official menu acts on the selection)
                         uint rootId = root.Id.LocalId;
                         uint flags = (root.Interaction ?? prim.Interaction)?.Flags ?? 0;
-                        var question = Viewer.Core.Building.BuildRules.DeleteConfirmation((flags & ObjectFlagBits.Move) == 0, (flags & ObjectFlagBits.Copy) != 0,
-                            (flags & ObjectFlagBits.YouOwner) != 0);
-                        if (question is null)
-                            _submit(new DeleteObjectIntent(rootId));
-                        else
-                            Ask(Confirmations.DeleteObjects(question, () => _submit(new DeleteObjectIntent(rootId))));
+                        DeleteObjects(DeleteSetFor?.Invoke(rootId) ?? [(rootId, flags)]);
                         break;
                     }
                     case "detach" when root.AttachItemId is { } wornItem && wornItem != Guid.Empty:
