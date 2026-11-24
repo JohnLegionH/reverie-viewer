@@ -786,6 +786,7 @@ public partial class ShellRoot : Control
             // has not, or after a drag made it smaller, the content scrolls
             if (_fitted.Add(open[i].Id))
                 _fitDue[open[i].Id] = Engine.GetProcessFrames() + FitAfterFrames;
+            f.ShowMinimized();
             f.Position = new Vector2(open[i].Rect.X, open[i].Rect.Y);
             f.Size = new Vector2(open[i].Rect.W, f.Minimized ? FloaterFrame.TitleBarHeight : open[i].Rect.H);
             _floaterLayer.MoveChild(f, i);   // the nearer, the later

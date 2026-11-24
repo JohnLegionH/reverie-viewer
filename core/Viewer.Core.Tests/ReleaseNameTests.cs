@@ -70,7 +70,7 @@ public class ReleaseNameTests
             "A reverie is a daydream, and a virtual world is a daydream we share. Reverie Viewer is a modern, open-source viewer for OpenSimulator grids and Second Life: familiar where it should be, better where it can be.",
             "The name also nods to the AI it was built with. \"Reverie\" was the simulation at the heart of the Generative Agents study, where AI agents lived out their days in a small virtual town. Reverie Viewer was built with AI, and AI agents helped test it.",
             "Reverie comes from one of the original Founders of InWorldz, whose motto was \"Where your dreams are our vision.\" This viewer carries that idea forward to the grids that came after.",
-            "Created by Legion Builds and contributors. Includes code from the Second Life viewer by Linden Research, Inc. and from other open-source projects; see Licences for each project and its notice.",
+            "Created by Legion Builds and contributors. Includes code from the Second Life viewer by Linden Research, Inc. and from other open-source projects; see Licenses for each project and its notice.",
             "Reverie Viewer is free software under the GNU Lesser General Public License, version 2.1. Source code: github.com/JohnLegionH/reverie-viewer",
             "Support is best effort: report problems on the GitHub issues page.",
             "This software is not provided or supported by Linden Lab, the makers of Second Life. Second Life and Linden Lab are trademarks of Linden Research, Inc.");

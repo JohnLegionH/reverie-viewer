@@ -57,6 +57,7 @@ public partial class EditPanel : VBoxContainer
     private readonly RvCard _card;
     private readonly Button _faceMode, _undo, _redo;
     private readonly CheckBox _linked, _snap, _snapObjects, _both, _stretchTex, _ownedOnly;
+    private readonly Label _counts;
     private readonly Label _status, _hint, _cardName, _cardPicked, _cardOwner, _searchStatus;
     private readonly LineEdit _search;
     private readonly Dictionary<BuildSection, SectionParts> _sections = new();
@@ -128,7 +129,15 @@ public partial class EditPanel : VBoxContainer
         };
         _search.AccessibilityName = strings.Get("edit.search");
         _search.TextChanged += ApplySearch;
-        AddChild(_search);
+        // how many linksets and parts are selected stands beside the search box: above the scrolled sections, so it shows with every tool,
+        // whatever is open or closed, and it takes no height from them
+        _search.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _counts = new Label { Name = "selection_counts", ThemeTypeVariation = ReverieStyle.Caption, VerticalAlignment = VerticalAlignment.Center };
+        var searchRow = new HBoxContainer { Name = "search_row" };
+        searchRow.AddThemeConstantOverride("separation", 8);
+        searchRow.AddChild(_search);
+        searchRow.AddChild(_counts);
+        AddChild(searchRow);
         _searchStatus = new Label { Name = "search_status", Visible = false, AutowrapMode = TextServer.AutowrapMode.WordSmart, ThemeTypeVariation = ReverieStyle.Caption };
         AddChild(_searchStatus);
 
@@ -922,6 +931,9 @@ public partial class EditPanel : VBoxContainer
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);
             _ownedOnly.SetPressedNoSignal(e?.SelectOwnedOnly ?? false);
+            var (linksets, parts) = e?.SelectionCounts() ?? (0, 0);
+            _counts.Text = BuildLayout.SelectionCountLine(linksets, parts, _s);
+            _counts.AccessibilityName = _counts.Text;
             var o = e?.Object();
             var access = o is null || e is null ? new EditAccess(false, false, false, false) : e.Access(o.Id.LocalId);
             int count = e?.Selection.Count ?? 0;

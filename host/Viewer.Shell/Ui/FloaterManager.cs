@@ -176,7 +176,10 @@ public sealed class FloaterManager
             return false;
         int at = IndexOf(id);
         if (at >= 0)
+        {
+            SetMinimized(id, false);   // asking for a minimized window brings it back whole, as the official viewer's open does
             return Raise(at);
+        }
         var remembered = _places.Get(id);
         // once per window: a place that still has the old default size was never resized, so it gives way to the new first-open size
         if (_places.TakeSizeCheck(id) && remembered is { } old && old.W == spec.DefaultSize.W && old.H == spec.DefaultSize.H && FirstOpenSize(spec) != spec.DefaultSize)
@@ -221,9 +224,10 @@ public sealed class FloaterManager
             return false;
         if (!force && _closeGuards.TryGetValue(id, out var mayClose) && !mayClose())
             return false;
-        _places.Set(id, _wanted.GetValueOrDefault(id, _open[at].Rect));
+        _places.Set(id, KeptRect(id, _open[at].Rect));
         _places.Flush();
         _wanted.Remove(id);
+        _minimized.Remove(id);
         _open.RemoveAt(at);
         Changed?.Invoke();
         Closed?.Invoke(id);
@@ -235,6 +239,8 @@ public sealed class FloaterManager
     {
         if (!_specs.ContainsKey(id))
             return false;
+        if (IsMinimized(id))
+            return Open(id);
         if (IsOpen(id))
         {
             Close(id);
@@ -250,6 +256,8 @@ public sealed class FloaterManager
     {
         if (!_specs.ContainsKey(id))
             return false;
+        if (IsMinimized(id))
+            return Open(id);
         if (IsOpen(id) && FocusedId != id)
             return Focus(id);
         return Toggle(id);
@@ -268,6 +276,32 @@ public sealed class FloaterManager
     /// <summary>Closes the focused floater; false when none is open.</summary>
     public bool CloseFocused() => FocusedId is { } id && Close(id);
 
+    // the minimized windows, each with the place and size it had when it was minimized
+    private readonly Dictionary<string, UiRect> _minimized = new();
+
+    public bool IsMinimized(string id) => _minimized.ContainsKey(id);
+
+    /// <summary>Minimizes an open window to its title bar, or restores it at the size and place it had when it was minimized (a bar that was
+    /// dragged meanwhile goes back). True when that changed anything.</summary>
+    public bool SetMinimized(string id, bool on)
+    {
+        int at = IndexOf(id);
+        if (at < 0 || on == IsMinimized(id))
+            return false;
+        if (on)
+            _minimized[id] = _wanted.GetValueOrDefault(id, _open[at].Rect);
+        else if (_minimized.Remove(id, out var before))
+        {
+            _open[at] = (id, Clamp(_specs[id], before));
+            _wanted[id] = before;
+        }
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>The place worth keeping for an open window: from before it was minimized, else where the person put it.</summary>
+    private UiRect KeptRect(string id, UiRect now) => _minimized.TryGetValue(id, out var before) ? before : _wanted.GetValueOrDefault(id, now);
+
     public bool Move(string id, float x, float y)
     {
         int at = IndexOf(id);
@@ -281,7 +315,7 @@ public sealed class FloaterManager
     public bool Resize(string id, float w, float h)
     {
         int at = IndexOf(id);
-        if (at < 0 || !_specs[id].Resizable)
+        if (at < 0 || !_specs[id].Resizable || IsMinimized(id))
             return false;
         var r = _open[at].Rect;
         Replace(at, Clamp(_specs[id], r with { W = w, H = h }));
@@ -297,7 +331,7 @@ public sealed class FloaterManager
     public bool ResizeBy(string id, ResizeEdges edges, UiRect start, float dx, float dy)
     {
         int at = IndexOf(id);
-        if (at < 0 || !_specs[id].Resizable)
+        if (at < 0 || !_specs[id].Resizable || IsMinimized(id))
             return false;
         var spec = _specs[id];
         float minW = Math.Min(spec.MinSize.W, _bounds.W), minH = Math.Min(spec.MinSize.H, _bounds.H);
@@ -329,7 +363,7 @@ public sealed class FloaterManager
     public bool FitToContent(string id, float width, float height)
     {
         int at = IndexOf(id);
-        if (at < 0 || !_firstOpening.Contains(id))
+        if (at < 0 || !_firstOpening.Contains(id) || IsMinimized(id))
             return false;
         var r = _open[at].Rect;
         // a row of controls cannot scroll sideways, so content wider than the share takes its own width, up to the whole view (the
@@ -347,7 +381,7 @@ public sealed class FloaterManager
     public void SavePlaces()
     {
         foreach (var (id, rect) in _open)
-            _places.Set(id, _wanted.GetValueOrDefault(id, rect));
+            _places.Set(id, KeptRect(id, rect));
         _places.Flush();
     }
 

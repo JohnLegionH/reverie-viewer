@@ -24,15 +24,9 @@ public partial class Main
 {
     private EditController? _edit;
     private EditPanel? _editPanel;
-    private EditDrag? _editDrag;
+    private DragSelect? _editDrag;
 
-    /// <summary>A press with the Edit or Move tool off the handles, until it is released: a click selects, a drag draws a selection box (pressing
-    /// on an object and dragging does not move it: with the official tools only the handles move the selection).</summary>
-    private sealed class EditDrag
-    {
-        public Vector2 From;
-        public bool Moved, Shift;
-    }
+    private DragBoxOverlay? _dragBox;
 
     /// <summary>A new session's edit controller; the window and the menu entries are made once and outlive a session.</summary>
     private void AttachEdit(ViewerSession s, InteractionController ic)
@@ -43,7 +37,7 @@ public partial class Main
         _edit.Changed += () => _editPanel?.Refresh();
         _edit.ReadyToOpen += OpenContentScript;
         _edit.KeepToolSelected = _settings?.Get(Viewer.Shell.Build.BuildSettings.KeepToolSelected) ?? false;
-        _editDrag = null;
+        DropEditDrag();
         // Create makes the box of the new-prim settings (Preferences, Building) and puts the rest of them on it when it arrives
         Viewer.Core.Building.NewPrimDefaults NewPrim() =>
             (_settings is { } st ? NewPrimSettings.Read(st) : Viewer.Core.Building.NewPrimDefaults.Default).Clamped(s.EditLimits);
@@ -79,7 +73,7 @@ public partial class Main
         // the land impact is asked for again every three seconds while something is selected (an edit changes it)
         timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) { _editPanel.Refresh(); if (++costTicks % 12 == 0) _edit?.RefreshCosts(); } };
         _editPanel.AddChild(timer);
-        shell.Floaters.Closed += id => { if (id == EditPanel.FloaterId && _edit is { BuildMode: true } e) e.CloseBuild(); };
+        shell.Floaters.Closed += id => { if (id == EditPanel.FloaterId && _edit is { BuildMode: true } e) { DropEditDrag(); e.CloseBuild(); } };
         shell.Commands.Register(BuildMenu.ToggleCommand, ToggleBuild);
         shell.Commands.Register(BuildMenu.FocusCommand, () => ChooseTool(BuildTool.Focus));
         shell.Commands.Register(BuildMenu.MoveCommand, () => ChooseTool(BuildTool.Move));
@@ -227,7 +221,7 @@ public partial class Main
         _editPanel?.ContentTab.CommitPendingEdit();   // a rename being typed is kept while the item is still selected
         _edit?.CloseBuild();
         _interact?.CancelCreate();
-        _editDrag = null;
+        DropEditDrag();
         _handleDrag = null;
         if (_shell is { } sh && sh.Shell.Floaters.IsOpen(EditPanel.FloaterId))
             sh.Shell.Floaters.Close(EditPanel.FloaterId);
@@ -258,14 +252,13 @@ public partial class Main
                 else if (_handleDrag is not null)
                     HandleRelease(e);
                 else
-                    EditRelease(e, b.Position);
+                    EditRelease(e, b.Position);   // normally taken already, in DragBoxInput
                 return true;
             case InputEventMouseMotion m when _handleDrag is not null:
                 HandleMotion(e, m.Position, m.ShiftPressed, m.AltPressed);
                 return true;
-            case InputEventMouseMotion m when _editDrag is { } d:
-                EditMotion(e, d, m.Position);
-                return true;
+            case InputEventMouseMotion when _editDrag is not null:
+                return true;   // followed in DragBoxInput
             case InputEventMouseMotion m when e.Tool is BuildTool.Edit or BuildTool.Move:
                 _handleHot = HandleAt(e, m.Position);   // the handle under the pointer is lit
                 return false;
@@ -276,21 +269,62 @@ public partial class Main
     private void EditPress(EditController e, Vector2 at, bool shift)
     {
         e.Click(PickAt(at), shift);
-        _editDrag = new EditDrag { From = at, Shift = shift };
+        _editDrag = new DragSelect(new System.Numerics.Vector2(at.X, at.Y), shift);
     }
 
-    private static void EditMotion(EditController e, EditDrag d, Vector2 at)
+    /// <summary>Follows a drag selection before the windows see the pointer, so the box keeps following over a window and a release there
+    /// still ends it. A move without the button held means the release never arrived: the box goes and nothing more is selected.</summary>
+    private void DragBoxInput(InputEvent ev)
     {
-        if (!d.Moved && (at - d.From).Length() > 2f)
-            d.Moved = true;   // the official drag starts past a two-pixel slop
+        if (_editDrag is not { } d)
+            return;
+        if (_edit is not { BuildMode: true } e)
+        {
+            DropEditDrag();   // build mode ended under the drag
+            return;
+        }
+        switch (ev)
+        {
+            case InputEventMouseMotion m when (m.ButtonMask & MouseButtonMask.Left) == 0:
+                DropEditDrag();
+                break;
+            case InputEventMouseMotion m:
+                d.Move(new System.Numerics.Vector2(m.Position.X, m.Position.Y));
+                ShowDragBox();
+                break;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } b:
+                EditRelease(e, b.Position);
+                break;
+        }
     }
 
     private void EditRelease(EditController e, Vector2 at)
     {
         var d = _editDrag;
-        _editDrag = null;
+        DropEditDrag();
         if (d is { Moved: true })
-            BoxSelect(e, d.From, at, d.Shift);   // a drag draws a selection box (lltoolselectrect.cpp)
+            BoxSelect(e, new Vector2(d.From.X, d.From.Y), at, d.Shift);   // a drag draws a selection box (lltoolselectrect.cpp)
+    }
+
+    private void DropEditDrag()
+    {
+        _editDrag = null;
+        ShowDragBox();
+    }
+
+    private void ShowDragBox()
+    {
+        var box = _editDrag?.Box;
+        if (_dragBox is null)
+        {
+            if (box is null)
+                return;
+            var layer = new CanvasLayer { Name = "drag_box_layer", Layer = -1 };   // over the world, under the bars and windows
+            AddChild(layer);
+            _dragBox = new DragBoxOverlay();
+            layer.AddChild(_dragBox);
+        }
+        _dragBox.Show(box is var (min, size) ? new Rect2(min.X, min.Y, size.X, size.Y) : null);
     }
 
     /// <summary>Drag-select, as the official rectangle tool takes objects (<see cref="BoxSelectRules"/>): the objects the dragged box surrounds,
@@ -638,6 +672,10 @@ public partial class Main
             },
             grid = new { mode = e.Grid.ToString().ToLowerInvariant(), origin = new[] { e.GridOrigin.X, e.GridOrigin.Y, e.GridOrigin.Z }, unit = e.GridUnit },
             handles_drawn = _handles?.Visible ?? false,
+            // the drag-select rectangle as last drawn (x, y, width, height), null while none shows
+            drag_box = _dragBox is { Visible: true, Drawn: { } drawnBox } ? new[] { drawnBox.Position.X, drawnBox.Position.Y, drawnBox.Size.X, drawnBox.Size.Y } : null,
+            drag_box_draws = _dragBox?.Draws ?? 0,
+            selection_counts = e.SelectionCounts() is var (selectedLinksets, selectedParts) ? new { linksets = selectedLinksets, parts = selectedParts } : null,
             edit_linked = e.EditLinked,
             window_open = _shell?.Shell.Floaters.IsOpen(EditPanel.FloaterId) ?? false,
             grid_window_open = _shell?.Shell.Floaters.IsOpen(GridPanel.FloaterId) ?? false,

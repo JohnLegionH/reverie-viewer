@@ -87,3 +87,19 @@ public sealed partial class EditController
     private bool SendMoves(IReadOnlyList<ArrangeMove> moves) =>
         moves.Count > 0 && Send(new MoveLinksetsIntent([.. moves.Select(m => new LinksetMove(m.Root, m.Position))]));
 }
+
+public sealed partial class EditController
+{
+    /// <summary>How many linksets and parts are selected, for the Build window's count: whole linksets count every prim in them; with Edit
+    /// linked only the picked parts count.</summary>
+    public (int Linksets, int Parts) SelectionCounts()
+    {
+        if (_selection.Count == 0)
+            return (0, 0);
+        var roots = _selection.Select(RootOf).Where(r => r != 0).ToHashSet();
+        int parts = EditLinked
+            ? _selection.Distinct().Count(l => Find(l) is not null)
+            : _world.CountLinksetObjects(roots);
+        return (roots.Count, parts);
+    }
+}

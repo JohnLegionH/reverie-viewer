@@ -14,7 +14,10 @@ public sealed class FloaterDrag
 {
     private ResizeEdges _edges;
     private UiRect _start;
-    private float _pressX, _pressY;
+    private float _pressX, _pressY, _travel;
+
+    /// <summary>The farthest the pointer may stray from the press, in interface units, for the press and release to count as a click.</summary>
+    private const float ClickSlop = 4;
 
     /// <summary>True between a press on an open window and the end of the drag.</summary>
     public bool Active { get; private set; }
@@ -32,6 +35,7 @@ public sealed class FloaterDrag
         _start = start;
         _pressX = x;
         _pressY = y;
+        _travel = 0;
         Active = true;
     }
 
@@ -47,6 +51,7 @@ public sealed class FloaterDrag
             return false;
         }
         float dx = x - _pressX, dy = y - _pressY;
+        _travel = Math.Max(_travel, Math.Max(Math.Abs(dx), Math.Abs(dy)));
         if (_edges == ResizeEdges.None)
             floaters.Move(id, _start.X + dx, _start.Y + dy);
         else
@@ -55,5 +60,11 @@ public sealed class FloaterDrag
     }
 
     /// <summary>Ends the drag (the button was released).</summary>
-    public void End() => Active = false;
+    /// <summary>True when the drag that ends was a click: the pointer never left the press by more than the slop.</summary>
+    public bool End()
+    {
+        bool click = Active && _travel <= ClickSlop;
+        Active = false;
+        return click;
+    }
 }
