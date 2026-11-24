@@ -9,7 +9,7 @@ namespace Viewer.Shell.Build;
 /// <summary>The Build window's collapsible sections, top to bottom. They replace the official floater's tabs (General, Object, Features,
 /// Texture, Content; floater_tools.xml): Placement and Shape hold the Object tab, Look the Texture tab, Object the General tab, Behaviour
 /// the Features tab and Contents the Content tab. Contents comes first: it was last, below every other section, and had to be scrolled to.</summary>
-public enum BuildSection { Contents, Placement, Shape, Look, Object, Behaviour }
+public enum BuildSection { Contents, Placement, Arrange, Shape, Look, Object, Behaviour }
 
 /// <summary>One row of the Build window: the control's name, the section it sits in (null: the tool rows at the top), the string key of
 /// its label, and other names people search for it by (the official viewer's names where they differ from ours).</summary>
@@ -22,7 +22,7 @@ public sealed record BuildFacts(
     int FacesPicked = 0, bool SelectFaces = false, string? Texture = null,
     string? Name = null, bool Locked = false, bool Physical = false, bool Temporary = false, bool Phantom = false,
     bool Flexible = false, bool Light = false, string? PhysicsShape = null,
-    int? ContentCount = null, PivotMode Pivot = PivotMode.Centre);
+    int? ContentCount = null, PivotMode Pivot = PivotMode.Centre, int? Linksets = null);
 
 /// <summary>
 /// The Build window's layout as data, so it is tested without the engine: the tool rows and every section's rows with the names they are
@@ -91,6 +91,11 @@ public static class BuildLayout
         R("snap", BuildSection.Placement, "edit.snap", "Snap", "Snap to grid", "grid"),
         R("stretch_both", BuildSection.Placement, "edit.stretch_both", "Stretch Both Sides"),
         R("stretch_textures", BuildSection.Placement, "edit.stretch_textures", "Stretch Textures"),
+
+        // Arrange (lining up several linksets; ours, Firestorm has an Align tool and the official viewer none)
+        R("align_axis", BuildSection.Arrange, "edit.align", "Align", "line up", "arrange", "axis"),
+        R("align_target", BuildSection.Arrange, "edit.align.to", "Align", "key object", "last selected", "selection box"),
+        R("align_edge", BuildSection.Arrange, "edit.align.edge", "Align", "min", "centre", "center", "max", "flush"),
 
         // Shape (the official Object tab's building block)
         R("prim_type", BuildSection.Shape, "edit.prim_type", "Building Block Type", "prim type", "shape"),
@@ -238,6 +243,9 @@ public static class BuildLayout
                     PivotMode.Custom => at + ", " + s.Get("edit.summary.pivot_custom"),
                     _ => at,
                 };
+            case BuildSection.Arrange:
+                return f.Linksets is not { } sets ? s.Get("edit.summary.none")
+                    : sets >= 2 ? s.Get("edit.summary.arrange", new Counted("count.linksets", sets)) : s.Get("edit.summary.arrange_one", new Counted("count.linksets", sets));
             case BuildSection.Shape:
             {
                 var parts = new List<string> { f.ShapeName ?? s.Get("edit.summary.unknown") };

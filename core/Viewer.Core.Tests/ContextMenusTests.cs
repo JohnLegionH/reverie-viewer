@@ -19,7 +19,7 @@ public class ContextMenusTests
     public void An_object_menu_lists_touch_sit_open_inspect_and_take_in_that_order()
     {
         var m = ContextMenus.ForObject(new(I(), I(), false, false, false));
-        Assert.Equal(["touch", "sit", "open", "inspect", "take", "delete", "attach", "attach_hud", "block", "return"], Ids(m));
+        Assert.Equal(["touch", "sit", "open", "inspect", "take", "edit", "delete", "attach", "attach_hud", "block", "return"], Ids(m));
     }
 
     [Fact]

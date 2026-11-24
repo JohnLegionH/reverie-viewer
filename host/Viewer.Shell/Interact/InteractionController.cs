@@ -310,6 +310,9 @@ public sealed class InteractionController
     /// <summary>Right-click ground > Build: the build tool opens with the Create tool (the official menu's Build entry).</summary>
     public event Action? BuildRequested;
 
+    /// <summary>Right-click object > Edit: the build tools open on this root (its local id).</summary>
+    public event Action<uint>? EditRequested;
+
     /// <summary>World > About Land: the parcel the own avatar stands on (the official window selects the parcel at the agent's position
     /// when it opens with nothing selected, llfloaterland.cpp onOpen). False before the own avatar is known.</summary>
     public bool AboutLandHere()
@@ -572,7 +575,8 @@ public sealed class InteractionController
         return ContextMenus.ForObject(new ObjectMenuContext(prim.Interaction, root.Interaction, worn, SittingOn(root), Sitting,
             _social.IsBlocked?.Invoke(MuteKind.Object, root.FullId) == true, CanDetach: worn && SelfHooks?.Detach is not null && root.AttachItemId is { } item && item != Guid.Empty
                 && (SelfHooks.CanDetachItem?.Invoke(item) ?? true),
-            ForSale: sale is not null && ObjectSale.IsForSale(sale), CanBuy: sale is not null && ObjectSale.CanBuy(sale), NoMoney: NoMoney?.Invoke() == true));
+            ForSale: sale is not null && ObjectSale.IsForSale(sale), CanBuy: sale is not null && ObjectSale.CanBuy(sale), NoMoney: NoMoney?.Invoke() == true,
+            WornByOther: root.AttachmentPoint is not null && !worn));
     }
 
     /// <summary>An object's menu: its own entries and, for an own worn object, the own avatar's part after them, Take Off and its Clothes
@@ -626,6 +630,13 @@ public sealed class InteractionController
                     case "take" or "take_copy":
                         if (_submit(new TakeIntent(root.Id.LocalId, entryId == "take_copy")).Status == ActionStatus.Sent)
                             PlaySound?.Invoke(global::Viewer.Shell.Sound.UiSoundSlot.ObjectRezOut);
+                        break;
+                    case "edit" when root.AttachmentPoint is null:
+                        // the right-click selection is let go before the build tools select the object, so closing the menu afterwards
+                        // cannot deselect what the build tools just selected on the region
+                        Selected = null;
+                        Properties = null;
+                        EditRequested?.Invoke(root.Id.LocalId);
                         break;
                     case "delete":
                     {

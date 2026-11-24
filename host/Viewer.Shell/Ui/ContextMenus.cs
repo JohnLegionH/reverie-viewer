@@ -12,7 +12,7 @@ public sealed record ContextEntry(string Id, string LabelKey, bool Enabled = tru
 
 /// <summary>What the menu for an object depends on.</summary>
 public readonly record struct ObjectMenuContext(PrimInteraction? Self, PrimInteraction? Root, bool Attachment, bool SittingOnIt, bool Sitting, bool IsBlocked = false, bool CanDetach = false,
-    bool ForSale = false, bool CanBuy = false, bool NoMoney = false);
+    bool ForSale = false, bool CanBuy = false, bool NoMoney = false, bool WornByOther = false);
 
 /// <summary>What the menu for an avatar depends on.</summary>
 /// <param name="NoMoney">The grid has no money: there is no Pay.</param>
@@ -82,10 +82,15 @@ public static class ContextMenus
                 list.Add(new("take", "menu.take", Viewer.Core.Building.BuildRules.CanTake(flags, c.Attachment, c.SittingOnIt)));
             if ((flags & ObjectFlagBits.Copy) != 0)
                 list.Add(new("take_copy", "menu.take_copy"));
+            // Edit opens the build tools on the object's linkset (menu_object.xml "Edit"); the controller turns the click on a child into its root.
+            // Neither Edit nor Delete is offered on an object another avatar wears.
+            if (!c.WornByOther)
+                list.Add(new("edit", "menu.edit"));
             // Delete sends the object to the agent's Trash. It asks first, with the official question, only for an object that is locked,
             // cannot be copied or is not the agent's own (llselectmgr.cpp, selectDelete); the controller opens that dialog when the entry is chosen.
             bool canDelete = Viewer.Core.Building.BuildRules.CanDelete(flags, c.Attachment);
-            list.Add(new("delete", "menu.delete", canDelete, ReasonKey: canDelete ? null : "menu.delete.reason.not_allowed"));
+            if (!c.WornByOther)
+                list.Add(new("delete", "menu.delete", canDelete, ReasonKey: canDelete ? null : "menu.delete.reason.not_allowed"));
             // "Put on" in the official viewer's object menu (menu_object.xml): Attach and Attach HUD, each a list of points. Enabled only for an
             // object the user owns and is not sitting on (llviewermenu.cpp, object_is_wearable)
             bool wearable = (flags & ObjectFlagBits.YouOwner) != 0 && !c.SittingOnIt;

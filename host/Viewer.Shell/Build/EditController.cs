@@ -180,6 +180,24 @@ public sealed partial class EditController
         return true;
     }
 
+    /// <summary>Right-click Edit: build mode opens with the Edit tool and only this object's linkset selected.</summary>
+    public bool EditObject(uint local)
+    {
+        if (Find(local) is not { AttachmentPoint: null })
+            return false;
+        SelectTool(BuildTool.Edit);
+        _faceSelection.Clear();
+        // the root, whatever Edit linked says (the right-click Edit takes the whole linkset), and whatever Select Only My Objects says
+        // (the official menu's Edit does not look at it); the select is sent even when the root was already in the selection, because
+        // the right-click let go of it on the region just before
+        uint root = RootOf(local);
+        SendDeselect(_selection.Where(s => s != root));
+        _selection.Clear();
+        Add(root);
+        Changed?.Invoke();
+        return true;
+    }
+
     /// <summary>A drag-select: the objects inside the box (their roots, or the parts with Edit linked); Shift adds to the selection.</summary>
     public void SelectMany(IEnumerable<uint> locals, bool shift)
     {

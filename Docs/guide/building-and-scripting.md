@@ -183,6 +183,7 @@ Right-click an object in the world. The menu has:
 - **Take**: puts the object into your inventory (in the Objects folder) and removes it from the world.
 - **Take Copy**: puts a copy into your inventory and leaves the object where it is. It shows only for an object you may copy.
 - **Return**: sends the object back to its owner. A dialog asks first and warns that no-transfer deeded objects will be deleted. Press **OK** (or Enter) to go on, or **Cancel** (or Esc). It is greyed for something you wear. Whether you may return the object is decided by the region: your own objects, and objects on land you own or have the rights to manage.
+- **Edit**: opens the Build window on the Edit tool with the object selected and its handles shown. If you right-click one part of a linked object, the whole linkset is selected. Press **Esc** to leave build mode.
 - **Delete**: moves the object to your Trash. For an object that is locked, cannot be copied, or is not yours, a dialog says which and asks first. Press **OK** (or Enter) to go on, or **Cancel** (or Esc).
 - **Drop**: on an object you wear, drops it on the ground. A dialog asks first. Press **Yes** (or Enter) to go on, or **No** (or Esc).
 
