@@ -96,6 +96,8 @@ public static class BuildLayout
         R("align_axis", BuildSection.Arrange, "edit.align", "Align", "line up", "arrange", "axis"),
         R("align_target", BuildSection.Arrange, "edit.align.to", "Align", "key object", "last selected", "selection box"),
         R("align_edge", BuildSection.Arrange, "edit.align.edge", "Align", "min", "centre", "center", "max", "flush"),
+        R("distribute_axis", BuildSection.Arrange, "edit.distribute", "Distribute", "axis", "space evenly"),
+        R("distribute_mode", BuildSection.Arrange, "edit.distribute.mode", "Distribute", "even", "equal", "spacing", "centres", "centers", "gaps"),
 
         // Shape (the official Object tab's building block)
         R("prim_type", BuildSection.Shape, "edit.prim_type", "Building Block Type", "prim type", "shape"),
@@ -245,7 +247,9 @@ public static class BuildLayout
                 };
             case BuildSection.Arrange:
                 return f.Linksets is not { } sets ? s.Get("edit.summary.none")
-                    : sets >= 2 ? s.Get("edit.summary.arrange", new Counted("count.linksets", sets)) : s.Get("edit.summary.arrange_one", new Counted("count.linksets", sets));
+                    : sets >= 3 ? s.Get("edit.summary.arrange", new Counted("count.linksets", sets))
+                    : sets == 2 ? s.Get("edit.summary.arrange_two", new Counted("count.linksets", sets))
+                    : s.Get("edit.summary.arrange_one", new Counted("count.linksets", sets));
             case BuildSection.Shape:
             {
                 var parts = new List<string> { f.ShapeName ?? s.Get("edit.summary.unknown") };

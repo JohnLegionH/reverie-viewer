@@ -11,6 +11,9 @@ public enum ArrangeAxis { X, Y, Z }
 /// <summary>Which part of each linkset's box is lined up: its low edge, its middle or its high edge along the axis.</summary>
 public enum ArrangeEdge { Min, Centre, Max }
 
+/// <summary>How Distribute spaces the linksets: equal steps between their centres, or equal space between one box and the next.</summary>
+public enum DistributeMode { Centres, Gaps }
+
 /// <summary>What the linksets line up to: the box that holds every selected linkset, or the linkset picked last (which stays put).</summary>
 public enum ArrangeTarget { SelectionBox, LastSelected }
 
@@ -73,6 +76,55 @@ public static class ArrangeRules
                 continue;
             float d = want - EdgeOf(boxes[i]);
             if (MathF.Abs(d) < 1e-5f)
+                continue;
+            moves.Add(new ArrangeMove(sets[i].Root, sets[i].RootPosition + Vector3.Transform(along * d, frame)));
+        }
+        return moves;
+    }
+
+    /// <summary>Whether Distribute is offered: three or more linksets (the two outermost stay put), none worn, every one movable.</summary>
+    public static ArrangeRefusal DistributeRefusal(int linksets, bool anyAttachment, bool allMovable) =>
+        anyAttachment ? ArrangeRefusal.Attachment : linksets < 3 ? ArrangeRefusal.TooFew : !allMovable ? ArrangeRefusal.NoMove : ArrangeRefusal.None;
+
+    /// <summary>Where each linkset's root goes so the linksets are evenly spaced along one axis. They are taken in order of their box
+    /// centres along the axis; the two outermost stay where they are and the ones between move. <see cref="DistributeMode.Centres"/> makes
+    /// the steps between box centres equal; <see cref="DistributeMode.Gaps"/> makes the space between one box and the next equal. A linkset
+    /// already in place is left out. Our own code; the even-spacing idea is the common one of drawing and layout tools.</summary>
+    public static IReadOnlyList<ArrangeMove> Distribute(IReadOnlyList<ArrangeLinkset> sets, ArrangeAxis axis, DistributeMode mode, Quaternion frame)
+    {
+        if (sets.Count < 3)
+            return [];
+        var boxes = sets.Select(s => BoxOf(s.Parts, frame)).ToArray();
+        float At(Vector3 v) => axis switch { ArrangeAxis.X => v.X, ArrangeAxis.Y => v.Y, _ => v.Z };
+        float Lo(int i) => At(boxes[i].Min);
+        float Hi(int i) => At(boxes[i].Max);
+        float Mid(int i) => (Lo(i) + Hi(i)) / 2f;
+        var order = Enumerable.Range(0, sets.Count).OrderBy(Mid).ThenBy(i => i).ToArray();
+        int n = order.Length;
+        var along = axis switch { ArrangeAxis.X => Vector3.UnitX, ArrangeAxis.Y => Vector3.UnitY, _ => Vector3.UnitZ };
+        var want = new float[sets.Count];   // each linkset's new box middle along the axis
+        if (mode == DistributeMode.Centres)
+        {
+            float first = Mid(order[0]), step = (Mid(order[n - 1]) - first) / (n - 1);
+            for (int k = 0; k < n; k++)
+                want[order[k]] = first + step * k;
+        }
+        else
+        {
+            float sizes = order.Sum(i => Hi(i) - Lo(i));
+            float gap = (Hi(order[n - 1]) - Lo(order[0]) - sizes) / (n - 1);
+            float cursor = Lo(order[0]);
+            foreach (int i in order)
+            {
+                want[i] = cursor + (Hi(i) - Lo(i)) / 2f;
+                cursor += Hi(i) - Lo(i) + gap;
+            }
+        }
+        var moves = new List<ArrangeMove>();
+        for (int i = 0; i < sets.Count; i++)
+        {
+            float d = want[i] - Mid(i);
+            if (i == order[0] || i == order[n - 1] || MathF.Abs(d) < 1e-5f)
                 continue;
             moves.Add(new ArrangeMove(sets[i].Root, sets[i].RootPosition + Vector3.Transform(along * d, frame)));
         }
