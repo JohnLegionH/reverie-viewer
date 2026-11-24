@@ -109,6 +109,14 @@ public sealed partial class EditController
     /// it becomes part of the selection. True when it was one.</summary>
     public bool CopyArrived(ObjectState o)
     {
+        bool joined = CopyJoins(o);
+        if (_mirrorCopy is { } pending)
+            MirrorCopyStep(pending, o, joined);   // Mirror a copy: mirror the copies once they are all here
+        return joined;
+    }
+
+    private bool CopyJoins(ObjectState o)
+    {
         if (_copiesAt.Count == 0 || _clock() > _copiesUntil)
         {
             _copiesAt.Clear();

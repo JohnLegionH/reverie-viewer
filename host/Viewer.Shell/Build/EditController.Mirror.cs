@@ -3,6 +3,8 @@
 
 using System.Numerics;
 using Viewer.Core.Actions;
+using Viewer.Core.Building;
+using Viewer.Core.Meshing;
 using Viewer.Core.World;
 
 namespace Viewer.Shell.Build;
@@ -52,14 +54,18 @@ public sealed partial class EditController
 
     /// <summary>Mirror: the selected linksets (or the parts picked with Edit linked parts) are reflected about a plane square to one axis of
     /// the grid's frame, through the middle of what is mirrored or through the pivot point. Each root goes first (its group position, then
-    /// its own turn); each part then gets its place and turn in its root's new frame. Region undo steps one part back at a time. False when
-    /// Mirror is refused or nothing needs to change.</summary>
-    public bool Mirror(ArrangeAxis axis, MirrorPlane plane)
+    /// its own turn); each part then gets its place and turn in its root's new frame, and its shape flipped to match (see
+    /// <see cref="ShapeMirror"/>; a mesh, or a shape no parameters can flip, is only placed and named in <see cref="MirrorNotice"/>). Region
+    /// undo steps one part back at a time. False when Mirror is refused or nothing needs to change.</summary>
+    public bool Mirror(ArrangeAxis axis, MirrorPlane plane) => MirrorAbout(axis, plane, null);
+
+    private bool MirrorAbout(ArrangeAxis axis, MirrorPlane plane, Vector3? fixedPoint)
     {
         if (MirrorStatus != ArrangeRefusal.None)
             return false;
+        _mirrorNotice.Clear();
         var targets = MirrorTargets();
-        if (MirrorPoses() is not { } parts || MirrorPlan(axis, plane) is not { } mirrored)
+        if (MirrorPoses() is not { } parts || MirrorPlan(axis, plane, fixedPoint) is not { } mirrored)
             return false;
         var intents = new List<UpdateObjectIntent>();
         foreach (var root in parts.Where(p => p.Parent == 0 || !targets.Contains(p.Parent)).Select(p => p.Parent == 0 ? p.Local : p.Parent).Distinct())
@@ -94,8 +100,127 @@ public sealed partial class EditController
         bool any = false;
         foreach (var intent in intents)
             any |= Send(intent);
+        any |= SendFlippedShapes(parts, MirrorRules.Normal(axis, GridFrame().Turn));
+        if (_mirrorNotice.Count > 0)
+            Changed?.Invoke();
         return any;
     }
+
+    /// <summary>Each part's shape flipped about the local plane its turn was chosen for (<see cref="MirrorRules.FlipAxis"/>): a prim's
+    /// shape block, a sculpt's map block with its Mirror bit toggled. A part that has no flipped shape is named in the notice.</summary>
+    private bool SendFlippedShapes(IReadOnlyList<MirrorPart> parts, Vector3 normal)
+    {
+        bool any = false;
+        foreach (var part in parts)
+        {
+            if (Find(part.Local)?.Shape is not { } shape)
+                continue;
+            int flipAbout = MirrorRules.FlipAxis(part.Rotation, normal, AllowedAxes(shape));
+            if (ShapeMirror.Flip(shape, flipAbout) is not { } flipped)
+            {
+                _mirrorNotice.Add(PropertiesOf(part.Local)?.Name is { Length: > 0 } name ? name : $"part {part.Local}");
+                continue;
+            }
+            if (ShapeMirror.SameOnTheWire(shape, flipped))
+                continue;
+            any |= shape.IsSculpt
+                ? Send(new SetSculptIntent(part.Local, flipped.SculptId, flipped.SculptType | flipped.SculptFlags))
+                : Send(new SetObjectShapeIntent(part.Local, ShapeRules.Encode(flipped)));
+        }
+        return any;
+    }
+
+    /// <summary>The local axes (1 X, 2 Y, 4 Z) a shape can be flipped about; all of them when none can (the part is then only placed).</summary>
+    private static int AllowedAxes(PrimShape shape)
+    {
+        int mask = 0;
+        for (int axis = 0; axis < 3; axis++)
+            if (ShapeMirror.Flip(shape, axis) is not null)
+                mask |= 1 << axis;
+        return mask == 0 ? 7 : mask;
+    }
+
+    // ---------------- the notice ----------------
+
+    private readonly List<string> _mirrorNotice = new();
+
+    /// <summary>The parts the last Mirror could only place, not flip (a mesh, or a shape no parameters can flip), until the notice is closed.</summary>
+    public IReadOnlyList<string> MirrorNotice => _mirrorNotice;
+
+    /// <summary>OK on the notice.</summary>
+    public void CloseMirrorNotice()
+    {
+        if (_mirrorNotice.Count == 0)
+            return;
+        _mirrorNotice.Clear();
+        Changed?.Invoke();
+    }
+
+    // ---------------- Mirror a copy ----------------
+
+    private sealed class PendingMirrorCopy(ArrangeAxis axis, MirrorPlane plane, Vector3 point, List<(Vector3 At, int Parts, uint Copy)> originals)
+    {
+        public readonly ArrangeAxis Axis = axis;
+        public readonly MirrorPlane Plane = plane;
+        public readonly Vector3 Point = point;
+        public readonly List<(Vector3 At, int Parts, uint Copy)> Originals = originals;
+    }
+
+    private PendingMirrorCopy? _mirrorCopy;
+
+    /// <summary>Mirror a copy is offered where Mirror and Duplicate both are, for whole linksets (not with Edit linked parts).</summary>
+    public bool CanMirrorCopy => !_editLinked && MirrorStatus == ArrangeRefusal.None && CanDuplicate;
+
+    /// <summary>Mirror a copy: the selected linksets are copied where they stand (the copies arrive selected), and when every part of each
+    /// copy is here the copies are mirrored about the plane the originals gave (through the middle of the originals, or the pivot), so the
+    /// originals stay and each copy lands as their image. False when it is refused or the copy could not be asked for.</summary>
+    public bool MirrorCopy(ArrangeAxis axis, MirrorPlane plane)
+    {
+        if (!CanMirrorCopy || MirrorPoses() is not { Count: > 0 } parts || MirrorPlanePoint(plane, parts) is not { } point)
+            return false;
+        var roots = _selection.Select(RootOf).Where(r => r != 0).Distinct().ToArray();
+        var objects = _world.Snapshot().Objects.Values.ToList();
+        var originals = roots.Select(r => (Find(r)!.Position, objects.Count(o => o.ParentLocalId == r), 0u)).ToList();
+        if (!Send(new DuplicateObjectsIntent(roots, Vector3.Zero, LmvDuplicateCreateSelected)))
+            return false;
+        // the copies come selected where the originals stand; the originals are let go (as for Duplicate)
+        _copiesAt.Clear();
+        _copiesAt.AddRange(originals.Select(o => o.Position));
+        _copiesUntil = _clock() + CopyWaitMs;
+        SendDeselect(_selection);
+        _selection.Clear();
+        _faceSelection.Clear();
+        _mirrorCopy = new PendingMirrorCopy(axis, plane, point, originals);
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>A copy asked for by Mirror a copy, or one of its parts, arrived: once every copy has its root and all its parts, mirror them.</summary>
+    private void MirrorCopyStep(PendingMirrorCopy pending, ObjectState o, bool joined)
+    {
+        if (_clock() > _copiesUntil)
+        {
+            _mirrorCopy = null;
+            return;
+        }
+        if (joined)
+        {
+            int at = pending.Originals.FindIndex(x => x.Copy == 0 && Vector3.Distance(x.At, o.Position) < 0.25f);
+            if (at < 0)
+                at = pending.Originals.FindIndex(x => x.Copy == 0);
+            if (at >= 0)
+                pending.Originals[at] = pending.Originals[at] with { Copy = o.Id.LocalId };
+        }
+        if (pending.Originals.Any(x => x.Copy == 0))
+            return;
+        var objects = _world.Snapshot().Objects.Values.ToList();
+        if (pending.Originals.Any(x => objects.Count(c => c.ParentLocalId == x.Copy) < x.Parts))
+            return;
+        _mirrorCopy = null;
+        MirrorAbout(pending.Axis, pending.Plane, pending.Point);
+    }
+
+    // ---------------- the plan ----------------
 
     /// <summary>Where each prim Mirror works on stands now (place and turn in the region), or null when one is not in the scene.</summary>
     public IReadOnlyList<MirrorPart>? MirrorPoses()
@@ -110,14 +235,23 @@ public sealed partial class EditController
         return parts;
     }
 
-    /// <summary>Where each prim would stand after Mirror with these choices (the rules' answer, nothing sent), or null when it cannot be worked out.</summary>
-    public IReadOnlyList<MirrorPart>? MirrorPlan(ArrangeAxis axis, MirrorPlane plane)
+    /// <summary>A point of the mirror plane: the middle of the parts' boxes, or the pivot point.</summary>
+    private Vector3? MirrorPlanePoint(MirrorPlane plane, IReadOnlyList<MirrorPart> parts)
     {
-        if (MirrorPoses() is not { Count: > 0 } parts)
+        if (parts.Count == 0 || parts.Any(p => Find(p.Local) is null))
             return null;
         var boxes = parts.Select(p => new PivotBox(p.Position, p.Rotation, Find(p.Local)!.Scale)).ToList();
-        var point = plane == MirrorPlane.Pivot && Pivot is { } pivot ? pivot : PivotRules.Centre(boxes);
-        return MirrorRules.Mirror(parts, point, MirrorRules.Normal(axis, GridFrame().Turn));
+        return plane == MirrorPlane.Pivot && Pivot is { } pivot ? pivot : PivotRules.Centre(boxes);
+    }
+
+    /// <summary>Where each prim would stand after Mirror with these choices (the rules' answer, nothing sent), or null when it cannot be worked out.</summary>
+    public IReadOnlyList<MirrorPart>? MirrorPlan(ArrangeAxis axis, MirrorPlane plane) => MirrorPlan(axis, plane, null);
+
+    private IReadOnlyList<MirrorPart>? MirrorPlan(ArrangeAxis axis, MirrorPlane plane, Vector3? fixedPoint)
+    {
+        if (MirrorPoses() is not { Count: > 0 } parts || (fixedPoint ?? MirrorPlanePoint(plane, parts)) is not { } point)
+            return null;
+        return MirrorRules.Mirror(parts, point, MirrorRules.Normal(axis, GridFrame().Turn), l => Find(l)?.Shape is { } shape ? AllowedAxes(shape) : 7);
     }
 
     /// <summary>A part's world place and turn as the place and turn in its root's frame, which is how a part is sent.</summary>
