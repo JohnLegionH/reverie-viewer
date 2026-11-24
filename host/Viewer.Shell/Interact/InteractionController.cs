@@ -631,7 +631,7 @@ public sealed class InteractionController
                         if (_submit(new TakeIntent(root.Id.LocalId, entryId == "take_copy")).Status == ActionStatus.Sent)
                             PlaySound?.Invoke(global::Viewer.Shell.Sound.UiSoundSlot.ObjectRezOut);
                         break;
-                    case "edit" when root.AttachmentPoint is null:
+                    case "edit" when root.AttachmentPoint is null || root.WearerAgentId == _self:
                         // the right-click selection is let go before the build tools select the object, so closing the menu afterwards
                         // cannot deselect what the build tools just selected on the region
                         Selected = null;

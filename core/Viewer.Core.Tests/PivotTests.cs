@@ -273,4 +273,54 @@ public class PivotTests
         Assert.EndsWith(", pivot root", BuildLayout.Summary(BuildSection.Placement, facts with { Pivot = PivotMode.Root }, s));
         Assert.EndsWith(", pivot custom", BuildLayout.Summary(BuildSection.Placement, facts with { Pivot = PivotMode.Custom }, s));
     }
+
+    [Fact]
+    public void After_a_rotate_of_several_objects_the_handles_stand_on_the_new_box_at_once_and_let_go_when_the_region_answers()
+    {
+        long now = 5000;
+        var r = new Rig();
+        var c = new EditController(r.World, i => { r.Sent.Add(i); return new ActionResult(ActionStatus.Sent, r.Sent.Count); }, () => EditLimits.Official,
+            regions: () => [new(0, 0, 256, 256)], clock: () => now);
+        c.SelectTool(BuildTool.Edit);
+        var scales = new Dictionary<uint, Vector3> { [1] = new(2, 2, 2), [2] = new(6, 2, 2), [3] = new(2, 2, 2) };
+        r.Prim(1, new Vector3(10, 10, 30), scales[1]);
+        r.Prim(2, new Vector3(20, 10, 30), scales[2]);
+        r.Prim(3, new Vector3(10, 16, 30), scales[3]);
+        c.SelectMany([1, 2, 3], shift: false);
+        var startSize = c.HandleSize;
+        Assert.True(c.BeginManip());
+        r.Sent.Clear();
+        Assert.True(c.ManipRotate(Vector3.UnitZ, 90));
+        c.EndManip();
+
+        // the region answers with the poses the drag asked for
+        foreach (var u in r.Sent.OfType<UpdateObjectIntent>())
+            r.Prim(u.LocalId, u.Position!.Value, scales[u.LocalId], u.Rotation);
+        var newSize = c.HandleSize;
+        Assert.NotEqual(startSize, newSize);                                   // the rotate really changed the box, so the control below can fail
+
+        // no time has passed: the handles are on the new box, not held on the old one until the 2 s run out
+        Assert.Null(c.ManipCentre);
+        Assert.Null(c.ManipSize);
+    }
+
+    [Fact]
+    public void Straight_after_a_rotate_of_several_objects_and_before_the_region_answers_the_handles_stand_on_the_box_the_turn_gives()
+    {
+        var r = new Rig();
+        var scales = new Dictionary<uint, Vector3> { [1] = new(2, 2, 2), [2] = new(6, 2, 2), [3] = new(2, 2, 2) };
+        r.Prim(1, new Vector3(10, 10, 30), scales[1]);
+        r.Prim(2, new Vector3(20, 10, 30), scales[2]);
+        r.Prim(3, new Vector3(10, 16, 30), scales[3]);
+        r.C.SelectMany([1, 2, 3], shift: false);
+        Assert.True(r.C.BeginManip());
+        r.Sent.Clear();
+        Assert.True(r.C.ManipRotate(Vector3.UnitZ, 90));
+        r.C.EndManip();
+        var shown = r.C.ManipSize;
+        foreach (var u in r.Sent.OfType<UpdateObjectIntent>())
+            r.Prim(u.LocalId, u.Position!.Value, scales[u.LocalId], u.Rotation);
+        Assert.NotNull(shown);
+        Near(r.C.HandleSize, shown!.Value);                                    // what the handles showed is the box the region then confirmed
+    }
 }

@@ -77,6 +77,8 @@ public partial class EditPanel : VBoxContainer
     private readonly Button[] _alignEdge = new Button[3];
     private readonly OptionButton _distributeAxis;
     private readonly Button[] _distributeMode = new Button[2];
+    private readonly OptionButton _mirrorAxis, _mirrorPlane;
+    private readonly Button _mirror;
     private readonly CheckBox _locked, _physical, _temporary, _phantom;
     private readonly OptionButton _type, _hole;
     private readonly Dictionary<string, (Control Row, SpinBox A, SpinBox? B)> _shape = new();
@@ -329,6 +331,19 @@ public partial class EditPanel : VBoxContainer
             modes.AddChild(b);
         }
         arrange.AddChild(Line("distribute_mode", "edit.distribute.mode", modes));
+        // Mirror: the axis (of the grid's frame) the plane stands square to, where the plane passes, and the button
+        _mirrorAxis = new OptionButton { Name = "mirror_axis", AccessibilityName = _s.Get("edit.mirror") };
+        foreach (var (axis, key) in new[] { (ArrangeAxis.X, "edit.align.x"), (ArrangeAxis.Y, "edit.align.y"), (ArrangeAxis.Z, "edit.align.z") })
+            _mirrorAxis.AddItem(_s.Get(key), (int)axis);
+        arrange.AddChild(Line("mirror_axis", "edit.mirror", _mirrorAxis));
+        _mirrorPlane = new OptionButton { Name = "mirror_plane", AccessibilityName = _s.Get("edit.mirror.plane") };
+        _mirrorPlane.AddItem(_s.Get("edit.mirror.plane.centre"), (int)MirrorPlane.SelectionCentre);
+        _mirrorPlane.AddItem(_s.Get("edit.mirror.plane.pivot"), (int)MirrorPlane.Pivot);
+        arrange.AddChild(Line("mirror_plane", "edit.mirror.plane", _mirrorPlane));
+        _mirror = new Button { Name = "mirror", Text = _s.Get("edit.mirror.button"), TooltipText = _s.Get("edit.mirror.tip"), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _mirror.AccessibilityName = _mirror.Text;
+        _mirror.Pressed += () => _edit()?.Mirror((ArrangeAxis)_mirrorAxis.GetItemId(_mirrorAxis.Selected), (MirrorPlane)_mirrorPlane.GetItemId(_mirrorPlane.Selected));
+        arrange.AddChild(Line("mirror_button", "edit.mirror.apply", _mirror));
 
         // ---------------- Shape ----------------
         var shape = Body(BuildSection.Shape);
@@ -876,6 +891,9 @@ public partial class EditPanel : VBoxContainer
                 modeButton.Disabled = distributeStatus != ArrangeRefusal.None;
                 modeButton.TooltipText = distributeWhy ?? _s.Get("edit.distribute.tip_" + (modeButton == _distributeMode[0] ? "centres" : "gaps"));
             }
+            var mirrorStatus = e?.MirrorStatus ?? ArrangeRefusal.TooFew;
+            _mirror.Disabled = mirrorStatus != ArrangeRefusal.None;
+            _mirror.TooltipText = _s.Get(e?.MirrorRefusalKey ?? (e is null ? "edit.mirror.no.few" : "edit.mirror.tip"));
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);
             _ownedOnly.SetPressedNoSignal(e?.SelectOwnedOnly ?? false);

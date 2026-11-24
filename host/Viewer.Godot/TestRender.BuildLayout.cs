@@ -26,7 +26,7 @@ public partial class TestRender
         ("click_action_label", "click_action"),
         ("pivot_label", "pivot_mode"), ("pivot_unit_label", "pivot_unit"),
         ("align_axis_label", "align_axis"), ("align_target_label", "align_target"),
-        ("distribute_axis_label", "distribute_axis"),
+        ("distribute_axis_label", "distribute_axis"), ("mirror_axis_label", "mirror_axis"), ("mirror_plane_label", "mirror_plane"), ("mirror_button_label", "mirror_button"),
         ("next_owner", "next_modify"), ("for_sale_label", "for_sale"), ("sale_type_label", "sale_type"), ("fullbright_label", "fullbright"),
     ];
 

@@ -98,6 +98,9 @@ public static class BuildLayout
         R("align_edge", BuildSection.Arrange, "edit.align.edge", "Align", "min", "centre", "center", "max", "flush"),
         R("distribute_axis", BuildSection.Arrange, "edit.distribute", "Distribute", "axis", "space evenly"),
         R("distribute_mode", BuildSection.Arrange, "edit.distribute.mode", "Distribute", "even", "equal", "spacing", "centres", "centers", "gaps"),
+        R("mirror_axis", BuildSection.Arrange, "edit.mirror", "Mirror", "reflect", "flip", "symmetric", "axis"),
+        R("mirror_plane", BuildSection.Arrange, "edit.mirror.plane", "Mirror", "plane", "selection centre", "pivot"),
+        R("mirror_button", BuildSection.Arrange, "edit.mirror.apply", "Mirror", "reflect", "flip", "symmetric"),
 
         // Shape (the official Object tab's building block)
         R("prim_type", BuildSection.Shape, "edit.prim_type", "Building Block Type", "prim type", "shape"),

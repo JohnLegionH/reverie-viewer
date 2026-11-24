@@ -56,6 +56,8 @@ public static class ContextMenus
             [
                 new("touch", "menu.touch", ClickAction.Touchable(c.Self, c.Root)),
                 new("inspect", "menu.inspect"),
+                // Edit opens the build tools on the worn object, as the official viewer's menu_attachment_self.xml does; Delete is not offered
+                new("edit", "menu.edit"),
                 new("detach", "menu.detach", c.CanDetach),
                 // Drop (menu_attachment_self.xml, Attachment.Drop) asks first, as the official viewer's AttachmentDrop notification does:
                 // choosing it closes the menu and opens the confirmation dialog; only its first button sends the drop.
