@@ -9,7 +9,7 @@
 #   2 ring     the z ring turns the box 90 degrees, ten times; each time the minimum corner, read back from the region, is where it was
 #              (within 1 mm)
 #   3 control  with the pivot back at Centre the same ring turns the box about its middle: the middle stays and the minimum corner moves
-#              about a metre, ten times
+#              by the chord that turn makes, ten times
 #   4 root     Root is accepted and its point is the box's own place (a lone box is its own root)
 # Takes back everything it rezzed by id, proven by re-reading the region, and logs out.
 #
@@ -190,6 +190,8 @@ $report.ring_runs = $rows
 Check "2 ten 90-degree ring turns leave the minimum corner where it was (1 mm)" ($kept -eq $Runs) ("{0} of {1} within 1 mm; worst {2:N5} m" -f $kept, $Runs, $worst)
 
 # ---- 3. control: Centre turns the box about its middle, so the corner moves ----
+# The ring is seen at an angle here, so the pointer's turn is not always exactly 90 degrees: each run reads the turn the region has, and
+# the corner must have moved by exactly the chord that turn makes about the middle (half a diagonal, 0.7071 m, from it) while the middle stays.
 [void](Edit @{ action = "pivot"; text = "centre" })
 $stC = Edit @{ action = "state" }
 $moved = 0; $middleKept = 0; $rowsC = @()
@@ -198,19 +200,21 @@ for ($i = 1; $i -le $Runs; $i++) {
     $zBefore = [double](Primary $A).rotation[2]
     $cBefore = Corner $oBefore $zBefore
     $h = Edit @{ action = "handle"; text = "ring:z"; x = 90; y = 1; z = 0 }
-    $want = Turn-Z $zBefore 90
-    Note ("run {0} handle answered {1}" -f $i, ($h | ConvertTo-Json -Compress -Depth 4))
-    $turned = Wait-Until { $p = Primary $A; if ($p -and (Same-Turn $p.rotation[2] $want)) { $p } } 8
+    $turned = Wait-Until { $p = Primary $A; if ($p -and -not (Near $p.rotation[2] $zBefore 5)) { $p } } 8
+    Start-Sleep -Milliseconds 700
     $oAfter = OwnObj $A
     $zAfter = [double](Primary $A).rotation[2]
-    $shift = if ($turned) { Dist (Corner $oAfter $zAfter) $cBefore } else { 0 }
+    $delta = [math]::Abs((($zAfter - $zBefore + 540) % 360) - 180)
+    $shift = Dist (Corner $oAfter $zAfter) $cBefore
+    $chord = 2 * 0.70710678 * [math]::Abs([math]::Sin($delta * [math]::PI / 360))
     $mid = Dist @($oAfter.x, $oAfter.y, $oAfter.z) @($oBefore.x, $oBefore.y, $oBefore.z)
-    if ($turned -and $shift -ge 0.9) { $moved++ }
+    Note ("control run {0}: z {1} -> {2} (turn {3:N1}); corner moved {4:N4} m, predicted {5:N4}; middle moved {6:N5} m" -f $i, $zBefore, $zAfter, $delta, $shift, $chord, $mid)
+    if ($turned -and $delta -ge 20 -and [math]::Abs($shift - $chord) -le 0.002 -and $shift -ge 0.3) { $moved++ }
     if ($turned -and $mid -le 0.001) { $middleKept++ }
-    $rowsC += [ordered]@{ run = $i; turned = [bool]$turned; corner_shift_m = $shift; middle_shift_m = $mid }
+    $rowsC += [ordered]@{ run = $i; turned = [bool]$turned; turn_degrees = $delta; corner_shift_m = $shift; predicted_m = $chord; middle_shift_m = $mid }
 }
 $report.control_runs = $rowsC
-Check "3 control: with Centre the same turns move the corner about a metre and keep the middle" ($stC.pivot.mode -eq "centre" -and $moved -eq $Runs -and $middleKept -eq $Runs) ("pivot {0}; corner moved {1} of {2}; middle kept {3} of {2}" -f $stC.pivot.mode, $moved, $Runs, $middleKept)
+Check "3 control: with Centre a ring turn moves the corner as a turn about the middle does and keeps the middle" ($stC.pivot.mode -eq "centre" -and $moved -eq $Runs -and $middleKept -eq $Runs) ("pivot {0}; corner moved as predicted {1} of {2}; middle kept {3} of {2}" -f $stC.pivot.mode, $moved, $Runs, $middleKept)
 
 # ---- 4. Root: a lone box is its own root ----
 $rt = Edit @{ action = "pivot"; text = "root" }
