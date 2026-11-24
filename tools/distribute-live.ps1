@@ -6,7 +6,7 @@
 # avatar in, makes four boxes of different sizes (1, 1.5, 2 and 2.5 m) in a row along y, and ten times:
 #   - puts the two middle boxes at different places along y by number (set-up only: the uneven start; the outer two stay at the ends),
 #   - picks all four with the real pointer (a click on one, Shift-clicks on the others), each press through the engine's input path,
-#   - chooses the Y axis in the Distribute row with the pointer and the keys Down and Enter, then presses the real Gaps button with the pointer,
+#   - chooses the Y axis in the Distribute row with the pointer (open the list, click Y), then presses the real Gaps button with the pointer,
 #   - reads every box back from the region: the three gaps between neighbouring boxes along y are equal within 1 mm, the two outer boxes did
 #     not move, and x, z and the sizes did not change.
 # The control reads the same boxes before the press: their gaps differ by at least 0.2 m, so a pass cannot be an already even start.
@@ -202,9 +202,9 @@ for ($run = 1; $run -le $Runs; $run++) {
     $picked = @($sel.selection | ForEach-Object { [uint32]$_ } | Sort-Object)
     $allPicked = ($picked.Count -eq 4) -and ($picked -join ",") -eq (($locals | Sort-Object) -join ",")
     if (-not $allPicked) { Shot ("distribute-miss-run{0}" -f $run); $rows += [ordered]@{ run = $run; error = "the pointer did not pick all four"; selection = $picked; points = $pts }; continue }
-    # the axis: open the list with the pointer, Down once (X to Y), Enter
+    # the axis: open the list with the pointer, then click its second item (Y) with the pointer
     $opened = ClickCtl "distribute_axis"; Start-Sleep -Milliseconds 400
-    Press "DOWN"; Start-Sleep -Milliseconds 200; Press "ENTER"; Start-Sleep -Milliseconds 400
+    $opened = $opened -and (ClickCtl "popup:distribute_axis:1"); Start-Sleep -Milliseconds 400
     $pressed = $opened -and (ClickCtl "distribute_gaps")
     $even = Wait-Until { $r = @(0..3 | ForEach-Object { OwnObj $locals[$_] }); if (@($r | Where-Object { $_ }).Count -eq 4 -and (Spread (GapsOf $r)) -le 0.0005) { $r } } 10
     $af = @(0..3 | ForEach-Object { OwnObj $locals[$_] })
