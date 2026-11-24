@@ -164,8 +164,8 @@ function HandDrag([string]$what, [double]$x, [double]$y, [double]$z, [scriptbloc
 
 # ---- a box in front of the avatar, the Build window closed ----
 $me = @((Obs).self.region_position)
-$spot = @{ x = [double]$me[0] + 4.0; y = [double]$me[1]; z = [double]$me[2] - 0.9 }
-[void](Interact @{ action = "aim"; x = $spot.x; y = $spot.y; z = $spot.z; distance = 8 }); Start-Sleep -Milliseconds 1500
+$spot = @{ x = [double]$me[0] + 6.0; y = [double]$me[1]; z = [double]$me[2] - 0.9 }
+[void](Interact @{ action = "aim"; x = $spot.x; y = $spot.y; z = $spot.z; distance = 3 }); Start-Sleep -Milliseconds 1500
 $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
 [void](Build @{ action = "create"; x = $spot.x; y = $spot.y; z = $spot.z })
 $box = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
@@ -176,7 +176,7 @@ $home3 = @([double]$box.x, [double]$box.y, [double]$box.z)
 $e0 = Edit @{ action = "state" }
 Check "0 a box is made and the Build window is closed" ([bool]$box -and -not $e0.build_mode -and -not $e0.window_open) ("box {0}; build mode {1}; window {2}" -f $A, $e0.build_mode, $e0.window_open)
 
-$runs = @()
+$runList = @()
 for ($n = 1; $n -le $Runs; $n++) {
     $r = [ordered]@{ run = $n; ok = $false }
     # put the box back where it started (set-up only: by number) and the camera on it, with the Build window closed
@@ -186,18 +186,19 @@ for ($n = 1; $n -le $Runs; $n++) {
         [void](Edit @{ action = "select"; text = "$A" })
         [void](Edit @{ action = "position"; x = $home3[0]; y = $home3[1]; z = $home3[2] })
         [void](Wait-Until { $o = OwnObj $A; if ($o -and (Near $o.x $home3[0] 0.05)) { $o } } 15)
+        [void](Edit @{ action = "select"; text = "" })   # set-up only: nothing stays selected
         [void](LeaveBuild)
     }
-    [void](Interact @{ action = "aim"; x = $home3[0]; y = $home3[1]; z = $home3[2]; distance = 8 }); Start-Sleep -Milliseconds 1200
+    [void](Interact @{ action = "aim"; x = $home3[0]; y = $home3[1]; z = $home3[2]; distance = 3 }); Start-Sleep -Milliseconds 1200
     NoFocus
     $pre = Edit @{ action = "state" }
     $sp = ScreenOf $box.id
-    if (-not $sp) { $r.error = "box not on screen"; $runs += $r; continue }
+    if (-not $sp) { $r.error = "box not on screen"; $runList += $r; continue }
     ClickRight $sp[0] $sp[1]
     $open = Wait-Until { $s = Interact @{ action = "state" }; if ($s.menu_open) { $s } } 5
     $r.menu = (@($open.entries) -join ","); $r.pre_build_mode = [bool]$pre.build_mode; $r.pre_selection = @($pre.selection).Count; $r.pre_handles = [bool]$pre.handles_drawn
     $entry = Api "ui_sounds" @{ action = "find"; name = "entry_edit" }
-    if (-not ($open -and $entry.found)) { $r.error = "no Edit entry in the menu [$($r.menu)]"; CloseMenu; $runs += $r; continue }
+    if (-not ($open -and $entry.found)) { $r.error = "no Edit entry in the menu [$($r.menu)]"; CloseMenu; $runList += $r; continue }
     ClickAt ([double]$entry.x) ([double]$entry.y)
     $ed = EditUntil { param($s) $s.build_mode -and $s.tool -eq "edit" -and @($s.selection) -contains $A -and $s.handles_drawn }
     $m = Interact @{ action = "state" }
@@ -206,25 +207,26 @@ for ($n = 1; $n -le $Runs; $n++) {
     [void](Edit @{ action = "manip"; text = "move" })
     $readPos = { $o = OwnObj $A; if ($o) { @([double]$o.x, [double]$o.y, [double]$o.z) } }
     $mv = HandDrag "axis:x+" 2 0 0 $readPos
-    if ($mv.error) { $r.error = $mv.error; $runs += $r; continue }
+    if ($mv.error) { $r.error = $mv.error; $runList += $r; continue }
     $r.x_before = $mv.before[0]; $r.x_held = $mv.during[0]; $r.x_after = $mv.after[0]
     $r.moved = $mv.after[0] - $mv.before[0]
     $r.only_x = (Near $mv.after[1] $mv.before[1] 0.05) -and (Near $mv.after[2] $mv.before[2] 0.05)
     $r.ok = ($r.menu -match "edit") -and ($r.menu -match "delete") -and $r.build_mode -and $r.tool -eq "edit" -and $r.window -and $r.handles -and (@($ed.selection) -contains $A) `
         -and -not $r.menu_open_after -and -not $r.pre_build_mode -and $r.pre_selection -eq 0 -and -not $r.pre_handles -and ($r.moved -gt 1) -and $r.only_x -and -not $mv.steering
     Note ("run {0}: menu [{1}]; build mode {2}, tool {3}, window {4}, selection {5}, handles {6}; x {7:N3} -> {8:N3} (moved {9:N3}), only x {10}" -f $n, $r.menu, $r.build_mode, $r.tool, $r.window, $r.selection, $r.handles, $r.x_before, $r.x_after, $r.moved, $r.only_x)
-    $runs += $r
+    $runList += $r
 }
-$report.runs = $runs
-$good = @($runs | Where-Object { $_.ok }).Count
+$report.runs = $runList
+$good = @($runList | Where-Object { $_.ok }).Count
 Check "1 right-click Edit, then a handle drag moves the box (Build window closed at the start)" ($good -eq $Runs) ("{0} of {1} runs" -f $good, $Runs)
 
 # ---- controls: before Edit nothing is selected and no handles are drawn; the ground and the own avatar offer neither entry ----
-$ctl = $runs | Where-Object { $_.ok } | Select-Object -First 1
+$ctl = $runList | Where-Object { $_.ok } | Select-Object -First 1
 Check "2 control: before Edit the Build window was closed, nothing selected, no handles" ([bool]$ctl -and -not $ctl.pre_build_mode -and $ctl.pre_selection -eq 0 -and -not $ctl.pre_handles) ("pre build mode {0}, selection {1}, handles {2}" -f $ctl.pre_build_mode, $ctl.pre_selection, $ctl.pre_handles)
 [void](LeaveBuild)
 $me2 = @((Obs).self.region_position)
-$g = Interact @{ action = "hover"; x = [double]$me2[0] + 2.0; y = [double]$me2[1] + 3.0; z = [double]$me2[2] - 1.0 }
+[void](Interact @{ action = "aim"; x = [double]$me2[0]; y = [double]$me2[1] + 4.0; z = [double]$me2[2] - 0.9; distance = 3 }); Start-Sleep -Milliseconds 1500
+$g = Interact @{ action = "hover"; x = [double]$me2[0]; y = [double]$me2[1] + 4.0; z = [double]$me2[2] - 0.9 }
 $landOk = $false; $landDetail = "ground point not on screen: not exercised"
 if ($g -and $null -ne $g.screen_x) {
     ClickRight ([double]$g.screen_x) ([double]$g.screen_y)
@@ -234,7 +236,8 @@ if ($g -and $null -ne $g.screen_x) {
     CloseMenu
 }
 Check "3 control: a right-click on the ground lists neither Edit nor Delete" $landOk $landDetail
-$self = Interact @{ action = "hover"; id = [string](Obs).self.id }
+[void](Interact @{ action = "aim"; x = [double]$me2[0]; y = [double]$me2[1]; z = [double]$me2[2]; distance = 4 }); Start-Sleep -Milliseconds 1500
+$self = Interact @{ action = "hover"; x = [double]$me2[0]; y = [double]$me2[1]; z = [double]$me2[2] + 0.1 }
 $selfOk = $false; $selfDetail = "own avatar not on screen: not exercised"
 if ($self -and $null -ne $self.screen_x) {
     ClickRight ([double]$self.screen_x) ([double]$self.screen_y)
@@ -247,7 +250,7 @@ Check "4 control: a right-click on the own avatar lists neither Edit nor Delete"
 
 # ---- Delete from the same menu, Build window closed: the box leaves the region ----
 [void](LeaveBuild)
-[void](Interact @{ action = "aim"; x = $home3[0]; y = $home3[1]; z = $home3[2]; distance = 8 }); Start-Sleep -Milliseconds 1200
+[void](Interact @{ action = "aim"; x = $home3[0]; y = $home3[1]; z = $home3[2]; distance = 3 }); Start-Sleep -Milliseconds 1200
 NoFocus
 $sp = ScreenOf $box.id
 $deleted = $false; $delDetail = "box not on screen"
