@@ -22,7 +22,7 @@ public sealed record BuildFacts(
     int FacesPicked = 0, bool SelectFaces = false, string? Texture = null,
     string? Name = null, bool Locked = false, bool Physical = false, bool Temporary = false, bool Phantom = false,
     bool Flexible = false, bool Light = false, string? PhysicsShape = null,
-    int? ContentCount = null);
+    int? ContentCount = null, PivotMode Pivot = PivotMode.Centre);
 
 /// <summary>
 /// The Build window's layout as data, so it is tested without the engine: the tool rows and every section's rows with the names they are
@@ -85,6 +85,7 @@ public static class BuildLayout
         R("size", BuildSection.Placement, "edit.size", "Size (meters)", "scale", "dimensions"),
         R("rotation", BuildSection.Placement, "edit.rotation", "Rotation (degrees)", "angle"),
         R("object_clipboard", BuildSection.Placement, "edit.copy_all", "copy", "paste", "clipboard"),
+        R("pivot", BuildSection.Placement, "edit.pivot", "Pivot point", "Root", "Custom pivot", "Actual root"),
         R("snap", BuildSection.Placement, "edit.snap", "Snap", "Snap to grid", "grid"),
         R("stretch_both", BuildSection.Placement, "edit.stretch_both", "Stretch Both Sides"),
         R("stretch_textures", BuildSection.Placement, "edit.stretch_textures", "Stretch Textures"),
@@ -226,9 +227,15 @@ public static class BuildLayout
         switch (section)
         {
             case BuildSection.Placement:
-                return f.Position is { } p && f.Size is { } z
-                    ? s.Get("edit.summary.placement", $"{N(p.X)}, {N(p.Y)}, {N(p.Z)}", $"{N(z.X)} × {N(z.Y)} × {N(z.Z)}")
-                    : s.Get("edit.summary.none");
+                if (f.Position is not { } p || f.Size is not { } z)
+                    return s.Get("edit.summary.none");
+                string at = s.Get("edit.summary.placement", $"{N(p.X)}, {N(p.Y)}, {N(p.Z)}", $"{N(z.X)} × {N(z.Y)} × {N(z.Z)}");
+                return f.Pivot switch
+                {
+                    PivotMode.Root => at + ", " + s.Get("edit.summary.pivot_root"),
+                    PivotMode.Custom => at + ", " + s.Get("edit.summary.pivot_custom"),
+                    _ => at,
+                };
             case BuildSection.Shape:
             {
                 var parts = new List<string> { f.ShapeName ?? s.Get("edit.summary.unknown") };

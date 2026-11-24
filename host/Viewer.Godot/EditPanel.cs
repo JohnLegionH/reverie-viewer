@@ -71,7 +71,8 @@ public partial class EditPanel : VBoxContainer
     private readonly Label _creator, _owner;
     private readonly CheckBox _shareGroup, _anyMove, _anyCopy, _nextModify, _nextCopy, _nextTransfer;
     // Placement and Shape (the official Object tab)
-    private readonly SpinBox[] _pos = new SpinBox[3], _size = new SpinBox[3], _rot = new SpinBox[3];
+    private readonly SpinBox[] _pos = new SpinBox[3], _size = new SpinBox[3], _rot = new SpinBox[3], _pivotOffset = new SpinBox[3];
+    private readonly OptionButton _pivotMode, _pivotUnit;
     private readonly CheckBox _locked, _physical, _temporary, _phantom;
     private readonly OptionButton _type, _hole;
     private readonly Dictionary<string, (Control Row, SpinBox A, SpinBox? B)> _shape = new();
@@ -265,6 +266,28 @@ public partial class EditPanel : VBoxContainer
         _both = Tick(placeTicks, "stretch_both", "edit.stretch_both", on => { if (_edit() is { } e) e.StretchBothSides = on; });
         _stretchTex = Tick(placeTicks, "stretch_textures", "edit.stretch_textures", on => { if (_edit() is { } e) e.StretchTextures = on; });
         place.AddChild(placeTicks);
+        // the pivot the handles turn and stretch about (Firestorm's pivot settings: Actual Root, and an offset in percent or metres from
+        // the box's minimum corner); the numbers are open to typing only while Custom is chosen
+        _pivotMode = new OptionButton { Name = "pivot_mode", AccessibilityName = _s.Get("edit.pivot") };
+        foreach (var (mode, key) in new[] { (PivotMode.Centre, "edit.pivot.centre"), (PivotMode.Root, "edit.pivot.root"), (PivotMode.Custom, "edit.pivot.custom") })
+            _pivotMode.AddItem(_s.Get(key), (int)mode);
+        _pivotMode.ItemSelected += i =>
+        {
+            if (_filling || _edit() is not { } e)
+                return;
+            var mode = (PivotMode)_pivotMode.GetItemId((int)i);
+            if (mode == PivotMode.Custom)
+                e.SetCustomPivot(PivotNumbers(), PivotUnitNow());
+            else
+                e.SetPivot(mode);
+        };
+        place.AddChild(Line("pivot", "edit.pivot", _pivotMode));
+        Triple(place, "pivot_offset", "edit.pivot.custom", _pivotOffset, -1000, 1000, 0.1, v => _edit()?.SetCustomPivot(v, PivotUnitNow()));
+        _pivotUnit = new OptionButton { Name = "pivot_unit", AccessibilityName = _s.Get("edit.pivot.unit") };
+        _pivotUnit.AddItem(_s.Get("edit.pivot.percent"), (int)PivotUnit.Percent);
+        _pivotUnit.AddItem(_s.Get("edit.pivot.metres"), (int)PivotUnit.Metres);
+        _pivotUnit.ItemSelected += _ => { if (!_filling) _edit()?.SetCustomPivot(PivotNumbers(), PivotUnitNow()); };
+        place.AddChild(Line("pivot_unit", "edit.pivot.unit", _pivotUnit));
 
         // ---------------- Shape ----------------
         var shape = Body(BuildSection.Shape);
@@ -737,7 +760,7 @@ public partial class EditPanel : VBoxContainer
             Flexible: f?.Flexible is not null, Light: f?.Light is not null,
             PhysicsShape: f?.Physics is { ShapeType: var st } && st != FeatureRules.ShapePrim
                 ? _s.Get(st == FeatureRules.ShapeNone ? "edit.feat.shape_type.none" : "edit.feat.shape_type.convex") : null,
-            ContentCount: e.ContentsKnown ? e.Contents.Count : null);
+            ContentCount: e.ContentsKnown ? e.Contents.Count : null, Pivot: e.PivotChoice);
     }
 
     /// <summary>Shows the controller's state; a field being typed in keeps its text.</summary>
@@ -781,6 +804,11 @@ public partial class EditPanel : VBoxContainer
             _copyCenters.Disabled = _copyRotates.Disabled = !(e?.CopySelection ?? false);
             _linked.SetPressedNoSignal(e?.EditLinked ?? false);
             _snap.SetPressedNoSignal(e?.SnapEnabled ?? true);
+            var pivotChoice = e?.PivotChoice ?? PivotMode.Centre;
+            _pivotMode.Selected = _pivotMode.GetItemIndex((int)pivotChoice);
+            _pivotUnit.Selected = _pivotUnit.GetItemIndex((int)(e?.PivotUnitChoice ?? PivotUnit.Percent));
+            SetVec(_pivotOffset, e?.PivotOffset ?? System.Numerics.Vector3.Zero, pivotChoice != PivotMode.Custom);
+            _pivotUnit.Disabled = pivotChoice != PivotMode.Custom;
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);
             _ownedOnly.SetPressedNoSignal(e?.SelectOwnedOnly ?? false);
@@ -935,6 +963,9 @@ public partial class EditPanel : VBoxContainer
         if (!e.HasFocus() && e.Text != t)
             e.Text = t;
     }
+
+    private System.Numerics.Vector3 PivotNumbers() => new((float)_pivotOffset[0].Value, (float)_pivotOffset[1].Value, (float)_pivotOffset[2].Value);
+    private PivotUnit PivotUnitNow() => (PivotUnit)_pivotUnit.GetItemId(_pivotUnit.Selected);
 
     private static void SetVec(SpinBox[] boxes, System.Numerics.Vector3 v, bool readOnly)
     {
