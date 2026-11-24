@@ -142,7 +142,7 @@ function HighX($o) { [double]$o.x + [double]$o.sx / 2 }
 # ---- three boxes (1, 1.5 and 2 m) side by side, linked into one linkset ----
 $me = @((Obs).self.region_position)
 $ids = @(); $locals = @()
-$baseX = [double]$me[0] + 10.0; $baseY = [double]$me[1] - 4.0; $z = [double]$me[2] + 2.1
+$baseX = [double]$me[0] + 10.0; $baseY = [double]$me[1] + 6.0; $z = [double]$me[2] + 2.1
 for ($k = 0; $k -lt 3; $k++) {
     [void](Interact @{ action = "aim"; x = ($baseX); y = ($baseY + 3 * $k); z = ([double]$me[2] - 0.9); distance = 7 }); Start-Sleep -Milliseconds 1200
     $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
@@ -177,7 +177,7 @@ Check "0b the three boxes are one linkset (one root, two parts)" ([bool]$linkedO
 if (-not $linkedOk) { Finish 1 }
 $root = [uint32](@($linkedOk | Where-Object { [uint32]$_.parent -eq 0 })[0].local)
 $kids = @($locals | Where-Object { $_ -ne $root })
-[void](Interact @{ action = "aim"; x = $baseX; y = [double]$me[1]; z = $z; distance = 24 }); Start-Sleep -Milliseconds 1500
+[void](Interact @{ action = "aim"; x = ($baseX + 1.0); y = ($baseY + 3); z = $z; distance = 24 }); Start-Sleep -Milliseconds 1500
 if (-not (ClickCtl "section_arrange")) { Check "0c the Arrange section header is on screen" $false "not shown"; Finish 1 }
 function World($list) { @($list | Sort-Object { [uint32]$_.local }) }
 function AngleDeg($a, $b) {
@@ -186,7 +186,7 @@ function AngleDeg($a, $b) {
     $nb = [math]::Sqrt($b[0] * $b[0] + $b[1] * $b[1] + $b[2] * $b[2] + $b[3] * $b[3])
     2 * [math]::Acos([math]::Min(1.0, $d / ($na * $nb))) * 180 / [math]::PI
 }
-function Compare($want, $have) {
+function Compare-Poses($want, $have) {
     $w = World $want; $h = World $have
     if ($w.Count -ne $h.Count -or $w.Count -eq 0) { return [ordered]@{ ok = $false; maxMm = 1e9; maxDeg = 1e9 } }
     $mm = 0.0; $deg = 0.0
@@ -217,8 +217,10 @@ for ($run = 1; $run -le $Runs; $run++) {
     }
     [void](Edit @{ action = "linked"; text = "off" })
     [void](Edit @{ action = "select"; text = "" }); Start-Sleep -Milliseconds 800
-    [void](Interact @{ action = "aim"; x = $baseX; y = [double]$me[1]; z = $z; distance = 24 }); Start-Sleep -Milliseconds 800
-    $pt = ScreenOf $ids[[array]::IndexOf($locals, $root)]
+    [void](Interact @{ action = "aim"; x = ($baseX + 1.0); y = ($baseY + 3); z = $z; distance = 24 }); Start-Sleep -Milliseconds 800
+    # the Build window covers the left of the view: click the part that stands furthest to the right (any part picks the whole linkset)
+    $pt = $null
+    foreach ($id in $ids) { $q = ScreenOf $id; if ($q -and $q[0] -gt 520 -and ($null -eq $pt -or $q[0] -gt $pt[0])) { $pt = $q } }
     if (-not $pt) { $rows += [ordered]@{ run = $run; error = "the linkset is not on screen" }; continue }
     if ($run -in 3, 8) { Shot ("mirror-pre-run{0}" -f $run) }
     ClickAt $pt[0] $pt[1] $false
@@ -232,11 +234,11 @@ for ($run = 1; $run -le $Runs; $run++) {
     $opened = $opened -and (ClickCtl "popup:mirror_plane:0"); Start-Sleep -Milliseconds 400
     $now = (Edit @{ action = "mirror_world" }).done
     $plan = (Edit @{ action = "mirror_plan"; text = "x:centre" }).done
-    $apart = Compare $plan $now
+    $apart = Compare-Poses $plan $now
     $pressed = $opened -and (ClickCtl "mirror")
-    $match = Wait-Until { $h = (Edit @{ action = "mirror_world" }).done; $c = Compare $plan $h; if ($c.ok) { $c } } 12
+    $match = Wait-Until { $h = (Edit @{ action = "mirror_world" }).done; $c = Compare-Poses $plan $h; if ($c.ok) { $c } } 12
     $have = (Edit @{ action = "mirror_world" }).done
-    $cmp = Compare $plan $have
+    $cmp = Compare-Poses $plan $have
     if ($cmp.maxMm -gt $worstMm) { $worstMm = $cmp.maxMm }
     if ($cmp.maxDeg -gt $worstDeg) { $worstDeg = $cmp.maxDeg }
     $moved = $apart.maxMm -ge 50
