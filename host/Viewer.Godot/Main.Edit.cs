@@ -53,6 +53,8 @@ public partial class Main
         ic.DeleteSetFor = root => _edit is { BuildMode: true, Selection.Count: > 1 } be && be.DeleteTargets() is var set && set.Any(t => t.Root == root) ? set : null;
         _newPrims = new Viewer.Shell.Build.NewPrimTracker(s.Actions.Submit, NewPrim);
         ic.BoxCreated += () => _newPrims?.Expect();
+        // right-click > Edit: the Build window opens on the Edit tool with that object's linkset selected (its handles follow the selection)
+        ic.EditRequested += root => { ChooseTool(BuildTool.Edit); _edit?.EditObject(root); _editPanel?.Refresh(); };
         if (_editPanel is not null || _shell is null)
             return;
         var shell = _shell.Shell;

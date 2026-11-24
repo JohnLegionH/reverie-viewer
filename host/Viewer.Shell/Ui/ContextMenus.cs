@@ -82,6 +82,8 @@ public static class ContextMenus
                 list.Add(new("take", "menu.take", Viewer.Core.Building.BuildRules.CanTake(flags, c.Attachment, c.SittingOnIt)));
             if ((flags & ObjectFlagBits.Copy) != 0)
                 list.Add(new("take_copy", "menu.take_copy"));
+            // Edit opens the build tools on the object's linkset (menu_object.xml "Edit"); the controller turns the click on a child into its root.
+            list.Add(new("edit", "menu.edit"));
             // Delete sends the object to the agent's Trash. It asks first, with the official question, only for an object that is locked,
             // cannot be copied or is not the agent's own (llselectmgr.cpp, selectDelete); the controller opens that dialog when the entry is chosen.
             bool canDelete = Viewer.Core.Building.BuildRules.CanDelete(flags, c.Attachment);

@@ -1238,6 +1238,7 @@
   "model.none": "No model here can be uploaded.",
   "model.state.done": "Uploaded to Objects",
   "upload.allow_2k": "Allow 2048",
+  "menu.edit": "Edit",
   "menu.delete": "Delete",
   "menu.delete.reason.not_allowed": "You can delete an object only when you own it or may modify it.",
   "build.create.hint": "Click the ground or an object to place a box. Esc cancels.",
