@@ -67,7 +67,7 @@ public static class ThemePack
             }
             var c = colors[key] is JsonValue v && v.TryGetValue(out string? text) && text is not null ? ParseColour(text) : null;
             if (c is null)
-                return Refuse($"The value for {key} is not a colour (use #rrggbb or #rrggbbaa).");
+                return Refuse($"The value for {key} is not a color (use #rrggbb or #rrggbbaa).");
             read[key] = c.Value;
         }
 

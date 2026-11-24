@@ -176,7 +176,10 @@ public sealed class FloaterManager
             return false;
         int at = IndexOf(id);
         if (at >= 0)
+        {
+            SetMinimized(id, false);   // asking for a minimized window brings it back whole, as the official viewer's open does
             return Raise(at);
+        }
         var remembered = _places.Get(id);
         // once per window: a place that still has the old default size was never resized, so it gives way to the new first-open size
         if (_places.TakeSizeCheck(id) && remembered is { } old && old.W == spec.DefaultSize.W && old.H == spec.DefaultSize.H && FirstOpenSize(spec) != spec.DefaultSize)
@@ -236,6 +239,8 @@ public sealed class FloaterManager
     {
         if (!_specs.ContainsKey(id))
             return false;
+        if (IsMinimized(id))
+            return Open(id);
         if (IsOpen(id))
         {
             Close(id);
@@ -251,6 +256,8 @@ public sealed class FloaterManager
     {
         if (!_specs.ContainsKey(id))
             return false;
+        if (IsMinimized(id))
+            return Open(id);
         if (IsOpen(id) && FocusedId != id)
             return Focus(id);
         return Toggle(id);

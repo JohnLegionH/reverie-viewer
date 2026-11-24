@@ -159,6 +159,17 @@ public sealed class WorldState : IDisposable
             return new(_epoch, _region, new Dictionary<uint, ObjectState>(_objects), new Dictionary<uint, AvatarState>(_avatars));
     }
 
+    /// <summary>How many objects are one of these roots or a child of one, counted in place (no copy of the scene).</summary>
+    public int CountLinksetObjects(IReadOnlySet<uint> roots)
+    {
+        int count = 0;
+        lock (_lock)
+            foreach (var o in _objects.Values)
+                if (roots.Contains(o.Id.LocalId) || roots.Contains(o.ParentLocalId))
+                    count++;
+        return count;
+    }
+
     /// <summary>The avatar of this agent, or null when it is not in the region.</summary>
     public AvatarState? FindAvatar(Guid agentId)
     {

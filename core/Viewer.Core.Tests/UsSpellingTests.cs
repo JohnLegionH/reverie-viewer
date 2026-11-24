@@ -25,6 +25,14 @@ public class UsSpellingTests
     }
 
     [Fact]
+    public void The_refusal_of_a_bad_theme_file_uses_US_spelling()
+    {
+        var result = ThemePack.Parse("""{"format":1,"colors":{"panel":"nonsense"}}""");
+        Assert.NotNull(result.Error);
+        Assert.DoesNotMatch(British, result.Error!);
+    }
+
+    [Fact]
     public void No_interface_string_uses_a_British_spelling()
     {
         var table = Table().ToList();

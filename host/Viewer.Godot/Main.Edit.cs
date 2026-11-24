@@ -73,7 +73,7 @@ public partial class Main
         // the land impact is asked for again every three seconds while something is selected (an edit changes it)
         timer.Timeout += () => { if (_editPanel.IsVisibleInTree()) { _editPanel.Refresh(); if (++costTicks % 12 == 0) _edit?.RefreshCosts(); } };
         _editPanel.AddChild(timer);
-        shell.Floaters.Closed += id => { if (id == EditPanel.FloaterId && _edit is { BuildMode: true } e) e.CloseBuild(); };
+        shell.Floaters.Closed += id => { if (id == EditPanel.FloaterId && _edit is { BuildMode: true } e) { DropEditDrag(); e.CloseBuild(); } };
         shell.Commands.Register(BuildMenu.ToggleCommand, ToggleBuild);
         shell.Commands.Register(BuildMenu.FocusCommand, () => ChooseTool(BuildTool.Focus));
         shell.Commands.Register(BuildMenu.MoveCommand, () => ChooseTool(BuildTool.Move));
@@ -276,8 +276,13 @@ public partial class Main
     /// still ends it. A move without the button held means the release never arrived: the box goes and nothing more is selected.</summary>
     private void DragBoxInput(InputEvent ev)
     {
-        if (_editDrag is not { } d || _edit is not { BuildMode: true } e)
+        if (_editDrag is not { } d)
             return;
+        if (_edit is not { BuildMode: true } e)
+        {
+            DropEditDrag();   // build mode ended under the drag
+            return;
+        }
         switch (ev)
         {
             case InputEventMouseMotion m when (m.ButtonMask & MouseButtonMask.Left) == 0:

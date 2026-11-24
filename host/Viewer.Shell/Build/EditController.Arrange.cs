@@ -99,7 +99,7 @@ public sealed partial class EditController
         var roots = _selection.Select(RootOf).Where(r => r != 0).ToHashSet();
         int parts = EditLinked
             ? _selection.Distinct().Count(l => Find(l) is not null)
-            : _world.Snapshot().Objects.Values.Count(o => roots.Contains(o.Id.LocalId) || roots.Contains(o.ParentLocalId));
+            : _world.CountLinksetObjects(roots);
         return (roots.Count, parts);
     }
 }

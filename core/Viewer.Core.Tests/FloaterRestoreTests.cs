@@ -86,6 +86,30 @@ public class FloaterRestoreTests
         Assert.Equal(Before, places.Get(Id));
     }
 
+    [Fact]
+    public void Opening_a_minimized_window_restores_it()
+    {
+        var (m, _) = Open();
+        m.SetMinimized(Id, true);
+        m.Move(Id, 600, 100);
+        Assert.True(m.Open(Id));
+        Assert.False(m.IsMinimized(Id));
+        Assert.Equal(Before, m.RectOf(Id));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_toolbar_or_menu_toggle_on_a_minimized_window_restores_it_instead_of_closing_it(bool bringToFront)
+    {
+        var (m, _) = Open();
+        m.SetMinimized(Id, true);
+        Assert.True(bringToFront ? m.ToggleOrBringToFront(Id) : m.Toggle(Id));
+        Assert.True(m.IsOpen(Id));
+        Assert.False(m.IsMinimized(Id));
+        Assert.Equal(Before, m.RectOf(Id));
+    }
+
     [Theory]
     [InlineData(0, 0, true)]
     [InlineData(3, 2, true)]

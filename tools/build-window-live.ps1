@@ -93,20 +93,6 @@ function Wait-Until([scriptblock]$cond, [int]$seconds) { $end = (Get-Date).AddSe
 
 New-Item -ItemType Directory -Force -Path $Sandbox | Out-Null
 $checks = New-Object System.Collections.Generic.List[object]
-function Check([string]$name, [bool]$pass, [string]$detail) { $checks.Add([ordered]@{ name = $name; pass = $pass; detail = $detail }); Note ("{0,-60} {1} {2}" -f $name, $(if ($pass) { "PASS" } else { "FAIL" }), $detail) }
-$report = [ordered]@{ account = $Account; checks = $null; completed = $false }
-function Finish([int]$code) {
-    $tb = Invoke-TakeBack -Seconds 40
-    $report.take_back = $tb
-    [void](Invoke-Raw $script:port "session" $script:token '{"action":"logout"}'); [void](Invoke-Raw $script:port "quit" $script:token)
-    $script:proc.WaitForExit(60000) | Out-Null
-    $report.checks = $checks
-    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $Sandbox "rotate-handles-report.json") -Encoding UTF8
-    exit $code
-}
-
-New-Item -ItemType Directory -Force -Path $Sandbox | Out-Null
-$checks = New-Object System.Collections.Generic.List[object]
 function Check([string]$name, [bool]$pass, [string]$detail) { $checks.Add([ordered]@{ name = $name; pass = $pass; detail = $detail }); Note ("{0,-70} {1} {2}" -f $name, $(if ($pass) { "PASS" } else { "FAIL" }), $detail) }
 $report = [ordered]@{ account = $Account; checks = $null; completed = $false }
 
@@ -263,7 +249,8 @@ $seen = @("start: " + (Counts)); $allSame = (Counts) -eq $want
 $toggled = 0
 foreach ($section in @("placement", "arrange", "shape", "object")) {
     foreach ($pass in 1..2) {
-        if (ClickCtl "section_$section") { $toggled++ }
+        $wasShown = [bool](Ui "${section}_page").shown
+        if (ClickCtl "section_$section") { if ([bool](Ui "${section}_page").shown -ne $wasShown) { $toggled++ } }
         $c = Counts; if ($c -ne $want) { $allSame = $false; $seen += "$section click $pass : $c" }
     }
 }
@@ -273,6 +260,17 @@ Press "4" $true; Start-Sleep -Milliseconds 700
 $c = Counts
 Check "B4 the count line shows with the Create tool too" ($c -eq $want) $c
 Press "3" $true; Start-Sleep -Milliseconds 500
+# the Build window closed by the program (not by Esc) in the middle of a drag takes the rectangle with it
+DragPress $a; DragTo $a $b; Start-Sleep -Milliseconds 300
+$mid = Edit @{ action = "state" }
+[void](Api "ui_sounds" @{ action = "close_window"; name = "build" }); Start-Sleep -Milliseconds 700
+$closed = Edit @{ action = "state" }
+DragRelease $b
+Check "B5 closing the Build window mid-drag removes the rectangle" ($null -ne $mid.drag_box -and -not $closed.window_open -and $null -eq $closed.drag_box) ("held [{0}], window open {1}, after [{2}]" -f ($mid.drag_box -join ","), $closed.window_open, ($closed.drag_box -join ","))
+if (-not (Edit @{ action = "state" }).build_mode) { Press "B" $true; [void](EditUntil { param($s) $s.build_mode }) }
+Press "3" $true; Start-Sleep -Milliseconds 700
+[void](Edit @{ action = "select"; text = ($locals -join ",") }); Start-Sleep -Milliseconds 700
+$win = Window
 
 # ---- C. minimize and one-click restore ----
 $good = 0; $rows = @()
