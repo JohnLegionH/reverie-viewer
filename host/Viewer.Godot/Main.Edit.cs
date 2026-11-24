@@ -314,7 +314,7 @@ public partial class Main
         {
             if (box is null)
                 return;
-            var layer = new CanvasLayer { Name = "drag_box_layer", Layer = 9 };
+            var layer = new CanvasLayer { Name = "drag_box_layer", Layer = -1 };   // over the world, under the bars and windows
             AddChild(layer);
             _dragBox = new DragBoxOverlay();
             layer.AddChild(_dragBox);
