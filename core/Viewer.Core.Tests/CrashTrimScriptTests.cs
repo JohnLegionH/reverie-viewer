@@ -23,9 +23,9 @@ public sealed class CrashTrimScriptTests
         public string Mover => Path.Combine(Root, "mover.ps1");
         public DateTime RunStart = DateTime.Now.AddMinutes(-5);
 
-        public Rig()
+        public Rig(bool createCrashFolder = true)
         {
-            Directory.CreateDirectory(Crash);
+            if (createCrashFolder) Directory.CreateDirectory(Crash);
             File.WriteAllText(Mover, """
                 param([string]$Label, [Parameter(ValueFromRemainingArguments=$true)][string[]]$Paths)
                 foreach ($p in $Paths) {
@@ -103,8 +103,7 @@ public sealed class CrashTrimScriptTests
     [Fact]
     public void A_missing_crash_folder_is_not_an_error()
     {
-        var r = new Rig();
-        Directory.Delete(r.Crash);
+        var r = new Rig(createCrashFolder: false);
         var run = r.Trim(allPassed: true);
         Assert.Equal(0, run.ExitCode);
     }

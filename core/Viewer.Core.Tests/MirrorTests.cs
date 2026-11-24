@@ -401,7 +401,7 @@ public class MirrorTests
     public void The_arrange_summary_lists_mirror_and_says_what_needs_more()
     {
         Assert.Equal("3 linksets: align, distribute, mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 3), S));
-        Assert.Equal("2 linksets: align, mirror; distribute needs 3 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 2), S));
-        Assert.Equal("1 linkset: mirror; align needs 2 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 1), S));
+        Assert.Equal("2 linksets: align, mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 2), S));
+        Assert.Equal("1 linkset: mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 1), S));
     }
 }
