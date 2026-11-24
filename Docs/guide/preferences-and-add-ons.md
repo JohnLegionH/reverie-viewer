@@ -52,12 +52,22 @@ Shadows, anti-aliasing and other advanced graphics settings are not in Reverie y
 
 ### Sound
 
-- **Volume.** One row each for **Master**, **Sounds** (objects in the world), **Ambient** (footsteps) and **Interface sounds**: a slider, its value and a **Mute** button. Muting Master is the same as **Mute all sounds**.
+- **Volume.** One row each for **Master**, **Sounds** (objects in the world), **Ambient** (footsteps), **Music** (the stream of the parcel you are on) and **Interface sounds**: a slider, its value and a **Mute** button. Muting Master is the same as **Mute all sounds**.
 - **Options.** Whether collisions and gestures make sounds, **Mono audio** (both ears get the same sound) and muting while the viewer is minimized. A footstep the grid has no sound for is silent.
 - **More** (closed at first) holds the balance-change amounts above which the money sound and the pain sound play.
 - **Interface sounds** (closed at first; its summary says how many of the sounds are on). Open it and each event has a row: for example Alert, Click, Region restart and Teleport. Each row has a **Play** button and a choice of **Grid's** or **Off**. **Set all to Grid's** changes every row back. Reverie plays each grid's own interface sounds: it fetches them from the grid you are connected to when you log in, by the same sound ids the official viewer uses, and keeps them for that grid only, so one grid's sounds never play on another. A sound the grid does not have is silent (the row says "not on this grid"). On the login screen, the sounds of the grid chosen there play if you have connected to it before; otherwise nothing plays.
 
-Music, media and voice are not in Reverie yet.
+Media and voice are not in Reverie yet. Parcel music is: see **Parcel music** below.
+
+#### Parcel music
+
+A parcel can name a music stream (an internet radio address). When you stand on such a parcel, Reverie plays it.
+
+- **The music control.** A music button appears in the top bar, left of the search icon, only while your parcel has music. One click turns the stream off, another turns it on; the button is dimmed while the music is off. Beside it are a **mute** button (the speaker icon, crossed out while muted) and a **volume** slider. They set the same **Music** level and mute as Preferences > Sound, so the two always agree.
+- **Off stays off.** Music you turn off stays off on every parcel and after you log in again, until you turn it on.
+- **The first time for a site.** When a parcel's stream would play from a site Reverie has not asked about, it asks once: **Play** or **Don't play**. It remembers your answer for that site. If you chose **Don't play** and change your mind, click the music button; Reverie asks again.
+- **Changes.** If the parcel's owner changes the address, the music switches at once. An empty address, or leaving the parcel, stops the music.
+- **What it plays.** Addresses that start with http:// or https://: MP3, AAC and Ogg Vorbis streams, a station's own address (also a bare server address such as http://example.org:8040), addresses that redirect, and .pls and .m3u playlists that name a stream. Other kinds of stream (for example HLS, or video) do not play.
 
 ### Chat
 

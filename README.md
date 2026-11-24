@@ -137,7 +137,7 @@ What you will notice is missing in this preview:
 - No rigged mesh, sound or animation upload.
 - No land, parcel or estate tools, and no search.
 - No groups beyond group chat, notices and your active group and title.
-- No music, media or voice.
+- No media on a prim, parcel video or voice (parcel music plays).
 - No hypergrid travel.
 - RLV is only partly supported, and off until you turn it on.
 - The Linux builds have started and drawn their login screen with software graphics only; they have not been run on a
