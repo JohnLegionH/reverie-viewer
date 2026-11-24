@@ -8,6 +8,14 @@
     <Deterministic>true</Deterministic>
   </PropertyGroup>
 
+  <!-- Deterministic builds are only byte-identical across folders if the compiler does not write the folder's path into the output.
+       The path of every source file ends up in the debug symbols, the assembly's debug directory and its module id, so two checkouts of
+       one commit in different folders gave different dlls and pdbs. PathMap rewrites the repository folder to a fixed prefix, so an export
+       of a commit is the same bytes wherever it is built. (ContinuousIntegrationBuild is not used: it also turns on locked restore.) -->
+  <PropertyGroup>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+  </PropertyGroup>
+
   <!-- LibreMetaverse's package ships Linden viewer data as NuGet contentFiles (linden/**: avatar_lad.xml,
        avatar_skeleton.xml, .llm meshes, static assets). Nothing uses them, so no output may carry them. Every
        PackageReference to LibreMetaverse sets ExcludeAssets="$(NvLibreMetaverseExcludeAssets)". The guard
