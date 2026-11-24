@@ -261,7 +261,7 @@ public partial class Main
                     EditRelease(e, b.Position);
                 return true;
             case InputEventMouseMotion m when _handleDrag is not null:
-                HandleMotion(e, m.Position, m.ShiftPressed);
+                HandleMotion(e, m.Position, m.ShiftPressed, m.AltPressed);
                 return true;
             case InputEventMouseMotion m when _editDrag is { } d:
                 EditMotion(e, d, m.Position);
@@ -532,6 +532,7 @@ public partial class Main
                 break;
             }
             case "snap": e.SnapEnabled = text == "on"; break;
+            case "snap_objects": e.SnapToObjects = text == "on"; break;
             case "snap_xy": done = e.SnapSelectionXY(); break;
             case "use_selection_grid": e.UseSelectionForGrid(); break;
             case "grid":
@@ -626,6 +627,8 @@ public partial class Main
             tool = e.Tool.ToString().ToLowerInvariant(),
             manip = e.Manip.ToString().ToLowerInvariant(),
             snap = e.SnapEnabled,
+            snap_objects = e.SnapToObjects,
+            snap_lines = e.SnapLines.Count,   // four for each axis the held drag has caught on
             arrange = new { linksets = e.ArrangeLinksets, refusal = e.ArrangeStatus.ToString().ToLowerInvariant(), distribute_refusal = e.DistributeStatus.ToString().ToLowerInvariant(), mirror_refusal = e.MirrorStatus.ToString().ToLowerInvariant(), mirror_copy = e.CanMirrorCopy, mirror_notice = e.MirrorNotice.ToArray() },
             pivot = new
             {

@@ -13,10 +13,11 @@ using NQuaternion = System.Numerics.Quaternion;
 namespace Viewer.Godot;
 
 /// <summary>
-/// --tr-handles=move|rotate|scale|grid: the edit tools' handles round a grey 1 x 2 x 0.5 m box, drawn by <see cref="HandleOverlay"/> from
+/// --tr-handles=move|rotate|scale|grid|snap: the edit tools' handles round a grey 1 x 2 x 0.5 m box, drawn by <see cref="HandleOverlay"/> from
 /// <see cref="Manipulator"/>'s lines as the viewer draws them: Move (arrows and plane handles, the +x arrow lit as under the pointer), Rotate (the
 /// three rings, the z ring lit), Stretch (the box with its corner and face boxes, the top north-east corner lit) and the grid (the Move handles
-/// while the +x arrow is dragged, with the 0.5 m grid 2 m each way). Checks: the lit handle shows (yellow pixels), the +x arrow's tip lies where its
+/// while the +x arrow is dragged, with the 0.5 m grid 2 m each way) and snap (the Move handles while the +x arrow is dragged flush against a second
+/// box, with the guide <see cref="ObjectSnap"/> gives). Checks: the lit handle shows (yellow pixels), the +x arrow's tip lies where its
 /// 50-pixel rule puts it on screen, and with the camera twice as far the arrow is still that many pixels long (a fixed size on screen); against the
 /// golden when one is given. --tr-alter=nohandles draws the box alone: the negative control, which must fail.
 /// </summary>
@@ -44,9 +45,32 @@ public partial class TestRender
         {
             "rotate" => (ManipMode.Rotate, new Handle(HandleKind.Ring, 2)),
             "scale" => (ManipMode.Scale, new Handle(HandleKind.Corner, Corner: 7)),
-            "move" or "grid" => (ManipMode.Move, new Handle(HandleKind.Axis, 0, 1)),
-            _ => throw new ArgumentException("--tr-handles must be move, rotate, scale or grid"),
+            "move" or "grid" or "snap" => (ManipMode.Move, new Handle(HandleKind.Axis, 0, 1)),
+            _ => throw new ArgumentException("--tr-handles must be move, rotate, scale, grid or snap"),
         };
+
+        // snap: a second box, and the guide of a drag that began 1 m short and has come to within 5 cm of flush
+        var guides = new List<HandleLine>();
+        if (mode == "snap")
+        {
+            var otherCentre = centre + new NVector3(1f, 0.3f, 0.25f);
+            var other = new NVector3(1, 1, 1);
+            rig.Root.AddChild(new MeshInstance3D
+            {
+                Name = "other",
+                Mesh = new BoxMesh { Size = new Vector3(other.X, other.Z, other.Y) },
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.35f, 0.45f, 0.6f) },
+                Position = HandleOverlay.Engine(otherCentre),
+            });
+            var from = centre - NVector3.UnitX;
+            var caught = ObjectSnap.Snap(new SnapBox(from - box / 2, from + box / 2), new NVector3(0.95f, 0, 0),
+                [new SnapBox(otherCentre - other / 2, otherCentre + other / 2)], ObjectSnap.MaxDistance, letGo: false);
+            if (caught.Guides.Count != 1 || Math.Abs(caught.Move.X - 1f) > 0.001f)
+                _failures.Add($"the drag did not catch flush: move {caught.Move.X:F4} m with {caught.Guides.Count} guides");
+            foreach (var g in caught.Guides)
+                foreach (var (a, b) in ObjectSnap.Outline(g, NQuaternion.Identity))
+                    guides.Add(new HandleLine(a, b, Manipulator.SnapGuideColour));
+        }
 
         // a camera south-west of the box and above it, looking at it
         float PlaceCamera(float distance)
@@ -61,6 +85,7 @@ public partial class TestRender
                 lines.AddRange(Manipulator.Lines(manip, centre, NQuaternion.Identity, box, view, lit));
                 if (mode == "grid")
                     lines.AddRange(Manipulator.GridLines(centre, NVector3.Zero, NQuaternion.Identity, 0.5f, 2f, 0.7f));
+                lines.AddRange(guides);
             }
             overlay.Show(lines, rig.Camera.GlobalPosition, rig.Camera.Fov, size.Y);
             // the +x arrow's length on screen, from the centre to its tip at 1.2 arrow lengths

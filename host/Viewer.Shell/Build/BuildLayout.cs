@@ -22,7 +22,7 @@ public sealed record BuildFacts(
     int FacesPicked = 0, bool SelectFaces = false, string? Texture = null,
     string? Name = null, bool Locked = false, bool Physical = false, bool Temporary = false, bool Phantom = false,
     bool Flexible = false, bool Light = false, string? PhysicsShape = null,
-    int? ContentCount = null, PivotMode Pivot = PivotMode.Centre, int? Linksets = null);
+    int? ContentCount = null, PivotMode Pivot = PivotMode.Centre, int? Linksets = null, bool SnapToObjects = false);
 
 /// <summary>
 /// The Build window's layout as data, so it is tested without the engine: the tool rows and every section's rows with the names they are
@@ -89,6 +89,7 @@ public static class BuildLayout
         R("pivot_offset", BuildSection.Placement, "edit.pivot.custom", "Pivot point", "Pivot X Y Z"),
         R("pivot_unit", BuildSection.Placement, "edit.pivot.unit", "Pivot point", "Percent", "Metres"),
         R("snap", BuildSection.Placement, "edit.snap", "Snap", "Snap to grid", "grid"),
+        R("snap_objects", BuildSection.Placement, "edit.snap_objects", "Snap to objects", "snap", "face", "edge", "flush", "magnet"),
         R("stretch_both", BuildSection.Placement, "edit.stretch_both", "Stretch Both Sides"),
         R("stretch_textures", BuildSection.Placement, "edit.stretch_textures", "Stretch Textures"),
 
@@ -243,12 +244,13 @@ public static class BuildLayout
                 if (f.Position is not { } p || f.Size is not { } z)
                     return s.Get("edit.summary.none");
                 string at = s.Get("edit.summary.placement", $"{N(p.X)}, {N(p.Y)}, {N(p.Z)}", $"{N(z.X)} × {N(z.Y)} × {N(z.Z)}");
-                return f.Pivot switch
+                at = f.Pivot switch
                 {
                     PivotMode.Root => at + ", " + s.Get("edit.summary.pivot_root"),
                     PivotMode.Custom => at + ", " + s.Get("edit.summary.pivot_custom"),
                     _ => at,
                 };
+                return f.SnapToObjects ? at + ", " + s.Get("edit.summary.snap_objects") : at;
             case BuildSection.Arrange:
                 return f.Linksets is not { } sets ? s.Get("edit.summary.none")
                     : sets >= 3 ? s.Get("edit.summary.arrange", new Counted("count.linksets", sets))

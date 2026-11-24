@@ -505,6 +505,8 @@ public sealed partial class EditController
         _manipCentre = _manipPivot;
         _manipBox = BoxCentre ?? _manipPivot;
         _manipSize = _manipStartSize = HandleSize;
+        _snapLines = [];
+        _snapScene = _snapToObjects ? ReadSnapScene(starts.Select(s => s.Local).ToArray()) : null;
         return true;
     }
 
@@ -521,6 +523,8 @@ public sealed partial class EditController
         }
         _manip = null;
         _turned = null;
+        _snapScene = null;
+        _snapLines = [];
     }
 
     /// <summary>How long after a drag the handles wait for the region's update of the moved objects (the region may refuse the move).</summary>
@@ -555,11 +559,14 @@ public sealed partial class EditController
     public Vector3? ManipSize => _manip is null ? Held()?.Size : _manipSize;
 
     /// <summary>A Move handle's drag: every object moves by <paramref name="delta"/> from where it began; with snapping on, the selection's centre
-    /// lands on the grid along the axes being moved (the grid's own axes).</summary>
-    public bool ManipMove(Vector3 delta)
+    /// lands on the grid along the axes being moved (the grid's own axes). With Snap to objects on, the selection's box then catches on
+    /// other boxes within <paramref name="snapDistance"/> metres (never more than <see cref="ObjectSnap.MaxDistance"/>) unless
+    /// <paramref name="letGo"/> is set (Alt held).</summary>
+    public bool ManipMove(Vector3 delta, float snapDistance = ObjectSnap.MaxDistance, bool letGo = false)
     {
         if (_manip is not { } starts)
             return false;
+        var pointer = delta;
         if (SnapEnabled)
         {
             var (origin, turn) = GridFrame();
@@ -573,6 +580,7 @@ public sealed partial class EditController
                 MathF.Abs(moved.Z) > 1e-6f ? Snap.ToGrid(target.Z, 0, GridUnit, sub) : target.Z);
             delta = origin + Vector3.Transform(target, turn) - _manipPivot;
         }
+        delta = SnapToOthers(pointer, delta, snapDistance, letGo);   // after the grid, and over it on the axes that catch
         _manipCentre = _manipPivot + delta;
         bool any = false;
         foreach (var s in starts)
