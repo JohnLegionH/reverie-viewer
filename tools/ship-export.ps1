@@ -9,12 +9,14 @@
 #                  environment variable NV_MOVE_ASIDE_TOOL). Nothing is ever deleted: with no tool the script stops before it touches anything.
 #   -WaitMinutes   how long to wait for a viewer started from -Destination to end (default 15); then the copy is skipped (exit 2).
 # What it does, in order:
+#   0. the export's own dev\ folder (the development export with the automation switched on) is never copied, and a destination that
+#      holds a dev\ folder is refused (exit 1) before anything is copied or moved: the shipping folder holds only the shipping export
 #   1. waits (up to -WaitMinutes) while a Reverie.exe or Reverie.console.exe from -Destination (its program inside that folder) is
 #      running, and copies nothing while one is; a viewer whose program is anywhere else is listed and ignored
 #   2. moves aside every file in -Destination that the export lacks (the export's own run state, appdata\ and s1-result*, is not part of
 #      the export, so the same files in -Destination are among them)
 #   3. copies every export file that is missing or different, then compares the SHA-256 of every export file with its copy
-# Exit: 0 all files match; 1 a file differs, a move failed or a tool is missing; 2 a viewer from -Destination was still running.
+# Exit: 0 all files match; 1 a file differs, a move failed, a tool is missing or the destination holds a dev\ folder; 2 a viewer from -Destination was still running.
 # =====================================================================================
 param(
     [Parameter(Mandatory = $true)][string]$Source,
@@ -30,6 +32,10 @@ if (-not $MoveAsideTool -or -not (Test-Path -LiteralPath $MoveAsideTool)) {
     exit 1
 }
 if (-not (Test-Path -LiteralPath $Source -PathType Container)) { Write-Output "ship-export: no export at the source folder"; exit 1 }
+if (Test-Path -LiteralPath (Join-Path $Destination "dev")) {
+    Write-Output "ship-export: FAILED, the destination holds a dev\ folder ($(Join-Path $Destination 'dev')). The shipping folder must hold only the shipping export: take the development export out of it first. Nothing was copied or moved"
+    exit 1
+}
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
 
 function Get-Viewers {
@@ -58,10 +64,10 @@ while ($true) {
     Start-Sleep -Seconds 10
 }
 
-# the export: every file but its own run state
+# the export: every file but its own run state and its dev\ folder
 $srcFiles = @(Get-ChildItem -LiteralPath $Source -Recurse -File -Force | Where-Object {
     $rel = $_.FullName.Substring($Source.Length + 1)
-    -not ($rel -like "appdata\*") -and -not ($rel -like "s1-result*")
+    -not ($rel -like "appdata\*") -and -not ($rel -like "s1-result*") -and -not ($rel -like "dev\*")
 })
 $srcSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($f in $srcFiles) { [void]$srcSet.Add($f.FullName.Substring($Source.Length + 1)) }

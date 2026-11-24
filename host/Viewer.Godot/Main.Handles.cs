@@ -27,6 +27,10 @@ public partial class Main
     private HandleDragState? _handleDrag;
     /// <summary>Where the handles were last drawn (the automation reads it).</summary>
     private NVector3? _handlesDrawnAt;
+    /// <summary>The frame a handle drag was let go in, and the first frame drawn after it with where the handles stood then (the automation reads both,
+    /// to see that the handles are on the selection's new box on the first frame after a release).</summary>
+    private long _releaseFrame = -1;
+    private (long Frame, NVector3 Centre)? _firstDrawnAfterRelease;
 
     /// <summary>A handle being dragged, from the press until the release.</summary>
     private sealed class HandleDragState
@@ -113,6 +117,8 @@ public partial class Main
                 }
                 var view = HandleViewNow();
                 _handlesDrawnAt = centre;
+                if (_releaseFrame >= 0 && _firstDrawnAfterRelease is null)
+                    _firstDrawnAfterRelease = ((long)Engine.GetFramesDrawn(), centre);
                 lines.AddRange(Manipulator.Lines(mode, centre, frame, size, view, _handleDrag?.Handle ?? _handleHot));
                 if (_handleDrag is { Mode: ManipMode.Move } && e.SnapEnabled)
                 {
@@ -228,6 +234,8 @@ public partial class Main
         }
         _handleDrag = null;
         e.EndManip();
+        _releaseFrame = (long)Engine.GetFramesDrawn();
+        _firstDrawnAfterRelease = null;
         // a Shift-click that lands on a handle and does not become a drag still adds the object under it to the selection, or takes it out
         if (!d.OutsideSlop && d.ShiftClick is { } click)
             e.Click(click, shift: true);

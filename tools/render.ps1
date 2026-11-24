@@ -236,6 +236,19 @@ $godot = Join-Path $PSScriptRoot "godot.ps1"
 $diagArgs = if ($DiagDir) { @("-DiagDir", $DiagDir) } else { @() }
 $results = Join-Path $PSScriptRoot "test-results"
 $out = if ($OutDir) { $OutDir } else { Join-Path $results "render" }
+# A crash leaves a dump (many MiB) and a note in <DiagDir>\crash (tools\crash-watch.ps1). At the end of a run in which every case passed,
+# tools\crash-trim.ps1 keeps each crash's note and puts its dump aside; a run with a failing case keeps both. A child of a parallel run
+# (NV_RENDER_JUNIT_NAME set) leaves it to the parent, which knows the result of every backend. No tool to put a dump aside
+# (NV_MOVE_ASIDE_TOOL) means the dumps stay, and the output says so.
+$runStarted = Get-Date
+function Invoke-CrashTrim([bool]$allPassed) {
+    if (-not $env:NV_RENDER_JUNIT_NAME -and -not $PlanOnly) {
+        $crashDir = Join-Path $(if ($DiagDir) { $DiagDir } else { $results }) "crash"
+        $trimArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $PSScriptRoot "crash-trim.ps1"), "-CrashDir", $crashDir, "-Since", $runStarted.ToString("o"))
+        if ($allPassed) { $trimArgs += "-AllPassed" }
+        & powershell @trimArgs | ForEach-Object { Write-Output $_ }
+    }
+}
 # -ParallelBackends (or NV_RENDER_PARALLEL=1): one child render.ps1 per backend, run at the same time, instead of the backends one after the other.
 # Each child gets the same arguments with -Backends <one backend> and writes its own pictures (their tags carry the backend, so the files
 # do not collide) and its own Render.<backend>.junit.xml; this run merges them into Render.junit.xml, prints each child's output, and
@@ -294,6 +307,7 @@ if ($wantParallel) {
     Write-Output ("Render summary (backends run in parallel): total {0}, passed {1}, failed {2}, no golden {3}, no result {4}, skipped {5}" -f $merged.Count, ($merged.Count - $mfail - $mnoGolden - $mnoResult - $mskip), $mfail, $mnoGolden, $mnoResult, $mskip)
     # the exit code a single run over both backends gives: 3 only when no backend rendered a case, 2 for no section, 1 for any failure
     $final = if (@($codes | Where-Object { $_ -ne 3 }).Count -eq 0) { 3 } elseif ($codes -contains 2) { 2 } elseif (@($codes | Where-Object { $_ -notin @(0, 3) }).Count -gt 0) { 1 } else { 0 }
+    Invoke-CrashTrim ($final -eq 0 -and $mnoGolden -eq 0)
     exit $final
 }
 . (Join-Path $PSScriptRoot "render-serve.ps1")
@@ -342,6 +356,7 @@ function Exit-Render([int]$code) {
         Write-Output "RENDERED NO CASE: $($cases.Count) case(s) reported, all skipped$(if ($OnlyCases) { " (-OnlyCases '$OnlyCases' matched none of the cases these sections render)" })"
         exit 3
     }
+    Invoke-CrashTrim ($code -eq 0 -and @($cases | Where-Object Status -eq "NO GOLDEN").Count -eq 0)
     exit $code
 }
 function Write-JUnit {
