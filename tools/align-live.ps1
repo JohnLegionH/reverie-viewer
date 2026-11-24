@@ -137,15 +137,15 @@ function CtlPoint([string]$name) { [void](Edit @{ action = "control"; text = $na
 function ClickCtl([string]$name) { $p = CtlPoint $name; if ($p) { ClickAt $p[0] $p[1]; $true } else { Note "not shown: $name"; $false } }
 function HighX($o) { [double]$o.x + [double]$o.sx / 2 }
 
-# ---- three boxes of 1, 2 and 3 m in a row along y in front of the avatar ----
+# ---- three boxes of 1, 2 and 3 m in a row along y (4 m apart) in front of the avatar ----
 $me = @((Obs).self.region_position)
 $sizes = @(1.0, 2.0, 3.0)
 $ids = @(); $locals = @()
-$baseX = [double]$me[0] + 6.0; $baseY = [double]$me[1] - 5.0; $z = [double]$me[2] + 2.1
+$baseX = [double]$me[0] + 10.0; $baseY = [double]$me[1] - 11.0; $z = [double]$me[2] + 2.1
 for ($k = 0; $k -lt 3; $k++) {
-    [void](Interact @{ action = "aim"; x = ($baseX); y = ($baseY + 5 * $k); z = ([double]$me[2] - 0.9); distance = 7 }); Start-Sleep -Milliseconds 1200
+    [void](Interact @{ action = "aim"; x = ($baseX); y = ($baseY + 4 * $k); z = ([double]$me[2] - 0.9); distance = 7 }); Start-Sleep -Milliseconds 1200
     $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
-    [void](Build @{ action = "create"; x = $baseX; y = ($baseY + 5 * $k); z = ([double]$me[2] - 0.9) })
+    [void](Build @{ action = "create"; x = $baseX; y = ($baseY + 4 * $k); z = ([double]$me[2] - 0.9) })
     $box = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
     if (-not $box) { Note "box $k was not made: stopping"; Finish 1 }
     Add-Rezzed ([uint32]$box.local)
@@ -162,12 +162,12 @@ for ($k = 0; $k -lt 3; $k++) {
     [void](Edit @{ action = "select"; text = "$($locals[$k])" })
     [void](Edit @{ action = "size"; x = $sizes[$k]; y = $sizes[$k]; z = $sizes[$k] })
     [void](Edit @{ action = "rotation"; x = 0; y = 0; z = 0 })
-    [void](Edit @{ action = "position"; x = $baseX; y = ($baseY + 5 * $k); z = $z })
+    [void](Edit @{ action = "position"; x = $baseX; y = ($baseY + 4 * $k); z = $z })
 }
 $ready = Wait-Until { $r = @(0, 1, 2 | ForEach-Object { OwnObj $locals[$_] }); if (@($r | Where-Object { $_ }).Count -eq 3 -and (Near $r[0].sx 1 0.001) -and (Near $r[1].sx 2 0.001) -and (Near $r[2].sx 3 0.001) -and (Near $r[2].z $z 0.01)) { $r } } 20
 Check "0 three upright boxes of 1, 2 and 3 m stand in a row" ([bool]$ready) (($ready | ConvertTo-Json -Compress -Depth 4))
 if (-not $ready) { Finish 1 }
-[void](Interact @{ action = "aim"; x = $baseX; y = ($baseY + 5); z = $z; distance = 16 }); Start-Sleep -Milliseconds 1500
+[void](Interact @{ action = "aim"; x = $baseX; y = [double]$me[1]; z = $z; distance = 22 }); Start-Sleep -Milliseconds 1500
 if (-not (ClickCtl "section_arrange")) { Check "0b the Arrange section header is on screen" $false "not shown"; Finish 1 }
 $opened = EditUntil { param($s) $true }
 
@@ -178,8 +178,9 @@ for ($run = 1; $run -le $Runs; $run++) {
     $offs = @(((($run * 7) % 9) - 4), ((($run * 5 + 3) % 9) - 4), ((($run * 3 + 1) % 9) - 4))
     for ($k = 0; $k -lt 3; $k++) {
         [void](Edit @{ action = "select"; text = "$($locals[$k])" })
-        [void](Edit @{ action = "position"; x = ($baseX + $offs[$k]); y = ($baseY + 5 * $k); z = $z })
+        [void](Edit @{ action = "position"; x = ($baseX + $offs[$k]); y = ($baseY + 4 * $k); z = $z })
     }
+    [void](Interact @{ action = "aim"; x = $baseX; y = [double]$me[1]; z = $z; distance = 22 }); Start-Sleep -Milliseconds 800
     $placed = Wait-Until { $r = @(0, 1, 2 | ForEach-Object { OwnObj $locals[$_] }); if (@($r | Where-Object { $_ }).Count -eq 3 -and (Near $r[0].x ($baseX + $offs[0]) 0.01) -and (Near $r[1].x ($baseX + $offs[1]) 0.01) -and (Near $r[2].x ($baseX + $offs[2]) 0.01)) { $r } } 12
     if (-not $placed) { $rows += [ordered]@{ run = $run; error = "stagger not placed" }; continue }
     $b4 = @(0, 1, 2 | ForEach-Object { OwnObj $locals[$_] })
@@ -187,15 +188,18 @@ for ($run = 1; $run -le $Runs; $run++) {
     $spreadB = ($edgesB | Measure-Object -Maximum).Maximum - ($edgesB | Measure-Object -Minimum).Minimum
     # the real pointer picks the boxes: a click on the first, Shift-clicks on the other two
     [void](Edit @{ action = "select"; text = "" }); Start-Sleep -Milliseconds 300
-    $pts = @(0, 1, 2 | ForEach-Object { ScreenOf $ids[$_] })
+    $pts = @(); foreach ($k in 0..2) { $pts += ,(ScreenOf $ids[$k]) }
     if (@($pts | Where-Object { $_ }).Count -ne 3) { $rows += [ordered]@{ run = $run; error = "a box is not on screen"; points = $pts }; continue }
-    ClickAt $pts[0][0] $pts[0][1] $false
-    ClickAt $pts[1][0] $pts[1][1] $true
-    ClickAt $pts[2][0] $pts[2][1] $true
+    # the middle box on screen first, then the one on each side: the handles stand on the picked set's middle, so the last box is never under them
+    if ($run -in 3, 8) { Shot ("align-pre-run{0}" -f $run) }
+    $order = @(0..2 | Sort-Object { $pts[$_][0] })
+    ClickAt $pts[$order[1]][0] $pts[$order[1]][1] $false
+    ClickAt $pts[$order[0]][0] $pts[$order[0]][1] $true
+    ClickAt $pts[$order[2]][0] $pts[$order[2]][1] $true
     $sel = EditUntil { param($s) @($s.selection).Count -ge 3 }
     $picked = @($sel.selection | ForEach-Object { [uint32]$_ } | Sort-Object)
     $allPicked = ($picked.Count -eq 3) -and ($picked -join ",") -eq (($locals | Sort-Object) -join ",")
-    if (-not $allPicked) { $rows += [ordered]@{ run = $run; error = "the pointer did not pick all three"; selection = $picked }; continue }
+    if (-not $allPicked) { Shot ("align-miss-run{0}" -f $run); $rows += [ordered]@{ run = $run; error = "the pointer did not pick all three"; selection = $picked; points = $pts; offsets = $offs; handles = (Edit @{ action = "state" }).handles_drawn }; continue }
     $arr = $sel.arrange
     # the real Max button
     $pressed = ClickCtl "align_max"
