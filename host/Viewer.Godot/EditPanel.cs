@@ -75,6 +75,8 @@ public partial class EditPanel : VBoxContainer
     private readonly OptionButton _pivotMode, _pivotUnit;
     private readonly OptionButton _alignAxis, _alignTarget;
     private readonly Button[] _alignEdge = new Button[3];
+    private readonly OptionButton _distributeAxis;
+    private readonly Button[] _distributeMode = new Button[2];
     private readonly CheckBox _locked, _physical, _temporary, _phantom;
     private readonly OptionButton _type, _hole;
     private readonly Dictionary<string, (Control Row, SpinBox A, SpinBox? B)> _shape = new();
@@ -312,6 +314,21 @@ public partial class EditPanel : VBoxContainer
             edges.AddChild(b);
         }
         arrange.AddChild(Line("align_edge", "edit.align.edge", edges));
+        // Distribute: the axis, then Centres (equal steps between centres) or Gaps (equal space between boxes); the outer two stay
+        _distributeAxis = new OptionButton { Name = "distribute_axis", AccessibilityName = _s.Get("edit.distribute") };
+        foreach (var (axis, key) in new[] { (ArrangeAxis.X, "edit.align.x"), (ArrangeAxis.Y, "edit.align.y"), (ArrangeAxis.Z, "edit.align.z") })
+            _distributeAxis.AddItem(_s.Get(key), (int)axis);
+        arrange.AddChild(Line("distribute_axis", "edit.distribute", _distributeAxis));
+        var modes = new HBoxContainer { Name = "distribute_mode" };
+        foreach (var (mode, key, i) in new[] { (DistributeMode.Centres, "edit.distribute.centres", 0), (DistributeMode.Gaps, "edit.distribute.gaps", 1) })
+        {
+            var b = new Button { Name = "distribute_" + mode.ToString().ToLowerInvariant(), Text = _s.Get(key), TooltipText = _s.Get("edit.distribute.tip_" + mode.ToString().ToLowerInvariant()), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            b.AccessibilityName = b.Text;
+            b.Pressed += () => _edit()?.Distribute((ArrangeAxis)_distributeAxis.GetItemId(_distributeAxis.Selected), mode);
+            _distributeMode[i] = b;
+            modes.AddChild(b);
+        }
+        arrange.AddChild(Line("distribute_mode", "edit.distribute.mode", modes));
 
         // ---------------- Shape ----------------
         var shape = Body(BuildSection.Shape);
@@ -845,6 +862,19 @@ public partial class EditPanel : VBoxContainer
             {
                 edgeButton.Disabled = arrangeStatus != ArrangeRefusal.None;
                 edgeButton.TooltipText = arrangeWhy;
+            }
+            var distributeStatus = e?.DistributeStatus ?? ArrangeRefusal.TooFew;
+            string distributeWhy = distributeStatus switch
+            {
+                ArrangeRefusal.Attachment => _s.Get("edit.align.no.attachment"),
+                ArrangeRefusal.NoMove => _s.Get("edit.align.no.move"),
+                ArrangeRefusal.TooFew => _s.Get("edit.distribute.no.few"),
+                _ => null,
+            };
+            foreach (var modeButton in _distributeMode)
+            {
+                modeButton.Disabled = distributeStatus != ArrangeRefusal.None;
+                modeButton.TooltipText = distributeWhy ?? _s.Get("edit.distribute.tip_" + (modeButton == _distributeMode[0] ? "centres" : "gaps"));
             }
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);

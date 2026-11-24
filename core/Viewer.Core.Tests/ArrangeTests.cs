@@ -381,7 +381,7 @@ public class ArrangeTests
     [Fact]
     public void The_arrange_summary_counts_the_linksets_and_says_when_align_needs_more()
     {
-        Assert.Equal("3 linksets: align", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 3), S));
+        Assert.Equal("3 linksets: align, distribute", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 3), S));
         Assert.Equal("1 linkset: align needs 2 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 1), S));
         Assert.Equal("Nothing selected", BuildLayout.Summary(BuildSection.Arrange, null, S));
     }
@@ -390,5 +390,167 @@ public class ArrangeTests
     public void The_arrange_section_starts_closed()
     {
         Assert.DoesNotContain(BuildSection.Arrange, BuildLayout.OpenByDefault);
+    }
+
+    // ---------------- distribute ----------------
+
+    private static ArrangeLinkset[] Row(params (uint Id, float X, float Size)[] items) =>
+        items.Select(i => One(i.Id, new Vector3(i.X, 10, 10), new Vector3(i.Size, 1, 1))).ToArray();
+
+    private static float SizeOf(ArrangeLinkset s) => s.Parts[0].Scale.X;
+    private static Vector3 Go(IReadOnlyList<ArrangeMove> moves, uint root, Vector3 stay) => moves.Any(m => m.Root == root) ? Go(moves, root) : stay;
+
+    [Fact]
+    public void Distribute_by_centres_makes_equal_steps_between_centres_for_three()
+    {
+        var moves = ArrangeRules.Distribute(Row((1, 0, 1), (2, 3, 2), (3, 10, 4)), ArrangeAxis.X, DistributeMode.Centres, Quaternion.Identity);
+        var m = Assert.Single(moves);
+        Assert.Equal(2u, m.Root);
+        Near(new Vector3(5, 10, 10), m.Position);   // halfway between 0 and 10
+    }
+
+    [Fact]
+    public void Distribute_by_gaps_makes_equal_space_between_boxes_for_three()
+    {
+        // boxes: [-0.5,0.5], [2,4] (size 2 at 3), [8,12] (size 4 at 10); sizes 1+2+4 = 7, span 12.5, free 5.5, gap 2.75
+        var moves = ArrangeRules.Distribute(Row((1, 0, 1), (2, 3, 2), (3, 10, 4)), ArrangeAxis.X, DistributeMode.Gaps, Quaternion.Identity);
+        var m = Assert.Single(moves);
+        Assert.Equal(2u, m.Root);
+        Near(0.5f + 2.75f + 1f, m.Position.X);
+    }
+
+    [Fact]
+    public void Distribute_by_gaps_for_four_unequal_boxes_leaves_equal_gaps_and_the_same_span()
+    {
+        var sets = Row((1, 0, 1), (2, 2, 3), (3, 9, 1), (4, 20, 5));
+        var moves = ArrangeRules.Distribute(sets, ArrangeAxis.X, DistributeMode.Gaps, Quaternion.Identity);
+        Assert.Equal([2u, 3u], moves.Select(x => x.Root).Order().ToArray());
+        var after = sets.Select(s => (Lo: Go(moves, s.Root, s.RootPosition).X - SizeOf(s) / 2, Hi: Go(moves, s.Root, s.RootPosition).X + SizeOf(s) / 2)).ToArray();
+        Near(after[1].Lo - after[0].Hi, after[2].Lo - after[1].Hi);
+        Near(after[2].Lo - after[1].Hi, after[3].Lo - after[2].Hi);
+        Near(-0.5f, after.Min(b => b.Lo));
+        Near(22.5f, after.Max(b => b.Hi));
+    }
+
+    [Fact]
+    public void Distribute_by_centres_for_seven_gives_equal_steps()
+    {
+        var sets = Row((1, 0, 1), (2, 1, 1), (3, 5, 2), (4, 6, 1), (5, 13, 3), (6, 14, 1), (7, 30, 2));
+        var moves = ArrangeRules.Distribute(sets, ArrangeAxis.X, DistributeMode.Centres, Quaternion.Identity);
+        var xs = sets.Select(s => Go(moves, s.Root, s.RootPosition).X).ToArray();
+        for (int i = 1; i < xs.Length; i++)
+            Near(5f, xs[i] - xs[i - 1]);
+        Assert.DoesNotContain(moves, m => m.Root == 1 || m.Root == 7);   // the outermost stay
+    }
+
+    [Fact]
+    public void Distribute_takes_the_linksets_in_order_along_the_axis_not_in_the_order_picked()
+    {
+        // picked reversed: 3 first, 1 last; the one in the middle along x is still the one that moves
+        var sets = Row((3, 10, 1), (2, 3, 1), (1, 0, 1));
+        var moves = ArrangeRules.Distribute(sets, ArrangeAxis.X, DistributeMode.Centres, Quaternion.Identity);
+        var m = Assert.Single(moves);
+        Assert.Equal(2u, m.Root);
+        Near(5f, m.Position.X);
+    }
+
+    [Fact]
+    public void Linksets_already_evenly_spaced_are_left_alone()
+    {
+        Assert.Empty(ArrangeRules.Distribute(Row((1, 0, 1), (2, 5, 1), (3, 10, 1)), ArrangeAxis.X, DistributeMode.Centres, Quaternion.Identity));
+        Assert.Empty(ArrangeRules.Distribute(Row((1, 0, 1), (2, 5, 1), (3, 10, 1)), ArrangeAxis.X, DistributeMode.Gaps, Quaternion.Identity));
+    }
+
+    [Fact]
+    public void Distribute_moves_only_along_the_chosen_axis()
+    {
+        var sets = new[]
+        {
+            One(1, new Vector3(0, 0, 0), Vector3.One), One(2, new Vector3(1, 7, 3), Vector3.One), One(3, new Vector3(10, 4, 9), Vector3.One),
+        };
+        var m = Assert.Single(ArrangeRules.Distribute(sets, ArrangeAxis.X, DistributeMode.Centres, Quaternion.Identity));
+        Near(new Vector3(5, 7, 3), m.Position);
+    }
+
+    [Fact]
+    public void Distribute_follows_the_grid_frame()
+    {
+        // a frame turned 90 degrees about z: the frame x runs along the region y
+        var sets = new[] { One(1, new Vector3(10, 0, 5), Vector3.One), One(2, new Vector3(10, 2, 5), Vector3.One), One(3, new Vector3(10, 10, 5), Vector3.One) };
+        var m = Assert.Single(ArrangeRules.Distribute(sets, ArrangeAxis.X, DistributeMode.Centres, Z(90)));
+        Near(new Vector3(10, 5, 5), m.Position);
+    }
+
+    [Fact]
+    public void Distribute_sees_a_turned_prims_corners()
+    {
+        // 2 is turned 45 degrees: its box reaches sqrt2 either side, so by gaps it needs a different centre than a plain 2-wide box would
+        var sets = new[] { One(1, new Vector3(0, 0, 0), Vector3.One), One(2, new Vector3(4, 0, 0), new Vector3(2, 2, 2), Z(45)), One(3, new Vector3(10, 0, 0), Vector3.One) };
+        var m = Assert.Single(ArrangeRules.Distribute(sets, ArrangeAxis.X, DistributeMode.Gaps, Quaternion.Identity));
+        float half = MathF.Sqrt(2);
+        float gap = (10.5f - -0.5f - 1f - 2 * half - 1f) / 2f;
+        Near(0.5f + gap + half, m.Position.X);
+    }
+
+    [Fact]
+    public void Distribute_needs_three_linksets_none_worn_and_all_movable()
+    {
+        Assert.Equal(ArrangeRefusal.None, ArrangeRules.DistributeRefusal(3, false, true));
+        Assert.Equal(ArrangeRefusal.TooFew, ArrangeRules.DistributeRefusal(2, false, true));
+        Assert.Equal(ArrangeRefusal.Attachment, ArrangeRules.DistributeRefusal(4, true, true));
+        Assert.Equal(ArrangeRefusal.NoMove, ArrangeRules.DistributeRefusal(4, false, false));
+        Assert.Empty(ArrangeRules.Distribute(Row((1, 0, 1), (2, 5, 1)), ArrangeAxis.X, DistributeMode.Centres, Quaternion.Identity));
+    }
+
+    [Fact]
+    public void The_controller_distribute_sends_one_message_with_a_group_position_per_moved_root()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(10, 10, 30), Vector3.One);
+        r.Prim(2, new Vector3(12, 14, 30), new Vector3(2, 2, 2));
+        r.Prim(3, new Vector3(30, 18, 30), new Vector3(4, 4, 4));
+        r.C.SelectMany([1, 2, 3], shift: false);
+        Assert.Equal(ArrangeRefusal.None, r.C.DistributeStatus);
+        Assert.True(r.C.Distribute(ArrangeAxis.X, DistributeMode.Centres));
+        var sent = r.Sent.OfType<MoveLinksetsIntent>().Single();
+        var move = Assert.Single(sent.Moves);
+        Assert.Equal(2u, move.LocalId);
+        Near(new Vector3(20, 14, 30), move.Position);
+        Assert.DoesNotContain(r.Sent, i => i is UpdateObjectIntent);
+    }
+
+    [Fact]
+    public void The_controller_refuses_distribute_for_two_linksets_and_sends_nothing()
+    {
+        var r = ThreeBoxes();
+        r.C.SelectMany([1, 2], shift: false);
+        Assert.Equal(ArrangeRefusal.TooFew, r.C.DistributeStatus);
+        Assert.False(r.C.Distribute(ArrangeAxis.X, DistributeMode.Centres));
+        Assert.DoesNotContain(r.Sent, i => i is MoveLinksetsIntent);
+    }
+
+    [Fact]
+    public void The_controller_refuses_distribute_for_a_worn_or_unmovable_object()
+    {
+        var r = ThreeBoxes();
+        r.Prim(4, new Vector3(40, 10, 30), Vector3.One, flags: ObjectFlagBits.Modify);
+        r.C.SelectMany([1, 2, 4], shift: false);
+        Assert.Equal(ArrangeRefusal.NoMove, r.C.DistributeStatus);
+        Assert.False(r.C.Distribute(ArrangeAxis.X, DistributeMode.Gaps));
+        r.Prim(5, new Vector3(0.3f, 0, 0), Vector3.One, parent: 500, attach: 2);
+        r.C.SelectMany([1, 2, 5], shift: false);
+        Assert.Equal(ArrangeRefusal.Attachment, r.C.DistributeStatus);
+        Assert.False(r.C.Distribute(ArrangeAxis.X, DistributeMode.Gaps));
+        Assert.DoesNotContain(r.Sent, i => i is MoveLinksetsIntent);
+    }
+
+    [Fact]
+    public void Distribute_has_its_row_in_the_arrange_section_and_is_found_by_search()
+    {
+        Assert.Contains(BuildLayout.Rows, r => r.Section == BuildSection.Arrange && r.Id == "distribute_axis");
+        Assert.Contains(BuildLayout.Rows, r => r.Section == BuildSection.Arrange && r.Id == "distribute_mode");
+        Assert.Contains(BuildLayout.Search("distribute", S), h => h.Id == "distribute_mode");
+        Assert.Equal("4 linksets: align, distribute", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 4), S));
+        Assert.Equal("2 linksets: align, distribute needs 3 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 2), S));
     }
 }

@@ -29,9 +29,28 @@ public sealed partial class EditController
         get
         {
             var roots = ArrangeRoots();
-            bool worn = _selection.Any(l => Find(RootOf(l))?.AttachmentPoint is not null || Find(l)?.AttachmentPoint is not null);
-            return ArrangeRules.Refusal(roots.Count, worn, roots.All(r => Access(r).CanPlace));
+            return ArrangeRules.Refusal(roots.Count, WornInSelection(), roots.All(r => Access(r).CanPlace));
         }
+    }
+
+    /// <summary>Why Distribute is not offered for the selection (see <see cref="ArrangeRules.DistributeRefusal"/>), or None.</summary>
+    public ArrangeRefusal DistributeStatus
+    {
+        get
+        {
+            var roots = ArrangeRoots();
+            return ArrangeRules.DistributeRefusal(roots.Count, WornInSelection(), roots.All(r => Access(r).CanPlace));
+        }
+    }
+
+    /// <summary>Distribute: the selected linksets are spaced evenly along one axis of the grid's frame, by their centres or by the gaps
+    /// between their boxes; the two outermost stay put. The region gets one message with a group position per moved root. False when
+    /// Distribute is refused or nothing needs to move.</summary>
+    public bool Distribute(ArrangeAxis axis, DistributeMode mode)
+    {
+        if (DistributeStatus != ArrangeRefusal.None || LinksetsForArrange() is not { } sets)
+            return false;
+        return SendMoves(ArrangeRules.Distribute(sets, axis, mode, GridFrame().Turn));
     }
 
     /// <summary>Align: every selected linkset moves along one axis of the grid's frame so that its low edge, middle or high edge matches the
@@ -40,6 +59,16 @@ public sealed partial class EditController
     {
         if (ArrangeStatus != ArrangeRefusal.None)
             return false;
+        if (LinksetsForArrange() is not { } sets)
+            return false;
+        return SendMoves(ArrangeRules.Align(sets, axis, edge, target, GridFrame().Turn));
+    }
+
+    private bool WornInSelection() => _selection.Any(l => Find(RootOf(l))?.AttachmentPoint is not null || Find(l)?.AttachmentPoint is not null);
+
+    /// <summary>Each selected linkset with the world box of every prim in it, or null when one of them is not in the scene.</summary>
+    private List<ArrangeLinkset>? LinksetsForArrange()
+    {
         var objects = _world.Snapshot().Objects.Values.ToList();
         var sets = new List<ArrangeLinkset>();
         foreach (var root in ArrangeRoots())
@@ -49,12 +78,12 @@ public sealed partial class EditController
                 if (WorldOf(o.Id.LocalId) is { } pose)
                     parts.Add(new PivotBox(pose.Position, pose.Rotation, o.Scale));
             if (parts.Count == 0 || Find(root) is not { } rootObject)
-                return false;
+                return null;
             sets.Add(new ArrangeLinkset(root, rootObject.Position, parts));
         }
-        var moves = ArrangeRules.Align(sets, axis, edge, target, GridFrame().Turn);
-        if (moves.Count == 0)
-            return false;
-        return Send(new MoveLinksetsIntent([.. moves.Select(m => new LinksetMove(m.Root, m.Position))]));
+        return sets;
     }
+
+    private bool SendMoves(IReadOnlyList<ArrangeMove> moves) =>
+        moves.Count > 0 && Send(new MoveLinksetsIntent([.. moves.Select(m => new LinksetMove(m.Root, m.Position))]));
 }
