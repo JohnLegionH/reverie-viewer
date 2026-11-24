@@ -4,6 +4,7 @@
 using System.Numerics;
 using Viewer.Core.Actions;
 using Viewer.Core.Building;
+using Viewer.Core.Interaction;
 using Viewer.Core.Meshing;
 using Viewer.Core.World;
 
@@ -63,6 +64,7 @@ public sealed partial class EditController
     {
         if (MirrorStatus != ArrangeRefusal.None)
             return false;
+        bool hadNotice = _mirrorNotice.Count > 0;
         _mirrorNotice.Clear();
         var targets = MirrorTargets();
         if (MirrorPoses() is not { } parts || MirrorPlan(axis, plane, fixedPoint) is not { } mirrored)
@@ -101,7 +103,7 @@ public sealed partial class EditController
         foreach (var intent in intents)
             any |= Send(intent);
         any |= SendFlippedShapes(parts, MirrorRules.Normal(axis, GridFrame().Turn));
-        if (_mirrorNotice.Count > 0)
+        if (_mirrorNotice.Count > 0 || hadNotice)
             Changed?.Invoke();
         return any;
     }
@@ -123,6 +125,11 @@ public sealed partial class EditController
             }
             if (ShapeMirror.SameOnTheWire(shape, flipped))
                 continue;
+            if (!Access(part.Local).CanReshape)
+            {
+                _mirrorNotice.Add(PropertiesOf(part.Local)?.Name is { Length: > 0 } nm ? nm : $"part {part.Local}");   // may be moved but not modified: the shape cannot be sent
+                continue;
+            }
             any |= shape.IsSculpt
                 ? Send(new SetSculptIntent(part.Local, flipped.SculptId, flipped.SculptType | flipped.SculptFlags))
                 : Send(new SetObjectShapeIntent(part.Local, ShapeRules.Encode(flipped)));
@@ -169,7 +176,8 @@ public sealed partial class EditController
     private PendingMirrorCopy? _mirrorCopy;
 
     /// <summary>Mirror a copy is offered where Mirror and Duplicate both are, for whole linksets (not with Edit linked parts).</summary>
-    public bool CanMirrorCopy => !_editLinked && MirrorStatus == ArrangeRefusal.None && CanDuplicate;
+    public bool CanMirrorCopy => !_editLinked && (_mirrorCopy is null || _clock() > _copiesUntil) && MirrorStatus == ArrangeRefusal.None && CanDuplicate
+        && _selection.Select(RootOf).Where(r => r != 0).Distinct().All(r => ((Find(r)?.Interaction?.Flags ?? 0) & ObjectFlagBits.Copy) != 0);
 
     /// <summary>Mirror a copy: the selected linksets are copied where they stand (the copies arrive selected), and when every part of each
     /// copy is here the copies are mirrored about the plane the originals gave (through the middle of the originals, or the pivot), so the
@@ -214,9 +222,15 @@ public sealed partial class EditController
         if (pending.Originals.Any(x => x.Copy == 0))
             return;
         var objects = _world.Snapshot().Objects.Values.ToList();
-        if (pending.Originals.Any(x => objects.Count(c => c.ParentLocalId == x.Copy) < x.Parts))
+        // the copies may have come in any order: compare how many parts each copy has with how many each original had
+        var have = pending.Originals.Select(x => objects.Count(c => c.ParentLocalId == x.Copy)).OrderBy(n => n);
+        if (!have.SequenceEqual(pending.Originals.Select(x => x.Parts).OrderBy(n => n)))
             return;
         _mirrorCopy = null;
+        // whatever was picked meanwhile, the copies are what gets mirrored
+        _selection.Clear();
+        foreach (var x in pending.Originals)
+            Add(x.Copy);
         MirrorAbout(pending.Axis, pending.Plane, pending.Point);
     }
 

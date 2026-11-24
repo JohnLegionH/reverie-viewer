@@ -82,6 +82,7 @@ public sealed partial class EditController
     /// (the notification NoCopyPermsNoObject).</summary>
     public string? Duplicate()
     {
+        _mirrorCopy = null;   // a plain Duplicate cancels a Mirror a copy still waiting
         if (_selection.Count == 0)
             return "duplicate.none";
         if (_selection.Any(l => Find(l) is { AttachmentPoint: not null }))

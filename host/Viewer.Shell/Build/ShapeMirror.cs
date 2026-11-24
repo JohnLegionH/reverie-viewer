@@ -27,6 +27,8 @@ public static class ShapeMirror
             return null;
         if (shape.SculptType == PrimShape.SculptTypeMesh)
             return null;
+        if (shape.SculptType != 0 && !shape.IsSculpt)
+            return null;
         if (shape.SculptType != 0)
             return axis == 0 ? shape with { SculptFlags = shape.SculptFlags ^ SculptMesher.FlagMirror } : null;   // the Mirror bit flips a sculpt along its X axis
         return (shape.PathCurve & 0xF0) switch
@@ -70,6 +72,7 @@ public static class ShapeMirror
     /// <summary>A curved path (a sphere, torus, tube or ring) is its own image about every middle plane when nothing about it is handed;
     /// otherwise it is not flipped.</summary>
     private static PrimShape? FlipCurved(PrimShape s, int axis) =>
+        (s.ProfileCurve & 0x07) is 0 or 5 && s.ProfileHole != ShapeRules.HoleTriangle &&
         s.PathBegin <= Eps && s.PathEnd >= 1 - Eps && s.ProfileBegin <= Eps && s.ProfileEnd >= 1 - Eps
         && Math.Abs(s.PathTwist) <= Eps && Math.Abs(s.PathTwistBegin) <= Eps && Math.Abs(s.PathShearX) <= Eps && Math.Abs(s.PathShearY) <= Eps
         && Math.Abs(s.PathTaperX) <= Eps && Math.Abs(s.PathTaperY) <= Eps && Math.Abs(s.PathRadiusOffset) <= Eps && Math.Abs(s.PathSkew) <= Eps

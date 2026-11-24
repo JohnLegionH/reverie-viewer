@@ -186,6 +186,9 @@ public class MirrorShapeTests
             ("prism hollow", ShapeRules.OfKind(PrimKind.Prism) with { ProfileHollow = 0.4 }),
             ("cylinder triangle hole", Cylinder with { ProfileHollow = 0.4, ProfileHole = ShapeRules.HoleTriangle }),
             ("box circle hole", Box with { ProfileHollow = 0.4, ProfileHole = ShapeRules.HoleCircle, PathTwist = 0.3 }),
+            ("ring", ShapeRules.OfKind(PrimKind.Ring)),
+            ("torus triangle hole", ShapeRules.OfKind(PrimKind.Torus) with { ProfileHollow = 0.4, ProfileHole = ShapeRules.HoleTriangle }),
+            ("box path cut and taper", Box with { PathBegin = 0.1, PathEnd = 0.6, PathScaleX = 0.6, PathScaleY = 1.3, PathTwistBegin = 0.2, PathTwist = 0.5 }),
             ("sphere", ShapeRules.OfKind(PrimKind.Sphere)),
             ("torus", ShapeRules.OfKind(PrimKind.Torus)),
         };
@@ -433,6 +436,74 @@ public class MirrorShapeTests
         var root = Assert.Single(r.All<UpdateObjectIntent>(), u => u.LocalId == 9 && u.Position is not null);
         Assert.True(MathF.Abs(root.Position!.Value.X - 24f) < 1e-3f, $"root x {root.Position}");
         Assert.Contains(r.All<UpdateObjectIntent>(), u => u.LocalId == 10);
+    }
+
+    [Fact]
+    public void A_ring_or_a_triangular_hole_on_a_curved_path_is_not_taken_for_its_own_image()
+    {
+        Assert.Null(ShapeMirror.Flip(ShapeRules.OfKind(PrimKind.Ring), 0));
+        Assert.Null(ShapeMirror.Flip(ShapeRules.OfKind(PrimKind.Torus) with { ProfileHollow = 0.4, ProfileHole = ShapeRules.HoleTriangle }, 1));
+        Assert.NotNull(ShapeMirror.Flip(ShapeRules.OfKind(PrimKind.Torus), 1));
+    }
+
+    [Fact]
+    public void A_part_you_may_move_but_not_modify_is_placed_and_named_but_gets_no_shape_message()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(20, 30, 40), Box);
+        r.Prim(2, new Vector3(26, 30, 40), Box with { PathTwistBegin = 0.2, PathTwist = 0.5 }, flags: Own & ~ObjectFlagBits.Modify);
+        r.C.SelectMany([1, 2], shift: false);
+        Assert.True(r.C.Mirror(ArrangeAxis.X, MirrorPlane.SelectionCentre));
+        Assert.Empty(r.All<SetObjectShapeIntent>());
+        Assert.Contains(r.C.MirrorNotice, n => n.Contains('2'));
+    }
+
+    [Fact]
+    public void Mirror_a_copy_is_off_when_any_selected_linkset_cannot_be_copied()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(20, 30, 40), Box);
+        r.Prim(2, new Vector3(30, 30, 40), Box, flags: Own & ~ObjectFlagBits.Copy);
+        r.C.SelectMany([1, 2], shift: false);
+        Assert.False(r.C.CanMirrorCopy);
+        Assert.False(r.C.MirrorCopy(ArrangeAxis.X, MirrorPlane.SelectionCentre));
+    }
+
+    [Fact]
+    public void A_plain_Duplicate_cancels_a_Mirror_a_copy_that_is_still_waiting()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(20, 30, 40), Box);
+        r.Pick(1);
+        Assert.True(r.C.MirrorCopy(ArrangeAxis.X, MirrorPlane.SelectionCentre));
+        r.Pick(1);
+        Assert.Null(r.C.Duplicate());
+        r.Prim(9, new Vector3(20.5f, 30.5f, 40), Box, flags: Own | ObjectFlagBits.CreateSelected);
+        Assert.True(r.C.CopyArrived(r.Obj(9)));
+        Assert.Empty(r.All<UpdateObjectIntent>());   // the plain copy is not mirrored
+    }
+
+    [Fact]
+    public void Mirror_a_copy_mirrors_the_copies_even_when_two_linksets_of_different_sizes_stand_together_and_arrive_the_other_way_round()
+    {
+        var r = new Rig();
+        r.Prim(1, new Vector3(20, 30, 40), Box);
+        r.Prim(2, new Vector3(20.1f, 30, 40), Box);
+        r.Prim(3, new Vector3(1, 0, 0), Box, parent: 2);
+        r.Prim(4, new Vector3(2, 0, 0), Box, parent: 2);
+        r.C.SelectMany([1, 2], shift: false);
+        Assert.True(r.C.MirrorCopy(ArrangeAxis.X, MirrorPlane.SelectionCentre));
+        r.Prim(20, new Vector3(20.1f, 30, 40), Box, flags: Own | ObjectFlagBits.CreateSelected);   // the bigger one's copy arrives first
+        r.C.CopyArrived(r.Obj(20));
+        r.Prim(21, new Vector3(1, 0, 0), Box, parent: 20);
+        r.Prim(22, new Vector3(2, 0, 0), Box, parent: 20);
+        r.C.CopyArrived(r.Obj(21));
+        r.C.CopyArrived(r.Obj(22));
+        Assert.Empty(r.All<UpdateObjectIntent>());   // the second copy has not come yet
+        r.Prim(23, new Vector3(20, 30, 40), Box, flags: Own | ObjectFlagBits.CreateSelected);
+        r.C.CopyArrived(r.Obj(23));
+        Assert.NotEmpty(r.All<UpdateObjectIntent>());
+        Assert.All(r.All<UpdateObjectIntent>(), u => Assert.True(u.LocalId >= 20));   // only copies are touched
     }
 
     [Fact]
