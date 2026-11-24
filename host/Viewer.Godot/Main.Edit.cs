@@ -379,6 +379,7 @@ public partial class Main
     /// type, hollow, twist_begin, twist_end, path_begin, path_end, taper_x, taper_y); name (text); flags (text: physical,temporary,phantom present
     /// or not); locked (text: on or off); link; unlink; handle (text: the handle, see <see cref="HandleCall"/>; expect "shift" copies); manip (text: move,
     /// rotate, scale); pivot (text: centre, root, or custom:percent / custom:metres with x, y, z as the offsets; answers the pivot's point; state: pivot);
+    /// align (text: axis:edge or axis:edge:target, for example x:max or y:min:last; answers whether a message was sent; state: arrange);
     /// snap (text: on or off); snap_xy; use_selection_grid; grid (text: world, local or reference); grid_options (opens it).</summary>
     public object? EditCall(string action, float x, float y, float z, string? text, string? expect)
     {
@@ -477,6 +478,14 @@ public partial class Main
                 done = e.Pivot is { } pt ? new[] { pt.X, pt.Y, pt.Z } : null;
                 break;
             }
+            case "align":
+            {
+                // text: axis:edge or axis:edge:target, for example "x:max" or "y:min:last" (target box or last)
+                var al = (text ?? "").Split(':');
+                if (al.Length >= 2 && Enum.TryParse<ArrangeAxis>(al[0], true, out var alignAxis) && Enum.TryParse<ArrangeEdge>(al[1], true, out var alignEdge))
+                    done = e.Align(alignAxis, alignEdge, al.Length > 2 && al[2].StartsWith("l", StringComparison.OrdinalIgnoreCase) ? ArrangeTarget.LastSelected : ArrangeTarget.SelectionBox);
+                break;
+            }
             case "snap": e.SnapEnabled = text == "on"; break;
             case "snap_xy": done = e.SnapSelectionXY(); break;
             case "use_selection_grid": e.UseSelectionForGrid(); break;
@@ -572,6 +581,7 @@ public partial class Main
             tool = e.Tool.ToString().ToLowerInvariant(),
             manip = e.Manip.ToString().ToLowerInvariant(),
             snap = e.SnapEnabled,
+            arrange = new { linksets = e.ArrangeLinksets, refusal = e.ArrangeStatus.ToString().ToLowerInvariant() },
             pivot = new
             {
                 mode = e.PivotChoice.ToString().ToLowerInvariant(), unit = e.PivotUnitChoice.ToString().ToLowerInvariant(),

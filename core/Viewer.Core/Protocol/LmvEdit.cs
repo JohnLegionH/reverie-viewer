@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+using Viewer.Core.Actions;
 using LibreMetaverse;
 using LibreMetaverse.Packets;
 using LibreMetaverse.StructuredData;
@@ -79,6 +80,26 @@ internal static class LmvEdit
             AgentData = { AgentID = agent, SessionID = session },
             ObjectData = [new MultipleObjectUpdatePacket.ObjectDataBlock { ObjectLocalID = local, Type = type, Data = data.ToArray() }],
         };
+    }
+
+    /// <summary>Several linksets' new places as MultipleObjectUpdate messages, one block per root with a group position, at most <paramref name="perMessage"/> blocks in each.</summary>
+    public static IReadOnlyList<MultipleObjectUpdatePacket> MoveLinksets(UUID agent, UUID session, IReadOnlyList<LinksetMove> moves, int perMessage = 40)
+    {
+        var packets = new List<MultipleObjectUpdatePacket>();
+        for (int at = 0; at < moves.Count; at += perMessage)
+            packets.Add(new MultipleObjectUpdatePacket
+            {
+                AgentData = { AgentID = agent, SessionID = session },
+                ObjectData = [.. moves.Skip(at).Take(perMessage).Select(m =>
+                {
+                    var data = new List<byte>(12);
+                    data.AddRange(BitConverter.GetBytes(m.Position.X));
+                    data.AddRange(BitConverter.GetBytes(m.Position.Y));
+                    data.AddRange(BitConverter.GetBytes(m.Position.Z));
+                    return new MultipleObjectUpdatePacket.ObjectDataBlock { ObjectLocalID = m.LocalId, Type = UpdPosition | UpdLinkedSets, Data = data.ToArray() };
+                })],
+            });
+        return packets;
     }
 
     public static ObjectFlagUpdatePacket Flags(UUID agent, UUID session, uint local, bool physical, bool temporary, bool phantom) => new()

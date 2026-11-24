@@ -31,6 +31,12 @@ internal sealed partial class LmvTransport
                 _client.Network.SendPacket(part, sim);
             return CommandDispatch.Handed;
         }
+        if (edit is MoveLinksetsIntent moveSets)
+        {
+            foreach (var part in LmvEdit.MoveLinksets(self.AgentID, self.SessionID, moveSets.Moves))
+                _client.Network.SendPacket(part, sim);
+            return CommandDispatch.Handed;
+        }
         if (edit is GiveItemToObjectIntent or CopyObjectItemIntent)
             return MoveItem(sim, edit);
         if (LmvFeatures.Packet(self.AgentID, self.SessionID, self.ActiveGroup, edit) is { } feature)

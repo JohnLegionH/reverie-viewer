@@ -73,6 +73,8 @@ public partial class EditPanel : VBoxContainer
     // Placement and Shape (the official Object tab)
     private readonly SpinBox[] _pos = new SpinBox[3], _size = new SpinBox[3], _rot = new SpinBox[3], _pivotOffset = new SpinBox[3];
     private readonly OptionButton _pivotMode, _pivotUnit;
+    private readonly OptionButton _alignAxis, _alignTarget;
+    private readonly Button[] _alignEdge = new Button[3];
     private readonly CheckBox _locked, _physical, _temporary, _phantom;
     private readonly OptionButton _type, _hole;
     private readonly Dictionary<string, (Control Row, SpinBox A, SpinBox? B)> _shape = new();
@@ -288,6 +290,28 @@ public partial class EditPanel : VBoxContainer
         _pivotUnit.AddItem(_s.Get("edit.pivot.metres"), (int)PivotUnit.Metres);
         _pivotUnit.ItemSelected += _ => { if (!_filling) _edit()?.SetCustomPivot(PivotNumbers(), PivotUnitNow()); };
         place.AddChild(Line("pivot_unit", "edit.pivot.unit", _pivotUnit));
+
+        // ---------------- Arrange ----------------
+        // Align: pick the axis (of the grid's frame) and what to line up to, then press the edge to line up: Min, Centre or Max
+        var arrange = Body(BuildSection.Arrange);
+        _alignAxis = new OptionButton { Name = "align_axis", AccessibilityName = _s.Get("edit.align") };
+        foreach (var (axis, key) in new[] { (ArrangeAxis.X, "edit.align.x"), (ArrangeAxis.Y, "edit.align.y"), (ArrangeAxis.Z, "edit.align.z") })
+            _alignAxis.AddItem(_s.Get(key), (int)axis);
+        arrange.AddChild(Line("align_axis", "edit.align", _alignAxis));
+        _alignTarget = new OptionButton { Name = "align_target", AccessibilityName = _s.Get("edit.align.to") };
+        _alignTarget.AddItem(_s.Get("edit.align.to.box"), (int)ArrangeTarget.SelectionBox);
+        _alignTarget.AddItem(_s.Get("edit.align.to.last"), (int)ArrangeTarget.LastSelected);
+        arrange.AddChild(Line("align_target", "edit.align.to", _alignTarget));
+        var edges = new HBoxContainer { Name = "align_edge" };
+        foreach (var (edge, key, i) in new[] { (ArrangeEdge.Min, "edit.align.min", 0), (ArrangeEdge.Centre, "edit.align.centre", 1), (ArrangeEdge.Max, "edit.align.max", 2) })
+        {
+            var b = new Button { Name = "align_" + edge.ToString().ToLowerInvariant(), Text = _s.Get(key), TooltipText = _s.Get("edit.align.tip"), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            b.AccessibilityName = b.Text;
+            b.Pressed += () => _edit()?.Align((ArrangeAxis)_alignAxis.GetItemId(_alignAxis.Selected), edge, (ArrangeTarget)_alignTarget.GetItemId(_alignTarget.Selected));
+            _alignEdge[i] = b;
+            edges.AddChild(b);
+        }
+        arrange.AddChild(Line("align_edge", "edit.align.edge", edges));
 
         // ---------------- Shape ----------------
         var shape = Body(BuildSection.Shape);
@@ -760,7 +784,7 @@ public partial class EditPanel : VBoxContainer
             Flexible: f?.Flexible is not null, Light: f?.Light is not null,
             PhysicsShape: f?.Physics is { ShapeType: var st } && st != FeatureRules.ShapePrim
                 ? _s.Get(st == FeatureRules.ShapeNone ? "edit.feat.shape_type.none" : "edit.feat.shape_type.convex") : null,
-            ContentCount: e.ContentsKnown ? e.Contents.Count : null, Pivot: e.PivotChoice);
+            ContentCount: e.ContentsKnown ? e.Contents.Count : null, Pivot: e.PivotChoice, Linksets: e.ArrangeLinksets);
     }
 
     /// <summary>Shows the controller's state; a field being typed in keeps its text.</summary>
@@ -809,6 +833,19 @@ public partial class EditPanel : VBoxContainer
             _pivotUnit.Selected = _pivotUnit.GetItemIndex((int)(e?.PivotUnitChoice ?? PivotUnit.Percent));
             SetVec(_pivotOffset, e?.PivotOffset ?? System.Numerics.Vector3.Zero, pivotChoice != PivotMode.Custom);
             _pivotUnit.Disabled = pivotChoice != PivotMode.Custom;
+            var arrangeStatus = e?.ArrangeStatus ?? ArrangeRefusal.TooFew;
+            string arrangeWhy = arrangeStatus switch
+            {
+                ArrangeRefusal.Attachment => _s.Get("edit.align.no.attachment"),
+                ArrangeRefusal.NoMove => _s.Get("edit.align.no.move"),
+                ArrangeRefusal.TooFew => _s.Get("edit.align.no.few"),
+                _ => _s.Get("edit.align.tip"),
+            };
+            foreach (var edgeButton in _alignEdge)
+            {
+                edgeButton.Disabled = arrangeStatus != ArrangeRefusal.None;
+                edgeButton.TooltipText = arrangeWhy;
+            }
             _both.SetPressedNoSignal(e?.StretchBothSides ?? false);
             _stretchTex.SetPressedNoSignal(e?.StretchTextures ?? true);
             _ownedOnly.SetPressedNoSignal(e?.SelectOwnedOnly ?? false);

@@ -279,3 +279,15 @@ public sealed record TakeIntoFolderIntent(uint LocalId, Guid FolderId) : ActionI
     public override IReadOnlyList<ActionIssue> Validate() => LocalId == 0 || FolderId == Guid.Empty ? [new("edit.no_folder")] : [];
     internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
 }
+
+/// <summary>One linkset's new place: the id of its root and the place the root goes to.</summary>
+public readonly record struct LinksetMove(uint LocalId, Vector3 Position);
+
+/// <summary>Moves several linksets at once, each by its root's new place: the region gets them in one message (Align).</summary>
+public sealed record MoveLinksetsIntent(IReadOnlyList<LinksetMove> Moves) : ActionIntent
+{
+    public override ActionKind Kind => ActionKind.EditObject;
+    public override IReadOnlyList<ActionIssue> Validate() => Moves.Count == 0 ? [new ActionIssue("edit.nothing")]
+        : [.. Moves.SelectMany(m => EditText.Object(m.LocalId)), .. (Moves.Any(m => !EditText.Finite(m.Position)) ? [new ActionIssue("edit.bad_number")] : Array.Empty<ActionIssue>())];
+    internal override TransportCommand? ToCommand() => new EditObjectCommand(this);
+}
