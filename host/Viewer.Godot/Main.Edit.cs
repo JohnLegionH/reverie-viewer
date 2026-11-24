@@ -383,6 +383,8 @@ public partial class Main
     /// rotate, scale); pivot (text: centre, root, or custom:percent / custom:metres with x, y, z as the offsets; answers the pivot's point; state: pivot);
     /// align (text: axis:edge or axis:edge:target, for example x:max or y:min:last; answers whether a message was sent; state: arrange);
     /// distribute (text: axis:mode, for example y:gaps or x:centres; answers whether a message was sent);
+    /// mirror (text: axis:plane, for example x:centre or z:pivot; answers whether a message was sent; state: arrange);
+    /// mirror_plan (text: axis:plane; answers where the rules put each prim, nothing sent) and mirror_world (answers where each prim stands now);
     /// snap (text: on or off); snap_xy; use_selection_grid; grid (text: world, local or reference); grid_options (opens it).</summary>
     public object? EditCall(string action, float x, float y, float z, string? text, string? expect)
     {
@@ -497,6 +499,26 @@ public partial class Main
                     done = e.Distribute(distAxis, distMode);
                 break;
             }
+            case "mirror":
+            {
+                // text: axis:plane, for example "x:centre" or "z:pivot"
+                var mi = (text ?? "").Split(':');
+                if (mi.Length == 2 && Enum.TryParse<ArrangeAxis>(mi[0], true, out var mirrorAxis))
+                    done = e.Mirror(mirrorAxis, mi[1].StartsWith("p", StringComparison.OrdinalIgnoreCase) ? MirrorPlane.Pivot : MirrorPlane.SelectionCentre);
+                break;
+            }
+            case "mirror_plan":
+            case "mirror_world":
+            {
+                // mirror_plan (text: axis:plane): where the rules put each prim, nothing sent; mirror_world: where each prim stands now
+                var pi = (text ?? "").Split(':');
+                var poses = action == "mirror_world" ? e.MirrorPoses()
+                    : pi.Length == 2 && Enum.TryParse<ArrangeAxis>(pi[0], true, out var planAxis)
+                        ? e.MirrorPlan(planAxis, pi[1].StartsWith("p", StringComparison.OrdinalIgnoreCase) ? MirrorPlane.Pivot : MirrorPlane.SelectionCentre) : null;
+                done = poses?.Select(p => new { local = p.Local, parent = p.Parent, x = p.Position.X, y = p.Position.Y, z = p.Position.Z,
+                    rotation = new[] { p.Rotation.X, p.Rotation.Y, p.Rotation.Z, p.Rotation.W } }).ToArray();
+                break;
+            }
             case "snap": e.SnapEnabled = text == "on"; break;
             case "snap_xy": done = e.SnapSelectionXY(); break;
             case "use_selection_grid": e.UseSelectionForGrid(); break;
@@ -592,7 +614,7 @@ public partial class Main
             tool = e.Tool.ToString().ToLowerInvariant(),
             manip = e.Manip.ToString().ToLowerInvariant(),
             snap = e.SnapEnabled,
-            arrange = new { linksets = e.ArrangeLinksets, refusal = e.ArrangeStatus.ToString().ToLowerInvariant(), distribute_refusal = e.DistributeStatus.ToString().ToLowerInvariant() },
+            arrange = new { linksets = e.ArrangeLinksets, refusal = e.ArrangeStatus.ToString().ToLowerInvariant(), distribute_refusal = e.DistributeStatus.ToString().ToLowerInvariant(), mirror_refusal = e.MirrorStatus.ToString().ToLowerInvariant() },
             pivot = new
             {
                 mode = e.PivotChoice.ToString().ToLowerInvariant(), unit = e.PivotUnitChoice.ToString().ToLowerInvariant(),

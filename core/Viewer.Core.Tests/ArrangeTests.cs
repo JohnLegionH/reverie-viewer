@@ -381,8 +381,8 @@ public class ArrangeTests
     [Fact]
     public void The_arrange_summary_counts_the_linksets_and_says_when_align_needs_more()
     {
-        Assert.Equal("3 linksets: align, distribute", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 3), S));
-        Assert.Equal("1 linkset: align needs 2 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 1), S));
+        Assert.Equal("3 linksets: align, distribute, mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 3), S));
+        Assert.Equal("1 linkset: mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 1), S));
         Assert.Equal("Nothing selected", BuildLayout.Summary(BuildSection.Arrange, null, S));
     }
 
@@ -550,7 +550,7 @@ public class ArrangeTests
         Assert.Contains(BuildLayout.Rows, r => r.Section == BuildSection.Arrange && r.Id == "distribute_axis");
         Assert.Contains(BuildLayout.Rows, r => r.Section == BuildSection.Arrange && r.Id == "distribute_mode");
         Assert.Contains(BuildLayout.Search("distribute", S), h => h.Id == "distribute_mode");
-        Assert.Equal("4 linksets: align, distribute", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 4), S));
-        Assert.Equal("2 linksets: align, distribute needs 3 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 2), S));
+        Assert.Equal("4 linksets: align, distribute, mirror", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 4), S));
+        Assert.Equal("2 linksets: align, mirror, distribute needs 3 or more", BuildLayout.Summary(BuildSection.Arrange, new BuildFacts(Linksets: 2), S));
     }
 }
