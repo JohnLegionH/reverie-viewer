@@ -832,11 +832,12 @@ function Invoke-FloaterDragCases {
 }
 
 function Invoke-HandleCases {
-    # the edit tools' handles and grid round a box (--tr-handles=MODE), each against its golden on Vulkan: Move (arrows and plane handles), Rotate
+    # the edit tools' handles and grid round a box (--tr-handles=MODE), each against its golden on Vulkan: Move (arrows and plane handles), Rotate,
+    # the Snap to objects guide against a second box,
     # (rings), Stretch (corner and face boxes) and the grid while a Move arrow is dragged. Every case also checks that the lit handle shows and that
     # the arrow keeps its length on screen with the camera twice as far. The negative control draws the box without its handles and MUST fail.
     $be = "vulkan"
-    foreach ($mode in @("move", "rotate", "scale", "grid")) {
+    foreach ($mode in @("move", "rotate", "scale", "grid", "snap")) {
         $golden = Join-Path $repo "fixtures\build\golden-handles-$mode-$be.png"
         if (-not (Test-Path -LiteralPath $golden)) {
             $r = Invoke-Render $be "proposal-handles-$mode-$be" "--tr-handles=$mode"

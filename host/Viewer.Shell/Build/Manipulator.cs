@@ -42,6 +42,8 @@ public static class Manipulator
     public const float SnapRingRadii = 2f;
 
     public static readonly Vector4 Red = new(1, 0.2f, 0.2f, 1), Green = new(0.2f, 1, 0.2f, 1), Blue = new(0.3f, 0.4f, 1, 1), Yellow = new(1, 1, 0.2f, 1), White = new(1, 1, 1, 0.9f);
+    /// <summary>The colour of the Snap to objects guides: unlike any handle's.</summary>
+    public static readonly Vector4 SnapGuideColour = new(1, 0.25f, 1, 1);
 
     /// <summary>The length in metres that shows as <paramref name="pixels"/> on screen at <paramref name="centre"/> (the official apparent-angle rule).</summary>
     public static float Metres(float pixels, Vector3 centre, HandleView v)

@@ -56,7 +56,7 @@ public partial class EditPanel : VBoxContainer
     private readonly PanelContainer _manipTrack;
     private readonly RvCard _card;
     private readonly Button _faceMode, _undo, _redo;
-    private readonly CheckBox _linked, _snap, _both, _stretchTex, _ownedOnly;
+    private readonly CheckBox _linked, _snap, _snapObjects, _both, _stretchTex, _ownedOnly;
     private readonly Label _status, _hint, _cardName, _cardPicked, _cardOwner, _searchStatus;
     private readonly LineEdit _search;
     private readonly Dictionary<BuildSection, SectionParts> _sections = new();
@@ -271,6 +271,8 @@ public partial class EditPanel : VBoxContainer
         place.AddChild(clip);
         var placeTicks = new HFlowContainer { Name = "placement_options" };
         _snap = Tick(placeTicks, "snap", "edit.snap", on => { if (_edit() is { } e) e.SnapEnabled = on; });
+        _snapObjects = Tick(placeTicks, "snap_objects", "edit.snap_objects", on => { if (_edit() is { } e) e.SnapToObjects = on; });
+        _snapObjects.TooltipText = _s.Get("edit.snap_objects.tip");
         _both = Tick(placeTicks, "stretch_both", "edit.stretch_both", on => { if (_edit() is { } e) e.StretchBothSides = on; });
         _stretchTex = Tick(placeTicks, "stretch_textures", "edit.stretch_textures", on => { if (_edit() is { } e) e.StretchTextures = on; });
         place.AddChild(placeTicks);
@@ -832,7 +834,8 @@ public partial class EditPanel : VBoxContainer
             Flexible: f?.Flexible is not null, Light: f?.Light is not null,
             PhysicsShape: f?.Physics is { ShapeType: var st } && st != FeatureRules.ShapePrim
                 ? _s.Get(st == FeatureRules.ShapeNone ? "edit.feat.shape_type.none" : "edit.feat.shape_type.convex") : null,
-            ContentCount: e.ContentsKnown ? e.Contents.Count : null, Pivot: e.PivotChoice, Linksets: e.ArrangeLinksets);
+            ContentCount: e.ContentsKnown ? e.Contents.Count : null, Pivot: e.PivotChoice, Linksets: e.ArrangeLinksets,
+            SnapToObjects: e.SnapToObjects);
     }
 
     /// <summary>Shows the controller's state; a field being typed in keeps its text.</summary>
@@ -876,6 +879,7 @@ public partial class EditPanel : VBoxContainer
             _copyCenters.Disabled = _copyRotates.Disabled = !(e?.CopySelection ?? false);
             _linked.SetPressedNoSignal(e?.EditLinked ?? false);
             _snap.SetPressedNoSignal(e?.SnapEnabled ?? true);
+            _snapObjects.SetPressedNoSignal(e?.SnapToObjects ?? false);
             var pivotChoice = e?.PivotChoice ?? PivotMode.Centre;
             _pivotMode.Selected = _pivotMode.GetItemIndex((int)pivotChoice);
             _pivotUnit.Selected = _pivotUnit.GetItemIndex((int)(e?.PivotUnitChoice ?? PivotUnit.Percent));

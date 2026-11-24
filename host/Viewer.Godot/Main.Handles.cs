@@ -17,7 +17,8 @@ namespace Viewer.Godot;
 /// <summary>
 /// The edit tools' in-world handles: drawn over the selection with the Edit and Move tools, the one under the pointer lit, and dragged to move,
 /// turn or stretch the selection (Ctrl held shows Rotate, Ctrl+Shift Stretch; Shift at the start of a drag leaves a copy behind). The grid is
-/// drawn while a Move handle is dragged with snapping on. The maths and what is sent are <see cref="Manipulator"/>'s and
+/// drawn while a Move handle is dragged with snapping on, and with Snap to objects on, the guides of what the drag has caught on (Alt held lets
+/// go). The maths and what is sent are <see cref="Manipulator"/>'s and
 /// <see cref="EditController"/>'s; this side feeds them the pointer and draws their lines.
 /// </summary>
 public partial class Main
@@ -125,6 +126,8 @@ public partial class Main
                     var (origin, turn) = e.GridFrame();
                     lines.AddRange(Manipulator.GridLines(centre, origin, turn, e.GridUnit, e.GridExtent, e.GridOpacity));
                 }
+                if (_handleDrag is { Mode: ManipMode.Move })
+                    lines.AddRange(e.SnapLines.Select(l => new HandleLine(l.From, l.To, Manipulator.SnapGuideColour)));
             }
         }
         _handles.Show(lines, _camera.GlobalPosition, _camera.Fov, GetViewport().GetVisibleRect().Size.Y);
@@ -162,7 +165,11 @@ public partial class Main
     private NVector3? _heldMoveCopyFrom;
     private ulong _copyAskedAt;
 
-    private void HandleMotion(EditController e, Vector2 at, bool shift)
+    /// <summary>A Move step, with the distance Snap to objects catches within at the point the drag has reached.</summary>
+    private void MoveStep(EditController e, NVector3 from, NVector3 move, bool alt) =>
+        e.ManipMove(move, MathF.Min(ObjectSnap.MaxDistance, Manipulator.Metres(ObjectSnap.MaxPixels, from + move, HandleViewNow())), alt);
+
+    private void HandleMotion(EditController e, Vector2 at, bool shift, bool alt = false)
     {
         if (_handleDrag is not { } d)
             return;
@@ -185,8 +192,8 @@ public partial class Main
         var axis = NVector3.Transform(Manipulator.AxisVector(d.Handle.Axis), d.Frame);
         Action? step = d.Handle.Kind switch
         {
-            HandleKind.Axis => () => e.ManipMove(Manipulator.AxisDrag(d.Centre, axis, d.Start, now)),
-            HandleKind.Plane => () => e.ManipMove(Manipulator.PlaneDrag(d.Centre, axis, d.Start, now)),
+            HandleKind.Axis => () => MoveStep(e, d.Centre, Manipulator.AxisDrag(d.Centre, axis, d.Start, now), alt),
+            HandleKind.Plane => () => MoveStep(e, d.Centre, Manipulator.PlaneDrag(d.Centre, axis, d.Start, now), alt),
             HandleKind.Ring => () =>
             {
                 var view = HandleViewNow();
