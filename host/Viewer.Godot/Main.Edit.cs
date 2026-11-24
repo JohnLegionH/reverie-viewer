@@ -378,7 +378,8 @@ public partial class Main
     /// adds); select (text: local ids, comma-separated); linked (text: on or off); position, size, rotation (x, y, z); shape (text: key=value pairs:
     /// type, hollow, twist_begin, twist_end, path_begin, path_end, taper_x, taper_y); name (text); flags (text: physical,temporary,phantom present
     /// or not); locked (text: on or off); link; unlink; handle (text: the handle, see <see cref="HandleCall"/>; expect "shift" copies); manip (text: move,
-    /// rotate, scale); snap (text: on or off); snap_xy; use_selection_grid; grid (text: world, local or reference); grid_options (opens it).</summary>
+    /// rotate, scale); pivot (text: centre, root, or custom:percent / custom:metres with x, y, z as the offsets; answers the pivot's point; state: pivot);
+    /// snap (text: on or off); snap_xy; use_selection_grid; grid (text: world, local or reference); grid_options (opens it).</summary>
     public object? EditCall(string action, float x, float y, float z, string? text, string? expect)
     {
         if (_edit is not { } e || _interactFor is not { } s || _camera is null || _editPanel is null)
@@ -463,6 +464,19 @@ public partial class Main
             case "manip":
                 if (Enum.TryParse<ManipMode>(text, true, out var manip)) e.Manip = manip;
                 break;
+            case "pivot":
+            {
+                var pv = (text ?? "").Split(':', 2);
+                if (Enum.TryParse<PivotMode>(pv[0], true, out var pivotMode))
+                {
+                    if (pivotMode == PivotMode.Custom)
+                        e.SetCustomPivot(p, pv.Length == 2 && pv[1].StartsWith("m", StringComparison.OrdinalIgnoreCase) ? PivotUnit.Metres : PivotUnit.Percent);
+                    else
+                        e.SetPivot(pivotMode);
+                }
+                done = e.Pivot is { } pt ? new[] { pt.X, pt.Y, pt.Z } : null;
+                break;
+            }
             case "snap": e.SnapEnabled = text == "on"; break;
             case "snap_xy": done = e.SnapSelectionXY(); break;
             case "use_selection_grid": e.UseSelectionForGrid(); break;
@@ -558,6 +572,12 @@ public partial class Main
             tool = e.Tool.ToString().ToLowerInvariant(),
             manip = e.Manip.ToString().ToLowerInvariant(),
             snap = e.SnapEnabled,
+            pivot = new
+            {
+                mode = e.PivotChoice.ToString().ToLowerInvariant(), unit = e.PivotUnitChoice.ToString().ToLowerInvariant(),
+                offset = new[] { e.PivotOffset.X, e.PivotOffset.Y, e.PivotOffset.Z },
+                point = e.Pivot is { } pivotPoint ? new[] { pivotPoint.X, pivotPoint.Y, pivotPoint.Z } : null,
+            },
             grid = new { mode = e.Grid.ToString().ToLowerInvariant(), origin = new[] { e.GridOrigin.X, e.GridOrigin.Y, e.GridOrigin.Z }, unit = e.GridUnit },
             handles_drawn = _handles?.Visible ?? false,
             edit_linked = e.EditLinked,

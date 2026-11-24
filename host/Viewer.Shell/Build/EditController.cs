@@ -378,18 +378,71 @@ public sealed partial class EditController
     private List<Start>? _manip;
     private Vector3 _manipPivot;
 
-    /// <summary>The centre of the selection in the region's frame (the middle of the selected objects' places), or null with nothing selected.</summary>
+    /// <summary>The middle of the selection's box of extents whatever the pivot is: where the Stretch handles stand.</summary>
+    public Vector3? BoxCentre => Boxes() is { Count: > 0 } boxes ? PivotRules.Centre(boxes) : null;
+
+    private List<PivotBox> Boxes() => _selection.Select(l => (Pose: WorldOf(l), O: Find(l))).Where(x => x.Pose is not null && x.O is not null)
+        .Select(x => new PivotBox(x.Pose!.Value.Position, x.Pose.Value.Rotation, x.O!.Scale)).ToList();
+
+    private PivotMode _pivotMode;
+    private PivotUnit _pivotUnit = PivotUnit.Percent;
+    private Vector3 _pivotOffset;
+    private string _pivotFor = "";
+
+    private string SelectionKey() => string.Join(",", _selection.Order());
+
+    /// <summary>The pivot of the selection in the region's frame (<see cref="PivotChoice"/>: the middle of the selection's box of extents, the
+    /// root prim's place, or a custom point), or null with nothing selected. Percent and metre offsets from the box's minimum corner, as
+    /// Firestorm's pivot settings work (read as behaviour).</summary>
     public Vector3? Pivot
     {
         get
         {
-            var poses = _selection.Select(WorldOf).Where(p => p is not null).Select(p => p!.Value.Position).ToList();
-            if (poses.Count == 0)
+            var boxes = Boxes();
+            if (boxes.Count == 0)
                 return null;
-            var min = poses.Aggregate(Vector3.Min);
-            var max = poses.Aggregate(Vector3.Max);
-            return (min + max) / 2f;
+            switch (PivotChoice)
+            {
+                case PivotMode.Root when _selection.Count > 0 && WorldOf(RootOf(_selection[0])) is { } root:
+                    return root.Position;
+                case PivotMode.Custom:
+                    return PivotRules.Custom(boxes, _pivotOffset, _pivotUnit);
+                default:
+                    return PivotRules.Centre(boxes);
+            }
         }
+    }
+
+    /// <summary>The pivot the handles use now: Centre unless the person chose another for this very selection (a new selection starts at Centre).</summary>
+    public PivotMode PivotChoice
+    {
+        get
+        {
+            if (_pivotMode != PivotMode.Centre && _pivotFor != SelectionKey())
+                _pivotMode = PivotMode.Centre;   // the selection changed since the choice: start again at Centre, and stay there if the old set comes back
+            return _pivotMode;
+        }
+    }
+    /// <summary>How the Custom pivot's numbers are read: percent of the box or metres, both from its minimum corner.</summary>
+    public PivotUnit PivotUnitChoice => _pivotUnit;
+    /// <summary>The Custom pivot's numbers, in <see cref="PivotUnitChoice"/>.</summary>
+    public Vector3 PivotOffset => _pivotOffset;
+
+    /// <summary>Chooses where handle drags turn and stretch the selection about; the choice stays with this selection only.</summary>
+    public void SetPivot(PivotMode mode)
+    {
+        _pivotMode = mode;
+        _pivotFor = SelectionKey();
+        _held = null;   // handles kept after a drag stood on the old pivot
+        Changed?.Invoke();
+    }
+
+    /// <summary>The Custom pivot's numbers, counted from the box's minimum corner; chooses Custom for this selection.</summary>
+    public void SetCustomPivot(Vector3 offset, PivotUnit unit)
+    {
+        _pivotOffset = offset;
+        _pivotUnit = unit;
+        SetPivot(PivotMode.Custom);
     }
 
     /// <summary>The handles' axes: the grid's turn in Reference mode, the primary object's own turn in Local mode or for Stretch, else the world's.</summary>
@@ -431,6 +484,7 @@ public sealed partial class EditController
         _held = null;
         _manipPivot = Pivot ?? starts[0].Position;
         _manipCentre = _manipPivot;
+        _manipBox = BoxCentre ?? _manipPivot;
         _manipSize = _manipStartSize = HandleSize;
         return true;
     }
@@ -450,7 +504,7 @@ public sealed partial class EditController
     /// <summary>How long after a drag the handles wait for the region's update of the moved objects (the region may refuse the move).</summary>
     public const long HoldMilliseconds = 2000;
 
-    private Vector3 _manipCentre, _manipSize, _manipStartSize;
+    private Vector3 _manipCentre, _manipSize, _manipStartSize, _manipBox;
     private (Vector3 Centre, Vector3 Size, long Until)? _held;
 
     /// <summary>The kept place of the handles after a drag, while it still stands: until the world's selection has reached it (the region's
@@ -529,7 +583,8 @@ public sealed partial class EditController
             float min = physical ? lim.MinPhysScale : lim.MinScale, max = physical ? lim.MaxPhysScale : lim.MaxScale;
             ratio = ScaleHandles.Corner(s.Scale, ratio, min, max).X / s.Scale.X;
         }
-        _manipCentre = _manipPivot;
+        // the Stretch box stands on the selection's middle, which spreads about the pivot with the objects (one object grows about its own middle)
+        _manipCentre = starts.Count > 1 ? _manipPivot + (_manipBox - _manipPivot) * ratio : _manipBox;
         _manipSize = _manipStartSize * ratio;
         bool any = false;
         foreach (var s in starts.Where(s => Access(s.Local).CanReshape))

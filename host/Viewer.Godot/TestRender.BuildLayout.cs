@@ -24,12 +24,13 @@ public partial class TestRender
         ("texture_rotation_label", "texture_rotation"), ("offset_u_label", "offset_u"), ("offset_v_label", "offset_v"),
         ("name_label", "name"), ("description_label", "description"), ("creator_label", "creator"), ("owner_label", "owner"),
         ("click_action_label", "click_action"),
+        ("pivot_label", "pivot_mode"), ("pivot_unit_label", "pivot_unit"),
         ("next_owner", "next_modify"), ("for_sale_label", "for_sale"), ("sale_type_label", "sale_type"), ("fullbright_label", "fullbright"),
     ];
 
     /// <summary>The rows of three values (X, Y, Z): the label stands on its own line with the three boxes on one line below it (the official
     /// viewer's grouping; UI-STANDARD U1, exception for three-value rows).</summary>
-    private static readonly string[] TripleRows = ["position", "size", "rotation"];
+    private static readonly string[] TripleRows = ["position", "size", "rotation", "pivot_offset"];
 
     /// <summary>Tick boxes whose row has a label in the column, with the box beside it (the label is a separate control, the box has no text).</summary>
     private static readonly (string Label, string Control)[] TickRows = [("for_sale_label", "for_sale"), ("sale_type_label", "sale_type"), ("fullbright_label", "fullbright"), ("next_owner", "next_modify")];
@@ -113,7 +114,7 @@ public partial class TestRender
         foreach (var c in All<Control>().Where(c => scroll.IsAncestorOf(c) && (c is OptionButton or SpinBox or LineEdit or HSlider || c is CheckBox { Text.Length: 0 })))
         {
             string cn = c.Name.ToString();
-            if (TripleRows.Any(r => cn.StartsWith(r + "_", StringComparison.Ordinal)) && cn.Length == cn.IndexOf('_') + 2 && "xyz".Contains(cn[^1]))
+            if (TripleRows.Any(r => cn.StartsWith(r + "_", StringComparison.Ordinal)) && cn.Length == cn.LastIndexOf('_') + 2 && "xyz".Contains(cn[^1]))
                 continue;
             Control row = c;
             while (row.GetParent() is Control par && par is not VBoxContainer)
