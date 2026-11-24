@@ -34,9 +34,17 @@ public sealed partial class EditController
     private sealed record SnapScene(Quaternion Frame, SnapBox Moving, IReadOnlyList<SnapBox> Others);
     private SnapScene? _snapScene;
 
+    /// <summary>Reads the boxes a drag can catch on again, for an object that arrived after it began (a Shift-drag's copy). The moving box
+    /// and the grid frame stay those of the drag's start, which every step is measured from.</summary>
+    public void ReadSnapTargetsAgain()
+    {
+        if (_manip is { } starts && _snapScene is { } was)
+            _snapScene = ReadSnapScene(starts.Select(s => s.Local).ToArray(), was) ?? was;
+    }
+
     /// <summary>A linkset not being moved is one box. Where a linkset's parts are being moved (Edit linked parts), each of its other prims
     /// is a box of its own. Worn objects are left out.</summary>
-    private SnapScene? ReadSnapScene(IReadOnlyList<uint> moved)
+    private SnapScene? ReadSnapScene(IReadOnlyList<uint> moved, SnapScene? start = null)
     {
         var all = _world.Snapshot().Objects.Values.ToList();
         var byLocal = new Dictionary<uint, ObjectState>();
@@ -51,7 +59,7 @@ public sealed partial class EditController
         // a root takes its whole linkset with it; a part moves alone
         var picked = moved.ToHashSet();
         var going = all.Where(o => picked.Contains(o.Id.LocalId) || picked.Contains(Root(o))).Select(o => o.Id.LocalId).ToHashSet();
-        var frame = GridFrame().Turn;
+        var frame = start?.Frame ?? GridFrame().Turn;
         PivotBox? BoxAt(ObjectState o) =>
             ObjectPicker.WorldPose(_world, o, out var at, out var turn) ? new PivotBox(at, turn, o.Scale) : null;
         SnapBox Round(IReadOnlyList<PivotBox> parts)
@@ -62,7 +70,7 @@ public sealed partial class EditController
         var movingParts = all.Where(o => going.Contains(o.Id.LocalId)).Select(BoxAt).OfType<PivotBox>().ToList();
         if (movingParts.Count == 0)
             return null;
-        var moving = Round(movingParts);
+        var moving = start?.Moving ?? Round(movingParts);
         var split = going.Select(l => Root(byLocal[l])).ToHashSet();
         var others = new List<SnapBox>();
         var still = all.Where(o => !going.Contains(o.Id.LocalId)).Select(o => (Object: o, Root: Root(o)))

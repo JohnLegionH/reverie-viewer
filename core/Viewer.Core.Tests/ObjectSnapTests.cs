@@ -275,6 +275,21 @@ public class ObjectSnapTests
         Near(new(23.95f, 10, 30), r.Drag(new(13.95f, 0, 0)));
     }
 
+    [Fact]
+    public void A_copy_that_arrives_during_the_drag_can_be_caught_on_once_the_scene_is_read_again()
+    {
+        var r = new Rig();
+        r.Prim(1, new(10, 10, 30), Vector3.One);
+        r.C.SelectMany([1], shift: false);
+        r.C.SnapToObjects = true;
+        r.C.SnapEnabled = false;
+        Assert.True(r.C.BeginManip());
+        r.Prim(9, new(10, 10, 30), Vector3.One);   // the Shift-drag's copy, standing where the drag began
+        r.C.ReadSnapTargetsAgain();
+        r.C.ManipMove(new(0.95f, 0, 0), 0.1f);
+        Near(new(11, 10, 30), r.Sent.OfType<UpdateObjectIntent>().Last().Position!.Value);   // flush against the copy
+    }
+
     // ---------------- the Build window ----------------
 
     [Fact]

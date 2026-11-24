@@ -184,7 +184,7 @@ Tick **Snap to objects** in the Placement section to make one object meet anothe
 - A coloured outline shows what was caught. It goes when you let go of the mouse.
 - Hold **Alt** while you drag to let go of the snap.
 - It works only along the directions you are dragging, and it takes the place of grid snapping on a direction that catches.
-- It goes by each object's box. A box that stands square is met exactly. A turned box, a round shape or a mesh is met at the box round it, which may leave a gap.
+- It goes by each object's box. A box that stands square to the grid's directions is met exactly. A turned box, a round shape or a mesh is met at the box round it, which may leave a gap.
 
 ## Take, take copy and delete
 

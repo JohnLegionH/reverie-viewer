@@ -41,7 +41,7 @@ public partial class Main
         public PickRay Start;
         public NVector3 Centre, Size;
         public NQuaternion Frame;
-        public bool Copied, OutsideSlop;
+        public bool Copied, CopySeen, OutsideSlop;
         public Vector2 DownAt;
         public ulong LastSent;
         public Action? Pending;
@@ -166,8 +166,16 @@ public partial class Main
     private ulong _copyAskedAt;
 
     /// <summary>A Move step, with the distance Snap to objects catches within at the point the drag has reached.</summary>
-    private void MoveStep(EditController e, NVector3 from, NVector3 move, bool alt) =>
+    private void MoveStep(EditController e, NVector3 from, NVector3 move, bool alt)
+    {
+        // a Shift-drag's copy arrives after the drag began: it is read as something to catch on once it stands there
+        if (_handleDrag is { Copied: true, CopySeen: false } d && _heldMoveCopyFrom is { } copyAt && CopyArrivedNear(copyAt))
+        {
+            d.CopySeen = true;
+            e.ReadSnapTargetsAgain();
+        }
         e.ManipMove(move, MathF.Min(ObjectSnap.MaxDistance, Manipulator.Metres(ObjectSnap.MaxPixels, from + move, HandleViewNow())), alt);
+    }
 
     private void HandleMotion(EditController e, Vector2 at, bool shift, bool alt = false)
     {
