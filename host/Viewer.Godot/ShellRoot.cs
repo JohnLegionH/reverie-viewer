@@ -277,6 +277,11 @@ public partial class ShellRoot : Control
     /// <summary>Set on a text field that answers Escape itself (a name prompt cancels on it), so the shell's Escape leaves it alone.</summary>
     public const string TakesEscapeMeta = "takes_escape";
 
+    /// <summary>Set on a text field that keeps what was typed when the pointer is pressed anywhere else, as the official line editor does
+    /// (commit on focus lost): a press outside it lets go of the keyboard, so the field's own focus-lost handler runs. The engine keeps a
+    /// text field's focus when the press lands on something that takes no focus, an empty part of a window.</summary>
+    public const string CommitsOnPressOutsideMeta = "commits_on_press_outside";
+
     /// <summary>The right-click menu, once the interaction feature is installed: Esc closes it before anything else sees the key.</summary>
     public ContextMenuPanel? ContextMenu { get; set; }
 
@@ -334,6 +339,9 @@ public partial class ShellRoot : Control
 
     public override void _Input(InputEvent e)
     {
+        if (e is InputEventMouseButton { Pressed: true } press && GetViewport().GuiGetFocusOwner() is { } holder && holder.HasMeta(CommitsOnPressOutsideMeta)
+            && !holder.GetGlobalRect().HasPoint(press.Position))
+            holder.ReleaseFocus();   // the press itself goes on to whatever lies under it
         if (e is InputEventMouseButton mb && MenuHolder(mb))
         {
             GetViewport().SetInputAsHandled();

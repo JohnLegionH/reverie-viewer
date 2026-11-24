@@ -48,6 +48,9 @@ public partial class Main
         Viewer.Core.Building.NewPrimDefaults NewPrim() =>
             (_settings is { } st ? NewPrimSettings.Read(st) : Viewer.Core.Building.NewPrimDefaults.Default).Clamped(s.EditLimits);
         ic.NewPrim = NewPrim;
+        // Delete in the right-click menu of one of several selected objects takes the whole selection, as the official menu acts on it
+        ic.ObjectsDeleted += roots => _edit?.Forget(roots);
+        ic.DeleteSetFor = root => _edit is { BuildMode: true, Selection.Count: > 1 } be && be.DeleteTargets() is var set && set.Any(t => t.Root == root) ? set : null;
         _newPrims = new Viewer.Shell.Build.NewPrimTracker(s.Actions.Submit, NewPrim);
         ic.BoxCreated += () => _newPrims?.Expect();
         if (_editPanel is not null || _shell is null)
@@ -103,6 +106,7 @@ public partial class Main
         shell.Commands.Register(BuildMenu.NextPartCommand, () => _edit?.SelectNextPart(true));
         shell.Commands.Register(BuildMenu.PreviousPartCommand, () => _edit?.SelectNextPart(false));
         shell.Commands.Register(BuildMenu.OwnedOnlyCommand, () => { if (_edit is { } e) { e.SelectOwnedOnly = !e.SelectOwnedOnly; _editPanel?.Refresh(); } });
+        shell.Commands.Register(BuildMenu.SurroundCommand, () => { if (_edit is { } e) e.SelectBySurrounding = !e.SelectBySurrounding; });
         shell.Commands.Register(BuildMenu.TakeIntoFolderCommand, OpenTakeIntoFolder);
         // Build › Scripts: on while something the agent may modify is chosen (EditableSelected)
         BuildMenu.InstallScripts(shell.Menus, InWorld, () => _edit is { } chosen && chosen.Selection.Any(l => chosen.Access(l).CanModify));
@@ -239,6 +243,10 @@ public partial class Main
                 return true;
             case InputEventKey k when GridKey(e, k):
                 return true;
+            // the Delete key removes the selected objects (Edit > Delete, llviewermenu.cpp), with one question for the set when the official asks one
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Delete } when e.Selection.Count > 0 && _interact is { } deleting:
+                deleting.DeleteObjects(e.DeleteTargets());
+                return true;
             case InputEventMouseButton { ButtonIndex: MouseButton.Left } b when e.Tool is BuildTool.Edit or BuildTool.Move:
                 if (b.Pressed)
                 {
@@ -283,21 +291,30 @@ public partial class Main
             BoxSelect(e, d.From, at, d.Shift);   // a drag draws a selection box (lltoolselectrect.cpp)
     }
 
-    /// <summary>Drag-select: every object whose centre is inside the dragged box on screen.</summary>
+    /// <summary>Drag-select, as the official rectangle tool takes objects (<see cref="BoxSelectRules"/>): the objects the dragged box surrounds,
+    /// or with Select By Surrounding off those with a corner inside it, within the select distance of the agent; Shift adds to the selection.</summary>
     private void BoxSelect(EditController e, Vector2 a, Vector2 b, bool shift)
     {
         if (_interactFor is not { } s || _camera is null)
             return;
-        var rect = new Rect2(a, Vector2.Zero).Expand(b);
+        var agent = s.World.FindAvatar(s.AgentId)?.Position;
         var inside = new List<uint>();
         foreach (var o in s.World.Snapshot().Objects.Values.Where(o => o.AttachmentPoint is null))
         {
-            if (!Viewer.Core.Interaction.ObjectPicker.WorldPose(s.World, o, out var pos, out _))
+            if (!Viewer.Core.Interaction.ObjectPicker.WorldPose(s.World, o, out var pos, out var rot))
                 continue;
-            var engine = new Vector3(pos.X, pos.Z, -pos.Y);
-            if (_camera.IsPositionBehind(engine))
+            if (agent is { } me && !BoxSelectRules.InReach(me, pos))
                 continue;
-            if (rect.HasPoint(_camera.UnprojectPosition(engine)))
+            var corners = BoxSelectRules.Corners(pos, rot, o.Scale)
+                .Select(c =>
+                {
+                    var engine = new Vector3(c.X, c.Z, -c.Y);
+                    if (_camera.IsPositionBehind(engine))
+                        return (System.Numerics.Vector2?)null;
+                    var on = _camera.UnprojectPosition(engine);
+                    return new System.Numerics.Vector2(on.X, on.Y);
+                }).ToArray();
+            if (BoxSelectRules.Takes(corners, new System.Numerics.Vector2(a.X, a.Y), new System.Numerics.Vector2(b.X, b.Y), e.SelectBySurrounding))
                 inside.Add(o.Id.LocalId);
         }
         e.SelectMany(inside, shift);
@@ -589,6 +606,7 @@ public partial class Main
             pending = e.Pending,
             contents = e.ContentsKnown ? e.Contents.Select(i => i.Name).ToArray() : null,
             content_status = _editPanel.ContentTab.StatusText,
+            content_chosen = _editPanel.ContentTab.ChosenNames.ToArray(),
             features = e.Features() is { } ft ? new
             {
                 flexible = ft.Flexible is { } fx ? new[] { fx.Softness, fx.Gravity, fx.Drag, fx.Wind, fx.Tension } : null,

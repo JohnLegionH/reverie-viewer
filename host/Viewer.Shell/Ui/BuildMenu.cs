@@ -53,8 +53,8 @@ public static class BuildMenu
         menus.AddEntry(MenuId, new MenuEntry(RedoId, "menu.build.redo", RedoCommand, () => inWorld() && edit() is { CanRedo: true }, UndoOrder + 1, Shortcut: "control|Y"));
     }
 
-    public const string NextPartId = "build.next_part", PreviousPartId = "build.previous_part", OwnedOnlyId = "build.owned_only", TakeIntoFolderId = "build.take_into_folder";
-    public const string NextPartCommand = "build.next_part", PreviousPartCommand = "build.previous_part", OwnedOnlyCommand = "build.owned_only",
+    public const string NextPartId = "build.next_part", PreviousPartId = "build.previous_part", OwnedOnlyId = "build.owned_only", SurroundId = "build.select_by_surrounding", TakeIntoFolderId = "build.take_into_folder";
+    public const string NextPartCommand = "build.next_part", PreviousPartCommand = "build.previous_part", OwnedOnlyCommand = "build.owned_only", SurroundCommand = "build.select_by_surrounding",
         TakeIntoFolderCommand = "build.take_into_folder";
 
     /// <summary>Select Next Part (Ctrl+.) and Select Previous Part (Ctrl+,) after Edit Linked Parts, Select Only My Objects in Options, and
@@ -69,6 +69,8 @@ public static class BuildMenu
             () => inWorld() && edit() is { Selection.Count: > 0 }, LinkOrder + 2));
         // Select Only My Objects stands before the grid's entries in Options, as in the official menu
         menus.AddSubEntry(OptionsId, new MenuEntry(OwnedOnlyId, "menu.build.owned_only", OwnedOnlyCommand, inWorld, 5, () => edit()?.SelectOwnedOnly ?? false));
+        // Select By Surrounding (the official RectangleSelectInclusive): a dragged box takes an object only when it surrounds it
+        menus.AddSubEntry(OptionsId, new MenuEntry(SurroundId, "menu.build.select_by_surrounding", SurroundCommand, inWorld, 6, () => edit()?.SelectBySurrounding ?? true));
     }
 
     public const string ObjectId = "build.object", DuplicateId = "build.object.duplicate";

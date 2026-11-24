@@ -344,6 +344,25 @@ public sealed partial class EditController
     /// <summary>Select Only My Objects (SelectOwnedOnly, off by default): a click or drag-select passes over objects the agent does not own.</summary>
     public bool SelectOwnedOnly { get; set; }
 
+    /// <summary>Select By Surrounding (the official RectangleSelectInclusive, on by default): a dragged box takes an object only when it surrounds it.</summary>
+    public bool SelectBySurrounding { get; set; } = true;
+
+    /// <summary>Objects were sent to the trash: they leave the selection, as they leave the world (no deselect is sent for what the region removes).</summary>
+    public void Forget(IEnumerable<uint> roots)
+    {
+        var gone = roots.ToHashSet();
+        if (_selection.RemoveAll(l => gone.Contains(l) || gone.Contains(RootOf(l))) > 0)
+            Changed?.Invoke();
+    }
+
+    /// <summary>The roots Delete would remove from the selection, each with its flags: every selected root once, leaving out worn objects and
+    /// those the agent neither owns nor may modify (llselectmgr.cpp getFirstDeleteableObject and selectDelete).</summary>
+    public IReadOnlyList<(uint Root, uint Flags)> DeleteTargets() =>
+        _selection.Select(RootOf).Distinct().Select(r => Find(r))
+            .Where(o => o is { AttachmentPoint: null })
+            .Select(o => (Root: o!.Id.LocalId, Flags: o.Interaction?.Flags ?? 0u))
+            .Where(t => Viewer.Core.Building.BuildRules.CanDelete(t.Flags, attachment: false)).ToList();
+
     /// <summary>Whether Select Only My Objects lets this object be chosen (its root's owner flag decides).</summary>
     private bool Choosable(uint local) => !SelectOwnedOnly || ((Find(RootOf(local))?.Interaction?.Flags ?? 0) & ObjectFlagBits.YouOwner) != 0;
 
