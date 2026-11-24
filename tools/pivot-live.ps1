@@ -165,6 +165,10 @@ $state = Edit @{ action = "state" }
 $pt = @($state.pivot.point)
 Check "1 Custom 0 / 0 / 0 % puts the pivot on the box's minimum corner" ($state.pivot.mode -eq "custom" -and $state.pivot.unit -eq "percent" -and $pt.Count -eq 3 -and (Dist $pt $c0) -le 0.001) ("mode {0} unit {1}; pivot {2}; corner from the region {3}" -f $state.pivot.mode, $state.pivot.unit, ($pt -join ","), ($c0 -join ","))
 Shot "pivot-custom-corner"
+Note ("pivot call answered {0}; state pivot {1}" -f ($pv.done -join ","), ($state.pivot | ConvertTo-Json -Compress))
+$again = Edit @{ action = "state" }
+Note ("state again: {0}; selection {1}" -f ($again.pivot | ConvertTo-Json -Compress), (@($again.selection) -join ","))
+if ($state.pivot.mode -ne "custom") { $tb = Invoke-TakeBack -Seconds 30; [void](Invoke-Raw $script:port "session" $script:token '{"action":"logout"}'); [void](Invoke-Raw $script:port "quit" $script:token); $report.checks = $checks; $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $Sandbox "pivot-report.json") -Encoding UTF8; exit 1 }
 
 # ---- 2. ten turns of 90 degrees by the z ring: the corner stays ----
 $kept = 0; $worst = 0.0; $rows = @()
@@ -173,7 +177,8 @@ for ($i = 1; $i -le $Runs; $i++) {
     $zBefore = [double](Primary $A).rotation[2]
     $h = Edit @{ action = "handle"; text = "ring:z"; x = 90; y = 1; z = 0 }
     $want = Turn-Z $zBefore 90
-    $turned = Wait-Until { $p = Primary $A; if ($p -and (Same-Turn $p.rotation[2] $want)) { $p } } 15
+    Note ("run {0} handle answered {1}" -f $i, ($h | ConvertTo-Json -Compress -Depth 4))
+    $turned = Wait-Until { $p = Primary $A; if ($p -and (Same-Turn $p.rotation[2] $want)) { $p } } 8
     $oAfter = OwnObj $A
     $zAfter = [double](Primary $A).rotation[2]
     $d = if ($turned) { Dist (Corner $oAfter $zAfter) $c0 } else { 99 }
@@ -194,7 +199,8 @@ for ($i = 1; $i -le $Runs; $i++) {
     $cBefore = Corner $oBefore $zBefore
     $h = Edit @{ action = "handle"; text = "ring:z"; x = 90; y = 1; z = 0 }
     $want = Turn-Z $zBefore 90
-    $turned = Wait-Until { $p = Primary $A; if ($p -and (Same-Turn $p.rotation[2] $want)) { $p } } 15
+    Note ("run {0} handle answered {1}" -f $i, ($h | ConvertTo-Json -Compress -Depth 4))
+    $turned = Wait-Until { $p = Primary $A; if ($p -and (Same-Turn $p.rotation[2] $want)) { $p } } 8
     $oAfter = OwnObj $A
     $zAfter = [double](Primary $A).rotation[2]
     $shift = if ($turned) { Dist (Corner $oAfter $zAfter) $cBefore } else { 0 }
