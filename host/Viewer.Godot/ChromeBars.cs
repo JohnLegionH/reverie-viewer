@@ -92,8 +92,22 @@ public sealed partial class ChatBar : PanelContainer
     /// <summary>The active gestures' triggers, for completion.</summary>
     public Func<IReadOnlyList<string>>? Triggers { get; set; }
 
-    /// <summary>How much taller than its one-line height the bar is now; it grows upward by this much.</summary>
-    public float ExtraHeight => (_lines - 1) * Input.GetLineHeight();
+    /// <summary>The least height the layout gives the bar's row.</summary>
+    public float RowFloor { get; set; }
+
+    /// <summary>How much taller than its one-line height the bar is now; it grows upward by this much. At one line the row is held up
+    /// by the layout's least height or the buttons beside the box, so it grows by less than the lines added: counting the lines alone
+    /// would make the grown box taller than its lines, and a box that is not a whole number of lines tall scrolls to part of a line.</summary>
+    public float ExtraHeight
+    {
+        get
+        {
+            float row = Math.Max(Kind.GetCombinedMinimumSize().Y, SendButton.GetCombinedMinimumSize().Y);
+            float one = Math.Max(row, Input.GetLineHeight() + Input.GetThemeStylebox("normal").GetMinimumSize().Y);
+            one = Math.Max(one, RowFloor - GetThemeStylebox("panel").GetMinimumSize().Y);
+            return Math.Max(0, Input.CustomMinimumSize.Y - one);
+        }
+    }
 
     /// <summary>The number of lines the box shows.</summary>
     public int LinesShown => _lines;
@@ -132,6 +146,16 @@ public sealed partial class ChatBar : PanelContainer
         Input.Resized += () => Callable.From(Refit).CallDeferred();
         Input.ThemeChanged += () => Callable.From(Refit).CallDeferred();
         row.AddChild(Input);
+        // the engine draws the line just scrolled out into the box's top padding: the box's face is drawn over that strip again
+        var cover = new Control { Name = "top_cover", MouseFilter = MouseFilterEnum.Ignore };
+        cover.SetAnchorsPreset(LayoutPreset.TopWide);
+        cover.Draw += () =>
+        {
+            if (Input.ScrollVertical > 0 && Input.GetThemeStylebox("normal") is StyleBoxFlat face)
+                cover.DrawRect(new Rect2(2, 2, cover.Size.X - 4, face.ContentMarginTop - 2), face.BgColor);
+        };
+        Input.Draw += cover.QueueRedraw;   // scrolling redraws the box
+        Input.AddChild(cover);
         Kind = new OptionButton { Name = "kind", SizeFlagsVertical = SizeFlags.ShrinkEnd };
         Kind.AccessibilityName = strings.Get("chat.kind");
         Kind.AddItem(strings.Get("chat.kind.whisper"), (int)ChatKind.Whisper);
@@ -145,7 +169,7 @@ public sealed partial class ChatBar : PanelContainer
         SendButton.Pressed += () => Submit(null);
         row.AddChild(SendButton);
         // the offers float above the box: placed in the window's own coordinates, so the bar's layout leaves them alone
-        _completion = new PanelContainer { Name = "gesture_completion", TopLevel = true, Visible = false, ThemeTypeVariation = UiTheme.BarPanel, MouseFilter = MouseFilterEnum.Stop };
+        _completion = new PanelContainer { Name = "gesture_completion", TopLevel = true, Visible = false, MouseFilter = MouseFilterEnum.Stop };
         _offers = new VBoxContainer { Name = "offers" };
         _completion.AddChild(_offers);
         AddChild(_completion);
@@ -315,7 +339,7 @@ public sealed partial class ChatBar : PanelContainer
         var size = _completion.GetCombinedMinimumSize();
         _completion.Size = size;
         var box = Input.GetGlobalRect();
-        _completion.GlobalPosition = new Vector2(box.Position.X + (int)PanelPadding.Inner, box.Position.Y - size.Y - 2);
+        _completion.GlobalPosition = new Vector2(box.Position.X, box.Position.Y - size.Y - 2);
     }
 
     private void Accept(string trigger)
@@ -405,6 +429,17 @@ public sealed partial class NearbyLines : RichTextLabel
         OffsetBottom = -12;
         OffsetRight = 520;
         GrowVertical = GrowDirection.Begin;
+    }
+
+    /// <summary>The chat bar grows upward over the view: the newest lines stay above it.</summary>
+    public void KeepAbove(ChatBar chat)
+    {
+        float top = OffsetTop, bottom = OffsetBottom;
+        chat.HeightChanged += () =>
+        {
+            OffsetTop = top - chat.ExtraHeight;
+            OffsetBottom = bottom - chat.ExtraHeight;
+        };
     }
 
     public void Bind(CommsHub? hub)

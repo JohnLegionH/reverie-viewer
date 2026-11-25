@@ -730,6 +730,7 @@ public partial class ShellRoot : Control
         // the old toolbar and navigation rows are gone: the dock floats, so no row is kept for them whatever the controller says
         Shell.Chrome = Shell.Chrome with { Toolbar = false, NavBar = false };
         // the rows are laid out for the chat bar at one line; the lines it has grown by lie over the view, so no window is moved or resized
+        Chat.RowFloor = Shell.Metrics.ChatBarHeight;
         float grown = Chat.ExtraHeight;
         var needs = new BarHeights(TopBar.GetCombinedMinimumSize().Y, 0, Chat.GetCombinedMinimumSize().Y - grown, 0);
         var regions = Shell.Layout(new UiSize(size.X, size.Y), needs);
