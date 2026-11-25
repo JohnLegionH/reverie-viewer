@@ -69,6 +69,10 @@ public partial class TestRender : Node
     /// <summary>The time-of-day choice for a test render (--tr-timeofday=midday and the like); null keeps the fixed day fraction.</summary>
     private Viewer.Core.World.SkyChoice? _skyChoice;
     private bool _waterProbes;   // --tr-water-probes: open water below the horizon against the official water colour
+    private bool _underwaterProbes;   // --tr-underwater-probes: from under open water, rays down and up against the official underwater colours
+    private bool _underwaterOff;   // --tr-underwater=off: the below-surface view left out (the negative control of the underwater probes)
+    private float? _underwaterGround;   // --tr-underwater-ground: the camera under the water, straight down at flat ground; its distance
+    private bool _airFogOff;   // --tr-airfog=off: no engine air fog (the picture of a bare scene a haze check compares with)
     private bool _waterFlat;   // --tr-water-flat: the water without ripples, refraction offset or glint (the flat-water formula the probes check)
     private float _waterTime;   // --tr-water-time=<seconds>: added to the water's clock
     private (int X, int Y, int W, int H)? _waterLook;   // --tr-water-look=x,y,w,h: the picture's water rectangle to measure
@@ -403,6 +407,11 @@ public partial class TestRender : Node
             _envFile = Arg(args, "--tr-environment=");
             return await HazeRun(hazeKind);   // the official haze pass against its model (TestRender.Haze.cs)
         }
+        if (Arg(args, "--tr-uw=") is { } uwKind)
+        {
+            _envFile = Arg(args, "--tr-environment=");
+            return await UnderwaterRun(uwKind, Arg(args, "--tr-alter="));   // patches seen from under the water (TestRender.Underwater.cs)
+        }
         if (Arg(args, "--tr-sharedtex=") is { } sharedMode)
             return await SharedTexturesRun(sharedMode == "shared", Arg(args, "--tr-fixture=") ?? throw new ArgumentException("--tr-sharedtex needs --tr-fixture=<a codestream file>"));   // one texture hub for two regions (TestRender.SharedTextures.cs)
         if (Arg(args, "--tr-sharedmeasure=") is { } measureCount)
@@ -496,6 +505,10 @@ public partial class TestRender : Node
         _skyProbes = args.Contains("--tr-sky-probes");
         if (_skyProbes) EnvironmentLayer.DynamicExposure = false;   // the probes compare the sky's colour with the official chain at exposure 1; the automatic exposure has its own case (the haze one)
         _waterProbes = args.Contains("--tr-water-probes");
+        _underwaterProbes = args.Contains("--tr-underwater-probes");
+        _underwaterOff = Arg(args, "--tr-underwater=") == "off";
+        _underwaterGround = args.Contains("--tr-underwater-ground") ? 0f : null;
+        _airFogOff = Arg(args, "--tr-airfog=") == "off";
         _waterFlat = args.Contains("--tr-water-flat");
         _waterTime = float.Parse(Arg(args, "--tr-water-time=") ?? "0", System.Globalization.CultureInfo.InvariantCulture);
         if (Arg(args, "--tr-water-look=") is { } wl)
@@ -1799,6 +1812,114 @@ public partial class TestRender : Node
     }
 
     /// <summary>
+    /// --tr-underwater-probes: the camera under open water (nothing but water below, only sky above), centre column. A ray going down is the
+    /// water haze over the far distance; a ray going up meets the surface, where the sky above shows through, dimmed and fogged along the
+    /// way there (<see cref="UnderwaterView"/>, checked in the core tests against an independent transcription of the official formulas).
+    /// Display values, tolerance 0.02 (the water's colours are dark: shown values keep them apart). The water is drawn flat, so the sky is
+    /// read straight along the ray.
+    /// </summary>
+    private void UnderwaterProbes(Image img, Camera3D cam, EnvironmentLayer? env)
+    {
+        if (env?.Frame is not { } frame || env.WaterApplied is not { } water || env.WaterHeight is not { } surface) { _failures.Add("underwater probes: no water or environment frame"); return; }
+        float depth = surface - cam.Position.Y;
+        if (depth <= 0f) { _failures.Add("underwater probes: the camera is not under the water"); return; }
+        static float Shown(float c) { c = Math.Clamp(c, 0f, 1f); return c <= 0.0031308f ? c * 12.92f : 1.055f * MathF.Pow(c, 1f / 2.4f) - 0.055f; }
+        bool night = frame.SunDirection.Z < 0;
+        float slant = WaterShading.FogSlant(night ? frame.MoonDirection.Z : frame.SunDirection.Z);
+        float density = UnderwaterView.FogDensity(water.FogDensity, water.FogMod, underwater: true);
+        int h = img.GetHeight(), x = img.GetWidth() / 2;
+        var rows = new List<object>();
+        int down = 0, up = 0; bool allPass = true;
+        foreach (double wanted in new[] { -22.0, -10.0, -3.0, 8.0, 14.0, 22.0 })
+        {
+            int best = -1; double bestGap = 1e9, elev = 0;
+            for (int y = 2; y < h - 2; y++)
+            {
+                double e = Math.Asin(Math.Clamp(cam.ProjectRayNormal(new Vector2(x, y)).Y, -1f, 1f)) * 180.0 / Math.PI;
+                if (Math.Abs(e - wanted) < bestGap) { bestGap = Math.Abs(e - wanted); best = y; elev = e; }
+            }
+            if (best < 0 || bestGap > 0.7) continue;
+            var px = new float[3];
+            for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) { var c = img.GetPixel(x + dx, best + dy); px[0] += c.R / 9f; px[1] += c.G / 9f; px[2] += c.B / 9f; }
+            var got = new[] { px[0], px[1], px[2] };
+            float rise = (float)Math.Sin(elev * Math.PI / 180);
+            System.Numerics.Vector3 wantV;
+            if (rise < 0f)
+            {
+                var (light, survives) = UnderwaterView.Fog(water.FogColor, density, slant, depth, rise, cam.Far);
+                wantV = UnderwaterView.Haze(System.Numerics.Vector3.Zero, light, survives); down++;
+            }
+            else
+            {
+                var (light, survives) = UnderwaterView.Fog(water.FogColor, density, slant, depth, rise, depth / rise);
+                var sky = SkyLighting.DomeColour(frame, (float)elev, (float)AzimuthFromLight(frame, cam.ProjectRayNormal(new Vector2(x, best))));
+                wantV = UnderwaterView.SurfaceFromBelow(sky, light, survives); up++;
+            }
+            var want = new[] { Shown(wantV.X), Shown(wantV.Y), Shown(wantV.Z) };
+            bool pass = true;
+            for (int i = 0; i < 3; i++) if (MathF.Abs(got[i] - want[i]) > 0.02f) pass = false;
+            allPass &= pass;
+            rows.Add(new { elevation = Math.Round(elev, 2), row = best, got, want, pass });
+        }
+        bool enough = down >= 2 && up >= 2;
+        _result["underwater_probes"] = new { probes = rows, down, up, pass = allPass && enough };
+        if (!enough) _failures.Add($"underwater probes: {down} rays down and {up} up in view (2 of each needed)");
+        else if (!allPass) _failures.Add("underwater probes: the picture differs from the official underwater colour: " + System.Text.Json.JsonSerializer.Serialize(rows));
+    }
+
+    /// <summary>Puts the camera half a metre under the water, straight above the flattest ground that lies deepest, looking down.</summary>
+    private void AimAtDeepGround(WorldState scene, Camera3D cam)
+    {
+        var region = scene.Region!;
+        float water = region.WaterHeight ?? 20f;
+        float bestScore = float.MinValue, bx = 0, by = 0, bz = 0;
+        for (int py = 0; py < region.SizeY / 16; py++)
+            for (int px = 0; px < region.SizeX / 16; px++)
+            {
+                if (!scene.TryGetPatch(px, py, out var h)) continue;
+                float centre = h[8 * 16 + 8], spread = 0;
+                for (int j = 6; j <= 10; j++) for (int i = 6; i <= 10; i++) spread = MathF.Max(spread, MathF.Abs(h[j * 16 + i] - centre));
+                float score = (water - centre) - 4f * spread;
+                if (score > bestScore) { bestScore = score; bx = px * 16 + 8; by = py * 16 + 8; bz = centre; }
+            }
+        float eye = water - 0.5f;
+        _underwaterGround = eye - bz;
+        cam.Near = 0.1f;
+        cam.LookAtFromPosition(new Vector3(bx, eye, -by), new Vector3(bx, bz, -by), new Vector3(0f, 0f, -1f));
+    }
+
+    /// <summary>
+    /// The haze on real ground: the middle of the picture, straight down. With --tr-water-compare naming the same view without the
+    /// below-surface drawing, each of its pixels hazed over the known distance (<see cref="UnderwaterView"/>) must be what is shown here.
+    /// </summary>
+    private void UnderwaterGroundProbe(Image img, float distance, EnvironmentLayer? env)
+    {
+        if (_waterCompare is null) { _result["underwater_ground"] = new { distance }; return; }   // the picture to compare with is being made
+        if (env?.Frame is not { } frame || env.WaterApplied is not { } water || !File.Exists(_waterCompare)) { _failures.Add("underwater ground: no frame or no picture to compare with"); return; }
+        var other = Image.LoadFromFile(_waterCompare); other.Convert(Image.Format.Rgba8);
+        static float Lin(float c) => c <= 0.04045f ? c / 12.92f : MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
+        static float Shown(float c) { c = Math.Clamp(c, 0f, 1f); return c <= 0.0031308f ? c * 12.92f : 1.055f * MathF.Pow(c, 1f / 2.4f) - 0.055f; }
+        bool night = frame.SunDirection.Z < 0;
+        float slant = WaterShading.FogSlant(night ? frame.MoonDirection.Z : frame.SunDirection.Z);
+        var (light, survives) = UnderwaterView.Fog(water.FogColor, UnderwaterView.FogDensity(water.FogDensity, water.FogMod, underwater: true), slant, 0.5f, -1f, distance);
+        int cx = img.GetWidth() / 2, cy = img.GetHeight() / 2;
+        var got = new float[3]; var want = new float[3]; var bare = new float[3];
+        for (int dy = -4; dy <= 4; dy++)
+            for (int dx = -4; dx <= 4; dx++)
+            {
+                var c = img.GetPixel(cx + dx, cy + dy); var o = other.GetPixel(cx + dx, cy + dy);
+                var w = UnderwaterView.Haze(new System.Numerics.Vector3(Lin(o.R), Lin(o.G), Lin(o.B)), light, survives);
+                got[0] += c.R / 81f; got[1] += c.G / 81f; got[2] += c.B / 81f;
+                want[0] += Shown(w.X) / 81f; want[1] += Shown(w.Y) / 81f; want[2] += Shown(w.Z) / 81f;
+                bare[0] += o.R / 81f; bare[1] += o.G / 81f; bare[2] += o.B / 81f;
+            }
+        bool pass = true;
+        for (int i = 0; i < 3; i++) if (MathF.Abs(got[i] - want[i]) > 0.015f) pass = false;
+        _result["underwater_ground"] = new { distance, got, want, bare, pass };
+        if (!pass) _failures.Add("underwater ground: the ground is not hazed as the official formulas give: " + System.Text.Json.JsonSerializer.Serialize(new { distance, got, want, bare }));
+    }
+
+    /// <summary>
     /// --tr-water-probes: open water (no bottom in view) at several angles below the horizon, centre column, against
     /// <see cref="WaterShading.Surface"/> (checked in the core tests against an independent transcription of the official formulas) with the
     /// sky's reflection from <see cref="SkyLighting.DomeColour"/> at the mirrored elevation and the ray's angle from the light. Linear values, tolerance 0.04 (8-bit pictures, the profile's
@@ -2189,7 +2310,7 @@ public partial class TestRender : Node
         }
         prims.ResidencyView = PrimLayer.ViewOf(rig.Camera, _renderW, _renderH);   // priorities from the render's camera
         var presenter = new WorldPresenter(loaded.World, view, prims: prims, terrainTextures: textures,
-            environment: new EnvironmentLayer(rig.Scenario, rig.Environment, rig.Sun) { CloudsEnabled = CloudsDrawn, WaterFlat = _waterFlat || _waterProbes, WaterTimeOffset = _waterTime, HdrEnabled = alter != "nohdr" })   // nohdr: the tone-mapped path's negative control
+            environment: new EnvironmentLayer(rig.Scenario, rig.Environment, rig.Sun) { CloudsEnabled = CloudsDrawn, WaterFlat = _waterFlat || _waterProbes || _underwaterProbes || _underwaterGround is not null, UnderwaterOff = _underwaterOff, WaterTimeOffset = _waterTime, HdrEnabled = alter != "nohdr" })   // nohdr: the tone-mapped path's negative control
         {
             CloudScrollSeconds = _clouds ? _cloudScrollSeconds : null,
             DayFractionOverride = _skyChoice is not null ? null : loaded.DayFraction ?? double.Parse(_day ?? "0.3", System.Globalization.CultureInfo.InvariantCulture),   // fixed time of day
@@ -2251,6 +2372,8 @@ public partial class TestRender : Node
         AddBanWall(rig, loaded.World);
         AddInteractionScene(rig, loaded.World);
         AddDialogPanel(rig);
+        if (_underwaterGround is not null) AimAtDeepGround(loaded.World, rig.Camera);
+        if (_airFogOff) Stage.EnvironmentOf(rig.Environment).FogEnabled = false;
         prims.ViewCamera = rig.Camera;   // blended faces in order for the camera drawn
         prims.UpdateBlendOrder();
         if (PrimLayer.MergeStill) await MergeSettle(prims, rig.Camera);
@@ -2268,6 +2391,9 @@ public partial class TestRender : Node
         if (Layered is not null) _result["probes"] = LayeredProbes(img, rig.Camera, _camera == "layered-water");
         if (_skyProbes) SkyProbes(img, rig.Camera, presenter.Environment?.Frame);
         if (_waterProbes) WaterProbes(img, rig.Camera, presenter.Environment);
+        if (_underwaterProbes) UnderwaterProbes(img, rig.Camera, presenter.Environment);
+        if (_underwaterGround is { } groundDistance) UnderwaterGroundProbe(img, groundDistance, presenter.Environment);
+        if (presenter.Environment is { HasWater: true } drawn) _result["underwater"] = new { drawn = drawn.UnderwaterDrawn };
         if (_waterLook is { } wlook) WaterLookMetrics(img, wlook);
         if (_cloudProbes) CloudProbes(img, rig.Camera, presenter.Environment?.Frame);
         if (_cloudFrames > 0) await CloudFrameTimes(rig.Viewport);

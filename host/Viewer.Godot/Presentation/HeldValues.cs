@@ -286,6 +286,11 @@ internal static class EngineNames
     public static readonly StringName HazeComb = "haze_comb";
     public static readonly StringName HazeK = "haze_k";
     public static readonly StringName FlatWater = "flat_water";
+    public static readonly StringName UnderLevel = "under_level";
+    public static readonly StringName UnderDensity = "under_density";
+    public static readonly StringName ScaleBelow = "scale_below";
+    public static readonly StringName GlobalUnderLevel = "water_under_level", GlobalUnderColor = "water_under_color", GlobalUnderDensity = "water_under_density", GlobalUnderSlant = "water_under_slant";
+    public static readonly StringName AirMode = "air_mode", AirFogColor = "air_fog_color", AirFogEnergy = "air_fog_energy", AirFogDensity = "air_fog_density", AirConstant = "air_constant", AirGlow = "air_glow", AirExponent = "air_exponent", AirLightClamped = "air_light_clamped", AirLightRaw = "air_light_raw";
     public static readonly StringName OriginOffset = "origin_offset";
     public static readonly StringName Ramp = "ramp";
     public static readonly StringName[] Detail = ["detail0", "detail1", "detail2", "detail3"];

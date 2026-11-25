@@ -41,7 +41,7 @@ public static class KeptShaders
         foreach (var a in new[] { FaceAlpha.Opaque, FaceAlpha.Blend, FaceAlpha.Mask, FaceAlpha.Emissive }) yield return (false, a);
         foreach (var a in new[] { FaceAlpha.Opaque, FaceAlpha.Blend, FaceAlpha.Mask }) yield return (true, a);
     }
-    private static Shader? s_terrain, s_water, s_skip, s_sky;
+    private static Shader? s_terrain, s_water, s_waterHaze, s_skip, s_sky;
     private static ShaderMaterial? s_skipMaterial;
     private static readonly List<StandardMaterial3D> s_standard = new();
 
@@ -116,6 +116,12 @@ public static class KeptShaders
     /// <summary>The water shader (<see cref="EnvironmentLayer"/>).</summary>
     public static Shader Water => s_water ??= new Shader { Code = EnvironmentLayer.WaterCode };
 
+    /// <summary>The haze of the view from below the water (<see cref="EnvironmentLayer.WaterHazeCode"/>).</summary>
+    public static Shader WaterHaze => s_waterHaze ??= new Shader { Code = EnvironmentLayer.WaterHazeCode };
+
+    /// <summary>Whether this process has made the underwater haze shader already (a test asks, to say whether a dive it times is a first one).</summary>
+    internal static bool WaterHazeMade => s_waterHaze is not null;
+
     /// <summary>The sky shader (<see cref="EnvironmentLayer.SkyCode"/>).</summary>
     public static Shader Sky => s_sky ??= new Shader { Code = EnvironmentLayer.SkyCode };
 
@@ -124,7 +130,7 @@ public static class KeptShaders
     public static ShaderMaterial SkipMaterial => s_skipMaterial ??= new ShaderMaterial { Shader = Skip };
 
     /// <summary>Every shader object kept (the face variants, the PBR variants, terrain, water, skip) and the materials holding theirs.</summary>
-    public static int Count => s_body.Count + s_face.Count + s_faceMasked.Count + s_faceTinted.Count + s_pbr.Count + s_legacy.Count + s_faceSkinned.Count + s_legacySkinned.Count + (s_terrain is null ? 0 : 1) + (s_water is null ? 0 : 1) + (s_sky is null ? 0 : 1) + (s_skip is null ? 0 : 1)
+    public static int Count => s_body.Count + s_face.Count + s_faceMasked.Count + s_faceTinted.Count + s_pbr.Count + s_legacy.Count + s_faceSkinned.Count + s_legacySkinned.Count + (s_terrain is null ? 0 : 1) + (s_water is null ? 0 : 1) + (s_waterHaze is null ? 0 : 1) + (s_sky is null ? 0 : 1) + (s_skip is null ? 0 : 1)
         + s_standard.Count + (s_skipMaterial is null ? 0 : 1);
 
     /// <summary>Makes every kept shader, and one standard material for each feature set the viewer's standard materials use

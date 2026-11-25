@@ -1254,6 +1254,63 @@ foreach ($be in $Backends) {
 }
 }
 
+# The view from below the water: the camera in open water west of the region, level and 6 m under the surface. Rays down must show the water
+# haze and rays up the sky through the surface, both as the official formulas give them (--tr-underwater-probes); the same view with the
+# below-surface drawing left out (--tr-underwater=off) must be rejected. A second view under water over the region's ground is rendered to be
+# looked at, and must report the below-surface view as drawn; a camera above the water must report it as not drawn.
+function Invoke-UnderwaterCases {
+$waterScene = Join-Path $repo "fixtures\environment\water-sky.scene.json"
+foreach ($be in $Backends) {
+    $view = "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-300,128,12,-400,128,12 --tr-size=1280x720 --tr-underwater-probes"
+    $r = Invoke-Render $be "underwater-probes-$be" $view
+    $p = $r.Json.underwater_probes
+    $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $p -and $p.pass -and $r.Json.underwater.drawn
+    Add-Case "underwater_probes_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver); rays down $($p.down) up $($p.up) pass $($p.pass)$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
+    $n = Invoke-Render $be "underwater-probes-off-$be" "$view --tr-underwater=off"
+    $pn = $n.Json.underwater_probes
+    if ($n.Json -and $pn -and -not $pn.pass) { Add-Case "underwater_negative_$be" "PASS" "the view without the below-surface drawing is rejected by the probes (exit $($n.Exit))" $n.Seconds }
+    else { Add-Case "underwater_negative_$be" "FAIL" "the view without the below-surface drawing was NOT rejected (exit $($n.Exit))" $n.Seconds }
+    $go = Invoke-Render $be "underwater-bed-off-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-underwater-ground --tr-underwater=off --tr-airfog=off"
+    $gn = Invoke-Render $be "underwater-bed-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-underwater-ground `"--tr-water-compare=$(Join-Path $out "underwater-bed-off-$be.png")`""
+    $gp = $gn.Json.underwater_ground
+    $ok = $go.Exit -eq 0 -and $gn.Exit -eq 0 -and $gp -and $gp.pass
+    Add-Case "underwater_bed_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "ground $($gp.distance) m under the eye: shown $($gp.got -join ', '), official $($gp.want -join ', '), without the haze $($gp.bare -join ', ')$(if (-not $ok) { '; exit ' + $gn.Exit + ' ' + ($gn.Json.failures -join ' | ') })" ($go.Seconds + $gn.Seconds)
+    # the surface in the open-water view, top edge to near the horizon: with the waves on, the view through the surface must not pick up what is under the water
+    $rip = "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-300,128,12,-400,128,12 --tr-size=1280x720 --tr-water-look=0,0,1280,330 --tr-water-time=0"
+    $wf = Invoke-Render $be "underwater-ripple-flat-$be" "$rip --tr-water-flat"
+    $ww = Invoke-Render $be "underwater-ripple-$be" $rip
+    $mf = $wf.Json.water_look.max; $mw = $ww.Json.water_look.max
+    $ok = $null -ne $mf -and $null -ne $mw -and $mw -le $mf + 0.05
+    Add-Case "underwater_ripples_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "brightest point of the surface with waves $mw, flat $mf (waves may be brighter by 0.05 at most)" ($wf.Seconds + $ww.Seconds)
+    $s = Invoke-Render $be "underwater-ground-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-20,128,15,60,128,12 --tr-size=1280x720"
+    $a = Invoke-Render $be "underwater-above-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-40,128,45,40,128,18 --tr-size=1280x720"
+    $ok = $s.Exit -eq 0 -and $a.Exit -eq 0 -and $s.Json.underwater.drawn -eq $true -and $a.Json.underwater.drawn -eq $false
+    Add-Case "underwater_switches_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "under the water drawn=$($s.Json.underwater.drawn); above it drawn=$($a.Json.underwater.drawn)" ($s.Seconds + $a.Seconds)
+    # patches seen from under the water: see-through faces carry the water fog; what is above the water carries the sky's air haze and what is under it none
+    $classic = Join-Path $repo "fixtures\environment\synthetic-environment.llsd.xml"
+    $toned = Join-Path $repo "fixtures\environment\synthetic-environment-hdr.llsd.xml"
+    $thick = Join-Path $repo "fixtures\environment\synthetic-environment-thick-haze.llsd.xml"
+    foreach ($u in @(@("faces", "faces", $classic), @("haze_classic", "haze", $thick), @("haze_hdr", "haze", $toned))) {
+        $tag = "underwater-$($u[0].Replace('_', '-'))-$be"
+        $r = Invoke-Render $be $tag "`"--tr-fixture=$waterScene`" --tr-uw=$($u[1]) `"--tr-environment=$($u[2])`""
+        $w = $r.Json.uw
+        $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $w -and $w.hdr -eq ($u[0] -eq "haze_hdr")
+        Add-Case "underwater_$($u[0])_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "$(($w.rows | ForEach-Object { "$($_.name): off by $([math]::Round([double]$_.gap, 3))" }) -join '; ')$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
+    }
+    foreach ($u in @(@("haze_classic", $thick), @("haze_hdr", $toned))) {
+        $n = Invoke-Render $be "underwater-$($u[0].Replace('_', '-'))-off-$be" "`"--tr-fixture=$waterScene`" --tr-uw=haze `"--tr-environment=$($u[1])`" --tr-alter=nohaze"
+        $far = @($n.Json.uw.rows | Where-Object { $_.name -like 'above*' })
+        $caught = $far.Count -eq 1 -and $far[0].pass -eq $false
+        Add-Case "underwater_$($u[0])_negative_$be" ($(if ($caught) { "PASS" } else { "FAIL" })) "$(if ($caught) { 'the view without the air haze is rejected' } else { 'the view without the air haze was NOT rejected' }) (exit $($n.Exit))" $n.Seconds
+    }
+    $d = Invoke-Render $be "underwater-dive-$be" "`"--tr-fixture=$waterScene`" --tr-uw=dive `"--tr-environment=$classic`""
+    $v = $d.Json.uw_dive
+    # a stall fails: the first frame under water may take 50 ms at most. Only a process that has not been under water yet times a real first
+    # dive; the detail says which it was (run it by itself with -OneProcessPerCase)
+    Add-Case "underwater_dive_$be" ($(if ($d.Exit -eq 0 -and $v -and $v.drawn -and [double]$v.first_ms -le 50) { "PASS" } else { "FAIL" })) "first dive of its process: $($v.first_dive_of_process); first frame under water $($v.first_ms) ms; above the water median $($v.above_median_ms) ms, longest $($v.above_max_ms) ms; the next frames $($v.under_ms -join ', ') ms; pipelines compiled $(($v.pipelines.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ')" $d.Seconds
+}
+}
+
 # Personal Lighting: settings laid over the sky (more haze, clouds and a scene gamma of 2) reach the picture: the sky probes read the picture against the colours of
 # the changed frame bent by the gamma curve and pass; the same settings used only for the expected colours (not applied) must make the probes fail.
 function Invoke-PersonalCases {
@@ -1566,6 +1623,7 @@ if ($WaterSkyOnly) {   # -WaterSkyOnly: the water scene and the time-of-day case
     Invoke-SharedEnvCases
     Invoke-WaterCases
     Invoke-WaterLookCases
+    Invoke-UnderwaterCases
     Invoke-PersonalCases
     Invoke-TimeOfDayCases
     Exit-Render 0
@@ -2318,6 +2376,7 @@ foreach ($be in $Backends) {
 Invoke-SharedEnvCases
 Invoke-WaterCases
 Invoke-WaterLookCases
+Invoke-UnderwaterCases
 Invoke-PersonalCases
 Invoke-TimeOfDayCases
 Invoke-CloudCases
