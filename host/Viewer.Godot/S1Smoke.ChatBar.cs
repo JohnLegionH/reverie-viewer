@@ -13,7 +13,8 @@ namespace Viewer.Godot;
 
 /// <summary>
 /// S-1 (j): what the chat bar's box does that only the engine can show: undo, a single caret, the refused-key sound, a held Tab,
-/// the newest nearby lines staying above a grown box, the gesture offers' padding, and no part of a scrolled-out line showing.
+/// the newest nearby lines staying above a grown box, the gesture offers' padding, no part of a scrolled-out line showing (the
+/// border included, at 100, 150 and 200 percent), and a grown box keeping the right height through every theme change.
 /// Keys go through the engine's own input.
 /// </summary>
 public partial class S1Smoke
@@ -166,45 +167,113 @@ public partial class S1Smoke
         if (nearbyLines.GetGlobalRect().End.Y > bar.GetGlobalRect().Position.Y + 0.5f) problems.Add("nearby lines: they end below the top of the grown bar");
         if (Math.Abs(box.Size.Y - box.CustomMinimumSize.Y) > 0.5f) problems.Add($"grown box: {box.Size.Y} tall, its lines take {box.CustomMinimumSize.Y}");
 
-        // a scrolled box shows whole lines only: the strip above the first shown line is the box's face. The text goes in as a paste does.
-        bar.Start("");
-        await Frames(4);
-        box.InsertTextAtCaret(string.Join(' ', Enumerable.Range(1, 130).Select(i => "word" + i)));
-        await Frames(8);
-        int rows = 1 + box.GetLineWrapCount(0);
-        if (rows <= Viewer.Shell.Chat.ChatBoxRules.MaxVisibleLines) problems.Add($"scrolled box: the text makes only {rows} rows, so nothing scrolls");
-        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        var image = new WindowPicture(GetViewport()).Take();
-        var face = (StyleBoxFlat)box.GetThemeStylebox("focus");
-        var rect = box.GetGlobalRect();
-        var toPixels = GetViewport().GetStretchTransform();
-        if (box.ScrollVertical <= 0) problems.Add("scrolled box: it did not scroll, so the strip check proves nothing");
-        // from just inside the border, whatever its width is in this theme
-        var from = toPixels * (rect.Position + new Vector2(face.ContentMarginLeft, face.BorderWidthTop));
-        var to = toPixels * new Vector2(rect.End.X - 24, rect.Position.Y + face.ContentMarginTop - 1);
-        var ground = image.GetPixel((int)from.X - 3, (int)from.Y + 2);   // in the left padding, where no text is
-        int marked = 0;
-        for (int y = (int)from.Y; y < (int)to.Y; y++)
-            for (int x = (int)from.X; x < (int)to.X; x++)
+        // a scrolled box shows whole lines only: above the first shown line there is nothing of the line scrolled out, neither in the
+        // padding, nor on the top border, nor just above the box, at each interface size. The text goes in as a paste does.
+        var look = UiTheme.Tokens;
+        int percent = UiTheme.ScalePercent;
+        var scrolls = new List<object>();
+        foreach (int scale in new[] { 100, 150, 200 })
+        {
+            UiTheme.Apply(look, scale);
+            await Frames(6);
+            bar.Start("");
+            await Frames(4);
+            box.InsertTextAtCaret(string.Join(' ', Enumerable.Range(1, 130).Select(i => "word" + i)));
+            await Frames(8);
+            int rows = 1 + box.GetLineWrapCount(0);
+            if (rows <= Viewer.Shell.Chat.ChatBoxRules.MaxVisibleLines) problems.Add($"scrolled box at {scale}%: the text makes only {rows} rows, so nothing scrolls");
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            var image = new WindowPicture(GetViewport()).Take();
+            var face = (StyleBoxFlat)box.GetThemeStylebox("focus");
+            var rect = box.GetGlobalRect();
+            var toPixels = GetViewport().GetStretchTransform();
+            if (box.ScrollVertical <= 0) problems.Add($"scrolled box at {scale}%: it did not scroll, so the strip check proves nothing");
+            // from two units above the box, across the border, down to the first shown line, compared pixel for pixel with the same grown
+            // box scrolled to its top, where no line has been scrolled out
+            var from = toPixels * (rect.Position + new Vector2(face.CornerRadiusTopLeft + 2, -2));
+            var to = toPixels * new Vector2(rect.End.X - 24, rect.Position.Y + face.ContentMarginTop - 1);
+            int beside = (int)(toPixels * (rect.Position + new Vector2(face.CornerRadiusTopLeft + 2, 0))).X;   // in the left padding, where no text is
+            int top = (int)(toPixels * rect.Position).Y;
+            double scrolledTo = box.ScrollVertical;
+            box.ScrollVertical = 0;
+            await Frames(4);
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            var unscrolled = new WindowPicture(GetViewport()).Take();
+            if (box.ScrollVertical != 0 || box.GetGlobalRect() != rect) problems.Add($"scrolled box at {scale}%: the unscrolled picture is not of the same box at its top");
+            box.ScrollVertical = scrolledTo;
+            await Frames(4);
+            int marked = 0;
+            var markedRows = new SortedDictionary<int, int>();   // by pixel row from the box's top edge
+            for (int y = (int)from.Y; y < (int)to.Y; y++)
+                for (int x = (int)from.X; x < (int)to.X; x++)
+                {
+                    var p = image.GetPixel(x, y);
+                    var q = unscrolled.GetPixel(x, y);
+                    if (Math.Abs(p.R - q.R) + Math.Abs(p.G - q.G) + Math.Abs(p.B - q.B) > 0.12f)
+                    {
+                        marked++;
+                        markedRows[y - top] = markedRows.GetValueOrDefault(y - top) + 1;
+                    }
+                }
+            // (the control: the same test of a pixel finds the text of the first shown line)
+            var lineFrom = toPixels * (rect.Position + new Vector2(face.ContentMarginLeft, face.ContentMarginTop));
+            var lineTo = toPixels * new Vector2(rect.End.X - 24, rect.Position.Y + face.ContentMarginTop + box.GetLineHeight());
+            int inked = 0;
+            for (int y = (int)lineFrom.Y; y < (int)lineTo.Y; y++)
             {
-                var p = image.GetPixel(x, y);
-                if (Math.Abs(p.R - ground.R) + Math.Abs(p.G - ground.G) + Math.Abs(p.B - ground.B) > 0.12f)
-                    marked++;
+                var ground = image.GetPixel(beside, y);
+                for (int x = (int)lineFrom.X; x < (int)lineTo.X; x++)
+                {
+                    var p = image.GetPixel(x, y);
+                    if (Math.Abs(p.R - ground.R) + Math.Abs(p.G - ground.G) + Math.Abs(p.B - ground.B) > 0.12f)
+                        inked++;
+                }
             }
-        // (the control: the same test of a pixel finds the text of the first shown line)
-        var lineFrom = toPixels * (rect.Position + new Vector2(face.ContentMarginLeft, face.ContentMarginTop));
-        var lineTo = toPixels * new Vector2(rect.End.X - 24, rect.Position.Y + face.ContentMarginTop + box.GetLineHeight());
-        int inked = 0;
-        for (int y = (int)lineFrom.Y; y < (int)lineTo.Y; y++)
-            for (int x = (int)lineFrom.X; x < (int)lineTo.X; x++)
+            if (inked == 0) problems.Add($"scrolled box at {scale}%: no text found in the first shown line, so the strip check proves nothing");
+            image.SavePng(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_resultPath)!, $"chat-bar-scrolled-{scale}.png"));
+            scrolls.Add(new { scale, inked, border = face.BorderWidthTop, rows, scroll = scrolledTo, size = box.Size.Y, marked, markedRows = string.Join(" ", markedRows.Select(m => $"{m.Key}:{m.Value}")), from = from.ToString(), to = to.ToString() });
+            if (marked != 0) problems.Add($"scrolled box at {scale}%: {marked} pixels above the first shown line differ from the unscrolled box, in pixel rows from the box's top {string.Join(" ", markedRows.Keys)}");
+        }
+        _result["chat_bar_scroll"] = scrolls;
+        UiTheme.Apply(look, percent);
+        await Frames(6);
+
+        // a theme changed while the box is grown leaves bar, box and nearby lines as tall as the same text put in under the new theme,
+        // from every theme to every other
+        string long5 = string.Join(' ', Enumerable.Range(1, 90).Select(i => "word" + i));
+        async Task<(float Bar, float Box, float Lines)> Heights()
+        {
+            await Frames(6);
+            return (bar.Size.Y, box.Size.Y, nearbyLines.OffsetBottom);
+        }
+        int pairs = 0, stale = 0;
+        foreach (var first in ThemePresets.CardIds)
+            foreach (var second in ThemePresets.CardIds)
             {
-                var p = image.GetPixel(x, y);
-                if (Math.Abs(p.R - ground.R) + Math.Abs(p.G - ground.G) + Math.Abs(p.B - ground.B) > 0.12f)
-                    inked++;
+                if (first == second)
+                    continue;
+                UiTheme.Apply(ThemePresets.Get(first), percent);
+                await Frames(4);
+                bar.Start("");
+                await Frames(4);
+                bar.Start(long5);
+                await Frames(6);
+                UiTheme.Apply(ThemePresets.Get(second), percent);
+                var changed = await Heights();
+                bar.Start("");
+                await Frames(4);
+                bar.Start(long5);
+                var fresh = await Heights();
+                pairs++;
+                if (Math.Abs(changed.Bar - fresh.Bar) > 0.5f || Math.Abs(changed.Box - fresh.Box) > 0.5f || Math.Abs(changed.Lines - fresh.Lines) > 0.5f)
+                {
+                    stale++;
+                    problems.Add($"theme {first} to {second} while grown: bar {changed.Bar} box {changed.Box} lines {changed.Lines}, put in again {fresh.Bar} {fresh.Box} {fresh.Lines}");
+                }
             }
-        if (inked == 0) problems.Add("scrolled box: no text found in the first shown line, so the strip check proves nothing");
-        _result["chat_bar_scroll"] = new { inked, border = face.BorderWidthTop, rows, scroll = box.ScrollVertical, size = box.Size.Y, min = box.CustomMinimumSize.Y, line = box.GetLineHeight(), style = box.GetThemeStylebox("normal").GetMinimumSize().Y, bar = bar.Size.Y, visible = box.GetVisibleLineCount(), marked, from = from.ToString(), to = to.ToString() };
-        if (marked != 0) problems.Add($"scrolled box: {marked} pixels of text above the first shown line (scroll {box.ScrollVertical})");
+        _result["chat_bar_themes"] = new { pairs, stale };
+        UiTheme.Apply(look, percent);
+        await Frames(6);
 
         bar.Start("");
         await Frames(6);

@@ -80,6 +80,7 @@ public sealed partial class ChatBar : PanelContainer
     private readonly ChatLineHistory _history = new();
     private readonly PanelContainer _completion;
     private readonly VBoxContainer _offers;
+    private readonly Control _cover;
     private IReadOnlyList<string> _offered = [];
     private string _text = "";   // the text as last accepted
     private string? _set;        // text set in code, which is not typing
@@ -144,15 +145,17 @@ public sealed partial class ChatBar : PanelContainer
         Input.FocusExited += () => Callable.From(CloseCompletionWhenLeft).CallDeferred();
         Input.GuiInput += OnKey;   // before the box's own key handling
         Input.Resized += () => Callable.From(Refit).CallDeferred();
-        Input.ThemeChanged += () => Callable.From(Refit).CallDeferred();
+        Input.ThemeChanged += () => Callable.From(Rethemed).CallDeferred();
         row.AddChild(Input);
-        // the engine draws the line just scrolled out into the box's top padding: the box's face is drawn over that strip again
-        var cover = new Control { Name = "top_cover", MouseFilter = MouseFilterEnum.Ignore };
-        cover.SetAnchorsPreset(LayoutPreset.TopWide);
+        // the engine draws the line just scrolled out into the box's top padding and over its top border: the box's face, border and
+        // corners with it, is drawn again, cut to that strip
+        _cover = new Control { Name = "top_cover", MouseFilter = MouseFilterEnum.Ignore, ClipContents = true };
+        _cover.SetAnchorsPreset(LayoutPreset.TopWide);
+        var cover = _cover;
         cover.Draw += () =>
         {
-            if (Input.ScrollVertical > 0 && Input.GetThemeStylebox("normal") is StyleBoxFlat face)
-                cover.DrawRect(new Rect2(face.BorderWidthLeft, face.BorderWidthTop, cover.Size.X - face.BorderWidthLeft - face.BorderWidthRight, face.ContentMarginTop - face.BorderWidthTop), face.BgColor);
+            if (Input.ScrollVertical > 0)
+                Input.GetThemeStylebox(Input.HasFocus() ? "focus" : Input.Editable ? "normal" : "read_only").Draw(cover.GetCanvasItem(), new Rect2(Vector2.Zero, Input.Size));
         };
         Input.Draw += cover.QueueRedraw;   // scrolling redraws the box
         Input.AddChild(cover);
@@ -281,15 +284,25 @@ public sealed partial class ChatBar : PanelContainer
         return at;
     }
 
+    /// <summary>A new theme changes the heights of lines, padding and buttons without changing the line count: the bar is laid out
+    /// again, so a grown box also gets shorter when the new theme needs less.</summary>
+    private void Rethemed()
+    {
+        Refit();
+        HeightChanged?.Invoke();
+    }
+
     private void Refit()
     {
         int wrapped = 0;
         for (int i = 0; i < Input.GetLineCount(); i++)
             wrapped += 1 + Input.GetLineWrapCount(i);
         int lines = ChatBoxRules.VisibleLines(wrapped);
-        float margins = Input.GetThemeStylebox("normal").GetMinimumSize().Y;
+        var face = Input.GetThemeStylebox("normal");
+        _cover.OffsetBottom = face.GetMargin(Side.Top);
+        float margins = face.GetMinimumSize().Y;
         var height = new Vector2(0, lines * Input.GetLineHeight() + margins);
-        bool changed = lines != _lines;
+        bool changed = lines != _lines || Input.CustomMinimumSize != height;
         if (Input.CustomMinimumSize != height)
             Input.CustomMinimumSize = height;
         _lines = lines;

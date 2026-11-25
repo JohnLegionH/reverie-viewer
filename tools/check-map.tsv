@@ -97,6 +97,8 @@
 ^fixtures/environment/	environment
 # Avatars.
 ^host/Viewer\.Godot/(Main\.(Appearance|BodyMask|Expressions)|AppearanceExample|NameTagOverlay|TestRender\.(Avatars|AppearanceUi|ArrivalProbe|AttachRoute|Attachments|BakeLook|CaptureLook|Crowd|FaceShape|MorphLook|NameTags|Proportions|Rigged[A-Za-z]*|ShapeLook|SkinNormal))\.cs$	avatars
+# The one kept read of the window's picture: the proportions case (avatars) and the chat bar part of the exported-build smoke (login).
+^host/Viewer\.Godot/WindowPicture\.cs$	avatars,login
 ^host/Viewer\.Godot/Presentation/(Avatar[A-Za-z.]*|BodyMask|FaceShader|SkinAtlas|SkinTextures|RiggedNotDrawn|IAttachmentFrames|WornFrameTrace|ArrivalWarmup)\.cs$	avatars
 ^host/Viewer\.Shell/(NameTags|Overrider)/	avatars
 # Appearance and outfits send and read wearables, bakes and outfit folders.
