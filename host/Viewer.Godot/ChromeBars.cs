@@ -101,6 +101,9 @@ public sealed partial class ChatBar : PanelContainer
     /// <summary>The bar's height changed.</summary>
     public event Action? HeightChanged;
 
+    /// <summary>The box took no more text (it is full), or there is no earlier or later line to recall.</summary>
+    public event Action? Rejected;
+
     public bool CompletionOpen => _completion.Visible;
 
     /// <summary>The triggers on offer, the one Tab completes first.</summary>
@@ -119,6 +122,7 @@ public sealed partial class ChatBar : PanelContainer
         {
             Name = "input", PlaceholderText = strings.Get("chat.input.hint"), TooltipText = strings.Get("chat.input.tip"),
             SizeFlagsHorizontal = SizeFlags.ExpandFill, ThemeTypeVariation = UiTheme.ChatInput, WrapMode = TextEdit.LineWrappingMode.Boundary,
+            CaretMultiple = false,   // one caret, as a one-line field has
         };
         Input.AccessibilityName = strings.Get("chat.input");
         Input.TextChanged += OnTextChanged;
@@ -160,7 +164,7 @@ public sealed partial class ChatBar : PanelContainer
             CloseCompletion();
         Input.Editable = hub is not null;
         SendButton.Disabled = hub is null;
-        SendButton.Modulate = new Color(1, 1, 1, hub is null ? 0.45f : 1f);
+        SendButton.Modulate = ShellTheme.Strength(hub is not null);
     }
 
     /// <summary>Puts the keyboard in the chat line (llfloaterimnearbychat.cpp startChat): <paramref name="line"/> replaces the text when given,
@@ -208,6 +212,7 @@ public sealed partial class ChatBar : PanelContainer
         _text = line;
         _set = line;
         Input.Text = line;
+        Input.ClearUndoHistory();   // text put in by code is not undone: Ctrl+Z after a send must not bring the sent line back
         CaretToEnd();
         Refit();
     }
@@ -227,12 +232,18 @@ public sealed partial class ChatBar : PanelContainer
         var (kept, caret) = ChatBoxRules.Clean(_text, now, CaretInText());
         if (kept != now)
         {
+            if (kept.EnumerateRunes().Count() == ChatBoxRules.MaxCharacters && now.EnumerateRunes().Count(r => !System.Text.Rune.IsControl(r)) > ChatBoxRules.MaxCharacters)
+                Rejected?.Invoke();
             Input.Text = kept;
+            Input.ClearUndoHistory();   // else undo would only bring the left-out text back to be left out again
             Input.SetCaretColumn(caret);
             _set = kept;
         }
+        bool same = kept == _text;
         _text = kept;
         Callable.From(Refit).CallDeferred();
+        if (same)
+            return;   // nothing was taken in: that is not typing
         _hub?.Nearby.InputChanged(kept);
         Offer(kept);
     }
@@ -334,14 +345,20 @@ public sealed partial class ChatBar : PanelContainer
                 break;
             // Tab completes an offer; otherwise it moves to the next control, as in a one-line field
             case Key.Tab when !k.CtrlPressed:
+                if (k.Echo)
+                    break;   // a Tab held a moment too long must not complete and then leave the box
                 if (CompletionOpen && !k.ShiftPressed)
                     Accept(_offered[0]);
                 else
                     (k.ShiftPressed ? Input.FindPrevValidFocus() : Input.FindNextValidFocus())?.GrabFocus();
                 break;
             case Key.Up or Key.Down when k.CtrlPressed && !k.AltPressed && !k.ShiftPressed:
-                if (Input.Editable && (k.Keycode == Key.Up ? _history.Previous(Input.Text) : _history.Next(Input.Text)) is { } line)
+                if (!Input.Editable)
+                    break;
+                if ((k.Keycode == Key.Up ? _history.Previous(Input.Text) : _history.Next(Input.Text)) is { } line)
                     SetLine(line);
+                else
+                    Rejected?.Invoke();
                 break;
             default:
                 return;

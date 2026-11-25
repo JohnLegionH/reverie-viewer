@@ -204,15 +204,17 @@ public static class ShellTheme
         theme.SetTypeVariation(UiTheme.PrimaryButton, "Button");
         FilledButton(theme, UiTheme.PrimaryButton, t, t.AccentFill, t.AccentFillText);
         // the chat bar's line: a text area that wraps, with a one-line field's face; its text stands the shared 12 px in from the
-        // window's edge, and its top and bottom padding match the buttons beside it
+        // window's edge. Above and below it keeps a one-line field's 8 in all, so the row is no taller than before; more of that is
+        // above the text, which lines it up with the buttons' text beside it
         theme.SetTypeVariation(UiTheme.ChatInput, "TextEdit");
         foreach (var (state, edge) in new[] { ("normal", t.Border), ("focus", t.Accent), ("read_only", t.Border) })
         {
             var chatFace = Box(t, t.Input, edge, 6, 4);
             chatFace.ContentMarginLeft = (int)PanelPadding.Inner;
+            chatFace.ContentMarginBottom = 2;
             theme.SetStylebox(state, UiTheme.ChatInput, chatFace);
         }
-        theme.SetConstant("line_spacing", UiTheme.ChatInput, 2);
+        theme.SetConstant("line_spacing", UiTheme.ChatInput, 0);
         // its send button: with nothing to send to, the same button drawn at 45 % (the bar sets the strength)
         theme.SetTypeVariation(UiTheme.ChatSend, "Button");
         FilledButton(theme, UiTheme.ChatSend, t, t.AccentFill, t.AccentFillText);
@@ -322,6 +324,9 @@ public static class ShellTheme
 
     /// <summary>The colour of string literals in the script editor.</summary>
     public static Color SyntaxString(ThemeTokens t) => C(t.ChatObject);
+
+    /// <summary>What a control drawn whole at full or at the disabled strength is multiplied by.</summary>
+    public static Color Strength(bool enabled) => C(enabled ? new UiColour(1f, 1f, 1f) : ControlStates.Faded(new UiColour(1f, 1f, 1f)));
 
     /// <summary>A panel face: the fill, a border of the theme's width, the theme's corner radius.</summary>
     public static StyleBoxFlat Box(ThemeTokens t, UiColour fill, UiColour border, int margin, int? radius = null)

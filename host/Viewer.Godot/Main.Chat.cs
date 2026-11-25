@@ -139,7 +139,7 @@ public partial class Main
                 return new
                 {
                     self = s.AgentId,
-                    nearby = hub.Nearby.Lines.Where(Has).Select(l => new { speaker = l.SpeakerId, style = l.Style.ToString(), mark = l.Mark.ToString(), @object = l.ObjectId, has_place = l.Place is { Length: > 0 } }).ToArray(),
+                    nearby = hub.Nearby.Lines.Where(Has).Select(l => new { speaker = l.SpeakerId, style = l.Style.ToString(), mark = l.Mark.ToString(), @object = l.ObjectId, has_place = l.Place is { Length: > 0 }, range = l.Range.ToString(), exact = l.Text == t }).ToArray(),
                     typing = hub.Nearby.Typing.Count,
                     conversations = hub.Ims.Open.Select(c => new
                     {

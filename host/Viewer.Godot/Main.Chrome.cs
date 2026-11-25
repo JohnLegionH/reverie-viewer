@@ -24,6 +24,13 @@ public partial class Main
             return;
         _nearbyLines = new NearbyLines(strings, UserSettings(null));
         _shell.MainView.AddChild(_nearbyLines);
+        // the chat bar grows upward over the view: the newest lines stay above it
+        float top = _nearbyLines.OffsetTop, bottom = _nearbyLines.OffsetBottom;
+        _shell.Chat.HeightChanged += () =>
+        {
+            _nearbyLines.OffsetTop = top - _shell.Chat.ExtraHeight;
+            _nearbyLines.OffsetBottom = bottom - _shell.Chat.ExtraHeight;
+        };
         var bar = _shell.TopBar;
         bar.Home.Pressed += () => _shell.Shell.Commands.Execute("travel.home");
         bar.Back.Pressed += () => { if (_teleportHistory.Back() is { } back) TeleportTo(back, rememberDeparture: false); };

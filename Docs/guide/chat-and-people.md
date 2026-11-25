@@ -17,6 +17,8 @@ All of this needs a login. The Reverie windows named here open from the **Commun
 | Shift+Enter (in the nearby chat line) | Whisper it |
 | Ctrl+Enter (in the nearby chat line) | Shout it |
 | F2 to F12 | Play the gesture bound to the key |
+| Ctrl+Up, Ctrl+Down (in the chat bar) | Bring back earlier lines |
+| Tab (in the chat bar, with gesture words offered) | Complete the top one |
 
 ## Nearby chat
 
@@ -24,7 +26,7 @@ Nearby chat is what people around you can hear. It shows in the **Nearby chat** 
 
 ### The chat bar
 
-When you are in the world, a chat bar sits above the dock. It has a line to type in, a **Say** / **Whisper** / **Shout** choice, and a **Send** button. It speaks into the same nearby chat as the window.
+When you are in the world, a chat bar sits above the dock. It has a box to type in, a **Say** / **Whisper** / **Shout** choice, and a **Send** button. It speaks into the same nearby chat as the window.
 
 ### Say something
 
@@ -33,6 +35,26 @@ When you are in the world, a chat bar sits above the dock. It has a line to type
 3. Press **Enter**. Or press **Send**.
 
 To open the window with the history, choose **Communicate > Nearby chat** (Ctrl+H), or press the **Chat** button on the dock.
+
+### Longer messages
+
+The box grows as your text wraps onto more lines, up to five, and then scrolls. It grows upward over the view; your windows stay where they are. It goes back to one line when you send. A message is still one piece of chat: **Enter** does not start a new line, and line breaks in pasted text are left out. A message holds up to 1023 characters.
+
+### Earlier lines
+
+- Press **Ctrl+Up** to bring back the line you sent before. Press it again to go further back.
+- Press **Ctrl+Down** to come forward. Past the newest line you get back what you were typing.
+- The list is for this login only. Nothing is saved to disk.
+
+### Finishing a gesture's words
+
+When your line starts with `/` and the start of an active gesture's chat words, a small list appears above the box.
+
+1. Type the first letters, for example `/da`.
+2. Press **Tab** to take the top word, or click the one you want.
+3. Press **Enter**. The gesture plays.
+
+Press **Esc** to close the list and keep typing.
 
 ### Whisper and shout
 
@@ -256,7 +278,6 @@ All steps happen at the same time, unless you add **Wait** steps.
 
 ## Not in Reverie yet
 
-- Pressing **Enter** with the world selected does not jump to the chat bar. Click it to type.
 - The **/** key does not open the gesture list.
 - Voice chat and push-to-talk.
 - A list of people nearby, and profiles.

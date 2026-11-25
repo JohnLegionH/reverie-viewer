@@ -35,7 +35,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 ## Chat and people
 
-- Nearby chat: **Communicate > Nearby chat** (Ctrl+H), or the dock's Chat button. Press Enter in the world (or click the chat bar) to type; the number pad's / starts a line with a / typed. In a chat line, Enter says, Shift+Enter whispers, Ctrl+Enter shouts, `/5 text` speaks on channel 5.
+- Nearby chat: **Communicate > Nearby chat** (Ctrl+H), or the dock's Chat button. Press Enter in the world (or click the chat bar) to type; the number pad's / starts a line with a / typed. In a chat line, Enter says, Shift+Enter whispers, Ctrl+Enter shouts, `/5 text` speaks on channel 5. The chat bar grows to five lines as your text wraps; Ctrl+Up and Ctrl+Down bring back earlier lines; a line starting with `/` offers your active gestures' chat words, and Tab or a click completes one.
 - Instant messages and group chat, in tabs with unread counts: **Communicate > Conversations** (Ctrl+T). Select several friends to start one conference.
 - People window: **Communicate > People** (Ctrl+Shift+A), with Friends, Groups, Notices and Blocked tabs. Friend offers, your active group and title, group notices.
 - Click a resident's name in nearby chat or in a message for the name menu (IM, Offer Teleport, Request Teleport, Add Friend, Copy Name and the rest; what is not built is greyed with the reason). A friend coming online or going offline shows a notice (press it to open a conversation) and a line in nearby chat; both can be switched off in Preferences > Chat. A friend already online when you log in is announced the same way. People from other grids (Hypergrid) keep their "First.Last @host:port" name in the list, the name tag and chat.
@@ -140,6 +140,8 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 | Esc | Reset the view (leave mouselook) |
 | Enter, Shift+Enter, Ctrl+Enter | In the nearby chat line: say, whisper, shout (in an instant message line, Enter sends) |
 | F2 to F12 | Gesture keys |
+| Ctrl+Up, Ctrl+Down | In the chat bar: earlier lines, and back to what you were typing |
+| Tab | In the chat bar, while gesture words are offered: complete the top one (Esc closes the offer) |
 | Enter, number pad / | In the world: start a chat line (/ types a slash first) |
 
 Every key is listed in the [keyboard shortcuts](guide/keyboard-shortcuts.md) section of the guide.

@@ -376,14 +376,14 @@ public partial class Main
                 {
                     "LEFT" => Key.Left, "RIGHT" => Key.Right, "UP" => Key.Up, "DOWN" => Key.Down, "PGUP" => Key.Pageup, "PGDN" => Key.Pagedown,
                     "HOME" => Key.Home, "END" => Key.End, "TAB" => Key.Tab, "DELETE" => Key.Delete, "SPACE" => Key.Space, "ENTER" => Key.Enter, "ESC" => Key.Escape, "BACKSPACE" => Key.Backspace,
-                    "." => Key.Period, "," => Key.Comma, "-" => Key.Minus, "SHIFT" => Key.Shift,
+                    "." => Key.Period, "," => Key.Comma, "-" => Key.Minus, "/" => Key.Slash, "SHIFT" => Key.Shift,
                     { Length: 1 } letter when letter[0] is >= 'A' and <= 'Z' or >= '0' and <= '9' => (Key)letter[0],
                     _ => Key.None,
                 };
                 if (code == Key.None) return null;
-                // a letter, digit, full stop, comma or minus without Ctrl or Alt carries its character, as the operating system's key event does
+                // a letter, digit, space, full stop, comma, minus or slash without Ctrl or Alt carries its character, as the operating system's key event does
                 // (a text field types it)
-                char typed = !down || ctrl || alt || code is not (>= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9 or Key.Period or Key.Comma or Key.Minus) ? '\0'
+                char typed = !down || ctrl || alt || code is not (>= Key.A and <= Key.Z or >= Key.Key0 and <= Key.Key9 or Key.Space or Key.Period or Key.Comma or Key.Minus or Key.Slash) ? '\0'
                     : code is >= Key.A and <= Key.Z && !shift ? char.ToLowerInvariant((char)(long)code) : (char)(long)code;
                 global::Godot.Input.ParseInputEvent(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = typed, Pressed = down, ShiftPressed = shift, CtrlPressed = ctrl, AltPressed = alt });
                 break;
@@ -532,6 +532,7 @@ public partial class Main
             lines = _shell.Chat.LinesShown,
             height = _shell.Chat.Size.Y,
             offered = _shell.Chat.Offered.Count,
+            matches = action == "state" && text is not null ? input.Text == text : (bool?)null,   // whether the box holds exactly this line
             keys_held = _keysDown.Keys.ToArray(),
             chat_bar_visible = _shell.Chat.Visible,
         };

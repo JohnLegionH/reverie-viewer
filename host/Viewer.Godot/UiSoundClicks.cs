@@ -69,6 +69,12 @@ public sealed partial class UiSoundClicks : Node
 
     private void OnAdded(Node n)
     {
+        if (n is ChatBar chat && !n.HasMeta(Hooked))
+        {
+            n.SetMeta(Hooked, true);
+            chat.Rejected += () => Play(UiSoundSlot.BadKeystroke);   // as a one-line field's refused text does
+            return;
+        }
         if (n.HasMeta(Hooked) || KindOf(n) is not { } kind)
             return;
         n.SetMeta(Hooked, true);
