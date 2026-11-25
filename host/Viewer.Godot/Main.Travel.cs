@@ -101,6 +101,7 @@ public partial class Main
                     () => s.World.AvatarOf(s.AgentId) is { } me ? s.World.AttachmentRoots(me.Id.LocalId).Count : 0);
                 s.Communication += _travel.Enqueue;
                 _travel.Teleport.Arrived += () => EnvChoice.TeleportFinished();   // a finished teleport puts the region's own environment back when the setting asks for it
+                _travel.Teleport.Arrived += () => _addons?.TeleportArrived();   // add-ons that read the world hear of each teleport that ends
                 _travel.Teleport.HomeFailed += failure => OnHomeRefused(s, failure);
                 _mapGrid = null;
                 _travelFor = s;

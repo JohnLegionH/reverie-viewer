@@ -507,6 +507,7 @@ public sealed class WorldState : IDisposable
 
     private void ClearLocked()
     {
+        _wind = null;   // the wind of the region before is not this region's
         _hub?.ReleaseAll(this);
         _movedAway.Clear();
         _provisional.Clear();

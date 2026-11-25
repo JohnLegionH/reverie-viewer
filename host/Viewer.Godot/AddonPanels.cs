@@ -238,6 +238,65 @@ public sealed partial class AddonWindowView : BoxContainer
                 made = h;
                 break;
             }
+            case AddonSlider slider:
+            {
+                var h = new HBoxContainer();
+                var label = new Label { CustomMinimumSize = new Vector2(_row ? 0 : 70, 0) };
+                // The wheel scrolls the window: it does not move a slider passing under the pointer. The bar itself has no step: the
+                // engine counts steps from the minimum and then clamps, so a maximum off the steps could not be reached. The add-on's
+                // slider chooses the value and the bar is put where it says.
+                var bar = new HSlider
+                {
+                    Name = "slider_" + slider.Id, MinValue = slider.Min, MaxValue = slider.Max, Step = 0, Scrollable = false, FocusMode = FocusModeEnum.All,
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkCenter, CustomMinimumSize = new Vector2(_row ? 100 : 80, 16),
+                };
+                var number = new Label { Name = "number", CustomMinimumSize = new Vector2(36, 0), HorizontalAlignment = HorizontalAlignment.Right };
+                string Shown() => slider.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                void Move(double to)
+                {
+                    _host.Run(_addonId, () => slider.Slide(to));
+                    if (!GodotObject.IsInstanceValid(bar) || !GodotObject.IsInstanceValid(number))
+                        return;   // the add-on redrew its window in answer
+                    bar.SetValueNoSignal(slider.Value);
+                    number.Text = Shown();
+                }
+                bar.ValueChanged += v => { if (!_syncing) Move(v); };
+                bar.GuiInput += e =>
+                {
+                    if (!bar.Editable || e is not InputEventKey { Pressed: true } key)
+                        return;
+                    double? to = key.Keycode switch
+                    {
+                        Key.Left or Key.Down => AddonSliderSteps.Next(slider, -1),
+                        Key.Right or Key.Up => AddonSliderSteps.Next(slider, 1),
+                        Key.Home => slider.Min,
+                        Key.End => slider.Max,
+                        _ => null,
+                    };
+                    if (to is not { } next)
+                        return;
+                    bar.AcceptEvent();
+                    Move(next);
+                };
+                h.AddChild(label);
+                h.AddChild(bar);
+                h.AddChild(number);
+                made = h;
+                void Sync()
+                {
+                    _syncing = true;
+                    label.Text = slider.Text;
+                    bar.AccessibilityName = slider.Text;
+                    bar.Value = slider.Value;
+                    bar.Editable = slider.Enabled;
+                    number.Text = Shown();
+                    _syncing = false;
+                }
+                slider.Changed += Sync;
+                _unhook.Add(() => slider.Changed -= Sync);
+                Sync();
+                break;
+            }
             case AddonDropZone zone:
             {
                 var target = new AddonDropTarget(_resolve) { CustomMinimumSize = new Vector2(240, 28) };

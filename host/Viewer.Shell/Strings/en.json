@@ -1861,6 +1861,7 @@
   "addons.permission.window": "add windows and menu items",
   "addons.permission.inventory.read": "read the names and folders of your inventory",
   "addons.permission.inventory.write": "make folders and links, rename folders and move things to the Trash, inside the one folder it names",
+  "addons.permission.region.read": "see the world around you: your camera and avatar's place, the region's water, ground and wind, and the sun and sky",
   "addons.confirm.title": "Turn on an add-on",
   "addons.confirm.ok": "Turn it on",
   "addons.window.off": "This add-on is switched off. Turn it on in the Add-ons window (Me menu).",

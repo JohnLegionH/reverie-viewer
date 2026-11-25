@@ -1,12 +1,14 @@
 // Copyright (c) 2026 Legion Builds
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+using System.Numerics;
+
 namespace Viewer.Addons;
 
 /// <summary>The add-on interface this assembly describes. A manifest names the version it needs in "interface".</summary>
 public static class AddonInterface
 {
-    public const string Version = "0.5";
+    public const string Version = "0.6";
 }
 
 /// <summary>
@@ -56,8 +58,11 @@ public static class AddonPermissions
     /// <summary>(Interface 0.4, not yet public.) Hand the viewer restrictions to enforce, reply on chat channels and force a sit,
     /// a stand or a teleport: the restraint engine's side of RLV. Granted only to add-ons that come with the viewer.</summary>
     public const string Restraints = "restraints";
+    /// <summary>(Interface 0.6, not yet public.) Read the world around the person: the camera, their avatar's place, the region's
+    /// size, water, ground, wind, sun and a short summary of the sky. Granted only to add-ons that come with the viewer.</summary>
+    public const string RegionRead = "region.read";
 
-    public static IReadOnlyList<string> All { get; } = [Session, Motion, AnimationsRead, AnimationsPlay, ChatRead, ChatSend, Filter, Window, InventoryRead, InventoryWrite, Restraints];
+    public static IReadOnlyList<string> All { get; } = [Session, Motion, AnimationsRead, AnimationsPlay, ChatRead, ChatSend, Filter, Window, InventoryRead, InventoryWrite, Restraints, RegionRead];
 }
 
 /// <summary>Thrown to an add-on that uses something it was not granted. The viewer catches it and switches the add-on off.</summary>
@@ -260,6 +265,12 @@ public interface IAddonContext
     AddonDockItem? AddDockItem(string id, string label, AddonDockKind kind, string? icon = null, string? tooltip = null,
         IReadOnlyList<AddonDockMenuEntry>? menu = null) => null;
 
+    // ---- the world (interface 0.6, not yet public) ----
+
+    /// <summary>(Interface 0.6.) The world around the person, read only. Needs <see cref="AddonPermissions.RegionRead"/>, which only
+    /// add-ons that come with the viewer are granted; any other gets <see cref="AddonPermissionException"/>.</summary>
+    IAddonWorld? World => null;
+
     // ---- inventory ----
 
     /// <summary>The user's inventory, read only; null while logged out. Needs <see cref="AddonPermissions.InventoryRead"/>.</summary>
@@ -273,6 +284,48 @@ public interface IAddonContext
     /// <summary>The viewer's restraint enforcement. Needs <see cref="AddonPermissions.Restraints"/>, which only add-ons that come
     /// with the viewer are granted; any other gets <see cref="AddonPermissionException"/>.</summary>
     IAddonRestraints? Restraints => null;
+}
+
+/// <summary>(Interface 0.6.) The camera: its place in the current region's metres (x east, y north, z up), where it looks and which way is
+/// up (both unit length).</summary>
+public readonly record struct AddonCameraPose(Vector3 Position, Vector3 Forward, Vector3 Up);
+
+/// <summary>(Interface 0.6.) A short summary of the sky the person sees. <paramref name="Source"/> is where the region's day cycle came
+/// from: "region", "parcel" or "default". <paramref name="Sky"/> is the time-of-day choice in force: "region" for the region's own clock,
+/// else "sunrise", "midday", "sunset", "midnight" or "legacymidday". <paramref name="CloudShadow"/> is the sky's cloud shadow, 0 to 1.</summary>
+public sealed record AddonEnvironment(string Source, string Sky, bool Night, float CloudShadow);
+
+/// <summary>
+/// (Interface 0.6.) The world at one moment. Places are in metres from the current region's south-west corner (x east, y north, z up) and
+/// velocities in metres a second. Anything the viewer does not know yet is null. CameraUnderWater says whether the camera (the
+/// person's eye) is below the region's water height. SunDirection is a unit vector towards the sun (z below zero when it is down).
+/// </summary>
+public sealed record AddonWorldSnapshot(string RegionName, int RegionSizeX, int RegionSizeY, AddonCameraPose Camera,
+    Vector3 AgentPosition, Vector3 AgentVelocity, float? WaterHeight, bool CameraUnderWater, Vector3? SunDirection,
+    AddonEnvironment? Environment);
+
+/// <summary>
+/// (Interface 0.6.) The world around the person, read only: nothing here changes the world or sends anything to the grid. On a grid the
+/// add-on may not read (see "grids" in the manifest; Second Life needs a declaration) every read answers null and no event is raised.
+/// </summary>
+public interface IAddonWorld
+{
+    /// <summary>The world now; null while logged out or on a grid the add-on may not read.</summary>
+    AddonWorldSnapshot? Snapshot();
+
+    /// <summary>The ground's height at a place in the current region; null outside it or where the ground has not arrived.</summary>
+    float? GroundHeight(float x, float y);
+
+    /// <summary>The region's wind at a place in the current region (horizontal, metres a second); null outside it or while the region has
+    /// sent no wind.</summary>
+    Vector3? WindAt(float x, float y);
+
+    /// <summary>The person's avatar is in another region than before, by walking over a border or by teleport: the new region's name.</summary>
+    event Action<string>? RegionChanged;
+
+    /// <summary>A teleport ended, once for each, also one inside the region: the name of the region the person is in. It comes after
+    /// <see cref="RegionChanged"/> when the teleport changed regions.</summary>
+    event Action<string>? Teleported;
 }
 
 /// <summary>(Interface 0.5.) What a dock item does when clicked: runs something, or turns on and off (with a menu on its chevron).</summary>
@@ -505,6 +558,64 @@ public sealed class AddonChoice(string id) : AddonControl(id)
     public event Action<int>? Chosen;
     /// <summary>The viewer calls this when the user picks an item.</summary>
     public void Choose(int index) { _selected = index; Chosen?.Invoke(index); }
+}
+
+/// <summary>
+/// (Interface 0.6.) A slider: a number from <see cref="Min"/> to <see cref="Max"/> in steps of <see cref="Step"/> counted from
+/// <see cref="Min"/> (<see cref="Max"/> itself can always be chosen). <see cref="Value"/> starts at <see cref="Min"/> and is always a
+/// value the slider can show; a value that is not a finite number is ignored. <see cref="AddonControl.Text"/> is its label.
+/// </summary>
+public sealed class AddonSlider : AddonControl
+{
+    private double _value;
+
+    /// <summary>Throws <see cref="ArgumentException"/> unless the three numbers are finite, <paramref name="max"/> is above
+    /// <paramref name="min"/> and <paramref name="step"/> is above zero.</summary>
+    public AddonSlider(string id, double min, double max, double step = 1) : base(id)
+    {
+        if (!double.IsFinite(min) || !double.IsFinite(max) || !double.IsFinite(step) || !(max > min) || !(step > 0))
+            throw new ArgumentException($"a slider needs a finite range with max above min and a step above zero (got {min}, {max}, {step})");
+        Min = min; Max = max; Step = step; _value = min;
+    }
+
+    public double Min { get; }
+    public double Max { get; }
+    public double Step { get; }
+    public double Value
+    {
+        get => _value;
+        set
+        {
+            if (!double.IsFinite(value))
+                return;
+            _value = Nearest(value);
+            Raise();
+        }
+    }
+
+    /// <summary>Raised when the user moved the slider to another value.</summary>
+    public event Action<double>? Moved;
+
+    /// <summary>The viewer calls this as the user moves the slider.</summary>
+    public void Slide(double value)
+    {
+        if (!double.IsFinite(value) || Nearest(value) is var next && next == _value)
+            return;
+        _value = next;
+        Moved?.Invoke(next);
+    }
+
+    /// <summary>The value the slider can show that is nearest: a step counted from Min, or Max.</summary>
+    private double Nearest(double value)
+    {
+        if (value <= Min)
+            return Min;
+        if (value >= Max)
+            return Max;
+        // rounded to ten places, so that steps such as 0.1 give 0.3 and not 0.30000000000000004
+        double stepped = Math.Min(Max, Math.Round(Min + Math.Round((value - Min) / Step, MidpointRounding.AwayFromZero) * Step, 10));
+        return Max - value < Math.Abs(stepped - value) ? Max : stepped;
+    }
 }
 
 /// <summary>A one-line text box; <see cref="AddonControl.Text"/> is its label and <see cref="Value"/> what the user typed.</summary>

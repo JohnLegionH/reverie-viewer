@@ -440,10 +440,10 @@ public partial class AutomationHost : Node
                 return m.NotecardCall(action, Str(call.Body, "text"), Guid.TryParse(Str(call.Body, "id"), out var card) ? card : Guid.Empty, (int)Num(call.Body, "index", 0)) is { } notecard
                     ? AutomationReply.Ok(notecard) : AutomationReply.Error(409, "no session");
             }
-            case "addons":   // {action: list|on|off|open|rlv, id?}: the add-ons, their state and their windows; on grants an add-on's permissions as the user's confirmation does; rlv answers RLV's state (held restrictions, locked items, counts)
+            case "addons":   // {action: list|on|off|open|rlv|diagnose, id?}: the add-ons, their state and their windows; on grants an add-on's permissions as the user's confirmation does; rlv answers RLV's state (held restrictions, locked items, counts); diagnose, with id "<add-on>/<action>", answers a running add-on's own diagnostics
             {
                 string action = Str(call.Body, "action") ?? "list";
-                if (action is not ("list" or "on" or "off" or "open" or "rlv")) return AutomationReply.Error(400, "action must be list, on, off, open or rlv");
+                if (action is not ("list" or "on" or "off" or "open" or "rlv" or "diagnose")) return AutomationReply.Error(400, "action must be list, on, off, open, rlv or diagnose");
                 return m.AddonsCall(action, Str(call.Body, "id")) is { } addons ? AutomationReply.Ok(addons) : AutomationReply.Error(409, "no add-on host");
             }
             case "overrider":   // {action: state|on|off|next|previous|reload|set|make_set|animations|drop|review|review_add|review_cancel|newset, text?, seconds?}: the animation overrider (answers ids, counts and state names, never a set's name; make_set lays out a small set in the agent's own inventory; animations lists animation ids of the own inventory; drop drops ids on the set editor, "<zone>|<ids>" on one of its zones; newset makes a set named text; newset_ask presses New set with no name typed, newset_make types the asked-for name and presses Make set)

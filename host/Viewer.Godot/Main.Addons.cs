@@ -77,6 +77,14 @@ public partial class Main
 
         public string ViewerName => main._shell?.Shell.Strings.Get("brand.default") ?? "Viewer";
 
+        public AddonWorldSnapshot? ReadWorld() => main.AddonWorldNow();
+
+        public float? GroundHeight(float x, float y) =>
+            main._addonsFor is { IsEnded: false } session && main._addonsInWorld ? AddonWorldReader.GroundHeight(session.World, x, y) : null;
+
+        public System.Numerics.Vector3? WindAt(float x, float y) =>
+            main._addonsFor is { IsEnded: false } session && main._addonsInWorld ? AddonWorldReader.WindAt(session.World, x, y) : null;
+
         public void PlayLocally(Guid? animation)
         {
             // the own avatar plays it in this viewer only: it joins the region's list for the own avatar and is never sent
@@ -85,6 +93,39 @@ public partial class Main
                 scene.LocalPreview = animation is { } id ? [id] : [];
             Log.Info("addons.preview", CoreLog.F("playing", animation is not null));
         }
+    }
+
+    // the world state, and its region's epoch, that the own avatar's centre and the camera were last placed in
+    private (Viewer.Core.World.WorldState? World, int Epoch) _addonPlacedIn;
+
+    /// <summary>Whether the avatar and the camera are placed in the region the session is in now: not in the frames between a
+    /// change of region and the avatar's drawing there.</summary>
+    private bool AddonViewPlaced(ViewerSession session) =>
+        _following && ReferenceEquals(_addonPlacedIn.World, session.World) && _addonPlacedIn.Epoch == session.World.Epoch;
+
+    /// <summary>Once a frame, after the camera has followed the own avatar: the add-ons that read the world are told the region,
+    /// and any teleport that ended, only when a read in their handler answers for that region.</summary>
+    private void AddonsWorldFrame()
+    {
+        if (_addons is { } host && _addonsInWorld && _addonsFor is { IsEnded: false } session && AddonViewPlaced(session) && session.Region is { } here)
+            host.InRegion(here.Name, Viewer.Core.Map.MapMath.HandleOf(here.GridX, here.GridY));
+    }
+
+    /// <summary>The world for add-ons that read it, taken when asked (nothing is gathered while none asks): the camera and the own
+    /// avatar as they are drawn, in the anchor region's frame, and the sky as it is drawn.</summary>
+    private AddonWorldSnapshot? AddonWorldNow()
+    {
+        if (_addonsFor is not { IsEnded: false } session || !_addonsInWorld || !AddonViewPlaced(session) || _camera is not { } eye
+            || OwnAvatars?.Scene.Self is not { } self)
+            return null;
+        // the engine's axes are x east, y up, z south; the viewer's world is x east, y north, z up
+        static System.Numerics.Vector3 World(Vector3 v) => new(v.X, -v.Z, v.Y);
+        var camera = eye.GlobalTransform;
+        var view = new AddonViewpoint(World(camera.Origin), World(-camera.Basis.Z), World(camera.Basis.Y), _agentCentre,
+            _presented?.World.Avatar(self.Id)?.Velocity ?? default);
+        var sky = _presenter?.Environment?.Frame;
+        return AddonWorldReader.Read(session.World, view, sky,
+            sky is null ? null : AddonWorldReader.Summary(_presenter!.EnvironmentSource, _skyChoice, sky));
     }
 
     /// <summary>Changes to the inventory for add-ons (the host keeps each inside its own folder): folders and links are made
@@ -493,6 +534,12 @@ public partial class Main
             case "off": if (id is null || !host.SetEnabled(id, false)) return new { error = "off" }; break;
             case "open": _shell?.Shell.Floaters.Open(AddonsPanel.FloaterId); break;
             case "rlv": return RlvState();
+            case "diagnose":
+            {
+                // "<add-on id>" or "<add-on id>/<action>": what a running add-on's own diagnostics answer
+                var parts = (id ?? "").Split('/', 2);
+                return host.Diagnose(parts[0], parts.Length > 1 ? parts[1] : "state", null) ?? new { error = "diagnose" };
+            }
         }
         return new
         {

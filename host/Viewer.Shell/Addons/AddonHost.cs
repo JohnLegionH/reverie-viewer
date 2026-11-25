@@ -51,6 +51,15 @@ public interface IAddonServices
 
     /// <summary>The viewer's own name.</summary>
     string ViewerName => "Viewer";
+
+    /// <summary>The world now; null while there is none.</summary>
+    AddonWorldSnapshot? ReadWorld() => null;
+
+    /// <summary>The ground's height at a place in the current region.</summary>
+    float? GroundHeight(float x, float y) => null;
+
+    /// <summary>The region's wind at a place in the current region.</summary>
+    System.Numerics.Vector3? WindAt(float x, float y) => null;
 }
 
 /// <summary>One add-on the host knows: its manifest, where it came from, and its state.</summary>
@@ -111,6 +120,9 @@ public sealed class AddonHost : IActionVeto, IDisposable
     private MotionState _motion;
     private bool _mouselook;
     private IReadOnlyList<PlayingAnimation> _playing = [];
+    private Viewer.Core.Session.GridKind? _gridKind;     // the kind of grid logged in to
+    private (string Name, ulong Handle)? _inRegion;      // the region the avatar is in, once told
+    private int _teleports;                              // teleports ended and not yet told to the add-ons
 
     public AddonHost(IAddonServices services, CoreLog log, string? stateFile = null)
     {
@@ -474,6 +486,7 @@ public sealed class AddonHost : IActionVeto, IDisposable
         if (_loggedIn)
             return;
         _grid = grid == Viewer.Core.Session.GridKind.SecondLife ? AddonGridType.SecondLife : AddonGridType.OpenSim;
+        _gridKind = grid;
         LoggedIn();
     }
 
@@ -496,10 +509,52 @@ public sealed class AddonHost : IActionVeto, IDisposable
             return;
         _loggedIn = false;
         _grid = AddonGridType.Unknown;
+        _gridKind = null;
+        _inRegion = null;
+        _teleports = 0;
         _motion = MotionState.Unknown;
         _playing = [];
         Dispatch("logged out", c => c.RaiseLoggedOut());
     }
+
+    /// <summary>The region the avatar is in now, told each frame once the avatar and the camera are placed in it, so an add-on that
+    /// reads the world in an event reads that region. A change from a region told before is the world's RegionChanged event; any
+    /// teleport that ended is told after it. A region's name can arrive after the region does: until then another region is not
+    /// told, and a name filling in is not a change.</summary>
+    public void InRegion(string name, ulong handle)
+    {
+        if (!_loggedIn)
+            return;
+        if (_inRegion is not { } known)
+            _inRegion = (name, handle);
+        else if (known.Handle == handle && (name == known.Name || name.Length == 0 || known.Name.Length == 0))
+        {
+            if (name.Length > 0)
+                _inRegion = (name, handle);
+        }
+        else if (name.Length == 0)
+            return;
+        else
+        {
+            _inRegion = (name, handle);
+            Dispatch("world region changed", c => c.RaiseWorldRegion(name));
+        }
+        if (_inRegion is not { Name.Length: > 0 } now)
+            return;
+        for (; _teleports > 0; _teleports--)
+            Dispatch("teleported", c => c.RaiseTeleported(now.Name));
+    }
+
+    /// <summary>A teleport ended. The add-ons hear of it at the next <see cref="InRegion"/> with a named region.</summary>
+    public void TeleportArrived()
+    {
+        if (_loggedIn)
+            _teleports++;
+    }
+
+    /// <summary>Whether an add-on may read the world on the grid logged in to (its manifest's "grids").</summary>
+    internal bool MayReadWorld(AddonEntry entry) =>
+        _loggedIn && _gridKind is { } kind && Viewer.Core.Session.GridDeclaration.Allows(entry.Manifest.Grids, kind);
 
     public void RegionChanged(string region) => Dispatch("region changed", c => c.RaiseRegionChanged(region));
 
@@ -770,6 +825,7 @@ internal sealed class AddonContext(AddonHost host, AddonEntry entry) : IAddonCon
         _mouselook = null;
         _playing = null;
         _chat = null;
+        _world?.Drop();
     }
 
     /// <summary>False once the add-on is stopped (a late call does nothing); throws when the permission was not granted.</summary>
@@ -885,6 +941,53 @@ internal sealed class AddonContext(AddonHost host, AddonEntry entry) : IAddonCon
     }
 
     public IAddonInventory? Inventory => Need(AddonPermissions.InventoryRead) ? host.Services.Inventory : null;
+
+    private WorldHandle? _world;
+
+    public IAddonWorld? World
+    {
+        get
+        {
+            if (!Need(AddonPermissions.RegionRead))
+                return null;
+            if (!entry.BuiltIn)
+                throw new AddonPermissionException(AddonPermissions.RegionRead);   // not yet public: built-in add-ons only
+            return _world ??= new WorldHandle(this);
+        }
+    }
+
+    private bool ReadsWorld => !_closed && host.MayReadWorld(entry);
+
+    internal void RaiseWorldRegion(string region)
+    {
+        if (ReadsWorld)
+            _world?.RaiseRegionChanged(region);
+    }
+
+    internal void RaiseTeleported(string region)
+    {
+        if (ReadsWorld)
+            _world?.RaiseTeleported(region);
+    }
+
+    /// <summary>The world as one running add-on reads it: nothing once the add-on is stopped, while logged out, or on a grid it
+    /// may not read.</summary>
+    private sealed class WorldHandle(AddonContext owner) : IAddonWorld
+    {
+        private Action<string>? _region, _teleported;
+
+        public AddonWorldSnapshot? Snapshot() => owner.ReadsWorld ? owner.Host.Services.ReadWorld() : null;
+        public float? GroundHeight(float x, float y) => owner.ReadsWorld ? owner.Host.Services.GroundHeight(x, y) : null;
+        public System.Numerics.Vector3? WindAt(float x, float y) => owner.ReadsWorld ? owner.Host.Services.WindAt(x, y) : null;
+        public event Action<string>? RegionChanged { add => _region += value; remove => _region -= value; }
+        public event Action<string>? Teleported { add => _teleported += value; remove => _teleported -= value; }
+
+        public void RaiseRegionChanged(string region) => _region?.Invoke(region);
+        public void RaiseTeleported(string region) => _teleported?.Invoke(region);
+        public void Drop() => _region = _teleported = null;
+    }
+
+    private AddonHost Host => host;
 
     public IAddonRestraints? Restraints
     {

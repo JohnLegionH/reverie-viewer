@@ -63,6 +63,7 @@
     <None Include="..\..\addons\Viewer.Addon.Ao\add-on.json" Link="addons-ao\add-on.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The sample add-on is built on its own for users; the tests build it too, to load it as an outside add-on. -->
     <ProjectReference Include="..\..\samples\HelloAddon\HelloAddon.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\WorldSample\WorldSample.csproj" ReferenceOutputAssembly="false" />
     <Using Include="Viewer.Motion" />
   </ItemGroup>
 
