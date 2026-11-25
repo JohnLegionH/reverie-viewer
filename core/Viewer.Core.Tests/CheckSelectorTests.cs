@@ -322,6 +322,7 @@ public class CheckSelectorTests
     [InlineData("core/Viewer.Core/World/CloudNoise.cs", "environment")]
     [InlineData("core/Viewer.Core/World/WaterWaves.cs", "environment")]
     [InlineData("core/Viewer.Core/World/UnderwaterView.cs", "environment")]
+    [InlineData("host/Viewer.Godot/TestRender.Underwater.cs", "environment")]
     [InlineData("core/Viewer.Core/World/WaterPlan.cs", "environment,terrain")]
     [InlineData("core/Viewer.Core/World/Glow.cs", "avatars,objects")]
     [InlineData("core/Viewer.Core/World/GlowOccluders.cs", "objects,terrain")]

@@ -71,6 +71,23 @@ probe_sun={
 "type": "vec3",
 "value": Vector3(0.0, 0.0, 0.0)
 }
+; the water fog of see-through faces while the camera is under the water (FaceShader.UnderwaterFace); the environment layer sets them
+water_under_level={
+"type": "float",
+"value": -1000000000.0
+}
+water_under_color={
+"type": "vec3",
+"value": Vector3(0.0, 0.0, 0.0)
+}
+water_under_density={
+"type": "float",
+"value": 2.0
+}
+water_under_slant={
+"type": "float",
+"value": 1.0
+}
 
 [physics]
 

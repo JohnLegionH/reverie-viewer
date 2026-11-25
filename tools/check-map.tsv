@@ -93,7 +93,7 @@
 ^core/Viewer\.Core/Building/	build,smoke
 ^fixtures/build/	build
 # The sky, the water and the light.
-^host/Viewer\.Godot/(Main\.Environment|TestRender\.(Clouds|Haze|SunDisc|SkyCycle|WorldLight|SkinLight)|Presentation/(EnvironmentLayer|HdrTonemap|ProbeCapture))\.cs$	environment
+^host/Viewer\.Godot/(Main\.Environment|TestRender\.(Clouds|Haze|SunDisc|SkyCycle|WorldLight|SkinLight|Underwater)|Presentation/(EnvironmentLayer|HdrTonemap|ProbeCapture))\.cs$	environment
 ^fixtures/environment/	environment
 # Avatars.
 ^host/Viewer\.Godot/(Main\.(Appearance|BodyMask|Expressions)|AppearanceExample|NameTagOverlay|TestRender\.(Avatars|AppearanceUi|ArrivalProbe|AttachRoute|Attachments|BakeLook|CaptureLook|Crowd|FaceShape|MorphLook|NameTags|Proportions|Rigged[A-Za-z]*|ShapeLook|SkinNormal))\.cs$	avatars

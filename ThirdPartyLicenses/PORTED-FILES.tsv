@@ -136,6 +136,8 @@ core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	Copyright (C) 2017, Linde
 core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
 host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class3\environment\underWaterF.glsl
 host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class3/deferred/waterHazeF.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class3/deferred/hazeF.glsl
+host/Viewer.Godot/Presentation/FaceShader.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
 core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file waterF.glsl
 core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
 core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file class1/deferred/deferredUtil.glsl

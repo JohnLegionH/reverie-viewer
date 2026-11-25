@@ -126,9 +126,37 @@
  * $/LicenseInfo$
  */
 
+/**
+ * @file class1\environment\waterFogF.glsl
+ *
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2007, Linden Research, Inc.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * $/LicenseInfo$
+ */
+
 /* Adapted 2026 by Legion Builds: the LegacyBody shader code is adapted from the planar texture-coordinate generation in llface.cpp and the specular
  * normalisation (exponent 368) in pipeline.cpp, translated to C# and GLSL. The avatar shaders' lighting (ClassicGlobals, ClassicLight) is adapted from
- * calcAtmosphericVars and calcAtmosphericVarsLinear (atmosphericsFuncs.glsl) and the legacy branch of main in softenLightF.glsl (classic lighting), written in GLSL for the engine's light function. */
+ * calcAtmosphericVars and calcAtmosphericVarsLinear (atmosphericsFuncs.glsl) and the legacy branch of main in softenLightF.glsl (classic lighting), written in GLSL for the engine's light function.
+ * The water fog on a blended face seen by a camera under the water (UnderwaterFace) follows applySkyAndWaterFog and getWaterFogViewNoClip of
+ * indra/newview/app_settings/shaders/class1/environment/waterFogF.glsl (github.com/secondlife/viewer, commit e34b5c188e758b6d24b768cc44fbee459be2855c), with the
+ * 1.1 its lit alpha shaders (alphaF.glsl, materialF.glsl, pbralphaF.glsl) give a classic sky. */
 
 using System.Collections.Generic;
 using Godot;
@@ -319,7 +347,34 @@ vec3 glow_k(vec3 c, float g) { vec3 cc = max(c, vec3(0.0001)); return glow_dec(g
         if (mask) cut = "if (col.a < " + (Viewer.Core.World.AutoMask.Cutoff - 0.001953125f).ToString("0.0######", System.Globalization.CultureInfo.InvariantCulture) + ") { discard; }\n    ";
         string body = WithGlowFunctions(Body).Replace("%ALPHA%", cut + (blend ? "ALPHA = col.a;" : "")).Replace("%DIV%", blend ? "max(col.a, 0.0001)" : "1.0");
         if (classic && !fullbright) body = ClassicGlobals + ProbeView(body) + ClassicLight;
-        return "shader_type spatial;\n" + mode + (blend ? WaterCut(body) : body);
+        return "shader_type spatial;\n" + mode + (blend ? WaterCut(UnderwaterFace(body, fullbright)) : body);
+    }
+
+    /// <summary>
+    /// A blended face under the water seen by a camera under the water: its colour times what survives the way to it, plus the water fog's light
+    /// (<see cref="Viewer.Core.World.UnderwaterView.Fog"/>), as the official viewer's alpha shaders apply it. The haze pass
+    /// (<see cref="EnvironmentLayer.WaterHazeCode"/>) is drawn before see-through things, so each does this itself. water_under_level is the water's
+    /// height while the camera is under it and far below everything otherwise. A lit face under a classic sky scales the fog's light by 1.1 too.
+    /// The glow picture is left as it is.
+    /// </summary>
+    internal static string UnderwaterFace(string body, bool unshaded)
+    {
+        string classicDeclared = unshaded || body.Contains("global uniform float classic_on;", StringComparison.Ordinal) ? "" : "global uniform float classic_on;\n";
+        string declarations = "global uniform float water_under_level;\nglobal uniform vec3 water_under_color;\nglobal uniform float water_under_density;\nglobal uniform float water_under_slant;\n"
+            + classicDeclared + EnvironmentLayer.FogCode;
+        string apply = unshaded
+            ? "ALBEDO = ALBEDO * uw.y + water_under_color * uw.x;"
+            : "ALBEDO *= uw.y;\n            EMISSION = EMISSION * uw.y + water_under_color * uw.x * (classic_on > 0.5 && classic_on < 1.5 ? 1.1 : 1.0);\n            SPECULAR *= uw.y;"
+              + (body.Contains("varying vec3 spec_lin;", StringComparison.Ordinal) ? "\n            spec_lin *= uw.y;" : "");
+        string block = "    if (CAMERA_POSITION_WORLD.y < water_under_level && !(" + GlowCamera + ")) {\n"
+            + "        vec3 uw_at = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"
+            + "        if (uw_at.y <= water_under_level) {\n"
+            + "            vec3 uw_way = uw_at - CAMERA_POSITION_WORLD;\n"
+            + "            vec2 uw = under_fog(water_under_density, water_under_slant, water_under_level - CAMERA_POSITION_WORLD.y, uw_way.y / max(length(uw_way), 0.0001), length(uw_way));\n"
+            + "            " + apply + "\n        }\n    }\n";
+        int glow = body.IndexOf("    if (" + GlowCamera + ") {", StringComparison.Ordinal);
+        if (glow < 0) throw new InvalidOperationException("a face shader without its glow branch");
+        return body.Insert(glow, block).Replace("varying vec2 sl_uv;", "varying vec2 sl_uv;\n" + declarations);
     }
 
     /// <summary>
@@ -506,7 +561,7 @@ void fragment() {
         string body = alpha == Viewer.Core.World.FaceAlpha.Opaque ? pbr
             : pbr.Replace("uniform bool use_normal = false;", "uniform bool use_normal = false;\nuniform float alpha_cutoff = 0.5;")
                 .Replace("    ALBEDO = srgb_to_linear(bc.rgb) * base_factor.rgb;", "    ALBEDO = srgb_to_linear(bc.rgb) * base_factor.rgb;" + a);
-        if (alpha == Viewer.Core.World.FaceAlpha.Blend) body = WaterCut(body);
+        if (alpha == Viewer.Core.World.FaceAlpha.Blend) body = WaterCut(UnderwaterFace(body, unshaded: false));
         return new() { Code = "shader_type spatial;\n" + mode + body };
     }
 
@@ -705,7 +760,7 @@ void light() {
             .Replace("%DIV%", alpha == Viewer.Core.World.FaceAlpha.Blend ? "max(col.a, 0.0001)" : "1.0");
         if (fullbright) body = body[..body.IndexOf("float schlick(", StringComparison.Ordinal)];
         else if (classic) body = ClassicGlobals + ProbeView(ClassicLegacyLight(body));
-        if (blend) body = WaterCut(body);
+        if (blend) body = WaterCut(UnderwaterFace(body, fullbright));
         return "shader_type spatial;\n" + mode + body;
     }
 }
