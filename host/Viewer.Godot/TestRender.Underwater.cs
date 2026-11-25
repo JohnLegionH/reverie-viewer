@@ -29,6 +29,8 @@ public partial class TestRender
     private const float UwWater = 18f, UwDepth = 6f;
     /// <summary>How far a shown channel (0..1) may be from the expected one.</summary>
     private const float UwTolerance = 0.02f;
+    /// <summary>The same for the haze patches, which are one flat colour: the air haze moves them less than a fog does.</summary>
+    private const float UwHazeTolerance = 0.008f;
 
     private static float UwShown(float c) { c = Math.Clamp(c, 0f, 1f); return c <= 0.0031308f ? c * 12.92f : 1.055f * MathF.Pow(c, 1f / 2.4f) - 0.055f; }
     private static float UwLinear(float c) => c <= 0.04045f ? c / 12.92f : MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
@@ -158,7 +160,7 @@ public partial class TestRender
                 float amount = 1f - MathF.Exp(-distance * e.FogDensity);
                 return System.Numerics.Vector3.Lerp(v, fog, amount);
             }
-            var cases = new (string Name, float Elevation, float Distance, bool Above)[] { ("above the water, through the surface", 25f, 300f, true), ("under the water", -10f, 8f, false) };
+            var cases = new (string Name, float Elevation, float Distance, bool Above)[] { ("above the water, through the surface", 25f, 900f, true), ("under the water", -10f, 8f, false) };
             foreach (var c in cases)
             {
                 var direction = new Vector3(-MathF.Cos(Mathf.DegToRad(c.Elevation)), MathF.Sin(Mathf.DegToRad(c.Elevation)), 0f);
@@ -173,15 +175,15 @@ public partial class TestRender
                 var want = Displayed(c.Above ? UnderwaterView.SurfaceFromBelow(hazed, light, survives) : UnderwaterView.Haze(albedo, light, survives));
                 var wrong = Displayed(c.Above ? UnderwaterView.SurfaceFromBelow(albedo, light, survives) : UnderwaterView.Haze(hazed, light, survives));
                 float gap = UwGap(got, want), tells = UwGap(want, wrong);
-                rows.Add(new { name = c.Name, c.Distance, got = new[] { got.X, got.Y, got.Z }, want = new[] { want.X, want.Y, want.Z }, wrong = new[] { wrong.X, wrong.Y, wrong.Z }, gap, tells, pass = gap <= UwTolerance });
+                rows.Add(new { name = c.Name, c.Distance, got = new[] { got.X, got.Y, got.Z }, want = new[] { want.X, want.Y, want.Z }, wrong = new[] { wrong.X, wrong.Y, wrong.Z }, gap, tells, pass = gap <= UwHazeTolerance });
                 // the patch far above must be able to tell; the near one only under the engine's fog (the tone-mapped sky's haze is too thin at 8 m to show)
-                if ((c.Above || !hdr) && tells <= 1.5f * UwTolerance && alter is null) _failures.Add($"underwater haze, {c.Name}: the check cannot tell (with and without the air haze differ by {tells:0.000})");
-                if (gap > UwTolerance) _failures.Add($"underwater haze, {c.Name}: shown ({got.X:0.000}, {got.Y:0.000}, {got.Z:0.000}), expected ({want.X:0.000}, {want.Y:0.000}, {want.Z:0.000}); with the air haze the wrong way round ({wrong.X:0.000}, {wrong.Y:0.000}, {wrong.Z:0.000})");
+                if ((c.Above || !hdr) && tells <= 1.5f * UwHazeTolerance && alter is null) _failures.Add($"underwater haze, {c.Name}: the check cannot tell (with and without the air haze differ by {tells:0.000})");
+                if (gap > UwHazeTolerance) _failures.Add($"underwater haze, {c.Name}: shown ({got.X:0.000}, {got.Y:0.000}, {got.Z:0.000}), expected ({want.X:0.000}, {want.Y:0.000}, {want.Z:0.000}); with the air haze the wrong way round ({wrong.X:0.000}, {wrong.Y:0.000}, {wrong.Z:0.000})");
                 picture.SavePng(Path.Combine(_out, c.Above ? $"{_tag}.png" : $"{_tag}-below.png"));
                 picture.Dispose();
             }
         }
-        _result["uw"] = new { kind, hdr, tolerance = UwTolerance, rows };
+        _result["uw"] = new { kind, hdr, tolerance = kind == "haze" ? UwHazeTolerance : UwTolerance, rows };
         EnvironmentLayer.HazeOff = false;
         EnvironmentLayer.DynamicExposure = true;
         foreach (var m in made) { rig.Root.RemoveChild(m.Quad); m.Quad.Free(); m.Material.Dispose(); m.Texture.Dispose(); }

@@ -1289,14 +1289,15 @@ foreach ($be in $Backends) {
     # patches seen from under the water: see-through faces carry the water fog; what is above the water carries the sky's air haze and what is under it none
     $classic = Join-Path $repo "fixtures\environment\synthetic-environment.llsd.xml"
     $toned = Join-Path $repo "fixtures\environment\synthetic-environment-hdr.llsd.xml"
-    foreach ($u in @(@("faces", "faces", $classic), @("haze_classic", "haze", $classic), @("haze_hdr", "haze", $toned))) {
+    $thick = Join-Path $repo "fixtures\environment\shared-dusk-thick.llsd.xml"
+    foreach ($u in @(@("faces", "faces", $classic), @("haze_classic", "haze", $thick), @("haze_hdr", "haze", $toned))) {
         $tag = "underwater-$($u[0].Replace('_', '-'))-$be"
         $r = Invoke-Render $be $tag "`"--tr-fixture=$waterScene`" --tr-uw=$($u[1]) `"--tr-environment=$($u[2])`""
         $w = $r.Json.uw
         $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $w -and $w.hdr -eq ($u[0] -eq "haze_hdr")
         Add-Case "underwater_$($u[0])_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "$(($w.rows | ForEach-Object { "$($_.name): off by $([math]::Round([double]$_.gap, 3))" }) -join '; ')$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
     }
-    foreach ($u in @(@("haze_classic", $classic), @("haze_hdr", $toned))) {
+    foreach ($u in @(@("haze_classic", $thick), @("haze_hdr", $toned))) {
         $n = Invoke-Render $be "underwater-$($u[0].Replace('_', '-'))-off-$be" "`"--tr-fixture=$waterScene`" --tr-uw=haze `"--tr-environment=$($u[1])`" --tr-alter=nohaze"
         $far = @($n.Json.uw.rows | Where-Object { $_.name -like 'above*' })
         $caught = $far.Count -eq 1 -and $far[0].pass -eq $false
