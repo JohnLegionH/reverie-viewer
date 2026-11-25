@@ -494,13 +494,6 @@ public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, Direc
         _hazeMaterial.SetShaderParameter(EngineNames.FogSlant, _underSlant);
     }
 
-    /// <summary>Start-up only: shows the haze for a warm-up frame, so its pipeline is made before the first dive.</summary>
-    internal void WarmUpHaze()
-    {
-        EnsureHaze();
-        SetHazeLook();
-    }
-
     private ImageTexture? _waterBump;
     private ShaderMaterial? _waterBumpSet;
     private ImageTexture? _waterBumpRetired;

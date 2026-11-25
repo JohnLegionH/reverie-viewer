@@ -372,7 +372,6 @@ public static class PipelineWarmup
         var environment = new EnvironmentLayer(scenario, env, sun);
         var region = RegionEnvironment.Default;
         environment.Apply(region, region.SkyAt(0.3), 0f, 256, 256);
-        environment.WarmUpHaze();   // (its shader discards everything for a camera above the water: only the pipeline is made)
         await nextFrame();
         // The engine specializes every shader it draws for what the scene holds (a point light, a spot light, shadows), compiling
         // the variant the first time a frame has that mix. A region's prims bring lights in any mix, so the lights are made here
