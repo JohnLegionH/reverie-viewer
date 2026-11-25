@@ -168,6 +168,12 @@ Personal Lighting lets you change the sky yourself.
 
 The official viewer's window also has cloud and water pictures, the sun and moon, and the star brightness. Those are not in Reverie yet.
 
+## Under the water
+
+Move the camera below the surface and the view changes, as it does in the official viewer. The water's colour closes in with distance, so far things fade into it. Look up and you see the sky and the land through the moving surface. Bring the camera back above the water and the view is as before. It works on every grid, and there is nothing to switch on.
+
+See-through things under water, such as glass or soft-edged hair and plants, are not yet fogged by the water.
+
 ## About Land
 
 About Land tells you about a parcel. It is for reading. You cannot change anything in it, and land and estate tools are not in Reverie yet.
