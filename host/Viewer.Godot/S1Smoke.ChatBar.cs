@@ -174,7 +174,7 @@ public partial class S1Smoke
         int rows = 1 + box.GetLineWrapCount(0);
         if (rows <= Viewer.Shell.Chat.ChatBoxRules.MaxVisibleLines) problems.Add($"scrolled box: the text makes only {rows} rows, so nothing scrolls");
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        var image = GetViewport().GetTexture().GetImage();
+        var image = new WindowPicture(GetViewport()).Take();
         var face = (StyleBoxFlat)box.GetThemeStylebox("focus");
         var rect = box.GetGlobalRect();
         var toPixels = GetViewport().GetStretchTransform();

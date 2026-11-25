@@ -121,12 +121,12 @@ public partial class TestRender
         return _failures.Count == 0 ? 0 : 1;
     }
 
-    private ViewportTexture? _windowTexture;
+    private WindowPicture? _windowPicture;
 
     private Image Snapshot()
     {
-        _windowTexture ??= GetViewport().GetTexture();   // read once and kept (ReadBackScanTests)
-        var img = _windowTexture.GetImage();
+        _windowPicture ??= new WindowPicture(GetViewport());
+        var img = _windowPicture.Take();
         img.Convert(Image.Format.Rgba8);
         return img;
     }
