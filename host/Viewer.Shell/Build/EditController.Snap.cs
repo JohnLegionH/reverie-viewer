@@ -92,7 +92,7 @@ public sealed partial class EditController
     /// <summary>The drag's move with Snap to objects applied. <paramref name="pointer"/> is where the pointer has taken the selection and
     /// <paramref name="snapped"/> the same after grid snap: an axis that catches on an object takes its place from the pointer's own move
     /// (so a face off the grid can be reached), the other axes keep the grid's.</summary>
-    private Vector3 SnapToOthers(Vector3 pointer, Vector3 snapped, float distance, bool letGo)
+    private Vector3 SnapToOthers(Vector3 pointer, Vector3 snapped, float distance, bool letGo, float guideMargin)
     {
         _snapLines = [];
         if (!_snapToObjects || _snapScene is not { } scene)
@@ -109,7 +109,9 @@ public sealed partial class EditController
             else if (guide.Axis == 1) onGrid.Y = result.Move.Y;
             else onGrid.Z = result.Move.Z;
         }
-        _snapLines = result.Guides.SelectMany(g => ObjectSnap.Outline(g, scene.Frame)).ToArray();
+        // the guide goes round the target and the selection's box where the step leaves it
+        var moved = new SnapBox(scene.Moving.Min + onGrid, scene.Moving.Max + onGrid);
+        _snapLines = result.Guides.SelectMany(g => ObjectSnap.Outline(g, scene.Frame, moved, guideMargin)).ToArray();
         return Vector3.Transform(onGrid, scene.Frame);
     }
 }

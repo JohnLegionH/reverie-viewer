@@ -68,8 +68,13 @@ public partial class TestRender
             if (caught.Guides.Count != 1 || Math.Abs(caught.Move.X - 1f) > 0.001f)
                 _failures.Add($"the drag did not catch flush: move {caught.Move.X:F4} m with {caught.Guides.Count} guides");
             foreach (var g in caught.Guides)
-                foreach (var (a, b) in ObjectSnap.Outline(g, NQuaternion.Identity))
-                    guides.Add(new HandleLine(a, b, Manipulator.SnapGuideColour));
+            {
+                // the dragged box where the catch leaves it; the margin is the viewer's, at the picture's distance
+                var at = from + caught.Move;
+                float margin = Manipulator.Metres(Manipulator.SnapGuideMarginPixels, centre,
+                    new HandleView(centre + NVector3.Normalize(new NVector3(-0.6f, -0.8f, 0.45f)) * 8f, Mathf.DegToRad(rig.Camera.Fov), size.Y));
+                guides.AddRange(Manipulator.SnapGuideDrawing(ObjectSnap.Outline(g, NQuaternion.Identity, new SnapBox(at - box / 2, at + box / 2), margin)));
+            }
         }
 
         // a camera south-west of the box and above it, looking at it

@@ -35,6 +35,9 @@ public enum ViewerFeature
     /// <summary>The viewer statistics report posted to the region's ViewerStats capability (llviewerstats.cpp send_viewer_stats). The
     /// Third-Party Viewer Policy 2.h asks that it is not left out on Second Life; elsewhere it is not sent.</summary>
     ViewerStatistics = 6,
+
+    /// <summary>Snap to objects: a Move drag in Build catches on other objects' boxes.</summary>
+    SnapToObjects = 7,
 }
 
 /// <summary>Where a feature may run.</summary>
@@ -64,7 +67,7 @@ public static class GridPolicy
     // creator is the person. The automation interface (local, and off unless the viewer is started with --automation) is not allowed
     // on Second Life, whose bot rules (Third-Party Viewer Policy 4.a.iii) cover scripted agents; the add-on host and the restriction
     // set act only as the person could by hand. The viewer statistics report is sent where the policy asks for it (2.h) and nowhere
-    // else. This viewer's own interface sounds are not played on Second Life, where the official viewer plays the grid's sounds by
+    // else. Snap to objects only changes where the person's own drag ends, so it runs everywhere. This viewer's own interface sounds are not played on Second Life, where the official viewer plays the grid's sounds by
     // their ids and this viewer does the same; elsewhere they are the default. Each is a choice recorded here, in one place.
     private static readonly IReadOnlyDictionary<ViewerFeature, FeatureReach> Declared = new Dictionary<ViewerFeature, FeatureReach>
     {
@@ -74,6 +77,7 @@ public static class GridPolicy
         [ViewerFeature.Addons] = FeatureReach.Everywhere,
         [ViewerFeature.Restrictions] = FeatureReach.Everywhere,
         [ViewerFeature.ViewerStatistics] = FeatureReach.SecondLifeOnly,
+        [ViewerFeature.SnapToObjects] = FeatureReach.Everywhere,
     };
 
     /// <summary>The kind of grid a login address belongs to: Second Life when its host is one of Linden Lab's.</summary>

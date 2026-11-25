@@ -9,14 +9,11 @@ namespace Viewer.Godot.Presentation;
 
 /// <summary>
 /// Draws the edit tools' handles and grid: each <see cref="HandleLine"/> (region metres) becomes a thin band that faces the camera, a fixed
-/// number of pixels wide, drawn over the scene (no depth test) so the handles show through the object they move, as the official viewer's do.
+/// number of pixels wide (its own <see cref="HandleLine.Pixels"/>), drawn over the scene (no depth test) so the handles show through the object they move, as the official viewer's do.
 /// One mesh, rebuilt when the lines change. Main thread only.
 /// </summary>
 public partial class HandleOverlay : MeshInstance3D
 {
-    /// <summary>A line's width on screen, in pixels.</summary>
-    public const float LinePixels = 2.5f;
-
     private readonly ImmediateMesh _mesh = new();
 
     public HandleOverlay()
@@ -59,7 +56,7 @@ public partial class HandleOverlay : MeshInstance3D
             var side = along.Cross(toCamera);
             if (side.LengthSquared() < 1e-12f)
                 continue;
-            float half = camera.DistanceTo(mid) * Mathf.Tan(pixelAngle * LinePixels) / 2f;
+            float half = camera.DistanceTo(mid) * Mathf.Tan(pixelAngle * l.Pixels) / 2f;
             side = side.Normalized() * half;
             var c = new Color(l.Colour.X, l.Colour.Y, l.Colour.Z, l.Colour.W);
             foreach (var v in new[] { a - side, a + side, b + side, a - side, b + side, b - side })

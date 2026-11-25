@@ -518,7 +518,7 @@ the export, about 0.34 MB compressed (NLayer.dll 77 KB, NVorbis.dll 81 KB, Sharp
 ## Tabler Icons (MIT)
 
 - **Files:** `host/Viewer.Shell/Assets/Icons/*.svg`, the outline icons the interface uses, unchanged (their own comment
-  headers are kept). The viewer draws them at a 1.5 px stroke by changing the stroke width and colour in the text when it
+  headers are kept), except `restore.svg`, which is this project's own drawing and carries its own header. The viewer draws them at a 1.5 px stroke by changing the stroke width and colour in the text when it
   turns them into pictures.
 - **Source:** https://github.com/tabler/tabler-icons, release v3.24.0, `icons/outline/`.
 - **Copyright:** "Copyright (c) 2020-2024 Paweł Kuna" (the notice in the project's `LICENSE`, kept as it is in

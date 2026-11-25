@@ -562,7 +562,7 @@ public sealed partial class EditController
     /// lands on the grid along the axes being moved (the grid's own axes). With Snap to objects on, the selection's box then catches on
     /// other boxes within <paramref name="snapDistance"/> metres (never more than <see cref="ObjectSnap.MaxDistance"/>) unless
     /// <paramref name="letGo"/> is set (Alt held).</summary>
-    public bool ManipMove(Vector3 delta, float snapDistance = ObjectSnap.MaxDistance, bool letGo = false)
+    public bool ManipMove(Vector3 delta, float snapDistance = ObjectSnap.MaxDistance, bool letGo = false, float guideMargin = 0)
     {
         if (_manip is not { } starts)
             return false;
@@ -580,7 +580,7 @@ public sealed partial class EditController
                 MathF.Abs(moved.Z) > 1e-6f ? Snap.ToGrid(target.Z, 0, GridUnit, sub) : target.Z);
             delta = origin + Vector3.Transform(target, turn) - _manipPivot;
         }
-        delta = SnapToOthers(pointer, delta, snapDistance, letGo);   // after the grid, and over it on the axes that catch
+        delta = SnapToOthers(pointer, delta, snapDistance, letGo, guideMargin);   // after the grid, and over it on the axes that catch
         _manipCentre = _manipPivot + delta;
         bool any = false;
         foreach (var s in starts)

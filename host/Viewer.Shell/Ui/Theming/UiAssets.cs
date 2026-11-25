@@ -18,6 +18,7 @@ public static class UiIcons
     public const string Home = "home";
     public const string Preferences = "settings";
     public const string Minimize = "minus";
+    public const string Restore = "restore";   // our own drawing, not a Tabler icon
     public const string Close = "x";
     public const string Connection = "wifi";
     public const string Pin = "map-pin";

@@ -1594,6 +1594,8 @@
   "toolbar.unread": "{0}",
   "floater.minimize": "Minimize",
   "floater.minimize.named": "Minimize {0}",
+  "floater.restore": "Restore",
+  "floater.restore.named": "Restore {0}",
   "toolbar.unread.cap": "99+",
   "login.connecting": "Connecting to {0}",
   "login.remember": "Remember name",

@@ -361,6 +361,13 @@ public partial class ShellRoot : Control
             GetViewport().SetInputAsHandled();
             return;
         }
+        // Ctrl+W closes the focused window, while typing too; with no window open the key goes on
+        if (e is InputEventKey { Pressed: true, Echo: false } cw && ChordOf(cw) is { } closing
+            && Shell.Focus.OnWindowShortcut(closing, ModalUp?.Invoke() == true))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         // the command list's key (Ctrl+Shift+K) works while typing too, like the menus' shortcuts
         // not on the login screen: nothing is there to search before a login
         if (e is InputEventKey { Pressed: true, Echo: false } ck && !LoginShowing && CommandList is { } list && ChordOf(ck) is { } chord

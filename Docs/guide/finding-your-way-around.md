@@ -88,8 +88,8 @@ Every window has a title bar with two buttons at its right end: **Minimize** and
 
 - **Move a window.** Press on its title bar, hold the button, drag, and let go.
 - **Resize a window.** Drag one of its edges or corners. The corner at the bottom right has a small grip. Some windows cannot be resized.
-- **Minimize a window.** Press **Minimize**. The window folds up to its title bar. Press the same button to open it again.
-- **Close a window.** Press **Close**, or choose its menu entry again.
+- **Minimize a window.** Press **Minimize**. The window folds up to its title bar, and the button changes to **Restore**. Press it, or click the title bar, to open the window again.
+- **Close a window.** Press **Close**, or choose its menu entry again. **Ctrl+W** closes the window in front.
 - **Bring a window to the front.** Click it, or click its dock button.
 
 Reverie remembers where each window was and how big it was. The windows come back to the same place the next time you open them, even after you restart.

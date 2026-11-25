@@ -127,7 +127,7 @@ public partial class Main
                     lines.AddRange(Manipulator.GridLines(centre, origin, turn, e.GridUnit, e.GridExtent, e.GridOpacity));
                 }
                 if (_handleDrag is { Mode: ManipMode.Move })
-                    lines.AddRange(e.SnapLines.Select(l => new HandleLine(l.From, l.To, Manipulator.SnapGuideColour)));
+                    lines.AddRange(Manipulator.SnapGuideDrawing(e.SnapLines));
             }
         }
         _handles.Show(lines, _camera.GlobalPosition, _camera.Fov, GetViewport().GetVisibleRect().Size.Y);
@@ -174,7 +174,9 @@ public partial class Main
             d.CopySeen = true;
             e.ReadSnapTargetsAgain();
         }
-        e.ManipMove(move, MathF.Min(ObjectSnap.MaxDistance, Manipulator.Metres(ObjectSnap.MaxPixels, from + move, HandleViewNow())), alt);
+        var view = HandleViewNow();
+        e.ManipMove(move, MathF.Min(ObjectSnap.MaxDistance, Manipulator.Metres(ObjectSnap.MaxPixels, from + move, view)), alt,
+            Manipulator.Metres(Manipulator.SnapGuideMarginPixels, from + move, view));
     }
 
     private void HandleMotion(EditController e, Vector2 at, bool shift, bool alt = false)

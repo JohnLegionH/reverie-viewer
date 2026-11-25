@@ -33,6 +33,9 @@ public static class ViewerShortcuts
     /// Ctrl+Shift+K (no menu shortcut and no key binding in either), so Ctrl+K stays Camera controls as in the official viewer.</summary>
     public const string CommandList = "control|shift|K";
 
+    /// <summary>The official Close Window: it closes the focused window.</summary>
+    public const string CloseWindow = "control|W";
+
     /// <summary>Official shortcuts whose feature this viewer does not have yet: the shortcut and what it does in the official viewer.</summary>
     public static IReadOnlyList<(string Shortcut, string Feature)> NotBuilt { get; } =
     [
@@ -54,7 +57,7 @@ public static class ViewerShortcuts
         ("alt|shift|S", "Sit or stand"),
         ("alt|shift|A", "Stop animating me"),
         ("control|alt|H", "Hover height"),
-        ("control|W", "Close window"), ("control|shift|W", "Close all windows"),
+        ("control|shift|W", "Close all windows"),
         ("F1", "Help"),
         ("control|8", "Zoom in"), ("control|9", "Default zoom"), ("control|0", "Zoom out"),
         ("control|shift|1", "Statistics"),

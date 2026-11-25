@@ -9,7 +9,7 @@ namespace Viewer.Godot;
 /// <summary>
 /// One floating panel's frame, built in code from a <see cref="FloaterSpec"/>: a 24-unit title bar (dragged to move it) with a
 /// minimize and a close button only, the panel's content below, and a grip in the bottom-right corner (dragged to resize) when
-/// the spec allows it. Minimize folds the window up to its title bar; the same button, or one click on the bar, restores it at the
+/// the spec allows it. Minimize folds the window up to its title bar; the same button (which then shows restore), or one click on the bar, restores it at the
 /// size and place it had. Where it is, whether it is open and whether it is minimized belong to the <see cref="FloaterManager"/>; this only draws that and reports the pointer's drags back to it.
 /// Behaviour taken from the usual floating-window conventions, not from any viewer's layout files.
 /// </summary>
@@ -37,6 +37,8 @@ public partial class FloaterFrame : PanelContainer
     public bool Minimized => _floaters.IsMinimized(_id);
 
     private bool _shownMinimized;
+    private readonly StringTable _strings;
+    private readonly string _title;
 
     public FloaterFrame(FloaterManager floaters, FloaterSpec spec, StringTable strings)
     {
@@ -44,6 +46,8 @@ public partial class FloaterFrame : PanelContainer
         _id = spec.Id;
         Name = "floater_" + spec.Id;
         string title = strings.Get(spec.TitleKey);
+        _strings = strings;
+        _title = title;
         AccessibilityName = title;
         Visible = false;
         MouseFilter = MouseFilterEnum.Stop;
@@ -145,10 +149,20 @@ public partial class FloaterFrame : PanelContainer
         if (on == _shownMinimized)
             return;
         _shownMinimized = on;
+        FaceMinimizeButton(on);
         foreach (var child in Body.GetChildren())
             if (child is Control c && c != TitleBar)
                 c.Visible = !on;
         CustomMinimumSize = on ? new Vector2(CustomMinimumSize.X, TitleBarHeight) : _restoreMinimum;
+    }
+
+    /// <summary>The button beside close shows what a press does now: minimize, or restore on a minimized window.</summary>
+    private void FaceMinimizeButton(bool minimized)
+    {
+        var face = FloaterButtons.Minimize(minimized);
+        MinimizeButton.Icon = IconCache.Get(face.Icon, 14);
+        MinimizeButton.TooltipText = _strings.Get(face.TipKey);
+        MinimizeButton.AccessibilityName = _strings.Get(face.NameKey, _title);
     }
 
     private Vector2 _restoreMinimum;

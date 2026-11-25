@@ -24,7 +24,7 @@ public readonly record struct Handle(HandleKind Kind, int Axis = 0, int Sign = 1
 public readonly record struct HandleView(Vector3 Camera, float FovY, float ViewHeightPixels, float UiScale = 1f);
 
 /// <summary>A line of a handle's drawing, in region metres, with its colour (r, g, b, a in 0..1).</summary>
-public readonly record struct HandleLine(Vector3 From, Vector3 To, Vector4 Colour);
+public readonly record struct HandleLine(Vector3 From, Vector3 To, Vector4 Colour, float Pixels = 2.5f);
 
 /// <summary>
 /// The in-world handles of the edit tools, without an engine: their size, which part the pointer is on, and what a drag along each does. The
@@ -44,6 +44,17 @@ public static class Manipulator
     public static readonly Vector4 Red = new(1, 0.2f, 0.2f, 1), Green = new(0.2f, 1, 0.2f, 1), Blue = new(0.3f, 0.4f, 1, 1), Yellow = new(1, 1, 0.2f, 1), White = new(1, 1, 1, 0.9f);
     /// <summary>The colour of the Snap to objects guides: unlike any handle's.</summary>
     public static readonly Vector4 SnapGuideColour = new(1, 0.25f, 1, 1);
+
+    /// <summary>How far the Snap to objects guide stands out past the boxes, on screen: clear of the selection's own highlight band.</summary>
+    public const float SnapGuideMarginPixels = 20f;
+    /// <summary>The guide's widths on screen: the coloured line, and the dark edge under it that keeps it plain on any background.</summary>
+    public const float SnapGuidePixels = 5f, SnapGuideEdgePixels = 9f;
+    private static readonly Vector4 SnapGuideEdgeColour = new(0, 0, 0, 1);
+
+    /// <summary>The guide lines as they are drawn: every dark edge first, then the coloured lines over them.</summary>
+    public static IReadOnlyList<HandleLine> SnapGuideDrawing(IReadOnlyList<(Vector3 From, Vector3 To)> lines) =>
+        lines.Select(l => new HandleLine(l.From, l.To, SnapGuideEdgeColour, SnapGuideEdgePixels))
+            .Concat(lines.Select(l => new HandleLine(l.From, l.To, SnapGuideColour, SnapGuidePixels))).ToArray();
 
     /// <summary>The length in metres that shows as <paramref name="pixels"/> on screen at <paramref name="centre"/> (the official apparent-angle rule).</summary>
     public static float Metres(float pixels, Vector3 centre, HandleView v)

@@ -72,6 +72,14 @@ public sealed class InputFocus
         return _floaters.CloseFocused() ? EscapeResult.ClosedFloater : EscapeResult.None;
     }
 
+    /// <summary>Ctrl+W closes the focused window, also while one of its fields is being typed in (the official Close Window,
+    /// menu_viewer.xml, control|W). A window's close guard may refuse, and an alert that is up must be answered first. True when a
+    /// window closed.</summary>
+    public bool OnWindowShortcut(KeyChord chord, bool modalUp = false) =>
+        !modalUp && chord == CloseWindow && _floaters.CloseFocused();
+
+    private static readonly KeyChord CloseWindow = KeyChord.Parse(ViewerShortcuts.CloseWindow)!;
+
     /// <summary>The pointer went down on the world (not on any panel). True when that took the keyboard from a text field.</summary>
     public bool OnWorldPointerDown()
     {

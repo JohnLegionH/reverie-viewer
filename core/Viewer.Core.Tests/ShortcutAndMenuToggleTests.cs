@@ -85,6 +85,7 @@ public class ShortcutAndMenuToggleTests
         var wired = new HashSet<string>(ViewerShortcuts.ByEntry.Values.Select(Canonical));
         wired.UnionWith(ViewerShortcuts.FromOtherViewers.Values.Select(v => Canonical(v.Shortcut)));
         wired.Add(Canonical(ViewerShortcuts.CommandList));
+        wired.Add(Canonical(ViewerShortcuts.CloseWindow));
         foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "host"), "*.cs", SearchOption.AllDirectories)
                      .Where(f => !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)))
             foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(file), "Shortcut: \"([^\"]+)\""))

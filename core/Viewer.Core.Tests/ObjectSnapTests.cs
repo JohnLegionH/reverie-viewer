@@ -140,7 +140,7 @@ public class ObjectSnapTests
     public void A_guide_outlines_the_caught_side_of_the_target_in_the_grids_frame()
     {
         var target = new SnapBox(new(2.5f, -1, -2), new(3.5f, 1, 2));
-        var lines = ObjectSnap.Outline(new SnapGuide(0, 2.5f, SnapKind.Face, target), Z(90));
+        var lines = ObjectSnap.Outline(new SnapGuide(0, 2.5f, SnapKind.Face, target), Z(90), target, 0.1f);
         Assert.Equal(4, lines.Count);
         // in a frame turned 90 degrees the frame's x = 2.5 is the region's y = 2.5
         Assert.All(lines, l => { Assert.Equal(2.5f, l.From.Y, 3); Assert.Equal(2.5f, l.To.Y, 3); });
@@ -204,6 +204,22 @@ public class ObjectSnapTests
         Near(new(12.13f, 10, 30), r.C.ManipCentre!.Value);   // the handles go with it
         r.C.EndManip();
         Assert.Empty(r.C.SnapLines);
+    }
+
+    [Fact]
+    public void The_drags_guide_stands_out_past_both_boxes_by_the_margin_the_view_asks_for()
+    {
+        var r = Pair();
+        r.C.SnapToObjects = true;
+        Assert.True(r.C.BeginManip());
+        r.C.ManipMove(new(2.1f, 0, 0), 0.1f, false, guideMargin: 0.3f);
+        // two unit boxes meeting on a face at x = 12.63: the frame runs 0.3 m outside their 1 m cross-section
+        var ends = r.C.SnapLines.SelectMany(l => new[] { l.From, l.To }).ToArray();
+        Assert.Equal(8, ends.Length);
+        Assert.Equal(9.2f, ends.Min(p => p.Y), 3);
+        Assert.Equal(10.8f, ends.Max(p => p.Y), 3);
+        Assert.Equal(29.2f, ends.Min(p => p.Z), 3);
+        Assert.Equal(30.8f, ends.Max(p => p.Z), 3);
     }
 
     [Fact]
