@@ -374,6 +374,12 @@ public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, Direc
     /// <summary>For the test renders that check the water's colour against the flat-water formula: no ripples, no refraction offset, no glint.</summary>
     public bool WaterFlat { get; set; }
 
+    /// <summary>Test hook: the below-surface view is left out (the negative control of the underwater checks).</summary>
+    public bool UnderwaterOff { get; set; }
+
+    /// <summary>Whether the below-surface view is drawn now (the camera last given is under the water).</summary>
+    public bool UnderwaterDrawn { get; private set; }
+
     private ImageTexture? _waterBump;
     private ShaderMaterial? _waterBumpSet;
     private ImageTexture? _waterBumpRetired;

@@ -47,7 +47,7 @@ public sealed record CloudSettings(Vector3 Color, float Scale, Vector3 PosDensit
 /// default when the region sends none.
 /// </summary>
 public sealed record WaterLook(Vector3 FogColor, float FogDensity, Vector2 Wave1, Vector2 Wave2, float FresnelScale, float FresnelOffset,
-    float BlurMultiplier = 0.04f, Vector3? NormalScaleValue = null, float ScaleAbove = 0.0299f, float ScaleBelow = 0.2f, Guid? NormalMapId = null)
+    float BlurMultiplier = 0.04f, Vector3? NormalScaleValue = null, float ScaleAbove = 0.0299f, float ScaleBelow = 0.2f, Guid? NormalMapId = null, float FogMod = 0f)
 {
     /// <summary>How strongly the wave normals are tilted (the official default is 2 on every axis).</summary>
     public Vector3 NormalScale => NormalScaleValue ?? new Vector3(2f, 2f, 2f);
