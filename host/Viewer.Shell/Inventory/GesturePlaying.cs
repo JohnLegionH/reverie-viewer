@@ -123,6 +123,9 @@ public sealed class ActiveGestures(Action<GestureDocument> play, Func<int, int> 
 
     private GestureDocument[] All() { lock (_gate) return _byItem.Values.ToArray(); }
 
+    /// <summary>The active gestures' triggers (those that have one).</summary>
+    public IReadOnlyList<string> Triggers() => All().Select(g => g.Trigger).Where(t => t.Length > 0).ToArray();
+
     public string? Revise(string line)
     {
         if (GestureTriggers.Match(line, All(), pick) is not { } hit)

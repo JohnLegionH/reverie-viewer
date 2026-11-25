@@ -130,6 +130,10 @@ public partial class ShellRoot : Control
         ModalLayer.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(ModalLayer);
 
+        // the chat bar grows upward over the view, so it draws over the windows there and takes the pointer first
+        MoveChild(Chat, _floaterLayer.GetIndex());
+        Chat.HeightChanged += () => { if (IsInsideTree()) ApplyLayout(); };
+
         shell.Focus.TextReleaseRequested += () => GetViewport()?.GuiReleaseFocus();
     }
 
@@ -352,6 +356,13 @@ public partial class ShellRoot : Control
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } && ContextMenu is { IsOpen: true } menu)
         {
             menu.Dismiss();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        // Esc closes the chat bar's gesture offers first, and the typing goes on
+        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } && Chat.CompletionOpen && GetViewport().GuiGetFocusOwner() == Chat.Input)
+        {
+            Chat.CloseCompletion();
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -718,19 +729,21 @@ public partial class ShellRoot : Control
         TopBar.FitTo(size.X);   // the narrow-window rule works on the window's width in interface units
         // the old toolbar and navigation rows are gone: the dock floats, so no row is kept for them whatever the controller says
         Shell.Chrome = Shell.Chrome with { Toolbar = false, NavBar = false };
-        var needs = new BarHeights(TopBar.GetCombinedMinimumSize().Y, 0, Chat.GetCombinedMinimumSize().Y, 0);
+        // the rows are laid out for the chat bar at one line; the lines it has grown by lie over the view, so no window is moved or resized
+        float grown = Chat.ExtraHeight;
+        var needs = new BarHeights(TopBar.GetCombinedMinimumSize().Y, 0, Chat.GetCombinedMinimumSize().Y - grown, 0);
         var regions = Shell.Layout(new UiSize(size.X, size.Y), needs);
         MainArea = new Rect2(regions.Main.X, regions.Main.Y, regions.Main.W, regions.Main.H);
         Place(TopBar, regions.MenuBar);
         Place(MainView, regions.Main);
-        Place(Chat, regions.ChatBar);
+        Place(Chat, regions.ChatBar with { Y = regions.ChatBar.Y - grown, H = regions.ChatBar.H + grown });
         Chat.Visible = regions.ChatBar.H > 0;
         // the dock: centred, 14 above the bottom row (the chat bar in the world, the window's edge before), wrapping within the width
         Dock.QuickRow.Visible = Dock.QuickRow.GetChildCount() > 0;
         Dock.MaxWidth = Math.Max(ReverieTheme.DockButtonWidth + 2 * (ReverieTheme.DockPadding + 1), size.X - 2 * ReverieTheme.DockEdge);
         var dock = Dock.Fit();
         DockRows = Dock.Rows(dock.X - 2 * (ReverieTheme.DockPadding + 1));
-        float bottom = regions.ChatBar.H > 0 ? regions.ChatBar.Y : size.Y;
+        float bottom = regions.ChatBar.H > 0 ? regions.ChatBar.Y - grown : size.Y;
         Dock.Position = new Vector2(MathF.Round((size.X - dock.X) / 2), bottom - ReverieTheme.DockEdge - dock.Y);
         Dock.Size = dock;
         if (CommandList is { IsOpen: true })

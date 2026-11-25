@@ -6,6 +6,7 @@ using System.Linq;
 using Godot;
 using Viewer.Shell;
 using Viewer.Core.Session;
+using System.Collections.Generic;
 using Viewer.Shell.Chat;
 
 namespace Viewer.Godot;
@@ -67,41 +68,67 @@ public sealed partial class NavBar : PanelContainer
 }
 
 /// <summary>
-/// The chat bar above the toolbar: a line to type in, Say / Shout / Whisper, and send. It speaks into the same nearby chat as
-/// the nearby chat window (Enter says; Ctrl+Enter shouts; Shift+Enter whispers). Gestures and push-to-talk are not here
-/// because the viewer has neither yet.
+/// The chat bar above the toolbar: a box to type in, Say / Shout / Whisper, and send. It speaks into the same nearby chat as
+/// the nearby chat window (Enter says; Ctrl+Enter shouts; Shift+Enter whispers). The box grows with its wrapped text up to five
+/// lines, upward over the view; Ctrl+Up and Ctrl+Down bring back earlier lines; a line that starts with "/" offers the active
+/// gestures' triggers it begins (Tab or a click completes). Push-to-talk is not here because the viewer has none yet.
 /// </summary>
 public sealed partial class ChatBar : PanelContainer
 {
     private CommsHub? _hub;
+    private readonly StringTable _strings;
+    private readonly ChatLineHistory _history = new();
+    private readonly PanelContainer _completion;
+    private readonly VBoxContainer _offers;
+    private IReadOnlyList<string> _offered = [];
+    private string _text = "";   // the text as last accepted
+    private string? _set;        // text set in code, which is not typing
+    private int _lines = 1;
 
-    public LineEdit Input { get; }
+    public TextEdit Input { get; }
     public OptionButton Kind { get; }
     public Button SendButton { get; }
 
+    /// <summary>The active gestures' triggers, for completion.</summary>
+    public Func<IReadOnlyList<string>>? Triggers { get; set; }
+
+    /// <summary>How much taller than its one-line height the bar is now; it grows upward by this much.</summary>
+    public float ExtraHeight => (_lines - 1) * Input.GetLineHeight();
+
+    /// <summary>The number of lines the box shows.</summary>
+    public int LinesShown => _lines;
+
+    /// <summary>The bar's height changed.</summary>
+    public event Action? HeightChanged;
+
+    public bool CompletionOpen => _completion.Visible;
+
+    /// <summary>The triggers on offer, the one Tab completes first.</summary>
+    public IReadOnlyList<string> Offered => CompletionOpen ? _offered : [];
+
     public ChatBar(StringTable strings)
     {
+        _strings = strings;
         Name = "chat_bar";
         ThemeTypeVariation = UiTheme.BarPanel;
         MouseFilter = MouseFilterEnum.Stop;
         AccessibilityName = strings.Get("chatbar.title");
         var row = new HBoxContainer { Name = "chat_row" };
         AddChild(row);
-        Input = new LineEdit { Name = "input", PlaceholderText = strings.Get("chat.input.hint"), SizeFlagsHorizontal = SizeFlags.ExpandFill, MaxLength = 1023 };
-        Input.AccessibilityName = strings.Get("chat.input");
-        PlaceholderFit.Keep(Input, strings.Get("chat.input.hint"));
-        Input.TextChanged += t => _hub?.Nearby.InputChanged(t);
-        Input.FocusExited += () => _hub?.Nearby.InputLostFocus();
-        Input.GuiInput += e =>
+        Input = new TextEdit
         {
-            if (e is InputEventKey { Pressed: true, Echo: false } k && k.Keycode is Key.Enter or Key.KpEnter)
-            {
-                Submit(k.CtrlPressed ? ChatKind.Shout : k.ShiftPressed ? ChatKind.Whisper : null);
-                Input.AcceptEvent();
-            }
+            Name = "input", PlaceholderText = strings.Get("chat.input.hint"), TooltipText = strings.Get("chat.input.tip"),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, ThemeTypeVariation = UiTheme.ChatInput, WrapMode = TextEdit.LineWrappingMode.Boundary,
         };
+        Input.AccessibilityName = strings.Get("chat.input");
+        Input.TextChanged += OnTextChanged;
+        Input.FocusExited += () => _hub?.Nearby.InputLostFocus();
+        Input.FocusExited += () => Callable.From(CloseCompletionWhenLeft).CallDeferred();
+        Input.GuiInput += OnKey;   // before the box's own key handling
+        Input.Resized += () => Callable.From(Refit).CallDeferred();
+        Input.ThemeChanged += () => Callable.From(Refit).CallDeferred();
         row.AddChild(Input);
-        Kind = new OptionButton { Name = "kind" };
+        Kind = new OptionButton { Name = "kind", SizeFlagsVertical = SizeFlags.ShrinkEnd };
         Kind.AccessibilityName = strings.Get("chat.kind");
         Kind.AddItem(strings.Get("chat.kind.whisper"), (int)ChatKind.Whisper);
         Kind.AddItem(strings.Get("chat.kind.say"), (int)ChatKind.Say);
@@ -109,21 +136,31 @@ public sealed partial class ChatBar : PanelContainer
         Kind.Select(Kind.GetItemIndex((int)ChatKind.Say));
         Kind.ItemSelected += i => { if (_hub is not null) _hub.Nearby.Chosen = (ChatKind)Kind.GetItemId((int)i); };
         row.AddChild(Kind);
-        SendButton = new Button { Name = "send", Text = strings.Get("chat.send"), ThemeTypeVariation = UiTheme.PrimaryButton };
+        SendButton = new Button { Name = "send", Text = strings.Get("chat.send"), ThemeTypeVariation = UiTheme.ChatSend, SizeFlagsVertical = SizeFlags.ShrinkEnd };
         SendButton.AccessibilityName = strings.Get("chat.send");
         SendButton.Pressed += () => Submit(null);
         row.AddChild(SendButton);
+        // the offers float above the box: placed in the window's own coordinates, so the bar's layout leaves them alone
+        _completion = new PanelContainer { Name = "gesture_completion", TopLevel = true, Visible = false, ThemeTypeVariation = UiTheme.BarPanel, MouseFilter = MouseFilterEnum.Stop };
+        _offers = new VBoxContainer { Name = "offers" };
+        _completion.AddChild(_offers);
+        AddChild(_completion);
         Bind(null);
     }
 
     /// <summary>Speaks into a session's nearby chat (null: no session; the bar is off).</summary>
     public void Bind(CommsHub? hub)
     {
+        if (!ReferenceEquals(hub, _hub))
+            _history.Clear();   // another session's lines are not offered back
         _hub = hub;
         if (hub is not null)
             hub.Nearby.Chosen = (ChatKind)Kind.GetSelectedId();
+        else
+            CloseCompletion();
         Input.Editable = hub is not null;
         SendButton.Disabled = hub is null;
+        SendButton.Modulate = new Color(1, 1, 1, hub is null ? 0.45f : 1f);
     }
 
     /// <summary>Puts the keyboard in the chat line (llfloaterimnearbychat.cpp startChat): <paramref name="line"/> replaces the text when given,
@@ -134,16 +171,182 @@ public sealed partial class ChatBar : PanelContainer
             return;
         Input.GrabFocus();
         if (line is not null)
-            Input.Text = line;
-        Input.CaretColumn = Input.Text.Length;
+            SetLine(line);
+        else
+            CaretToEnd();
     }
 
     public void Submit(ChatKind? keyKind)
     {
         if (_hub is null)
             return;
-        if (_hub.Nearby.Send(Input.Text, keyKind))
-            Input.Clear();
+        string line = Input.Text;
+        CloseCompletion();
+        if (_hub.Nearby.Send(line, keyKind))
+        {
+            _history.Remember(line);
+            SetLine("");
+        }
+    }
+
+    /// <summary>Closes the gesture offers, leaving the text.</summary>
+    public void CloseCompletion()
+    {
+        _offered = [];
+        _completion.Visible = false;
+    }
+
+    /// <summary>Text put in by code: not typing, so nothing is told of it and nothing is offered.</summary>
+    private void SetLine(string line)
+    {
+        PutText(line);
+        CloseCompletion();
+    }
+
+    private void PutText(string line)
+    {
+        _text = line;
+        _set = line;
+        Input.Text = line;
+        CaretToEnd();
+        Refit();
+    }
+
+    private void CaretToEnd() => Input.SetCaretColumn(Input.GetLine(0).EnumerateRunes().Count());
+
+    private void OnTextChanged()
+    {
+        string now = Input.Text;
+        // the engine says the text changed after text set in code too, a frame later: that is not typing
+        if (_set is { } set)
+        {
+            _set = null;
+            if (set == now)
+                return;
+        }
+        var (kept, caret) = ChatBoxRules.Clean(_text, now, CaretInText());
+        if (kept != now)
+        {
+            Input.Text = kept;
+            Input.SetCaretColumn(caret);
+            _set = kept;
+        }
+        _text = kept;
+        Callable.From(Refit).CallDeferred();
+        _hub?.Nearby.InputChanged(kept);
+        Offer(kept);
+    }
+
+    /// <summary>The caret's place in the whole text, in characters (line breaks counted, before they are left out).</summary>
+    private int CaretInText()
+    {
+        int at = Input.GetCaretColumn();
+        for (int i = 0; i < Input.GetCaretLine(); i++)
+            at += Input.GetLine(i).EnumerateRunes().Count() + 1;
+        return at;
+    }
+
+    private void Refit()
+    {
+        int wrapped = 0;
+        for (int i = 0; i < Input.GetLineCount(); i++)
+            wrapped += 1 + Input.GetLineWrapCount(i);
+        int lines = ChatBoxRules.VisibleLines(wrapped);
+        float margins = Input.GetThemeStylebox("normal").GetMinimumSize().Y;
+        var height = new Vector2(0, lines * Input.GetLineHeight() + margins);
+        bool changed = lines != _lines;
+        if (Input.CustomMinimumSize != height)
+            Input.CustomMinimumSize = height;
+        _lines = lines;
+        if (wrapped <= ChatBoxRules.MaxVisibleLines)
+            Input.ScrollVertical = 0;
+        else
+            Input.AdjustViewportToCaret();
+        if (changed)
+            HeightChanged?.Invoke();
+        if (CompletionOpen)
+            Callable.From(PlaceCompletion).CallDeferred();
+    }
+
+    private void Offer(string text)
+    {
+        var matches = Input.HasFocus() && Triggers is { } triggers ? GestureCompletion.Matches(text, triggers()) : [];
+        if (matches.Count == 0)
+        {
+            CloseCompletion();
+            return;
+        }
+        _offered = matches;
+        foreach (var old in _offers.GetChildren())
+        {
+            _offers.RemoveChild(old);
+            old.QueueFree();
+        }
+        foreach (var trigger in matches)
+        {
+            var button = new Button { Text = trigger, Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None, ThemeTypeVariation = _offers.GetChildCount() == 0 ? UiTheme.PrimaryButton : UiTheme.FlatButton };
+            button.AccessibilityName = trigger;
+            button.Pressed += () => Accept(trigger);
+            _offers.AddChild(button);
+        }
+        var hint = new Label { Name = "hint", Text = _strings.Get("chat.gesture.tip"), ThemeTypeVariation = UiTheme.CaptionLabel };
+        hint.AccessibilityName = hint.Text;
+        _offers.AddChild(hint);
+        _completion.Visible = true;
+        PlaceCompletion();
+        Callable.From(PlaceCompletion).CallDeferred();
+    }
+
+    private void PlaceCompletion()
+    {
+        if (!CompletionOpen)
+            return;
+        var size = _completion.GetCombinedMinimumSize();
+        _completion.Size = size;
+        var box = Input.GetGlobalRect();
+        _completion.GlobalPosition = new Vector2(box.Position.X + (int)PanelPadding.Inner, box.Position.Y - size.Y - 2);
+    }
+
+    private void Accept(string trigger)
+    {
+        string line = GestureCompletion.Complete(Input.Text, trigger);
+        CloseCompletion();
+        PutText(line);
+        Input.GrabFocus();
+    }
+
+    private void CloseCompletionWhenLeft()
+    {
+        if (!Input.HasFocus())
+            CloseCompletion();
+    }
+
+    private void OnKey(InputEvent e)
+    {
+        if (e is not InputEventKey { Pressed: true } k)
+            return;
+        switch (k.Keycode)
+        {
+            // every Enter is taken, held ones too, so the box never starts a second line; only the first press sends
+            case Key.Enter or Key.KpEnter:
+                if (!k.Echo)
+                    Submit(k.CtrlPressed ? ChatKind.Shout : k.ShiftPressed ? ChatKind.Whisper : null);
+                break;
+            // Tab completes an offer; otherwise it moves to the next control, as in a one-line field
+            case Key.Tab when !k.CtrlPressed:
+                if (CompletionOpen && !k.ShiftPressed)
+                    Accept(_offered[0]);
+                else
+                    (k.ShiftPressed ? Input.FindPrevValidFocus() : Input.FindNextValidFocus())?.GrabFocus();
+                break;
+            case Key.Up or Key.Down when k.CtrlPressed && !k.AltPressed && !k.ShiftPressed:
+                if (Input.Editable && (k.Keycode == Key.Up ? _history.Previous(Input.Text) : _history.Next(Input.Text)) is { } line)
+                    SetLine(line);
+                break;
+            default:
+                return;
+        }
+        Input.AcceptEvent();
     }
 }
 

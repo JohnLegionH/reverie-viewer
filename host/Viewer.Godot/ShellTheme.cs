@@ -26,6 +26,8 @@ public static class UiTheme
     public const string ToolbarButton = "ToolbarButton";
     public const string ToolbarButtonActive = "ToolbarButtonActive";
     public const string BarPanel = "BarPanel";
+    public const string ChatInput = "ChatInput";
+    public const string ChatSend = "ChatSend";
     public const string TitleBarPanel = "TitleBarPanel";
     public const string FlatButton = "FlatButton";
     public const string WindowPanel = "WindowPanel";
@@ -201,6 +203,22 @@ public static class ShellTheme
         }
         theme.SetTypeVariation(UiTheme.PrimaryButton, "Button");
         FilledButton(theme, UiTheme.PrimaryButton, t, t.AccentFill, t.AccentFillText);
+        // the chat bar's line: a text area that wraps, with a one-line field's face; its text stands the shared 12 px in from the
+        // window's edge, and its top and bottom padding match the buttons beside it
+        theme.SetTypeVariation(UiTheme.ChatInput, "TextEdit");
+        foreach (var (state, edge) in new[] { ("normal", t.Border), ("focus", t.Accent), ("read_only", t.Border) })
+        {
+            var chatFace = Box(t, t.Input, edge, 6, 4);
+            chatFace.ContentMarginLeft = (int)PanelPadding.Inner;
+            theme.SetStylebox(state, UiTheme.ChatInput, chatFace);
+        }
+        theme.SetConstant("line_spacing", UiTheme.ChatInput, 2);
+        // its send button: with nothing to send to, the same button drawn at 45 % (the bar sets the strength)
+        theme.SetTypeVariation(UiTheme.ChatSend, "Button");
+        FilledButton(theme, UiTheme.ChatSend, t, t.AccentFill, t.AccentFillText);
+        theme.SetStylebox("disabled", UiTheme.ChatSend, theme.GetStylebox("normal", UiTheme.ChatSend));
+        theme.SetColor("font_disabled_color", UiTheme.ChatSend, C(t.AccentFillText));
+
         theme.SetTypeVariation(UiTheme.DangerButton, "Button");
         FilledButton(theme, UiTheme.DangerButton, t, t.DangerFill, t.AccentFillText);
         theme.SetTypeVariation(UiTheme.FlatButton, "Button");

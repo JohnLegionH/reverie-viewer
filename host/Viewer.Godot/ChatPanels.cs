@@ -126,7 +126,7 @@ public partial class NearbyChatPanel : VBoxContainer
         AddChild(TypingLabel);
 
         var row = new HBoxContainer { Name = "input_row" };
-        Input = new LineEdit { Name = "input", PlaceholderText = strings.Get("chat.input.hint"), SizeFlagsHorizontal = SizeFlags.ExpandFill, MaxLength = 1023 };
+        Input = new LineEdit { Name = "input", PlaceholderText = strings.Get("chat.window.hint"), SizeFlagsHorizontal = SizeFlags.ExpandFill, MaxLength = 1023 };
         Input.AccessibilityName = strings.Get("chat.input");
         Input.TextChanged += t => _hub?.Nearby.InputChanged(t);
         Input.FocusExited += () => _hub?.Nearby.InputLostFocus();

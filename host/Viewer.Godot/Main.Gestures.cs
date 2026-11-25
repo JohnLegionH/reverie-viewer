@@ -42,6 +42,8 @@ public partial class Main
         _gesturesFor = session;
         _gestureSet = new ActiveGestures(g => PlayGesture(session, g), pick: n => System.Random.Shared.Next(n));
         InstallGestureList();
+        if (_shell is not null)
+            _shell.Chat.Triggers = () => _gestureSet?.Triggers() ?? [];
         session.Inventory.Changed += OnGestureInventoryChanged;
         if (!_gestureOpenHooked && _inventoryPanel is not null)
         {

@@ -509,8 +509,8 @@ public partial class Main
             case "release": input.ReleaseFocus(); break;
             case "text":
                 input.Text = text ?? "";
-                input.CaretColumn = caret < 0 ? input.Text.Length : System.Math.Min(caret, input.Text.Length);
-                input.EmitSignal(LineEdit.SignalName.TextChanged, input.Text);   // setting the text in code does not say it changed, as typing does
+                input.SetCaretColumn(caret < 0 ? input.Text.Length : System.Math.Min(caret, input.Text.Length));
+                input.EmitSignal(TextEdit.SignalName.TextChanged);   // said at once, as typing does
                 break;
             case "key":
             {
@@ -527,8 +527,11 @@ public partial class Main
             movement_allowed = focus.MovementAllowedFor(arrowKey: true),
             window_focused = focus.WindowFocused,
             arrow_keys_always_move = focus.ArrowKeysAlwaysMove,
-            caret = input.CaretColumn,
+            caret = input.GetCaretColumn(),
             length = input.Text.Length,
+            lines = _shell.Chat.LinesShown,
+            height = _shell.Chat.Size.Y,
+            offered = _shell.Chat.Offered.Count,
             keys_held = _keysDown.Keys.ToArray(),
             chat_bar_visible = _shell.Chat.Visible,
         };
@@ -576,7 +579,9 @@ public partial class Main
             Tree or ItemList or Slider or SpinBox or TabBar or ScrollBar => ArrowFocusKind.List,
             _ => ArrowFocusKind.Other,
         };
-        if (!ArrowKeyRouting.TakenByAvatar(kind, k.AltPressed, focus.TextEntryActive, focus.ArrowKeysAlwaysMove, focus.MovementAllowedFor(arrowKey: true)))
+        // Ctrl+Up and Ctrl+Down in the chat bar recall earlier lines, whatever the arrow keys do otherwise
+        bool recall = owner == _shell.Chat.Input && k.CtrlPressed && !k.ShiftPressed && k.Keycode is Key.Up or Key.Down;
+        if (!ArrowKeyRouting.TakenByAvatar(kind, k.AltPressed, focus.TextEntryActive, focus.ArrowKeysAlwaysMove, focus.MovementAllowedFor(arrowKey: true), recall))
             return;
         bool typing = kind == ArrowFocusKind.TextField;
         if (k.Echo || (KeyName(k.Keycode) is { } name && MoveKey(name, k.Pressed, k.ShiftPressed, synthetic: typing, control: k.CtrlPressed)))

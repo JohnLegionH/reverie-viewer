@@ -26,9 +26,11 @@ public enum ArrowFocusKind
 /// </summary>
 public static class ArrowKeyRouting
 {
-    public static bool TakenByAvatar(ArrowFocusKind owner, bool alt, bool textEntryActive, bool arrowKeysAlwaysMove, bool movementAllowedForArrow)
+    /// <param name="recallKey">The key recalls an earlier line in the field that holds the keyboard (Ctrl+Up or Ctrl+Down in the chat bar),
+    /// so the field keeps it.</param>
+    public static bool TakenByAvatar(ArrowFocusKind owner, bool alt, bool textEntryActive, bool arrowKeysAlwaysMove, bool movementAllowedForArrow, bool recallKey = false)
     {
-        if (alt || !movementAllowedForArrow) return false;
+        if (alt || recallKey || !movementAllowedForArrow) return false;
         return owner switch
         {
             ArrowFocusKind.Button or ArrowFocusKind.Other => !textEntryActive,
