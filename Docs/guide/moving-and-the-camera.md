@@ -16,6 +16,7 @@ You need to be logged in. Keys move your avatar only while the world has the key
 | E or Page Up | Jump (when flying: go up) |
 | C or Page Down | Crouch (when flying: go down) |
 | F or Home | Fly or land |
+| Shift, held while flying | Fly faster |
 | Space | Stop moving |
 | Ctrl+R | Always run on or off |
 | M | Mouselook on or off |
@@ -64,6 +65,15 @@ Two more ways to start flying:
 - Right-click your own avatar and choose **Fly**. The same menu shows **Stop Flying** while you fly.
 
 While you fly, a **Stop Flying** button also shows at the bottom of the window. Press it to land.
+
+### Flying faster
+
+1. While you fly, hold **Shift** and move with the usual keys.
+2. Let go of **Shift** to fly at the normal speed again.
+
+Shift with **A**, **D**, **Left** or **Right** slides sideways, in flight too. If you are already turning, press Shift after the turn key and you keep turning.
+
+The region decides how fast you go. On an OpenSim region that uses the ubODE physics engine you fly about 1.6 times as fast over the ground. Going up and down is no faster. Some regions have no faster flying: there Shift does not change your speed forward or back. If Always run is on, you already fly at the faster speed. Shift does not speed up flying on Second Life.
 
 ## Sitting and standing
 

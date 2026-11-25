@@ -376,7 +376,7 @@ public partial class Main
                 {
                     "LEFT" => Key.Left, "RIGHT" => Key.Right, "UP" => Key.Up, "DOWN" => Key.Down, "PGUP" => Key.Pageup, "PGDN" => Key.Pagedown,
                     "HOME" => Key.Home, "END" => Key.End, "TAB" => Key.Tab, "DELETE" => Key.Delete, "SPACE" => Key.Space, "ENTER" => Key.Enter, "ESC" => Key.Escape, "BACKSPACE" => Key.Backspace,
-                    "." => Key.Period, "," => Key.Comma, "-" => Key.Minus,
+                    "." => Key.Period, "," => Key.Comma, "-" => Key.Minus, "SHIFT" => Key.Shift,
                     { Length: 1 } letter when letter[0] is >= 'A' and <= 'Z' or >= '0' and <= '9' => (Key)letter[0],
                     _ => Key.None,
                 };

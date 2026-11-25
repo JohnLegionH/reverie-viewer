@@ -536,6 +536,11 @@ public partial class Main : Node
         }
         // a reset of the view levels the agent's pitch only while the left button is up (llagentcamera.cpp resetView reads the button's state)
         _follow.LeftMouseDown = Input.IsMouseButtonPressed(MouseButton.Left);
+        if (_shiftFromKeyboard && !Input.IsKeyPressed(Key.Shift))   // its release went elsewhere (a menu, a dialog): one key read, only while held
+        {
+            _shiftFromKeyboard = false;
+            _driver?.Input.SetFastKey(false);
+        }
         _driver?.Frame(now, dt, _eye, _look);   // the keys turn the heading before the camera reads it
         FlushArrowTrace();
         // the own avatar of the region the agent is in, or, until that region has stated it after a crossing, of the region it came from
@@ -671,7 +676,7 @@ public partial class Main : Node
             case InputEventKey { Echo: false, Keycode: Key.Enter or Key.KpEnter or Key.KpDivide } ck when ChatKey(ck):
                 break;
             case InputEventKey k when !k.Echo && KeyName(k.Keycode != Key.None ? k.Keycode : k.PhysicalKeycode) is { } name:
-                if (!MoveKey(name, k.Pressed, k.ShiftPressed, synthetic: false, control: k.CtrlPressed))
+                if (!MoveKey(name, k.Pressed, k.ShiftPressed, synthetic: false, control: k.CtrlPressed, alt: k.AltPressed))
                     return;
                 break;
             default:
@@ -899,17 +904,25 @@ public partial class Main : Node
 
     /// <summary>A bound key went down or up: the avatar's controls take it (false: the key moves nothing). A key's release
     /// releases what its press started, whatever Shift is doing by then.</summary>
-    private bool MoveKey(string name, bool down, bool shift, bool synthetic, bool control = false)
+    private bool MoveKey(string name, bool down, bool shift, bool synthetic, bool control = false, bool alt = false)
     {
         if (_driver is null || _bindings is null) return false;
         double now = _cameraClock.Elapsed.TotalSeconds;
+        if (name == ShiftKeyName)   // the fast-flight key: bound to no movement, and the press is left for whatever else reads it
+        {
+            // a Shift typed into a text field (a capital, Shift+Enter) is the text's, also where the arrow keys still move the avatar
+            if (down && !synthetic && _shell?.Shell.Focus.TextEntryActive == true) return false;
+            _driver.Input.SetFastKey(down, synthetic);
+            _shiftFromKeyboard = down && !synthetic;
+            return false;
+        }
         if (!down)
         {
             if (!_keysDown.Remove(name, out var held)) return false;
             _driver.Input.Release(held);
             return true;
         }
-        if (!_bindings.TryCommand(name, shift, out var cmd, control, _mouseLook.Active)) return false;
+        if (!_bindings.TryCommand(name, shift, out var cmd, control, _mouseLook.Active, alt)) return false;
         if (!synthetic && !_driver.Input.Focused) return true;
         if (name is "LEFT" or "RIGHT" or "UP" or "DOWN") _arrowTrace.WorldReceived();
         _keysDown[name] = cmd;
@@ -918,12 +931,15 @@ public partial class Main : Node
         return true;
     }
 
+    private const string ShiftKeyName = "SHIFT";
+    private bool _shiftFromKeyboard;
+
     /// <summary>The bindings file's name for a key (the official viewer's key names); null for a key no binding can use.</summary>
     internal static string? KeyName(Key k) => k switch
     {
         >= Key.A and <= Key.Z => k.ToString().ToUpperInvariant(),
         Key.Left => "LEFT", Key.Right => "RIGHT", Key.Up => "UP", Key.Down => "DOWN",
-        Key.Pageup => "PGUP", Key.Pagedown => "PGDN", Key.Home => "HOME", Key.Space => "SPACE",
+        Key.Pageup => "PGUP", Key.Pagedown => "PGDN", Key.Home => "HOME", Key.Space => "SPACE", Key.Shift => ShiftKeyName,
         _ => null,
     };
 
@@ -976,6 +992,7 @@ public partial class Main : Node
             local_heading_deg = _driver?.Input.Heading is float h ? Deg(h) : (double?)null,
             controls = _driver is null ? null : "0x" + _driver.Input.Controls.ToString("x"),
             flying = _driver?.Input.Flying,
+            fast_flying = _driver?.Input.FastFlying,
             focused = _driver?.Input.Focused,
             keys_held = _keysDown.Keys.ToArray(),
             updates_sent = _driver?.Sent,
@@ -1172,6 +1189,7 @@ public partial class Main : Node
         // the render state byte: typing while the local chat input has text being typed (llagent.cpp getRenderState). Nothing in this viewer sets the
         // editing bit (no build tool), the hide-title flag (no setting) or the autopilot flag (no autopilot), so those bytes stay clear.
         _driver.StateSource = () => (Viewer.Motion.AgentRenderStates.State(_comms?.Nearby.OwnTyping ?? false, false), Viewer.Motion.AgentRenderStates.Flags(false, false));
+        _driver.Input.FastFlightAllowed = session.Allows(Viewer.Core.Session.ViewerFeature.FastFlight);
         _driver.Input.AdoptFlying(UserSettings(null).Get(Settings.FlyingAtExit));   // the saved state of the last session's end, not the region's first animations
         _driver.Input.SetFocused(_shell?.Shell.Focus.DriverFocused ?? GetWindow().HasFocus());   // not while a text field has the keyboard, unless arrow keys always move
         _driver.Input.WalkKeyPressed += _follow.ResetOrbit;   // moving puts the camera back behind the avatar, as the official viewer's does

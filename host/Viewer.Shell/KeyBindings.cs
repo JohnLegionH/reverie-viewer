@@ -51,13 +51,16 @@ public sealed class KeyBindings
         .ToDictionary(e => e.Key, e => KeyBindingTable.Route(e.Command).Move);
 
     /// <summary>The command a key (with or without Shift) is bound to. With <paramref name="control"/> held, a binding with
-    /// the Control mask is looked for first, and a key bound without it still works as before. In <paramref name="mouseLook"/> the first-person keys apply.</summary>
-    public bool TryCommand(string key, bool shift, out MoveCommand command, bool control = false, bool mouseLook = false)
+    /// the Control mask is looked for first, and a key bound without it still works as before. With Shift alone, a key with no
+    /// Shift binding keeps its plain one, as in the official viewer, where a binding applies while extra modifier keys are held
+    /// (llviewerinput.cpp, scanKey); not with <paramref name="alt"/> held too, whose chords are the camera's. In <paramref name="mouseLook"/> the first-person keys apply.</summary>
+    public bool TryCommand(string key, bool shift, out MoveCommand command, bool control = false, bool mouseLook = false, bool alt = false)
     {
         string k = key.ToUpperInvariant();
         if (control && !shift && _control.TryGetValue(k, out command)) return true;
         if (mouseLook) return FirstPerson.TryGetValue(k, out command);
-        return _map.TryGetValue((k, shift), out command);
+        if (_map.TryGetValue((k, shift), out command)) return true;
+        return shift && !control && !alt && _map.TryGetValue((k, false), out command);
     }
 
     /// <summary>Reads bindings from JSON text; null and a reason when none can be used.</summary>

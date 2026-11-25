@@ -246,6 +246,8 @@ public static class AgentHead
 /// running between key presses. Losing focus ends a temporary run. <see cref="ResendRun"/> tells the region the state
 /// again (the official viewer does after every region arrival). One deliberate difference: the official run keys clear the
 /// running state when released even with Always Run on; here Always Run keeps it.</item>
+/// <item>Fast flight (not in the official viewer): while <see cref="SetFastKey"/> holds in flight, the region is told the
+/// avatar runs, and told the state without it when the key comes up or the flight ends. No control bit changes.</item>
 /// <item>Release: a key that comes up sends nothing of its own (llviewerinput.cpp: every movement handler returns on key-up).
 /// Its bits are simply no longer set in the next update (llagent.cpp: the control bits are cleared after each update and
 /// set again by the keys still held), and the region brings the avatar to rest in its own way. No stop bit goes out for
@@ -390,6 +392,32 @@ public sealed class AgentControlInput
 
     private static bool ResetsView(MoveCommand c) => IsHorizontal(c) || c is MoveCommand.Jump or MoveCommand.Down or MoveCommand.TurnLeft or MoveCommand.TurnRight;
 
+    /// <summary>Whether the session's grid allows fast flight (the host sets it from the grid's policy); off until then.</summary>
+    public bool FastFlightAllowed { get; set; }
+    /// <summary>Whether the fast-flight key is making the flight a run now.</summary>
+    public bool FastFlying => _fastFlying;
+    private bool _fastKey, _fastFlying;
+
+    /// <summary>The fast-flight key (Shift) went down or up. While it is held in flight the region is told the avatar runs; the
+    /// official viewer gives Shift no such meaning, and a region that applies no run speed to a flight flies as usual.
+    /// A press counts only while the window has focus (or from the automation API); a release always counts.</summary>
+    public void SetFastKey(bool held, bool synthetic = false)
+    {
+        if (held && !Focused && !synthetic) return;
+        _fastKey = held;
+        UpdateFastFlight();
+    }
+
+    /// <summary>Follows a change of the key or of the fly state. A message goes out only when it changes what the region was told:
+    /// a temporary run and Always Run already say "runs".</summary>
+    private void UpdateFastFlight()
+    {
+        bool fast = _fastKey && _fly && FastFlightAllowed;
+        if (fast == _fastFlying) return;
+        _fastFlying = fast;
+        if (!_running && !_alwaysRun) WalkRunChanged?.Invoke(fast);
+    }
+
     /// <summary>The run state to tell the region (true: run) after a change; main thread.</summary>
     public event Action<bool>? WalkRunChanged;
 
@@ -399,17 +427,17 @@ public sealed class AgentControlInput
         if (on == _alwaysRun) return;
         _alwaysRun = on;
         _running = on;
-        WalkRunChanged?.Invoke(on);
+        if (!_fastFlying) WalkRunChanged?.Invoke(on);   // in a fast flight the region has been told "runs" already
     }
 
     /// <summary>Tells the region the run state again (after a region arrival): running, or Always Run.</summary>
-    public void ResendRun() => WalkRunChanged?.Invoke(_running || _alwaysRun);
+    public void ResendRun() => WalkRunChanged?.Invoke(_running || _alwaysRun || _fastFlying);
 
     private void SetRunning(bool run)
     {
         if (_running == run) return;
         _running = run;
-        WalkRunChanged?.Invoke(run);
+        if (!_fastFlying) WalkRunChanged?.Invoke(run);
     }
 
     private static bool IsRunKey(MoveCommand c) => c is MoveCommand.RunForward or MoveCommand.RunBackward or MoveCommand.RunLeft or MoveCommand.RunRight;
@@ -468,6 +496,7 @@ public sealed class AgentControlInput
         if (c == MoveCommand.ToggleFly)
         {
             _fly = !_fly;
+            UpdateFastFlight();
             WalkKeyPressed?.Invoke();
             return;
         }
@@ -499,6 +528,8 @@ public sealed class AgentControlInput
         if (focused) return;
         foreach (var h in _held.Values.ToList()) ReleasedForRun(h.Source);
         _held.Clear();
+        _fastKey = false;
+        UpdateFastFlight();
     }
 
     /// <summary>Takes the region's heading for the avatar (the first time it is placed, after a region change or a
@@ -515,7 +546,11 @@ public sealed class AgentControlInput
 
     /// <summary>Sets whether the agent flies, from outside the keys: the saved state of the last session's end at login, and off
     /// when the agent sits down.</summary>
-    public void AdoptFlying(bool flying) => _fly = flying;
+    public void AdoptFlying(bool flying)
+    {
+        _fly = flying;
+        UpdateFastFlight();
+    }
 
     /// <summary>One frame, <paramref name="dt"/> seconds after the last: turns the heading by the turn keys and returns
     /// the control bits. <paramref name="inAir"/> and <paramref name="groundSpeed"/> describe the avatar as the region
@@ -551,6 +586,7 @@ public sealed class AgentControlInput
             c |= AgentControlFlags.UpNeg | AgentControlFlags.FastUp;
             if (_fly && !inAir && groundSpeed < AutoLandSpeed) _fly = false;
         }
+        UpdateFastFlight();   // a held jump may have started a flight, a held down key ended one: told before this frame's update
         if (_held.ContainsKey(MoveCommand.Stop)) c |= AgentControlFlags.Stop;   // the stop-moving key, while it is down
         c |= _set;   // bits set from outside the keyboard last one update
         _set = 0;
