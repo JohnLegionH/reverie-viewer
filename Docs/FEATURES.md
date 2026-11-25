@@ -27,7 +27,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - Walk and turn: W A S D or the arrow keys. Shift+A or Shift+D slides sideways. E or Page Up jumps (flying: up); C or Page Down crouches (flying: down).
 - Fly or land: F or Home. Stop moving: Space.
 - Run: Ctrl+R switches always-run; tap a direction twice and hold to run (Preferences > Move & View).
-- Fly faster: hold Shift while flying; let go for normal speed. The region decides the speed: stock OpenSim with its default physics flies about 1.6 times as fast over the ground (climbing is unchanged), and a region that has no run speed for flight flies as usual. Not on Second Life.
+- Fly faster: hold Shift while flying; let go for normal speed. The region decides the speed: an OpenSim region running the ubODE physics engine flies about 1.6 times as fast over the ground (climbing is unchanged). A region with no run speed for flight, such as stock OpenSim with its default BulletSim engine, flies forward and back as usual. Not on Second Life.
 - Sit on an object or the ground (right-click > **Sit Here**), and stand up (the **Stand** button, or right-click > **Stand Up**).
 - Mouselook: M, or scroll in past the closest zoom. Esc or scroll out leaves it. Turn it off in Preferences > Move & View.
 - Camera: Alt+drag orbits and zooms, Ctrl+Alt+drag orbits, Ctrl+Alt+Shift+drag pans. Alt+click focuses on what you click. Alt with the arrow keys also moves the camera. Scroll wheel zooms. Esc resets the view. Left-drag on your own avatar turns you the way you drag (right turns right) and tilts the view up and down; left-drag on the ground steers.

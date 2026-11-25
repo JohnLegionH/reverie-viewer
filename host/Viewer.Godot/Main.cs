@@ -676,7 +676,7 @@ public partial class Main : Node
             case InputEventKey { Echo: false, Keycode: Key.Enter or Key.KpEnter or Key.KpDivide } ck when ChatKey(ck):
                 break;
             case InputEventKey k when !k.Echo && KeyName(k.Keycode != Key.None ? k.Keycode : k.PhysicalKeycode) is { } name:
-                if (!MoveKey(name, k.Pressed, k.ShiftPressed, synthetic: false, control: k.CtrlPressed))
+                if (!MoveKey(name, k.Pressed, k.ShiftPressed, synthetic: false, control: k.CtrlPressed, alt: k.AltPressed))
                     return;
                 break;
             default:
@@ -904,12 +904,14 @@ public partial class Main : Node
 
     /// <summary>A bound key went down or up: the avatar's controls take it (false: the key moves nothing). A key's release
     /// releases what its press started, whatever Shift is doing by then.</summary>
-    private bool MoveKey(string name, bool down, bool shift, bool synthetic, bool control = false)
+    private bool MoveKey(string name, bool down, bool shift, bool synthetic, bool control = false, bool alt = false)
     {
         if (_driver is null || _bindings is null) return false;
         double now = _cameraClock.Elapsed.TotalSeconds;
         if (name == ShiftKeyName)   // the fast-flight key: bound to no movement, and the press is left for whatever else reads it
         {
+            // a Shift typed into a text field (a capital, Shift+Enter) is the text's, also where the arrow keys still move the avatar
+            if (down && !synthetic && _shell?.Shell.Focus.TextEntryActive == true) return false;
             _driver.Input.SetFastKey(down, synthetic);
             _shiftFromKeyboard = down && !synthetic;
             return false;
@@ -920,7 +922,7 @@ public partial class Main : Node
             _driver.Input.Release(held);
             return true;
         }
-        if (!_bindings.TryCommand(name, shift, out var cmd, control, _mouseLook.Active)) return false;
+        if (!_bindings.TryCommand(name, shift, out var cmd, control, _mouseLook.Active, alt)) return false;
         if (!synthetic && !_driver.Input.Focused) return true;
         if (name is "LEFT" or "RIGHT" or "UP" or "DOWN") _arrowTrace.WorldReceived();
         _keysDown[name] = cmd;

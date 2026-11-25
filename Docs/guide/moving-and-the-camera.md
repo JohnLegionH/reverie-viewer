@@ -73,7 +73,7 @@ While you fly, a **Stop Flying** button also shows at the bottom of the window. 
 
 Shift with **A**, **D**, **Left** or **Right** slides sideways, in flight too. If you are already turning, press Shift after the turn key and you keep turning.
 
-The region decides how fast you go. On OpenSim with its default physics you fly about 1.6 times as fast over the ground. Going up and down is no faster. Some regions have no faster flying: there Shift does not change your speed forward or back. If Always run is on, you already fly at the faster speed. Shift does not speed up flying on Second Life.
+The region decides how fast you go. On an OpenSim region that uses the ubODE physics engine you fly about 1.6 times as fast over the ground. Going up and down is no faster. Some regions have no faster flying: there Shift does not change your speed forward or back. If Always run is on, you already fly at the faster speed. Shift does not speed up flying on Second Life.
 
 ## Sitting and standing
 

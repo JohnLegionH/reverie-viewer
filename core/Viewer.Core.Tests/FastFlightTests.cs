@@ -238,6 +238,13 @@ public class FastFlightTests
     public void A_Control_and_Shift_chord_moves_nothing(string key) =>
         Assert.False(KeyBindings.Default.TryCommand(key, shift: true, out _, control: true));
 
+    [Theory]
+    [InlineData("W")]
+    [InlineData("E")]
+    [InlineData("F")]
+    public void With_Alt_held_too_a_Shift_chord_moves_nothing(string key) =>   // Alt keys are the camera's
+        Assert.False(KeyBindings.Default.TryCommand(key, shift: true, out _, alt: true));
+
     [Fact]
     public void Fast_flight_is_declared_for_grids_other_than_Second_Life()
     {
