@@ -70,7 +70,7 @@ function Test-LiveExport([string]$Exe) {
     return $null
 }
 
-function Start-LiveViewer([string]$Sandbox, [string]$Exe, [int]$StartSeconds = 60, [int]$TimeoutSeconds = 600) {
+function Start-LiveViewer([string]$Sandbox, [string]$Exe, [int]$StartSeconds = 60, [int]$TimeoutSeconds = 600, [ValidateSet("vulkan", "d3d12")][string]$Backend = "vulkan") {
     $why = Test-LiveExport $Exe
     if ($why) {
         # refused before anything starts, and said where the run's evidence goes
@@ -86,7 +86,7 @@ function Start-LiveViewer([string]$Sandbox, [string]$Exe, [int]$StartSeconds = 6
     $appdata =Join-Path $Sandbox "appdata"; $local = Join-Path $Sandbox "localappdata"; $log = Join-Path $Sandbox "run.log"
     $script:LdProc = Start-Process -FilePath "powershell" -PassThru -WindowStyle Hidden -ArgumentList @("-NoProfile", "-File", "`"$godot`"",
         "-Exe", "`"$Exe`"", "-AppDataDir", "`"$appdata`"", "-LocalAppDataDir", "`"$local`"", "-TimeoutSeconds", "$TimeoutSeconds", "-HangSnapshotSeconds", "0",
-        "-DiagDir", "`"$Sandbox`"", "-LogFile", "`"$log`"", "-ArgLine", "`"--rendering-driver vulkan -- --automation`"")
+        "-DiagDir", "`"$Sandbox`"", "-LogFile", "`"$log`"", "-ArgLine", "`"--rendering-driver $Backend -- --automation`"")
     Write-LiveNote "viewer started through godot.ps1, pid $($script:LdProc.Id)"
     $tokDir = Join-Path $local "ReverieViewer\Automation"
     $tf = Wait-LiveUntil { @(Get-ChildItem -LiteralPath $tokDir -Filter "automation-*.json" -ErrorAction SilentlyContinue) | Select-Object -First 1 } $StartSeconds

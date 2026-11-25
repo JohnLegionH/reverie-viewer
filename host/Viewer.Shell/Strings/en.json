@@ -305,6 +305,7 @@
   "snapshot.folder.none": "The first save asks for a folder.",
   "snapshot.ready": "Picture ready: {0} by {1}.",
   "snapshot.refused": "This graphics card draws pictures up to {0} pixels a side. Choose a smaller size.",
+  "snapshot.dialog": "Answer the open question first, then press Refresh.",
   "snapshot.failed": "The picture could not be taken. Try Refresh, or a smaller size.",
   "snapshot.saved": "Saved as {0}.",
   "snapshot.save.failed": "The picture could not be saved. Choose another folder.",

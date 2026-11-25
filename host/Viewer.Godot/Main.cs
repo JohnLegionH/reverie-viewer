@@ -1246,6 +1246,7 @@ public partial class Main : Node
     {
         if (_presenter is null)
             return;
+        ReleaseSnapshot();   // a picture held for the Snapshot window does not outlive the session it shows
         _mouseLook.Leave();   // the mouse is let go and the own avatar drawn again before anything is torn down
         // Every step runs even when an earlier one throws: a skipped dispose leaves engine resources live at quit,
         // and the engine corrupts its heap when it quits with them live. The exceptions are reported and raised

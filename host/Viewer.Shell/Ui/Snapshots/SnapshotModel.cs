@@ -37,7 +37,10 @@ public static class SnapshotModel
 
     /// <summary>Writes the picture as the next numbered file (one count for both formats) and returns its path. The file is always made
     /// new: a name that is already taken is skipped, never written over.</summary>
-    public static string Save(string folder, SnapshotFormat format, byte[] bytes)
+    public static string Save(string folder, SnapshotFormat format, byte[] bytes) => Save(folder, format, file => file.Write(bytes));
+
+    /// <summary>The same, with the picture written by <paramref name="write"/>.</summary>
+    public static string Save(string folder, SnapshotFormat format, Action<Stream> write)
     {
         Directory.CreateDirectory(folder);
         var pattern = new Regex("^" + FileStem + @"_(\d{1,9})\.(png|jpg)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -49,15 +52,28 @@ public static class SnapshotModel
         while (true)
         {
             string path = Path.Combine(folder, string.Create(CultureInfo.InvariantCulture, $"{FileStem}_{next:D3}{Extension(format)}"));
+            FileStream file;
             try
             {
-                using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
-                file.Write(bytes);
-                return path;
+                file = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
             }
             catch (IOException) when (File.Exists(path) || Directory.Exists(path))
             {
                 next++;
+                continue;
+            }
+            bool written = false;
+            try
+            {
+                using (file)
+                    write(file);
+                written = true;
+                return path;
+            }
+            finally
+            {
+                if (!written)
+                    File.Delete(path);   // the half-written file this call has just made, and no other
             }
         }
     }

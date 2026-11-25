@@ -26,6 +26,7 @@ public partial class Main
 
     private SnapshotWindow? _snapshot;
     private Image? _snapshotShot;
+    private ImageTexture? _snapshotPreview;
     private WindowPicture? _snapshotWindowPicture;
     private bool _snapshotBusy;
     private bool _snapshotAgain;
@@ -76,6 +77,8 @@ public partial class Main
         _snapshotShot?.Dispose();
         _snapshotShot = null;
         _snapshot?.ShowPreview(null);
+        _snapshotPreview?.Dispose();
+        _snapshotPreview = null;
     }
 
     private void ReleaseSnapshot()
@@ -110,6 +113,11 @@ public partial class Main
             bool withInterface = window.ShowInterface.ButtonPressed;
             _snapshotPrivateBefore = SnapshotPrivateBytes();
             _snapshotVideoBefore = SnapshotVideoBytes();
+            if (!withInterface && SnapshotDialogUp())
+            {
+                window.ShowStatus(strings.Get("snapshot.dialog"));
+                return;
+            }
             var image = await TakeWindowPicture(size, withInterface);
             _snapshotPrivateAfter = SnapshotPrivateBytes();
             if (!SnapshotOpen)
@@ -119,7 +127,7 @@ public partial class Main
             }
             if (image is null)
             {
-                window.ShowStatus(strings.Get("snapshot.failed"));
+                window.ShowStatus(strings.Get(!withInterface && SnapshotDialogUp() ? "snapshot.dialog" : "snapshot.failed"));
                 return;
             }
             _snapshotShot = image;
@@ -127,7 +135,8 @@ public partial class Main
             {
                 float scale = Math.Min(1f, 480f / Math.Max(1, small.GetWidth()));
                 small.Resize(Math.Max(1, (int)(small.GetWidth() * scale)), Math.Max(1, (int)(small.GetHeight() * scale)), Image.Interpolation.Bilinear);
-                window.ShowPreview(ImageTexture.CreateFromImage(small));
+                _snapshotPreview = ImageTexture.CreateFromImage(small);
+                window.ShowPreview(_snapshotPreview);
             }
             window.ShowStatus(strings.Get("snapshot.ready", image.GetWidth(), image.GetHeight()));
             Log.Info("snapshot.captured", CoreLog.F("width", image.GetWidth()), CoreLog.F("height", image.GetHeight()), CoreLog.F("interface", withInterface),
@@ -146,11 +155,18 @@ public partial class Main
         }
     }
 
+    /// <summary>The viewer's own windows drawn inside its window (a question, a menu, a tooltip): the engine draws them over everything,
+    /// so hiding the interface's nodes does not hide them.</summary>
+    private IEnumerable<Window> SnapshotSubwindows() => GetViewport().GetEmbeddedSubwindows().Where(w => w.Visible);
+
+    /// <summary>A question is waiting for an answer. It is left alone (hiding it could answer it): no picture without the interface is taken.</summary>
+    private bool SnapshotDialogUp() => SnapshotSubwindows().Any(w => w is not Popup);
+
     /// <summary>The nodes that are interface, not world: everything drawn over the view, and the marks drawn into it (the selection
     /// outline, the chosen faces, the edit handles and floating text).</summary>
     private IEnumerable<Node> SnapshotInterfaceNodes() =>
         GetChildren().Where(n => n is CanvasItem or CanvasLayer)
-            .Concat(new Node?[] { _outline, _faceHighlight, _hoverText, _handles }.OfType<Node>());
+            .Concat(new Node?[] { _outline, _faceHighlight, _hoverText, _handles, _banWall }.OfType<Node>());
 
     private async Task<Image?> TakeWindowPicture(SnapshotSize size, bool withInterface)
     {
@@ -167,6 +183,9 @@ public partial class Main
         // run again just before each frame is drawn: some of these are shown again by their own per-frame work
         void Hide()
         {
+            if (!withInterface)
+                foreach (var popup in SnapshotSubwindows().OfType<Popup>().ToList())
+                    popup.Hide();   // a menu or tooltip, which closes on the next click anyway
             IEnumerable<Node> nodes = !withInterface ? SnapshotInterfaceNodes()
                 : _shell!.Frames.TryGetValue(SnapshotFeature.FloaterId, out var own) ? new Node[] { own } : [];
             foreach (var node in nodes)
@@ -194,6 +213,8 @@ public partial class Main
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 _snapshotVideoPeak = Math.Max(_snapshotVideoPeak, SnapshotVideoBytes());
             }
+            if (!withInterface && SnapshotDialogUp())
+                return null;   // one opened while the picture was being drawn
             var image = SnapshotView.Take();
             if (image is null || image.GetWidth() != width || image.GetHeight() != height)
             {

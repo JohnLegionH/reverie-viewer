@@ -70,6 +70,37 @@ public sealed class SnapshotTests
     }
 
     [Fact]
+    public void A_write_that_fails_is_reported_once_and_leaves_no_file()
+    {
+        string folder = NewFolder();
+        int writes = 0;
+        var thrown = Record.Exception(() => SnapshotModel.Save(folder, SnapshotFormat.Png, _ =>
+        {
+            if (++writes > 3) throw new InvalidOperationException("tried again and again");
+            throw new IOException("disk full");
+        }));
+        Assert.Equal(1, writes);
+        Assert.IsType<IOException>(thrown);
+        Assert.Empty(Directory.GetFiles(folder));
+    }
+
+    private static string Host() => File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "Main.Snapshot.cs"));
+
+    [Fact]
+    public void A_picture_without_the_interface_leaves_out_ban_lines_and_is_not_taken_under_a_dialog()
+    {
+        Assert.Contains("_hoverText, _handles, _banWall", Host());
+        Assert.Contains("GetEmbeddedSubwindows()", Host());
+    }
+
+    [Fact]
+    public void The_preview_picture_is_let_go_and_a_session_s_end_releases_the_snapshot()
+    {
+        Assert.Contains("_snapshotPreview?.Dispose()", Host());
+        Assert.Contains("ReleaseSnapshot();", File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "Main.cs")));
+    }
+
+    [Fact]
     public void A_save_never_overwrites_a_file()
     {
         string folder = NewFolder();
