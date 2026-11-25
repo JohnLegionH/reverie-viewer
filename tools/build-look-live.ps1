@@ -16,7 +16,8 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\tools\build-look-live.ps1 -Sandbox <new folder> -ShotsDir <existing folder>
 #     -Start <start location> [-Exe <development export>]
 #
-# Run it under an avatar claim, a live-test claim naming its region, a live-login claim and the pointer claim.
+# Run it under an avatar claim, a live-test claim naming its region, the pointer claim and (innermost) a live-login claim.
+# With -NoPointer only step 4 runs, in the usual off-screen test window, with no real input and no pointer claim.
 # Output: build-look-report.json in the sandbox. Exit: 0 all checks passed, 1 a check failed, 3 blocked, 5 the viewer or login did not come up.
 # =====================================================================================
 [CmdletBinding()]
@@ -28,7 +29,8 @@ param(
     [string]$GridInfoUrl = $env:NV_GRID_INFO_URL,
     [Parameter(Mandatory)][string]$Start,
     [string]$Exe = "",
-    [int]$StartSeconds = 60
+    [int]$StartSeconds = 60,
+    [switch]$NoPointer   # the Mirror notice alone: the usual off-screen test window, no real mouse or keyboard, no pointer claim
 )
 # the accounts file, the grid address and the account come from the run's settings (live.env) and the avatar claim, never from an argument
 if (-not $Credentials) { $Credentials = & "$PSScriptRoot\live-env.ps1" NV_TEST_ACCOUNTS }
@@ -39,10 +41,13 @@ Assert-ClaimGranted
 $script:port = $null; $script:token = $null; $script:proc = $null
 trap {
     Write-Output ("ERROR " + $_.Exception.GetType().Name + ": " + $_.Exception.Message); Write-Output $_.InvocationInfo.PositionMessage
+    if ($script:port -and $script:token) { try { [void](Invoke-TakeBack -Seconds 40) } catch { } }
     if ($script:port -and $script:token) { try { [void](Invoke-Raw $script:port "session" $script:token ('{"action":"logout"}')); Start-Sleep -Seconds 3; [void](Invoke-Raw $script:port "quit" $script:token) } catch { } }
     break
 }
 $godot = Join-Path $PSScriptRoot "godot.ps1"
+# the real pointer needs an ordinary window on the screen
+if (-not $NoPointer) { $env:NV_TEST_WINDOW_FULL = "1" }
 if (-not $Exe) { $Exe = Join-Path (Split-Path -Parent $PSScriptRoot) "host\Viewer.Godot\build\dev\Reverie.console.exe" }
 
 $problems = New-Object System.Collections.Generic.List[string]
@@ -102,7 +107,7 @@ function Finish([int]$code) {
 # ---- the viewer and the login ----
 $appdata = Join-Path $Sandbox "appdata"; $local = Join-Path $Sandbox "localappdata"; $log = Join-Path $Sandbox "run.log"
 $script:proc = Start-Process -FilePath "powershell" -PassThru -WindowStyle Hidden -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$godot`"",
-    "-Exe", "`"$Exe`"", "-AppDataDir", "`"$appdata`"", "-LocalAppDataDir", "`"$local`"", "-TimeoutSeconds", "600", "-FullSizeWindow", "-HangSnapshotSeconds", "0",
+    "-Exe", "`"$Exe`"", "-AppDataDir", "`"$appdata`"", "-LocalAppDataDir", "`"$local`"", "-TimeoutSeconds", "600", "-HangSnapshotSeconds", "0",
     "-DiagDir", "`"$Sandbox`"", "-LogFile", "`"$log`"", "-ArgLine", "`"--rendering-driver vulkan -- --automation`"")
 Note "viewer started through godot.ps1, pid $($script:proc.Id)"
 $tokDir = Join-Path $local "ReverieViewer\Automation"
@@ -214,6 +219,8 @@ public static class NvReal {
     [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref Point p);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int command);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(Point p);
     [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
@@ -230,12 +237,15 @@ public static class NvReal {
 }
 "@ -ReferencedAssemblies System.Drawing
 [void][NvReal]::SetProcessDPIAware()
+if (-not $NoPointer) {
 $vp = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq "Reverie.exe" -and $_.CommandLine -match "--automation" })
 if ($vp.Count -ne 1) { Note "expected one viewer process, found $($vp.Count)"; Finish 1 }
 $script:viewerPid = [uint32]$vp[0].ProcessId
 $script:hwnd = (Get-Process -Id $script:viewerPid).MainWindowHandle
+}
 function PidOf([IntPtr]$h) { $p = [uint32]0; [void][NvReal]::GetWindowThreadProcessId($h, [ref]$p); $p }
 function Front() {
+    if ([NvReal]::IsIconic($script:hwnd)) { Note "the viewer's window was minimized: restoring it"; [void][NvReal]::ShowWindow($script:hwnd, 9); Start-Sleep -Milliseconds 800 }
     if ((PidOf ([NvReal]::GetForegroundWindow())) -ne $script:viewerPid) {
         [NvReal]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [NvReal]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)   # an Alt tap lets this process hand the foreground over
         [void][NvReal]::SetForegroundWindow($script:hwnd); Start-Sleep -Milliseconds 500
@@ -264,7 +274,10 @@ function Grab([string]$name) {
 }
 function Find([string]$name) { Api "ui_sounds" @{ action = "find"; name = $name } }
 
+if (-not $NoPointer) {
 if (-not (Front)) { Note "the viewer's window could not be brought to the front: stopping"; Finish 3 }
+$first = ClientSize
+if ($first[0] -lt 640 -or $first[1] -lt 480) { Note ("the viewer's window is {0}x{1}, minimized {2}: stopping" -f $first[0], $first[1], [NvReal]::IsIconic($script:hwnd)); Finish 3 }
 # the automation's points are in the interface's own units, which an interface size or a dense screen makes larger than a pixel
 Press "B" $true; Start-Sleep -Milliseconds 1200
 $view = Find "floater_build"
@@ -272,6 +285,8 @@ if (-not $view.view_w) { Note "the view's size is not reported: stopping"; Finis
 $cs = ClientSize; $script:scaleX = $cs[0] / $view.view_w; $script:scaleY = $cs[1] / $view.view_h
 Note ("window client {0}x{1}, view {2}x{3}, view to screen {4:N3} x {5:N3}" -f $cs[0], $cs[1], $view.view_w, $view.view_h, $script:scaleX, $script:scaleY)
 Press "B" $true; Start-Sleep -Milliseconds 800
+
+}
 
 # ---- two 1 m boxes in front of the avatar, along x ----
 $me = @((Obs).self.region_position)
@@ -306,6 +321,7 @@ $ready = Wait-Until { $a = OwnObj $A; $b = OwnObj $B; if ($a -and $b -and (Near 
 Check "0 two upright 1 m boxes stand in the region" ([bool]$ready) (@((OwnObj $A), (OwnObj $B)) | ConvertTo-Json -Compress)
 if (-not $ready) { Finish 1 }
 
+if (-not $NoPointer) {
 # ---- 1. minimize and restore with the real mouse ----
 $whole = Find "floater_build"
 $min = Find "minimize"
@@ -366,6 +382,8 @@ if (-not (Front)) { throw "the viewer's window is not in front: no key sent" }
 Start-Sleep -Milliseconds 800
 $openAfter = Find "floater_build"
 Check "3 a real Ctrl+W closes the Build window" ([bool]$openBefore.found -and -not [bool]$openAfter.found) ("shown before {0}, after {1}" -f $openBefore.found, $openAfter.found)
+
+}
 
 # ---- 4. the Mirror notice with a mesh part (the engine's input path) ----
 function Open-Build() {
