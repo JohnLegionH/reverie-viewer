@@ -181,7 +181,7 @@ Snap Object XY to Grid and Use Selection for Grid are greyed until something is 
 Tick **Snap to objects** in the Placement section to make one object meet another. It is off until you tick it.
 
 - Drag a Move arrow or plane handle towards another object. When the two come close (0.25 m, or 8 pixels on screen if that is less), your selection jumps flush against its face. Edges and middles line up the same way.
-- A pink frame with a dark edge, a little larger than both objects, shows where they meet. It goes when you let go of the mouse.
+- A pink frame with a dark edge, a little larger than the smaller of the two faces, shows what was caught. It goes when you let go of the mouse.
 - Hold **Alt** while you drag to let go of the snap.
 - It works only along the directions you are dragging, and it takes the place of grid snapping on a direction that catches.
 - It goes by each object's box. A box that stands square to the grid's directions is met exactly. A turned box, a round shape or a mesh is met at the box round it, which may leave a gap.

@@ -73,10 +73,16 @@ public sealed class InputFocus
     }
 
     /// <summary>Ctrl+W closes the focused window, also while one of its fields is being typed in (the official Close Window,
-    /// menu_viewer.xml, control|W). A window's close guard may refuse, and an alert that is up must be answered first. True when a
-    /// window closed.</summary>
-    public bool OnWindowShortcut(KeyChord chord, bool modalUp = false) =>
-        !modalUp && chord == CloseWindow && _floaters.CloseFocused();
+    /// menu_viewer.xml, control|W). A window's close guard may refuse, and an alert that is up must be answered first. True when the
+    /// key was taken: a window was asked to close, whether or not it did. A key left over would reach the movement keys as a plain W
+    /// and walk the avatar while a guard's question is up.</summary>
+    public bool OnWindowShortcut(KeyChord chord, bool modalUp = false)
+    {
+        if (modalUp || chord != CloseWindow || _floaters.FocusedId is null)
+            return false;
+        _floaters.CloseFocused();
+        return true;
+    }
 
     private static readonly KeyChord CloseWindow = KeyChord.Parse(ViewerShortcuts.CloseWindow)!;
 

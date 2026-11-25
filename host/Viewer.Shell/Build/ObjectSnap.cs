@@ -95,8 +95,9 @@ public static class ObjectSnap
     }
 
     /// <summary>The guide's four lines in the region's frame: a rectangle on the plane that caught, <paramref name="margin"/> metres wider
-    /// on every side than the target box and the moved box together. Where two faces meet, their own outlines lie along both boxes'
-    /// edges; this one stands clear of both, and seen edge-on its ends still stick out past them.</summary>
+    /// on every side than the face of the moved box, or of the target box where that one is smaller (so a floor or a long wall does not
+    /// carry the frame away from the contact). A box's own outline lies along its edges; this one stands clear of them, and seen
+    /// edge-on its ends still stick out.</summary>
     public static IReadOnlyList<(Vector3 From, Vector3 To)> Outline(SnapGuide guide, Quaternion frame, SnapBox moved, float margin)
     {
         int u = guide.Axis == 0 ? 1 : 0, v = guide.Axis == 2 ? 1 : 2;
@@ -108,8 +109,9 @@ public static class ObjectSnap
             p[v] = b;
             return Vector3.Transform(new Vector3(p[0], p[1], p[2]), frame);
         }
-        var min = Vector3.Min(guide.Target.Min, moved.Min);
-        var max = Vector3.Max(guide.Target.Max, moved.Max);
+        float Area(SnapBox b) => (At(b.Max, u) - At(b.Min, u)) * (At(b.Max, v) - At(b.Min, v));
+        var round = Area(guide.Target) < Area(moved) ? guide.Target : moved;
+        var (min, max) = (round.Min, round.Max);
         float u0 = At(min, u) - margin, u1 = At(max, u) + margin, v0 = At(min, v) - margin, v1 = At(max, v) + margin;
         var c = new[] { Corner(u0, v0), Corner(u1, v0), Corner(u1, v1), Corner(u0, v1) };
         return [(c[0], c[1]), (c[1], c[2]), (c[2], c[3]), (c[3], c[0])];

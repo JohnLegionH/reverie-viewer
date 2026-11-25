@@ -49,17 +49,22 @@ public class BuildLookFixTests
     private static float[] Parts(Vector3 v) => [v.X, v.Y, v.Z];
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    public void The_guide_stands_clear_of_both_boxes_by_the_margin(int axis)
+    [InlineData(0, 3f, 1f)]    // the dragged box has the larger face: the frame goes round the target
+    [InlineData(1, 3f, 1f)]
+    [InlineData(2, 3f, 1f)]
+    [InlineData(0, 0.5f, 20f)] // a small box set against a floor or a long wall: the frame stays at the small box
+    [InlineData(1, 0.5f, 20f)]
+    [InlineData(2, 0.5f, 20f)]
+    [InlineData(2, 1f, 1f)]    // alike: round the dragged box
+    public void The_guide_stands_out_by_the_margin_round_whichever_box_has_the_smaller_face(int axis, float movedAcross, float targetAcross)
     {
-        // the dragged box is wider than its target across the contact face, so an outline of the target alone would lie inside it
         var along = axis switch { 0 => Vector3.UnitX, 1 => Vector3.UnitY, _ => Vector3.UnitZ };
-        var target = Box(along * 2f, Vector3.One);
-        var moved = Box(Vector3.Zero, along + (Vector3.One - along) * 3f);
+        var across = Vector3.One - along;
+        var target = Box(along * 2f, along + across * targetAcross);
+        var moved = Box(across * 0.1f, along + across * movedAcross);
         var lines = ObjectSnap.Outline(new SnapGuide(axis, 1.5f, SnapKind.Face, target), Quaternion.Identity, moved, 0.2f);
         Assert.Equal(4, lines.Count);
+        var round = movedAcross <= targetAcross ? moved : target;
         var ends = lines.SelectMany(l => new[] { l.From, l.To }).ToArray();
         for (int a = 0; a < 3; a++)
         {
@@ -70,8 +75,8 @@ public class BuildLookFixTests
                 Assert.Equal(1.5f, high, 3);
                 continue;
             }
-            Assert.Equal(MathF.Min(Parts(moved.Min)[a], Parts(target.Min)[a]) - 0.2f, low, 3);
-            Assert.Equal(MathF.Max(Parts(moved.Max)[a], Parts(target.Max)[a]) + 0.2f, high, 3);
+            Assert.Equal(Parts(round.Min)[a] - 0.2f, low, 3);
+            Assert.Equal(Parts(round.Max)[a] + 0.2f, high, 3);
         }
     }
 
@@ -122,12 +127,19 @@ public class BuildLookFixTests
     }
 
     [Fact]
-    public void Ctrl_W_asks_a_windows_close_guard()
+    public void Ctrl_W_with_no_window_open_is_left_for_the_world()
+    {
+        var m = new FloaterManager();
+        Assert.False(new InputFocus(m).OnWindowShortcut(CtrlW));
+    }
+
+    [Fact]
+    public void Ctrl_W_asks_a_windows_close_guard_and_keeps_the_key_when_the_guard_says_no()
     {
         var (m, f) = Windows();
         int asked = 0;
         m.SetCloseGuard("build", () => { asked++; return false; });
-        Assert.False(f.OnWindowShortcut(CtrlW));
+        Assert.True(f.OnWindowShortcut(CtrlW));
         Assert.Equal(1, asked);
         Assert.True(m.IsOpen("build"));
     }
