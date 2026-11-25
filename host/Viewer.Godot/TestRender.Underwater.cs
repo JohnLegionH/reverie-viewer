@@ -19,7 +19,7 @@ namespace Viewer.Godot;
 /// (<see cref="UnderwaterView.Fog"/>: times what survives, plus the fog's light), as the official viewer's alpha shaders apply it. Under a sky that does not take
 /// the tone-mapped path the official lit alpha shaders also scale the result by 1.1, which the patch's own colour already carries, so the fog's light is scaled too.
 /// The last patch is half transparent, over the hazed open water.
-/// "haze" (either sky): an opaque patch 300 m away above the water, looked at through the surface, must carry the sky's air haze, then be dimmed and fogged by the
+/// "haze" (either sky): an opaque patch 900 m away above the water, looked at through the surface, must carry the sky's air haze, then be dimmed and fogged by the
 /// water on the way to the surface; an opaque patch 8 m away under the water must carry the water haze and no air haze (hazeF.glsl: haze on what is above the
 /// water only). --tr-alter=nohaze leaves the air haze out (the negative control).
 /// "dive": the time of the first frames after the camera goes under, after the pipeline warm-up.
@@ -227,6 +227,7 @@ public partial class TestRender
         var above = new List<double>();
         for (int i = 0; i < 30; i++) above.Add(await Timed());
         above.Sort();
+        bool first = !KeptShaders.WaterHazeMade;   // false in a process that has been under water before
         var counters = PipelineWarmup.Counters();
         long start = Stopwatch.GetTimestamp();
         Aim(UwWater - UwDepth);
@@ -237,7 +238,7 @@ public partial class TestRender
         var compiled = new long[after.Length];
         for (int i = 0; i < after.Length; i++) compiled[i] = after[i] - counters[i];
         bool drawn = layer.UnderwaterDrawn;
-        _result["uw_dive"] = new { drawn, above_median_ms = Math.Round(above[above.Count / 2], 2), above_max_ms = Math.Round(above[^1], 2), switch_ms = Math.Round(aimMs, 2), first_ms = Math.Round(aimMs + under[0], 2), under_ms = under, pipelines = PipelineWarmup.Named(compiled) };
+        _result["uw_dive"] = new { drawn, first_dive_of_process = first, above_median_ms = Math.Round(above[above.Count / 2], 2), above_max_ms = Math.Round(above[^1], 2), switch_ms = Math.Round(aimMs, 2), first_ms = Math.Round(aimMs + under[0], 2), under_ms = under, pipelines = PipelineWarmup.Named(compiled) };
         if (!drawn) _failures.Add("first dive: the below-surface view is not drawn");
         layer.Clear();
         RemoveChild(rig.Viewport);

@@ -1305,7 +1305,9 @@ foreach ($be in $Backends) {
     }
     $d = Invoke-Render $be "underwater-dive-$be" "`"--tr-fixture=$waterScene`" --tr-uw=dive `"--tr-environment=$classic`""
     $v = $d.Json.uw_dive
-    Add-Case "underwater_dive_$be" ($(if ($d.Exit -eq 0 -and $v -and $v.drawn) { "PASS" } else { "FAIL" })) "first frame under water $($v.first_ms) ms; above the water median $($v.above_median_ms) ms, longest $($v.above_max_ms) ms; the next frames $($v.under_ms -join ', ') ms; pipelines compiled $(($v.pipelines.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ')" $d.Seconds
+    # a stall fails: the first frame under water may take 50 ms at most. Only a process that has not been under water yet times a real first
+    # dive; the detail says which it was (run it by itself with -OneProcessPerCase)
+    Add-Case "underwater_dive_$be" ($(if ($d.Exit -eq 0 -and $v -and $v.drawn -and [double]$v.first_ms -le 50) { "PASS" } else { "FAIL" })) "first dive of its process: $($v.first_dive_of_process); first frame under water $($v.first_ms) ms; above the water median $($v.above_median_ms) ms, longest $($v.above_max_ms) ms; the next frames $($v.under_ms -join ', ') ms; pipelines compiled $(($v.pipelines.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ')" $d.Seconds
 }
 }
 

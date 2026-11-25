@@ -470,9 +470,7 @@ public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, Direc
 
     /// <summary>
     /// Switches the below-surface view on or off for the camera's place: under the water height of the region it is over. Cheap when
-    /// nothing changed. A classic sky keeps the engine's fog (what is above the water, seen through the surface, keeps its haze; below
-    /// the surface the water's haze all but covers it). The tone-mapped path's haze pass is drawn after the water and would haze the
-    /// surface itself, so it is off while the view is on.
+    /// nothing changed. The air haze changes with it (<see cref="SetAirHaze"/>).
     /// </summary>
     private void UpdateUnderwater()
     {

@@ -119,6 +119,9 @@ public static class KeptShaders
     /// <summary>The haze of the view from below the water (<see cref="EnvironmentLayer.WaterHazeCode"/>).</summary>
     public static Shader WaterHaze => s_waterHaze ??= new Shader { Code = EnvironmentLayer.WaterHazeCode };
 
+    /// <summary>Whether this process has made the underwater haze shader already (a test asks, to say whether a dive it times is a first one).</summary>
+    internal static bool WaterHazeMade => s_waterHaze is not null;
+
     /// <summary>The sky shader (<see cref="EnvironmentLayer.SkyCode"/>).</summary>
     public static Shader Sky => s_sky ??= new Shader { Code = EnvironmentLayer.SkyCode };
 
