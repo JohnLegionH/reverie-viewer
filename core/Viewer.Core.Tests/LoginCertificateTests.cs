@@ -114,7 +114,7 @@ public class LoginCertificateTests
         Assert.Equal(0, trust.Count);
         Assert.Empty(server.Requests);
         Assert.False(model.Busy);
-        Assert.Contains("cancelled", model.Status);
+        Assert.Contains("canceled", model.Status);
     }
 
     [Theory]
