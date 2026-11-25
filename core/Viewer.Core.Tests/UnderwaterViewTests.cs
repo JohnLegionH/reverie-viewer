@@ -24,7 +24,8 @@
  * $/LicenseInfo$
  */
 
-// Adapted 2026 by Legion Builds: Official() below writes getWaterFogViewNoClip of waterFogF.glsl for an eye under the water in C#
+// Adapted 2026 by Legion Builds.
+// Official() below writes getWaterFogViewNoClip of waterFogF.glsl for an eye under the water in C#
 // (github.com/secondlife/viewer, commit e34b5c188e758b6d24b768cc44fbee459be2855c).
 // Copyright (c) 2026 Legion Builds
 

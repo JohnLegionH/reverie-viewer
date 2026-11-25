@@ -127,7 +127,8 @@
  * $/LicenseInfo$
  */
 
-// Adapted 2026 by Legion Builds. Ported from the Second Life Viewer (github.com/secondlife/viewer, commit
+// Adapted 2026 by Legion Builds.
+// Ported from the Second Life Viewer (github.com/secondlife/viewer, commit
 // e34b5c188e758b6d24b768cc44fbee459be2855c), written in C#:
 // UnderwaterView.EyeBelow follows LLViewerCamera::cameraUnderWater (indra/newview/llviewercamera.cpp).
 // UnderwaterView.FogDensity follows LLSettingsWater::getModifiedWaterFogDensity (indra/llinventory/llsettingswater.cpp).
