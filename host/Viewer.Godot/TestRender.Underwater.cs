@@ -32,6 +32,8 @@ public partial class TestRender
     /// <summary>The same for the haze patches, which are one flat colour: the air haze moves them less than a fog does.</summary>
     private const float UwHazeTolerance = 0.008f;
 
+    private const string Metal = "pbr metal (colour not checked)";
+
     private static float UwShown(float c) { c = Math.Clamp(c, 0f, 1f); return c <= 0.0031308f ? c * 12.92f : 1.055f * MathF.Pow(c, 1f / 2.4f) - 0.055f; }
     private static float UwLinear(float c) => c <= 0.04045f ? c / 12.92f : MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
 
@@ -106,15 +108,17 @@ public partial class TestRender
             {
                 ("fullbright", KeptShaders.Face(true, true), "tex", "tint", 1f, 1f),
                 ("lit", KeptShaders.Face(false, true), "tex", "tint", 1f, 1.1f),
-                ("pbr", KeptShaders.Pbr(false, FaceAlpha.Blend), "base_tex", "base_factor", 1f, 1.1f),
+                ("pbr glass", KeptShaders.Pbr(false, FaceAlpha.Blend), "base_tex", "base_factor", 1f, 1.1f),
+                (Metal, KeptShaders.Pbr(false, FaceAlpha.Blend), "base_tex", "base_factor", 1f, 1.1f),
                 ("material", KeptShaders.Legacy(false, FaceAlpha.Blend), "tex", "tint", 1f, 1.1f),
                 ("half transparent", KeptShaders.Face(true, true), "tex", "tint", 0.5f, 1f),
             };
             for (int i = 0; i < cases.Length; i++)
             {
                 var c = cases[i];
-                var (quad, _) = Patch(c.Shader, c.Texture, c.Tint, c.Alpha, 230, 160, 90);
-                var offset = new Vector3((i - 2) * 1.7f, -1.5f, -8f);   // right, up, ahead: below the horizon, so the half transparent patch lies over open water
+                var (quad, material) = Patch(c.Shader, c.Texture, c.Tint, c.Alpha, 230, 160, 90);
+                if (c.Texture == "base_tex") material.SetShaderParameter("metallic", c.Name == Metal ? 1f : 0f);
+                var offset = new Vector3((i - 2.5f) * 1.6f, -1.5f, -8f);   // right, up, ahead: below the horizon, so the half transparent patch lies over open water
                 var basis = rig.Camera.Transform.Basis;
                 quad.Transform = new Transform3D(basis, eye + basis * offset);
                 quad.Scale = new Vector3(1.4f, 1.4f, 1f);
@@ -135,9 +139,12 @@ public partial class TestRender
                 }
                 var want = new System.Numerics.Vector3(UwShown(wantLinear.X), UwShown(wantLinear.Y), UwShown(wantLinear.Z));
                 float gap = UwGap(got, want), tells = UwGap(bareShown, want);
-                rows.Add(new { name = c.Name, distance, got = new[] { got.X, got.Y, got.Z }, want = new[] { want.X, want.Y, want.Z }, bare = new[] { bareShown.X, bareShown.Y, bareShown.Z }, gap, pass = gap <= UwTolerance });
+                // the metallic face is not held to the official colour (see FaceShader.UnderwaterFace): its row only says it is dimmed, and how far off it is
+                bool exact = c.Name != Metal;
+                rows.Add(new { name = c.Name, distance, got = new[] { got.X, got.Y, got.Z }, want = new[] { want.X, want.Y, want.Z }, bare = new[] { bareShown.X, bareShown.Y, bareShown.Z }, gap, exact_checked = exact, pass = exact ? gap <= UwTolerance : got.X < bareShown.X - UwTolerance });
+                if (!exact && got.X >= bareShown.X - UwTolerance) _failures.Add($"underwater faces {c.Name}: not dimmed by the water ({got.X:0.000} against {bareShown.X:0.000} alone)");
                 if (tells <= 2f * UwTolerance) _failures.Add($"underwater faces {c.Name}: the check cannot tell fog from none (the patch alone is within {tells:0.000} of the expected colour)");
-                if (gap > UwTolerance) _failures.Add($"underwater faces {c.Name}: shown ({got.X:0.000}, {got.Y:0.000}, {got.Z:0.000}), the official water fog gives ({want.X:0.000}, {want.Y:0.000}, {want.Z:0.000})");
+                if (exact && gap > UwTolerance) _failures.Add($"underwater faces {c.Name}: shown ({got.X:0.000}, {got.Y:0.000}, {got.Z:0.000}), the official water fog gives ({want.X:0.000}, {want.Y:0.000}, {want.Z:0.000})");
                 if (i == 0) picture.SavePng(Path.Combine(_out, $"{_tag}.png"));
                 barePicture.Dispose(); picture.Dispose();
             }

@@ -355,7 +355,8 @@ vec3 glow_k(vec3 c, float g) { vec3 cc = max(c, vec3(0.0001)); return glow_dec(g
     /// (<see cref="Viewer.Core.World.UnderwaterView.Fog"/>), as the official viewer's alpha shaders apply it. The haze pass
     /// (<see cref="EnvironmentLayer.WaterHazeCode"/>) is drawn before see-through things, so each does this itself. water_under_level is the water's
     /// height while the camera is under it and far below everything otherwise. A lit face under a classic sky scales the fog's light by 1.1 too.
-    /// The glow picture is left as it is.
+    /// The glow picture is left as it is. The engine's reflectance of a non-metal goes with the square of SPECULAR, hence its square root. A metallic
+    /// PBR face comes out darker than the official one: the engine's own reflection terms do not go in a straight line with the face's colour.
     /// </summary>
     internal static string UnderwaterFace(string body, bool unshaded)
     {
@@ -364,7 +365,7 @@ vec3 glow_k(vec3 c, float g) { vec3 cc = max(c, vec3(0.0001)); return glow_dec(g
             + classicDeclared + EnvironmentLayer.FogCode;
         string apply = unshaded
             ? "ALBEDO = ALBEDO * uw.y + water_under_color * uw.x;"
-            : "ALBEDO *= uw.y;\n            EMISSION = EMISSION * uw.y + water_under_color * uw.x * (classic_on > 0.5 && classic_on < 1.5 ? 1.1 : 1.0);\n            SPECULAR *= uw.y;"
+            : "ALBEDO *= uw.y;\n            EMISSION = EMISSION * uw.y + water_under_color * uw.x * (classic_on > 0.5 && classic_on < 1.5 ? 1.1 : 1.0);\n            SPECULAR *= sqrt(uw.y);"
               + (body.Contains("varying vec3 spec_lin;", StringComparison.Ordinal) ? "\n            spec_lin *= uw.y;" : "");
         string block = "    if (CAMERA_POSITION_WORLD.y < water_under_level && !(" + GlowCamera + ")) {\n"
             + "        vec3 uw_at = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"
