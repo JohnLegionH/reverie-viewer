@@ -38,6 +38,7 @@ public class WindowPlacesWiringTests
         ["ModelPanels.cs"] = "FileDialog",
         ["PreferencesPanels.cs"] = "FileDialog",
         ["PreferencePages.cs"] = "FileDialog",
+        ["SnapshotWindow.cs"] = "FileDialog",   // the folder chooser of Save to disk
         ["AddonPanels.cs"] = "ConfirmationDialog",
         ["Main.Music.cs"] = "ConfirmationDialog",   // the question asked once per site: play its parcel music or not
     };

@@ -471,6 +471,8 @@ case "windows":   // {action: state|open|move|resize|close, name?, x?, y?, w?, h
                     ? AutomationReply.Ok(windows) : AutomationReply.Error(409, "no shell");
             case "inventory_view":   // {action: state|sort|suitcase|pointer|pointer_live|move_pick|move_drop|move_where|noais, sort?, item?, folder?}: the inventory window's sort as shown and kept, a sort chosen as a click does; suitcase: a made-up suitcase folder opened and closed while it is read again and again (before a login only); noais: the inventory on a grid without the inventory API, by real input, folder = the test name (development builds only)
                 return await m.InventoryViewCall(Str(call.Body, "action") ?? "state", Str(call.Body, "sort"), Str(call.Body, "item"), Str(call.Body, "folder")) is { } invView ? AutomationReply.Ok(invView) : AutomationReply.Error(409, "no shell");
+            case "snapshot":   // {action: state|choose_folder, text?}: what the Snapshot window holds; choose_folder answers its folder question (development builds only)
+                return AutomationReply.Ok(m.SnapshotCall(Str(call.Body, "action") ?? "state", Str(call.Body, "text")));
             case "interface_size":   // {percent}: the interface size as Preferences > Interface sets it, 75 to 200 (development builds only)
                 return AutomationReply.Ok(m.InterfaceSizeCall((int)Num(call.Body, "percent", 100)));
             case "open_window":   // {name?}: opens a window of the shell by its id or title (Preferences included); without a name, lists the ids

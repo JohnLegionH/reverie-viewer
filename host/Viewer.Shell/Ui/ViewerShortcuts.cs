@@ -26,6 +26,7 @@ public static class ViewerShortcuts
         ["world.minimap"] = "control|shift|M",                   // Mini-map
         ["me.gestures"] = "control|G",                           // Gestures... (the Avatar menu)
         ["world.home"] = "control|shift|H",                      // Teleport home
+        ["world.snapshot"] = "control|shift|S",                  // Snapshot (the World menu)
         ["build.upload.model"] = "control|alt|U",                // Upload model
     };
 
@@ -41,7 +42,6 @@ public static class ViewerShortcuts
     [
         ("control|F", "Search"),
         ("control|K", "Camera controls"),
-        ("control|shift|S", "Snapshot"),
         ("control|grave", "Snapshot to disk"),
         ("control|5", "Land tool"),
         ("control|shift|I", "New inventory window"),

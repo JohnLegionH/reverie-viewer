@@ -89,6 +89,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - About Land: **World > About Land**, or right-click the ground.
 - Region and parcel sky settings, terrain, water, prims, sculpties, mesh, glow, projected lights and the neighbouring regions are drawn as the grid sends them.
 - Other people are drawn as the official viewer draws them: a person appears once their look has arrived (about three seconds after it is complete), the parts of their body their outfit hides (alpha layers, a mesh body) are never drawn, and the last finished look stays while a new one arrives. When someone leaves, what they wear goes with them instead of coming off piece by piece.
+- Snapshots: **World > Snapshot** (Ctrl+Shift+S) takes a picture and **Save to disk** keeps it as a numbered PNG or JPEG file (quality 1 to 100). Size: the window's own, or 1920×1080 up to 7680×4320 (a size the graphics card cannot draw is refused). The interface is left out unless **Show interface** is ticked. The first save asks for a folder and remembers it (offered: Reverie in your Pictures folder); no file is ever written over. Saving to the inventory or a profile, e-mail, filters and 360 pictures are not there yet.
 - Parcel ban lines (a wall at the edge of a parcel that refuses you; no setting for it yet) and region restart notices (with the Region restart sound).
 
 ## Settings and add-ons
@@ -121,6 +122,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 | Ctrl+M | World map |
 | Ctrl+Shift+M | Mini-map |
 | Ctrl+Shift+H | Go home |
+| Ctrl+Shift+S | Snapshot |
 | Ctrl+Shift+O, Y, T, N, Z | Sunrise, Midday, Midday (Legacy), Sunset, Midnight |
 | F9 | Next environment choice (an active gesture on F9 wins) |
 | Ctrl+B | Build mode |
@@ -150,7 +152,7 @@ Every key is listed in the [keyboard shortcuts](guide/keyboard-shortcuts.md) sec
 
 Things people coming from other viewers look for. They are not in this preview:
 
-- Snapshots; search; a places list and a teleport history window (Back works).
+- Snapshots to the inventory or a profile, photo mode, filters and 360 pictures; search; a places list and a teleport history window (Back works).
 - Profiles; a list of people nearby; paying or giving items to people; groups beyond chat, notices and your active group.
 - Land, parcel and estate tools; the Land build tool; the object weights window (Reverie shows the land impact only).
 - Saved chat logs; away and do-not-disturb replies; emoji, spell check and translation.

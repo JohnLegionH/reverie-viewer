@@ -138,6 +138,7 @@ public sealed partial class ChatBar : PanelContainer
             Name = "input", PlaceholderText = strings.Get("chat.input.hint"), TooltipText = strings.Get("chat.input.tip"),
             SizeFlagsHorizontal = SizeFlags.ExpandFill, ThemeTypeVariation = UiTheme.ChatInput, WrapMode = TextEdit.LineWrappingMode.Boundary,
             CaretMultiple = false,   // one caret, as a one-line field has
+            CaretBlink = true,   // the cursor blinks while the box has the keyboard, as a text field's does
         };
         Input.AccessibilityName = strings.Get("chat.input");
         Input.TextChanged += OnTextChanged;

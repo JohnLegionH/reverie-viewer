@@ -56,7 +56,7 @@ public partial class TestRender
         "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue",
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
-        "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "about", "licences", "login-dialog",
+        "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -230,6 +230,18 @@ public partial class TestRender
         shell.Shell.Floaters.Open(ScriptQueueWindow.FloaterId);
     }
 
+    /// <summary>The Snapshot window with an example picture and a folder already chosen. No session or grid.</summary>
+    private static void ExampleSnapshot(ShellRoot shell)
+    {
+        var settings = new SettingsService(null);
+        settings.Set(Settings.SnapshotFileFormat, 1);   // JPEG, so the quality row is in the picture
+        var window = SnapshotFeature.Install(shell, settings);
+        shell.Shell.Floaters.Open(SnapshotFeature.FloaterId);
+        window.ShowPreview(Backdrop());
+        window.ShowFolder("Pictures/Reverie");
+        window.ShowStatus(shell.Shell.Strings.Get("snapshot.ready", 1920, 1080));
+    }
+
     /// <summary>The Gestures window with an example inventory: five gestures in the Gestures folder, two of them active (one with its
     /// trigger and Shift+F2, one whose file has a trigger only), the second row chosen. No session or grid.</summary>
     private static GesturesWindow ExampleGestureList(ShellRoot shell)
@@ -335,6 +347,8 @@ public partial class TestRender
             scene = soundOpen ? "preferences-sound" : scene;
         if (pct != 100 && scene.StartsWith("build", StringComparison.Ordinal))
             scene = scene[..^4];   // a Build case at 150 or 200 %: the same window, drawn larger
+        else if (pct != 100 && scene.StartsWith("snapshot", StringComparison.Ordinal))
+            scene = "snapshot";
         else if (pct != 100)
             scene = "preferences-sound";
         int picW = UiWidth * pct / 100, picH = UiHeight * pct / 100;
@@ -416,6 +430,9 @@ public partial class TestRender
                 break;
             case "gestures":
                 ExampleGestureList(shell);
+                break;
+            case "snapshot":
+                ExampleSnapshot(shell);
                 break;
             case "gestures-used":
                 ExampleGestureListUsed(shell);

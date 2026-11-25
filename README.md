@@ -133,7 +133,7 @@ What you will notice is missing in this preview:
 - Inventory is not complete: no emptying the trash, no copy and paste, no item properties, no Worn tab and no filters.
 - No giving or paying people, no profiles and no list of people nearby.
 - No landmarks yet (making one, a places list, teleport history).
-- No saved chat logs, no snapshots and no particles.
+- No saved chat logs and no particles. Snapshots save to disk only.
 - No rigged mesh, sound or animation upload.
 - No land, parcel or estate tools, and no search.
 - No groups beyond group chat, notices and your active group and title.

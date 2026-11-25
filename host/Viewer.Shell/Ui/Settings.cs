@@ -183,6 +183,21 @@ public static class Settings
     /// viewer's SwitchToSharedEnvAfterTeleport, off by default for an existing user).</summary>
     public static readonly Setting<bool> SwitchToSharedEnvAfterTeleport = new("SwitchToSharedEnvAfterTeleport", false, v => v);
 
+    /// <summary>Whether a snapshot shows the interface (off, so a picture is of the world alone).</summary>
+    public static readonly Setting<bool> SnapshotInterface = new("snapshot_interface", false, v => v);
+
+    /// <summary>A snapshot's file format: 0 PNG, 1 JPEG.</summary>
+    public static readonly Setting<int> SnapshotFileFormat = new("snapshot_format", 0, v => v is 0 or 1 ? v : null);
+
+    /// <summary>The chosen snapshot size, as a place in the list of sizes (0: the window's own size).</summary>
+    public static readonly Setting<int> SnapshotSizeChoice = new("snapshot_size", 0, v => v is >= 0 and <= 5 ? v : null);
+
+    /// <summary>The JPEG quality of a snapshot (1 to 100).</summary>
+    public static readonly Setting<int> SnapshotJpegQuality = new("snapshot_jpeg_quality", 75, v => Math.Clamp(v, 1, 100));
+
+    /// <summary>The key of the folder snapshots are saved in (text; none until the first save).</summary>
+    public const string SnapshotFolderKey = "snapshot_folder";
+
     /// <summary>The key of the kept time-of-day choice (text).</summary>
     public const string LocalEnvironmentSkyKey = "LocalEnvironmentSky";
 
