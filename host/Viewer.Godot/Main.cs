@@ -498,6 +498,7 @@ public partial class Main : Node
             }
             costAt = FrameStamp();
             FollowOwnAvatar();
+            AddonsWorldFrame();
             FrameCost("follow", costAt); costAt = FrameStamp();
             UpdateNameTags();
             FrameCost("names", costAt); costAt = FrameStamp();
@@ -572,6 +573,7 @@ public partial class Main : Node
         var velocity = _presented?.World.Avatar(self.Id)?.Velocity ?? default;
         var centre = soles + new System.Numerics.Vector3(0, 0, height / 2);
         _agentCentre = centre;
+        _addonPlacedIn = (_presented?.World, _presented?.World.Epoch ?? 0);
         var (eye, target) = _mouseLook.Active && _driver is not null
             ? _follow.MouselookPose(centre, height, yaw, _driver.Input.Pitch, dt)
             : _follow.Pose(centre, yaw, dt, velocity, _inAirSince is { } since ? (float)(now - since) : 0f);

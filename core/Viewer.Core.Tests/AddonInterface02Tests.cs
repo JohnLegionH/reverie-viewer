@@ -137,7 +137,7 @@ public class AddonInterface02Tests
     [Fact]
     public void A_dock_item_needs_the_window_grant_and_any_add_on_may_ask_for_one()
     {
-        Assert.Equal("0.5", AddonInterface.Version);
+        Assert.Equal("0.6", AddonInterface.Version);
         var (_, _, noWindow) = Start(builtIn: true, null, AddonPermissions.ChatSend);
         Assert.Throws<AddonPermissionException>(() => noWindow.Context!.AddDockItem("a", "A", AddonDockKind.Action));
         var (host, _, outside) = Start(builtIn: false, null, AddonPermissions.Window);

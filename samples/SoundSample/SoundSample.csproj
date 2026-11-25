@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A sample add-on that plays its own sound (interface 0.6). Built on its own (it is not part of the viewer's solution):
+
+      dotnet build samples/SoundSample/SoundSample.csproj -c Release
+
+    The output folder (bin/Release/net10.0/) then holds SoundSample.dll, add-on.json and tone.wav: copy those three files into
+    a folder named after the add-on. The permissions it asks for, sound.play and region.read, are for add-ons that come with
+    the viewer for now, so the folder goes in the viewer's own addons folder, not the user's Addons folder (see Docs/ADDONS.md).
+
+    Outside this repository, build against the interface assembly that ships with the viewer instead:
+      dotnet build -c Release -p:ViewerAddonsApi=<the viewer's folder>/Viewer.Addons.Api.dll
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SoundSample</AssemblyName>
+    <RootNamespace>SoundSample</RootNamespace>
+    <Version>1.0.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- The interface assembly is the viewer's own at run time, so it is never copied beside the add-on (Private=false). -->
+  <ItemGroup Condition=" '$(ViewerAddonsApi)' != '' ">
+    <Reference Include="Viewer.Addons.Api" HintPath="$(ViewerAddonsApi)" Private="false" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(ViewerAddonsApi)' == '' ">
+    <ProjectReference Include="..\..\core\Viewer.Addons.Api\Viewer.Addons.Api.csproj" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="add-on.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tone.wav" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

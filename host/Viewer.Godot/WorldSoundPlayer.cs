@@ -139,7 +139,7 @@ public sealed partial class WorldSoundPlayer : Node3D, IWorldSoundOutput
     }
 
     // a grid sound (Ogg Vorbis) or one of our files (WAV); null when it does not decode
-    private static AudioStream? Decode(byte[] bytes, bool loop)
+    internal static AudioStream? Decode(byte[] bytes, bool loop)
     {
         if (GridSounds.LooksLikeOgg(bytes))
         {

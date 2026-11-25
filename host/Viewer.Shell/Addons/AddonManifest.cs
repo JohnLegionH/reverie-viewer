@@ -16,6 +16,9 @@ public sealed record AddonManifest(string Id, string Name, string Version, strin
     string? Job, IReadOnlyList<string> Permissions, string Library, string? Entry = null, string? InventoryFolder = null,
     bool? DefaultOn = null, bool SwitchAtNextLogin = false)
 {
+    /// <summary>The grids the manifest's "grids" declares; null when it declares none.</summary>
+    public IReadOnlyList<Viewer.Core.Session.GridKind>? Grids { get; init; }
+
     public const string FileName = "add-on.json";
 
     private static readonly Regex IdShape = new(@"^[a-z0-9]+([._-][a-z0-9]+)*$", RegexOptions.Compiled);
@@ -89,13 +92,39 @@ public sealed record AddonManifest(string Id, string Name, string Version, strin
                         permissions.Add(s);
                 }
         }
+        List<Viewer.Core.Session.GridKind>? grids = null;
+        // "grids" came with interface 0.6: in an older add-on's manifest the key means nothing, as before
+        if (iface is not null && Minor(iface) >= 6 && root.TryGetProperty("grids", out var named))
+        {
+            grids = [];
+            foreach (var g in named.ValueKind == JsonValueKind.Array ? named.EnumerateArray().ToArray() : [])
+            {
+                Viewer.Core.Session.GridKind? kind = (g.ValueKind == JsonValueKind.String ? g.GetString() : null) switch
+                {
+                    "opensim" => Viewer.Core.Session.GridKind.OpenSim,
+                    "secondlife" => Viewer.Core.Session.GridKind.SecondLife,
+                    _ => null,
+                };
+                if (kind is not { } known)
+                {
+                    grids.Clear();
+                    break;
+                }
+                if (!grids.Contains(known))
+                    grids.Add(known);
+            }
+            if (grids.Count == 0)
+                found.Add("'grids' must be a list naming \"opensim\", \"secondlife\" or both");
+        }
         if (permissions.Contains(AddonPermissions.InventoryWrite) && FolderPath(inventoryFolder) is null)
             found.Add("'inventory.write' needs 'inventory_folder': the folder it may change, as names from the inventory's top joined by '/'");
         if (found.Count > 0)
             return null;
         return new AddonManifest(id!, name!, version!, author!, licence!, iface!, job, permissions, library!, entry, inventoryFolder,
-            defaultOn, switchAt == "next-login");
+            defaultOn, switchAt == "next-login") { Grids = grids };
     }
+
+    private static int Minor(string version) => version.Split('.') is [_, var b] && int.TryParse(b, out int minor) ? minor : 0;
 
     /// <summary>The folder names of an "inventory_folder" path, top first; null when it names none.</summary>
     public static IReadOnlyList<string>? FolderPath(string? path)

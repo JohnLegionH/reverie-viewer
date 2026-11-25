@@ -1,7 +1,7 @@
 <!-- Copyright (c) 2026 Legion Builds -->
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-# Add-ons: how to write, package and install one (interface 0.5)
+# Add-ons: how to write, package and install one (interface 0.6)
 
 An add-on adds a feature to the viewer: an animation overrider, a restraint system, a chat tool. Anyone can write one, swap
 one for another, or improve one. Some come with the viewer (the animation overrider is the first); others are installed by
@@ -48,11 +48,12 @@ that describes the interface; it uses nothing else of the viewer. The viewer sup
 | `version` | yes | Shown in the Add-ons window. |
 | `author` | yes | Shown in the Add-ons window. |
 | `licence` | yes | The add-on's licence, shown in the Add-ons window. Add-ons may use any licence. |
-| `interface` | yes | The interface version it was built for, `major.minor`. The viewer loads it when the major version is the same and the minor version is no newer than its own (this viewer: 0.5). |
+| `interface` | yes | The interface version it was built for, `major.minor`. The viewer loads it when the major version is the same and the minor version is no newer than its own (this viewer: 0.6). |
 | `job` | no | The job it fills, if any (below). Same shape as `id`. |
 | `permissions` | no | What it asks for (below). An unknown permission makes the manifest unusable. |
 | `library` | yes | The `.dll` file name in the add-on's folder. |
 | `entry` | no | The full name of the `IAddon` class, when the library has more than one. |
+| `grids` | no | (0.6) The grids where the add-on may use what goes beyond the official viewer (today: reading the world and playing sounds): a list of `"opensim"`, `"secondlife"` or both. Without it those features are off on Second Life and on elsewhere. A list that leaves a grid out turns them off there. The viewer enforces it; the rest of the add-on runs as usual on every grid. |
 | `inventory_folder` | with `inventory.write` | The one inventory folder the add-on may change, as folder names from the inventory's top joined by `/` (for example `#Firestorm/#AO`). Required when it asks for `inventory.write`. |
 | `default_on` | no | `true` or `false`: whether an add-on that comes with the viewer is on before the user chooses (default `true`). RLV says `false`. |
 | `switch_at` | no | `"now"` (default) or `"next-login"`: when switching the add-on on or off takes effect. With `"next-login"` the switch keeps the user's choice, the Add-ons window says "Takes effect at next login.", and the add-on starts or stops when the user next logs in. RLV says `"next-login"`, as Firestorm's RestrainedLove setting applies at the next start. |
@@ -99,7 +100,13 @@ A job is a role only one add-on should play at a time: `ao` (the animation overr
 the job it fills in its manifest. Only one add-on per job is on at a time: turning one on turns the other off. A built-in
 add-on that fills a job is on by default; when the user chooses another for that job, the choice is kept.
 
-## Interface 0.5
+## Interface 0.6
+
+Version 0.6 adds, to everything 0.5 had: reading the world (`IAddonContext.World`, permission `region.read`) and playing
+sounds (`IAddonContext.Sounds`, permission `sound.play`), both **not yet public** (only add-ons that come with the viewer
+are given them), the slider control (`AddonSlider`) and the manifest's `grids`. An add-on built for 0.1 to 0.5 loads unchanged.
+
+## Earlier versions
 
 Version 0.5 adds, to everything 0.4 had: buttons on the viewer's dock (`AddDockItem`, see "The dock" below). An add-on
 built for 0.1, 0.2, 0.3 or 0.4 loads unchanged.
@@ -116,6 +123,8 @@ Version 0.2 adds, to everything 0.1 had: changing the inventory inside one folde
 zones and text fields in windows, and (for add-ons that come with the viewer only, for now) controls in the quick bar.
 An add-on built for 0.1 loads unchanged.
 
+## What an add-on can do
+
 `Start` receives an `IAddonContext`. Through it an add-on can do the following, each with the permission it needs.
 
 ### Events
@@ -127,6 +136,64 @@ An add-on built for 0.1 loads unchanged.
 | `Playing`, `PlayingChanged`: the animations the region says the user's own avatar plays | `animations.read` |
 | `ChatReceived`: local chat, and owner-say from the user's own objects | `chat.read` |
 | `Tick`: once a frame; `Now`: seconds since the viewer started | none |
+
+### The world (0.6)
+
+`World` reads what is around the person. Nothing here changes anything or sends anything to the grid. Needs
+`region.read`. **Not yet public:** only add-ons that come with the viewer may use it; for any other add-on `World` throws
+`AddonPermissionException`.
+
+| Member | What it answers |
+|---|---|
+| `Snapshot()` | The world now: `RegionName`; `RegionSizeX`, `RegionSizeY`; `Camera` (`Position`, and the unit vectors `Forward` and `Up`); `AgentPosition` (the middle of the avatar as drawn) and `AgentVelocity`; `WaterHeight`; `CameraUnderWater` (the camera is below the water height); `SunDirection` (a unit vector towards the sun, below the horizon when its z is below zero); `Environment` (`Source`: `region`, `parcel` or `default`; `Sky`: the time-of-day choice, `region`, `sunrise`, `midday`, `sunset`, `midnight` or `legacymidday`; `Night`; `CloudShadow`, 0 to 1) |
+| `GroundHeight(x, y)` | The ground's height at a place in the current region |
+| `WindAt(x, y)` | The wind the region sent for a place in it, horizontal, metres a second |
+| `RegionChanged` (event) | The avatar is in another region than before, by walking over a border or by teleport: its name. Not raised for the region the person logs in to |
+| `Teleported` (event) | A teleport ended, also one inside the region: the name of the region the person is in. After `RegionChanged` when the teleport changed regions. Each teleport is told once, also one the viewer's teleport progress does not show: one the grid makes while the one before is still arriving, or one that ends after the viewer gave up waiting. Logging in and walking over a border are not teleports |
+
+Places are metres from the current region's south-west corner (x east, y north, z up); velocities are metres a second.
+Both events come once the avatar and the camera are placed in the region, so a read inside the handler answers for
+it. What the viewer does not know is null (and for a moment during a change of region, the whole snapshot): all of `Snapshot()` while logged out, the ground outside the region or before it
+has arrived, the wind outside the region or while the region has sent none (this viewer reads only the wind layer of a
+256 m region, so a larger region has no wind), the sun and the sky before the sky is drawn. On a grid the add-on may not
+read (see `grids`) every read answers null and neither event is raised; the add-on stays on. `Snapshot()` is made when it
+is asked for, so ask only as often as you need.
+
+`samples/WorldSample` shows the region, position, water, wind and a count of teleports, with a slider for the decimals.
+Because `region.read` is for built-in add-ons for now, it runs only from the viewer's own `addons` folder (a development
+build).
+
+### Sounds (0.6)
+
+`Sounds` plays sound files from the add-on's own folder, heard only by the person: nothing is sent to the region, and an
+add-on cannot name a sound of the grid's. Needs `sound.play`. **Not yet public:** only add-ons that come with the viewer
+may use it; for any other add-on `Sounds` throws `AddonPermissionException`.
+
+`Play(file, options)` takes a name relative to the add-on's folder (`"rain.ogg"`, `"sounds/thunder.wav"`): a 16-bit PCM
+WAV or an Ogg Vorbis file of at most 8 MB, its extension matching what it holds. `AddonSoundOptions`:
+
+| Option | Meaning |
+|---|---|
+| `Loop` | Plays round until stopped; otherwise once |
+| `Gain` | 0 to 1 |
+| `DelaySeconds` | Waits that long before starting, 0 to 60 |
+| `LowPassHz` | Muffles it by cutting what is above that frequency, 20 to 20000; null for none |
+| `Position` | A place in the current region's metres: the sound fades with distance from the camera as the world's sounds do, and comes from that side. Null plays it around the person |
+
+It answers an `IAddonSound` (`IsActive`, `Gain`, `LowPassHz`, `Position`, `Stop()`; disposing it stops it) or null when
+the sound was not started: a name that leads outside the folder (an absolute name, one with `..` or `:`, or one through
+a link), a file that is not such a sound, an option that is not a number, **eight** sounds of the add-on already waiting
+or playing, logged out, or a grid the add-on may not use it on (see `grids`). The log says which. Values out of range are
+held to it. A placed sound stays placed and an ambient one stays ambient.
+
+Sounds play under **Preferences > Sound**'s Ambient level and its mute, and under the master level and mute. The viewer
+stops all of an add-on's sounds, also those still waiting, when the add-on is switched off or fails, and at logout. It
+stops all add-ons' sounds when the avatar is in another region and when a teleport ends, in each case just before the
+world's `RegionChanged` and `Teleported` events. Start them again in the `Teleported` handler; when a teleport changes
+regions do it there, not in `RegionChanged`, because there can be another stop between the two.
+
+`samples/SoundSample` plays a short tone around the person, from a place 5 m north, or muffled after 3 seconds. Like
+`WorldSample` it runs only from the viewer's own `addons` folder for now.
 
 ### Actions
 
@@ -145,6 +212,11 @@ returned object removes the filter. Needs `filter`. Filters sit in the viewer's 
 user action takes to the grid, so no other way round them exists inside the viewer.
 
 ### The screen
+
+`AddonSlider(id, min, max, step)` (0.6) is a slider with its number beside it: `Value` starts at `min` and is always one
+of the steps counted from `min`, or `max`; a value that is not a number is ignored. `Moved` says when the user moved it to
+another value. `min`, `max` and `step` must be finite, with `max` above `min` and `step` above zero, or the constructor
+throws. The mouse wheel scrolls the window rather than moving the slider; with the keyboard on it, the arrow keys move it.
 
 `AddWindow(id, title)` adds a window (closed at first; `Open()` and `Close()` show and hide it) made of controls the
 viewer draws in its own style: `AddonLabel`, `AddonButton` (`Pressed`), `AddonToggle` (`Toggled`), `AddonChoice` (a list
@@ -227,6 +299,8 @@ An add-on may also implement `IAddonDiagnostics`; only development builds of the
 | `window` | add windows and menu items |
 | `inventory.read` | read the names and folders of your inventory |
 | `inventory.write` | make folders and links, rename folders and move things to the Trash, inside the one folder it names |
+| `region.read` | see the world around you: your camera and avatar's place, the region's water, ground and wind, and the sun and sky; built-in add-ons only, for now |
+| `sound.play` | play its own sounds to you; built-in add-ons only, for now |
 | `restraints` | (no text of its own yet: the Add-ons window lists it by its name) restrict what you can do, as RLV devices you wear ask; built-in add-ons only, for now |
 
 Built-in add-ons are granted what they ask for. An installed add-on is granted its permissions only when the user turns
@@ -296,5 +370,5 @@ off until you turn it on) and show no box.
 
 ## Versions of the interface
 
-The interface version is `0.5`. Additions that do not break existing add-ons raise the minor version; anything else
+The interface version is `0.6`. Additions that do not break existing add-ons raise the minor version; anything else
 raises the major version, and an add-on built for another major version is not loaded.

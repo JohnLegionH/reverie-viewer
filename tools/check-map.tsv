@@ -15,7 +15,7 @@
 ^samples/	none
 ^fixtures/notecards/	none
 (^|/)LICENSE[A-Za-z0-9-]*\.txt$	none
-^host/Viewer\.Godot/(WorldSoundPlayer|UiSoundPlayer)\.cs$	smoke
+^host/Viewer\.Godot/(WorldSoundPlayer|UiSoundPlayer|AddonSoundPlayer)\.cs$	smoke
 ^core/Viewer\.Core/Music/	smoke
 ^host/Viewer\.Godot/Main\.Music\.cs$	ui,smoke
 ^tools/[A-Za-z0-9-]+-live\.ps1$|^tools/live-smoke\.ps1$	none

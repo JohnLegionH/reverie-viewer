@@ -46,6 +46,24 @@ public partial class Main
     {
         _worldPlayer = new WorldSoundPlayer(settings, () => DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Minimized);
         AddChild(_worldPlayer);
+        _addonSounds = new AddonSoundPlayer(settings);
+        AddChild(_addonSounds);
+    }
+
+    private AddonSoundPlayer? _addonSounds;
+
+    /// <summary>For add-ons' sounds: the Ambient level, and the camera in the current region's metres; also tells their player where
+    /// that region lies in the drawn frame.</summary>
+    private Viewer.Shell.Addons.AddonSoundScene AddonSoundSceneNow()
+    {
+        float ambient = AudioLevels.KindLevel(UserSettings(null), WorldSoundKind.Ambient);
+        if (_addonsFor is not { IsEnded: false } session || _addonSounds is null)
+            return new(ambient, default, false);
+        var origin = session.World.OriginOffset;
+        _addonSounds.ToEngine = p => ToEngine3(p + origin);
+        var camera = GetViewport().GetCamera3D();
+        var listener = camera is null ? default : Vector3Sl(camera.GlobalPosition) - origin;
+        return new(ambient, listener, Underwater(session, listener));
     }
 
     /// <summary>Every frame: follows the session, hands its sound events to the service, plays footsteps, and places the voices.</summary>

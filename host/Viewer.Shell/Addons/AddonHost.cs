@@ -51,6 +51,21 @@ public interface IAddonServices
 
     /// <summary>The viewer's own name.</summary>
     string ViewerName => "Viewer";
+
+    /// <summary>The world now; null while there is none.</summary>
+    AddonWorldSnapshot? ReadWorld() => null;
+
+    /// <summary>The ground's height at a place in the current region.</summary>
+    float? GroundHeight(float x, float y) => null;
+
+    /// <summary>The region's wind at a place in the current region.</summary>
+    System.Numerics.Vector3? WindAt(float x, float y) => null;
+
+    /// <summary>What plays add-ons' sounds; null where there is no sound.</summary>
+    IAddonSoundOutput? SoundOutput => null;
+
+    /// <summary>The Ambient level and where the person hears from, now.</summary>
+    AddonSoundScene SoundScene() => default;
 }
 
 /// <summary>One add-on the host knows: its manifest, where it came from, and its state.</summary>
@@ -111,11 +126,15 @@ public sealed class AddonHost : IActionVeto, IDisposable
     private MotionState _motion;
     private bool _mouselook;
     private IReadOnlyList<PlayingAnimation> _playing = [];
+    private Viewer.Core.Session.GridKind? _gridKind;     // the kind of grid logged in to
+    private (string Name, ulong Handle)? _inRegion;      // the region the avatar is in, once told
+    private int _teleports;                              // teleports ended and not yet told to the add-ons
 
     public AddonHost(IAddonServices services, CoreLog log, string? stateFile = null)
     {
         _services = services;
         _log = log.For("addons");
+        _sounds = new AddonSoundVoices(services, _log);
         _stateFile = stateFile;
         ReadState();
     }
@@ -130,6 +149,12 @@ public sealed class AddonHost : IActionVeto, IDisposable
 
     /// <summary>The load context an add-on's library runs in; null when it is not running or was registered in code.</summary>
     public AssemblyLoadContext? LoadContextOf(string id) => Find(id)?.LoadContext;
+
+    /// <summary>The add-ons' sounds waiting and playing.</summary>
+    public IReadOnlyList<AddonSoundView> Sounds => _sounds.Views;
+
+    private readonly AddonSoundVoices _sounds;
+    internal AddonSoundVoices SoundVoices => _sounds;
 
     /// <summary>Something changed that the Add-ons window shows.</summary>
     public event Action? Changed;
@@ -213,11 +238,11 @@ public sealed class AddonHost : IActionVeto, IDisposable
     }
 
     /// <summary>Adds an add-on made in code (the viewer's tests; nothing in a shipping viewer).</summary>
-    public AddonEntry Register(AddonManifest manifest, Func<IAddon> factory, bool builtIn)
+    public AddonEntry Register(AddonManifest manifest, Func<IAddon> factory, bool builtIn, string? folder = null)
     {
         if (Find(manifest.Id) is not null)
             throw new ArgumentException($"an add-on '{manifest.Id}' is already known", nameof(manifest));
-        var entry = new AddonEntry(manifest, builtIn, null, factory);
+        var entry = new AddonEntry(manifest, builtIn, folder, factory);
         _entries.Add(entry);
         Changed?.Invoke();
         return entry;
@@ -392,6 +417,7 @@ public sealed class AddonHost : IActionVeto, IDisposable
         if (context.Previewing)
             Services.PlayLocally(null);   // a preview it left playing ends with it
         context.Close();
+        _sounds.StopAddon(entry.Id);
         if (entry.Granted.Contains(AddonPermissions.Restraints))
             Restraints?.Clear();   // whatever the add-on handed over goes with it: an add-on that fails lets every action go ahead
         Flush();
@@ -474,6 +500,7 @@ public sealed class AddonHost : IActionVeto, IDisposable
         if (_loggedIn)
             return;
         _grid = grid == Viewer.Core.Session.GridKind.SecondLife ? AddonGridType.SecondLife : AddonGridType.OpenSim;
+        _gridKind = grid;
         LoggedIn();
     }
 
@@ -496,10 +523,59 @@ public sealed class AddonHost : IActionVeto, IDisposable
             return;
         _loggedIn = false;
         _grid = AddonGridType.Unknown;
+        _gridKind = null;
+        _inRegion = null;
+        _teleports = 0;
         _motion = MotionState.Unknown;
         _playing = [];
+        _sounds.StopAll();
         Dispatch("logged out", c => c.RaiseLoggedOut());
     }
+
+    /// <summary>The region the avatar is in now, told each frame once the avatar and the camera are placed in it, so an add-on that
+    /// reads the world in an event reads that region. A change from a region told before is the world's RegionChanged event; any
+    /// teleport that ended is told after it. A region's name can arrive after the region does: until then another region is not
+    /// told, and a name filling in is not a change.</summary>
+    public void InRegion(string name, ulong handle)
+    {
+        if (!_loggedIn)
+            return;
+        bool moved = false;
+        if (_inRegion is not { } known)
+            _inRegion = (name, handle);
+        else if (known.Handle == handle && (name == known.Name || name.Length == 0 || known.Name.Length == 0))
+        {
+            if (name.Length > 0)
+                _inRegion = (name, handle);
+        }
+        else if (name.Length == 0)
+            return;
+        else
+        {
+            _inRegion = (name, handle);
+            moved = true;
+            _sounds.StopAll();   // before the events: a sound started in a handler goes on
+            Dispatch("world region changed", c => c.RaiseWorldRegion(name));
+        }
+        if (_inRegion is not { Name.Length: > 0 } now)
+            return;
+        if (_teleports > 0 && !moved)
+            _sounds.StopAll();
+        for (; _teleports > 0; _teleports--)
+            Dispatch("teleported", c => c.RaiseTeleported(now.Name));
+    }
+
+    /// <summary>A teleport ended. The add-ons hear of it at the next <see cref="InRegion"/> with a named region.</summary>
+    public void TeleportArrived()
+    {
+        if (_loggedIn)
+            _teleports++;
+    }
+
+    /// <summary>Whether an add-on may use what goes beyond the official viewer (reading the world, sounds) on the grid logged in to
+    /// (its manifest's "grids").</summary>
+    internal bool MayGoBeyondOfficial(AddonEntry entry) =>
+        _loggedIn && _gridKind is { } kind && Viewer.Core.Session.GridDeclaration.Allows(entry.Manifest.Grids, kind);
 
     public void RegionChanged(string region) => Dispatch("region changed", c => c.RaiseRegionChanged(region));
 
@@ -532,8 +608,12 @@ public sealed class AddonHost : IActionVeto, IDisposable
     public bool Swallows(ChatLine line) =>
         line.Kind == ChatKind.OwnerSay && line.Text is { Length: > 3 } text && text[0] == '@' && ActiveFor("rlv") is { Running: true };
 
-    /// <summary>Once a frame: the add-ons' Tick, then their animation requests go out.</summary>
-    public void Frame() => Dispatch("tick", c => c.RaiseTick());
+    /// <summary>Once a frame: the add-ons' Tick, then their animation requests go out and their sounds are placed.</summary>
+    public void Frame()
+    {
+        Dispatch("tick", c => c.RaiseTick());
+        _sounds.Update();
+    }
 
     internal void Queue(Guid animation, bool start) => _pending.Add((animation, start));
 
@@ -770,6 +850,7 @@ internal sealed class AddonContext(AddonHost host, AddonEntry entry) : IAddonCon
         _mouselook = null;
         _playing = null;
         _chat = null;
+        _world?.Drop();
     }
 
     /// <summary>False once the add-on is stopped (a late call does nothing); throws when the permission was not granted.</summary>
@@ -885,6 +966,84 @@ internal sealed class AddonContext(AddonHost host, AddonEntry entry) : IAddonCon
     }
 
     public IAddonInventory? Inventory => Need(AddonPermissions.InventoryRead) ? host.Services.Inventory : null;
+
+    private WorldHandle? _world;
+
+    private SoundHandle? _soundHandle;
+
+    public IAddonSounds? Sounds
+    {
+        get
+        {
+            if (!Need(AddonPermissions.SoundPlay))
+                return _soundHandle;
+            if (!entry.BuiltIn)
+                throw new AddonPermissionException(AddonPermissions.SoundPlay);   // not yet public: built-in add-ons only
+            return _soundHandle ??= new SoundHandle(this);
+        }
+    }
+
+    /// <summary>The sounds as one running add-on plays them: nothing once it is stopped, while logged out, or on a grid it may not
+    /// use them on (the same rule as for reading the world).</summary>
+    private sealed class SoundHandle(AddonContext owner) : IAddonSounds
+    {
+        public IAddonSound? Play(string file, AddonSoundOptions? options = null) =>
+            owner.BeyondOfficial ? owner.Host.SoundVoices.Play(owner.Id, owner.Folder, file, options ?? new AddonSoundOptions()) : null;
+
+        public void StopAll()
+        {
+            if (!owner._closed)
+                owner.Host.SoundVoices.StopAddon(owner.Id);
+        }
+    }
+
+    private string? Folder => entry.Folder;
+
+    public IAddonWorld? World
+    {
+        get
+        {
+            if (!Need(AddonPermissions.RegionRead))
+                return null;
+            if (!entry.BuiltIn)
+                throw new AddonPermissionException(AddonPermissions.RegionRead);   // not yet public: built-in add-ons only
+            return _world ??= new WorldHandle(this);
+        }
+    }
+
+    /// <summary>Whether what goes beyond the official viewer is allowed now: running, logged in, on a grid the manifest allows.</summary>
+    private bool BeyondOfficial => !_closed && host.MayGoBeyondOfficial(entry);
+
+    internal void RaiseWorldRegion(string region)
+    {
+        if (BeyondOfficial)
+            _world?.RaiseRegionChanged(region);
+    }
+
+    internal void RaiseTeleported(string region)
+    {
+        if (BeyondOfficial)
+            _world?.RaiseTeleported(region);
+    }
+
+    /// <summary>The world as one running add-on reads it: nothing once the add-on is stopped, while logged out, or on a grid it
+    /// may not read.</summary>
+    private sealed class WorldHandle(AddonContext owner) : IAddonWorld
+    {
+        private Action<string>? _region, _teleported;
+
+        public AddonWorldSnapshot? Snapshot() => owner.BeyondOfficial ? owner.Host.Services.ReadWorld() : null;
+        public float? GroundHeight(float x, float y) => owner.BeyondOfficial ? owner.Host.Services.GroundHeight(x, y) : null;
+        public System.Numerics.Vector3? WindAt(float x, float y) => owner.BeyondOfficial ? owner.Host.Services.WindAt(x, y) : null;
+        public event Action<string>? RegionChanged { add => _region += value; remove => _region -= value; }
+        public event Action<string>? Teleported { add => _teleported += value; remove => _teleported -= value; }
+
+        public void RaiseRegionChanged(string region) => _region?.Invoke(region);
+        public void RaiseTeleported(string region) => _teleported?.Invoke(region);
+        public void Drop() => _region = _teleported = null;
+    }
+
+    private AddonHost Host => host;
 
     public IAddonRestraints? Restraints
     {

@@ -1,0 +1,11 @@
+{
+  "id": "world-sample",
+  "name": "World Sample",
+  "version": "1.0.0",
+  "author": "Viewer contributors",
+  "licence": "LGPL-2.1-or-later",
+  "interface": "0.6",
+  "permissions": ["window", "region.read"],
+  "library": "WorldSample.dll",
+  "default_on": false
+}
