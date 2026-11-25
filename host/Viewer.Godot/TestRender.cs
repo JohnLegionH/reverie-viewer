@@ -72,6 +72,7 @@ public partial class TestRender : Node
     private bool _underwaterProbes;   // --tr-underwater-probes: from under open water, rays down and up against the official underwater colours
     private bool _underwaterOff;   // --tr-underwater=off: the below-surface view left out (the negative control of the underwater probes)
     private float? _underwaterGround;   // --tr-underwater-ground: the camera under the water, straight down at flat ground; its distance
+    private bool _airFogOff;   // --tr-airfog=off: no engine air fog (the picture of a bare scene a haze check compares with)
     private bool _waterFlat;   // --tr-water-flat: the water without ripples, refraction offset or glint (the flat-water formula the probes check)
     private float _waterTime;   // --tr-water-time=<seconds>: added to the water's clock
     private (int X, int Y, int W, int H)? _waterLook;   // --tr-water-look=x,y,w,h: the picture's water rectangle to measure
@@ -406,6 +407,11 @@ public partial class TestRender : Node
             _envFile = Arg(args, "--tr-environment=");
             return await HazeRun(hazeKind);   // the official haze pass against its model (TestRender.Haze.cs)
         }
+        if (Arg(args, "--tr-uw=") is { } uwKind)
+        {
+            _envFile = Arg(args, "--tr-environment=");
+            return await UnderwaterRun(uwKind, Arg(args, "--tr-alter="));   // patches seen from under the water (TestRender.Underwater.cs)
+        }
         if (Arg(args, "--tr-sharedtex=") is { } sharedMode)
             return await SharedTexturesRun(sharedMode == "shared", Arg(args, "--tr-fixture=") ?? throw new ArgumentException("--tr-sharedtex needs --tr-fixture=<a codestream file>"));   // one texture hub for two regions (TestRender.SharedTextures.cs)
         if (Arg(args, "--tr-sharedmeasure=") is { } measureCount)
@@ -502,6 +508,7 @@ public partial class TestRender : Node
         _underwaterProbes = args.Contains("--tr-underwater-probes");
         _underwaterOff = Arg(args, "--tr-underwater=") == "off";
         _underwaterGround = args.Contains("--tr-underwater-ground") ? 0f : null;
+        _airFogOff = Arg(args, "--tr-airfog=") == "off";
         _waterFlat = args.Contains("--tr-water-flat");
         _waterTime = float.Parse(Arg(args, "--tr-water-time=") ?? "0", System.Globalization.CultureInfo.InvariantCulture);
         if (Arg(args, "--tr-water-look=") is { } wl)
@@ -2366,6 +2373,7 @@ public partial class TestRender : Node
         AddInteractionScene(rig, loaded.World);
         AddDialogPanel(rig);
         if (_underwaterGround is not null) AimAtDeepGround(loaded.World, rig.Camera);
+        if (_airFogOff) Stage.EnvironmentOf(rig.Environment).FogEnabled = false;
         prims.ViewCamera = rig.Camera;   // blended faces in order for the camera drawn
         prims.UpdateBlendOrder();
         if (PrimLayer.MergeStill) await MergeSettle(prims, rig.Camera);

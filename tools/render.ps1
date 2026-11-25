@@ -1270,7 +1270,7 @@ foreach ($be in $Backends) {
     $pn = $n.Json.underwater_probes
     if ($n.Json -and $pn -and -not $pn.pass) { Add-Case "underwater_negative_$be" "PASS" "the view without the below-surface drawing is rejected by the probes (exit $($n.Exit))" $n.Seconds }
     else { Add-Case "underwater_negative_$be" "FAIL" "the view without the below-surface drawing was NOT rejected (exit $($n.Exit))" $n.Seconds }
-    $go = Invoke-Render $be "underwater-bed-off-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-underwater-ground --tr-underwater=off"
+    $go = Invoke-Render $be "underwater-bed-off-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-underwater-ground --tr-underwater=off --tr-airfog=off"
     $gn = Invoke-Render $be "underwater-bed-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-underwater-ground `"--tr-water-compare=$(Join-Path $out "underwater-bed-off-$be.png")`""
     $gp = $gn.Json.underwater_ground
     $ok = $go.Exit -eq 0 -and $gn.Exit -eq 0 -and $gp -and $gp.pass
@@ -1286,6 +1286,25 @@ foreach ($be in $Backends) {
     $a = Invoke-Render $be "underwater-above-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-40,128,45,40,128,18 --tr-size=1280x720"
     $ok = $s.Exit -eq 0 -and $a.Exit -eq 0 -and $s.Json.underwater.drawn -eq $true -and $a.Json.underwater.drawn -eq $false
     Add-Case "underwater_switches_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "under the water drawn=$($s.Json.underwater.drawn); above it drawn=$($a.Json.underwater.drawn)" ($s.Seconds + $a.Seconds)
+    # patches seen from under the water: see-through faces carry the water fog; what is above the water carries the sky's air haze and what is under it none
+    $classic = Join-Path $repo "fixtures\environment\synthetic-environment.llsd.xml"
+    $toned = Join-Path $repo "fixtures\environment\synthetic-environment-hdr.llsd.xml"
+    foreach ($u in @(@("faces", "faces", $classic), @("haze_classic", "haze", $classic), @("haze_hdr", "haze", $toned))) {
+        $tag = "underwater-$($u[0].Replace('_', '-'))-$be"
+        $r = Invoke-Render $be $tag "`"--tr-fixture=$waterScene`" --tr-uw=$($u[1]) `"--tr-environment=$($u[2])`""
+        $w = $r.Json.uw
+        $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $w -and $w.hdr -eq ($u[0] -eq "haze_hdr")
+        Add-Case "underwater_$($u[0])_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "$(($w.rows | ForEach-Object { "$($_.name): off by $([math]::Round([double]$_.gap, 3))" }) -join '; ')$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + ($r.Json.failures -join ' | ') })" $r.Seconds
+    }
+    foreach ($u in @(@("haze_classic", $classic), @("haze_hdr", $toned))) {
+        $n = Invoke-Render $be "underwater-$($u[0].Replace('_', '-'))-off-$be" "`"--tr-fixture=$waterScene`" --tr-uw=haze `"--tr-environment=$($u[1])`" --tr-alter=nohaze"
+        $far = @($n.Json.uw.rows | Where-Object { $_.name -like 'above*' })
+        $caught = $far.Count -eq 1 -and $far[0].pass -eq $false
+        Add-Case "underwater_$($u[0])_negative_$be" ($(if ($caught) { "PASS" } else { "FAIL" })) "$(if ($caught) { 'the view without the air haze is rejected' } else { 'the view without the air haze was NOT rejected' }) (exit $($n.Exit))" $n.Seconds
+    }
+    $d = Invoke-Render $be "underwater-dive-$be" "`"--tr-fixture=$waterScene`" --tr-uw=dive `"--tr-environment=$classic`""
+    $v = $d.Json.uw_dive
+    Add-Case "underwater_dive_$be" ($(if ($d.Exit -eq 0 -and $v -and $v.drawn) { "PASS" } else { "FAIL" })) "first frame under water $($v.first_ms) ms; above the water median $($v.above_median_ms) ms, longest $($v.above_max_ms) ms; the next frames $($v.under_ms -join ', ') ms; pipelines compiled $(($v.pipelines.PSObject.Properties | ForEach-Object { "$($_.Name) $($_.Value)" }) -join ', ')" $d.Seconds
 }
 }
 
