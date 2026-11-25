@@ -1270,18 +1270,18 @@ foreach ($be in $Backends) {
     $pn = $n.Json.underwater_probes
     if ($n.Json -and $pn -and -not $pn.pass) { Add-Case "underwater_negative_$be" "PASS" "the view without the below-surface drawing is rejected by the probes (exit $($n.Exit))" $n.Seconds }
     else { Add-Case "underwater_negative_$be" "FAIL" "the view without the below-surface drawing was NOT rejected (exit $($n.Exit))" $n.Seconds }
-    $go = Invoke-Render $be "underwater-bed-off-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-size=1280x720 --tr-underwater-ground --tr-underwater=off"
-    $gn = Invoke-Render $be "underwater-bed-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-size=1280x720 --tr-underwater-ground `"--tr-water-compare=$(Join-Path $out "underwater-bed-off-$be.png")`""
+    $go = Invoke-Render $be "underwater-bed-off-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-underwater-ground --tr-underwater=off"
+    $gn = Invoke-Render $be "underwater-bed-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-underwater-ground `"--tr-water-compare=$(Join-Path $out "underwater-bed-off-$be.png")`""
     $gp = $gn.Json.underwater_ground
     $ok = $go.Exit -eq 0 -and $gn.Exit -eq 0 -and $gp -and $gp.pass
     Add-Case "underwater_bed_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "ground $($gp.distance) m under the eye: shown $($gp.got -join ', '), official $($gp.want -join ', '), without the haze $($gp.bare -join ', ')$(if (-not $ok) { '; exit ' + $gn.Exit + ' ' + ($gn.Json.failures -join ' | ') })" ($go.Seconds + $gn.Seconds)
-    # the rows just above the horizon of the open-water view: with the waves on, the view through the surface must not pick up what is under the water
-    $rip = "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-300,128,12,-400,128,12 --tr-size=1280x720 --tr-water-look=0,240,1280,110 --tr-water-time=0"
+    # the surface in the open-water view, top edge to near the horizon: with the waves on, the view through the surface must not pick up what is under the water
+    $rip = "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-300,128,12,-400,128,12 --tr-size=1280x720 --tr-water-look=0,0,1280,330 --tr-water-time=0"
     $wf = Invoke-Render $be "underwater-ripple-flat-$be" "$rip --tr-water-flat"
     $ww = Invoke-Render $be "underwater-ripple-$be" $rip
     $mf = $wf.Json.water_look.max; $mw = $ww.Json.water_look.max
     $ok = $null -ne $mf -and $null -ne $mw -and $mw -le $mf + 0.05
-    Add-Case "underwater_ripples_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "brightest point just above the horizon with waves $mw, flat $mf (waves may be brighter by 0.05 at most)" ($wf.Seconds + $ww.Seconds)
+    Add-Case "underwater_ripples_$be" ($(if ($ok) { "PASS" } else { "FAIL" })) "brightest point of the surface with waves $mw, flat $mf (waves may be brighter by 0.05 at most)" ($wf.Seconds + $ww.Seconds)
     $s = Invoke-Render $be "underwater-ground-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-20,128,15,60,128,12 --tr-size=1280x720"
     $a = Invoke-Render $be "underwater-above-$be" "`"--tr-fixture=$waterScene`" --tr-timeofday=midday --tr-look=-40,128,45,40,128,18 --tr-size=1280x720"
     $ok = $s.Exit -eq 0 -and $a.Exit -eq 0 -and $s.Json.underwater.drawn -eq $true -and $a.Json.underwater.drawn -eq $false

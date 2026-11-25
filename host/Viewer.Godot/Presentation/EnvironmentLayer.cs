@@ -444,8 +444,9 @@ public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, Direc
 
     /// <summary>
     /// Switches the below-surface view on or off for the camera's place: under the water height of the region it is over. Cheap when
-    /// nothing changed. While it is on, the haze of the air (the engine's fog, or the tone-mapped path's haze pass) is off: below the
-    /// surface the water's haze takes its place.
+    /// nothing changed. A classic sky keeps the engine's fog (what is above the water, seen through the surface, keeps its haze; below
+    /// the surface the water's haze all but covers it). The tone-mapped path's haze pass is drawn after the water and would haze the
+    /// surface itself, so it is off while the view is on.
     /// </summary>
     private void UpdateUnderwater()
     {
@@ -462,14 +463,12 @@ public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, Direc
         _waterMaterial?.SetShaderParameter(EngineNames.UnderLevel, level);
         if (UnderwaterDrawn) { EnsureHaze(); SetHazeLook(); }
         if (_hazeInstance.IsValid) RenderingServer.InstanceSetVisible(_hazeInstance, UnderwaterDrawn);
-        if (was != UnderwaterDrawn) SetAirHaze();
+        if (was != UnderwaterDrawn) SetHdrHaze();
     }
 
-    private void SetAirHaze()
+    private void SetHdrHaze()
     {
-        if (Frame is not { } f) return;
-        if (_hdrSet) _hdrEffect!.SetHaze(HazeOff || UnderwaterDrawn ? null : SkyLighting.HazeOf(f), ToneMap.HdrScale(1f));
-        else Stage.EnvironmentOf(world).FogEnabled = !UnderwaterDrawn;
+        if (_hdrSet && Frame is { } f) _hdrEffect!.SetHaze(HazeOff || UnderwaterDrawn ? null : SkyLighting.HazeOf(f), ToneMap.HdrScale(1f));
     }
 
     private void EnsureHaze()
@@ -840,9 +839,14 @@ void fragment() {
         // seen from below: what lies above, moved by the three wave layers' sum times the scale below, fogged along the way here; no mirror
         // reflection. (The screen's y runs down here and up in the official shader.)
         vec2 off = flat_water > 0.5 ? vec2(0.0) : normalize(w1 + w2 + w3).xy * scale_below;
-        vec2 buv = clamp(SCREEN_UV + vec2(off.x, -off.y), vec2(0.0), vec2(0.999));
+        // held half a pixel inside the screen: the screen copy's sampler wraps round at its very edge
+        vec2 half_pixel = 0.5 / VIEWPORT_SIZE;
+        vec2 buv = clamp(SCREEN_UV + vec2(off.x, -off.y), half_pixel, vec2(1.0) - half_pixel);
         vec4 pb = INV_PROJECTION_MATRIX * vec4(buv * 2.0 - 1.0, texture(depth_tex, buv).r, 1.0);
-        if (length(pb.xyz / pb.w) < dist - 0.05) { buv = SCREEN_UV; }   // not something in front of the surface (the screen copy has no haze on it)
+        pb.xyz /= pb.w;
+        // the screen copy has no haze on it, so only what is above the water is read through the surface: not something in front of
+        // it, and nothing (scenery or bare sky) below the water
+        if (length(pb.xyz) < dist - 0.05 || (INV_VIEW_MATRIX * vec4(pb.xyz, 1.0)).y < under_level) { buv = SCREEN_UV; }
         vec2 fog = under_fog(under_density, fog_slant, under_level - CAMERA_POSITION_WORLD.y, vdir.y, dist);
         ALBEDO = max(textureLod(screen_tex, buv, 0.0).rgb * fog.y + fog_color * fog.x, vec3(0.0));
     }
@@ -1026,9 +1030,9 @@ void fragment() {
             _waterMaterial.SetShaderParameter(EngineNames.ScaleBelow, w.ScaleBelow);
             WaterHeight = wh;
         }
-        // the frame put the air's haze back and may have moved the water: the below-surface view is put right for the camera last given
+        // the frame put the tone-mapped path's haze back and may have moved the water: the below-surface view is put right for the camera last given
         UpdateUnderwater();
-        if (UnderwaterDrawn) { SetHazeLook(); SetAirHaze(); }
+        if (UnderwaterDrawn) { SetHazeLook(); SetHdrHaze(); }
     }
 
     /// <summary>Puts the tone mapping post pass on the world (a frame that takes the tone-mapped path) or takes it off (every other), with the official parameters.</summary>
