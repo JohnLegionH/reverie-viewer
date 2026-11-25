@@ -1,0 +1,11 @@
+{
+  "id": "sound-sample",
+  "name": "Sound Sample",
+  "version": "1.0.0",
+  "author": "Viewer contributors",
+  "licence": "LGPL-2.1-or-later",
+  "interface": "0.6",
+  "permissions": ["window", "sound.play", "region.read"],
+  "library": "SoundSample.dll",
+  "default_on": false
+}

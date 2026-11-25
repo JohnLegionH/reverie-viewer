@@ -327,4 +327,156 @@ public class TeleportStatesTests
         r.Wait(0.5);
         Assert.Equal(0, r.Model.Arrivals);
     }
+
+    // ---------------- every teleport is an arrival, once ----------------
+
+    private static readonly SimRef Third = new(300001UL * 256 << 32 | 300000UL * 256, "Third Region");
+
+    private static int[] Counting(Rig r)
+    {
+        var heard = new int[1];
+        r.Model.Arrived += () => heard[0]++;
+        return heard;
+    }
+
+    private static void CrossRegion(Rig r, SimRef to)
+    {
+        r.Raise(TeleportPhase.Started);
+        r.Model.Receive(new SimConnected(to, 256, 256));
+        r.Raise(TeleportPhase.Finished);
+        r.Model.Receive(new MovementComplete(to));
+    }
+
+    [Fact]
+    public void A_teleport_inside_the_region_that_the_grid_makes_while_the_one_before_is_arriving_is_an_arrival_too()
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        Assert.True(r.Model.ToHandle(There.Handle, new Vector3(128, 128, 30)));
+        CrossRegion(r, There);
+        r.Wait(0.5);
+        r.Raise(TeleportPhase.Started);
+        r.Raise(TeleportPhase.Local);
+        Assert.Equal(2, heard[0]);
+        Assert.Equal(2, r.Model.Arrivals);
+        r.Wait(2);
+        Assert.Equal(TeleportStage.Idle, r.Model.Stage);          // what is shown is as before: the first one's progress closes on time
+    }
+
+    [Fact]
+    public void A_teleport_to_another_region_that_the_grid_makes_while_the_one_before_is_arriving_is_an_arrival_too()
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        Assert.True(r.Model.ToHandle(There.Handle, new Vector3(128, 128, 30)));
+        CrossRegion(r, There);
+        r.Wait(0.5);
+        CrossRegion(r, Third);
+        Assert.Equal(2, heard[0]);
+    }
+
+    [Fact]
+    public void A_teleport_the_grid_makes_within_the_local_delay_is_an_arrival_too()
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        Assert.True(r.Model.ToHandle(Here.Handle, new Vector3(10, 10, 30)));
+        r.Raise(TeleportPhase.Local);
+        r.Wait(0.3);
+        r.Raise(TeleportPhase.Started);
+        r.Raise(TeleportPhase.Local);
+        Assert.Equal(2, heard[0]);
+
+        var closed = new Rig();                                   // the same after one that closed the progress at once
+        var again = Counting(closed);
+        Assert.True(closed.Model.Home());
+        closed.Raise(TeleportPhase.Local);
+        closed.Wait(0.3);
+        closed.Raise(TeleportPhase.Local);
+        Assert.Equal(2, again[0]);
+        Assert.False(closed.Model.ProgressVisible);
+    }
+
+    [Fact]
+    public void A_move_inside_the_region_the_grid_makes_without_a_start_message_is_an_arrival()
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        r.Raise(TeleportPhase.Local);
+        Assert.Equal(1, heard[0]);
+        Assert.Equal(TeleportStage.Idle, r.Model.Stage);
+    }
+
+    [Fact]
+    public void A_teleport_that_ends_after_the_viewer_gave_up_on_it_is_an_arrival_once()
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        Assert.True(r.Model.ToHandle(There.Handle, new Vector3(128, 128, 30)));
+        r.Raise(TeleportPhase.Started);
+        r.Wait(15.1);
+        Assert.Equal(TeleportStage.Idle, r.Model.Stage);
+        r.Model.Receive(new SimConnected(There, 256, 256));
+        r.Raise(TeleportPhase.Finished);
+        r.Model.Receive(new MovementComplete(There));
+        Assert.Equal(1, heard[0]);
+        Assert.Equal(TeleportStage.Idle, r.Model.Stage);
+    }
+
+    [Fact]
+    public void A_teleport_the_grid_finished_whose_movement_message_comes_after_the_give_up_is_an_arrival_once()
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        Assert.True(r.Model.ToHandle(There.Handle, new Vector3(128, 128, 30)));
+        r.Raise(TeleportPhase.Started);
+        r.Model.Receive(new SimConnected(There, 256, 256));
+        r.Raise(TeleportPhase.Finished);
+        r.Wait(15.1);
+        Assert.Equal(0, heard[0]);                                // giving up alone is silent
+        r.Model.Receive(new MovementComplete(There));
+        r.Wait(5);
+        r.Model.Receive(new MovementComplete(There));             // a later one (a crossing) is not a teleport
+        Assert.Equal(1, heard[0]);
+    }
+
+    [Theory]
+    [InlineData("later")]
+    [InlineData("failed")]
+    public void A_movement_message_long_after_a_given_up_teleport_or_after_its_failure_is_not_an_arrival(string how)
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        Assert.True(r.Model.ToHandle(There.Handle, new Vector3(128, 128, 30)));
+        r.Raise(TeleportPhase.Started);
+        r.Model.Receive(new SimConnected(There, 256, 256));
+        r.Raise(TeleportPhase.Finished);
+        r.Wait(15.1);
+        if (how == "later")
+            r.Wait(15.1);
+        else
+            r.Raise(TeleportPhase.Failed, "timeout_tport");
+        r.Model.Receive(new MovementComplete(There));
+        Assert.Equal(0, heard[0]);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(5.0)]
+    public void A_finish_that_comes_after_the_agent_is_already_in_place_is_the_same_teleport(double later)
+    {
+        var r = new Rig();
+        var heard = Counting(r);
+        Assert.True(r.Model.ToHandle(There.Handle, new Vector3(128, 128, 30)));
+        r.Raise(TeleportPhase.Started);
+        r.Model.Receive(new MovementComplete(There));
+        r.Model.Receive(new SimConnected(There, 256, 256));
+        Assert.Equal(1, heard[0]);
+        r.Wait(later);
+        r.Raise(TeleportPhase.Finished);
+        Assert.Equal(1, heard[0]);
+        r.Raise(TeleportPhase.Started);                           // and the next one counts again
+        r.Raise(TeleportPhase.Local);
+        Assert.Equal(2, heard[0]);
+    }
 }

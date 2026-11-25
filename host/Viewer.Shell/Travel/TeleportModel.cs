@@ -57,6 +57,8 @@ public sealed class TeleportModel
     private DateTimeOffset? _holdUntil;                   // after a teleport inside the region: a late "teleport started" message is ignored until then
     private bool _moving;                                 // the grid has finished the teleport (the official TELEPORT_MOVING): the next movement message is the arrival
     private bool _localDone;                              // the teleport inside the region has been answered; only its hold is left
+    private bool _finishOwed;                             // the agent was in place before the grid's finish for that teleport came: that finish is not another arrival
+    private DateTimeOffset? _movementOwedUntil;           // given up after the grid's finish: a movement message that still comes by then is the arrival
 
     /// <summary>After a teleport inside the region the progress view stays shut and a late "teleport started" message is ignored for this long.</summary>
     public static readonly TimeSpan LocalDelay = TimeSpan.FromSeconds(1);
@@ -130,7 +132,9 @@ public sealed class TeleportModel
     /// moments the official viewer plays its teleport sound). Not again for the same teleport's later messages.</summary>
     public event Action? Departing;
 
-    /// <summary>Raised when a teleport has ended and the agent is in place (the official viewer's handleTeleportFinished), for a teleport inside the region too.</summary>
+    /// <summary>Raised once when a teleport has ended and the agent is in place (the official viewer's handleTeleportFinished), for a teleport
+    /// inside the region too, and for one the progress view does not show: one the grid makes while the one before is still arriving or
+    /// within the local delay, one that ends after the viewer gave up on it, or a move the grid reports with no start message.</summary>
     public event Action? Arrived;
 
     // ---------------- starting ----------------
@@ -205,6 +209,8 @@ public sealed class TeleportModel
         Failure = null;
         CanCancel = !inside;
         _holdUntil = null;
+        _finishOwed = false;
+        _movementOwedUntil = null;
         ForgetArrival();
         _startedAt = _clock();
         Changed?.Invoke();
@@ -255,8 +261,8 @@ public sealed class TeleportModel
     /// delay while the content settles, and then closes.</summary>
     private void Arrive()
     {
-        Arrivals++;
-        Arrived?.Invoke();
+        _finishOwed = !_moving;
+        CountArrival();
         _arrivedAt = _clock();
         Stage = TeleportStage.Arriving;
         Progress = ("teleport.progress.arriving", null);
@@ -269,8 +275,7 @@ public sealed class TeleportModel
     /// start for the same time.</summary>
     private void ArriveInside()
     {
-        Arrivals++;
-        Arrived?.Invoke();
+        CountArrival();
         var now = _clock();
         if (Stage == TeleportStage.Local)
         {
@@ -281,6 +286,12 @@ public sealed class TeleportModel
         }
         Reset();
         _holdUntil = now + LocalDelay;
+    }
+
+    private void CountArrival()
+    {
+        Arrivals++;
+        Arrived?.Invoke();
     }
 
     private void Fail((string Key, string? Arg) failure)
@@ -415,7 +426,17 @@ public sealed class TeleportModel
                 else
                     _movedEarly = true;
                 break;
+            case MovementComplete when _movementOwedUntil is { } by && _clock() <= by:
+                _movementOwedUntil = null;
+                CountArrival();
+                Changed?.Invoke();
+                break;
+            case SimConnected:
+                _movementOwedUntil = null;   // another region since: its movement message is not the one waited for
+                break;
             case Disconnected:
+                _finishOwed = false;
+                _movementOwedUntil = null;
                 if (Stage != TeleportStage.Idle)
                     Reset();
                 break;
@@ -427,6 +448,8 @@ public sealed class TeleportModel
         switch (p.Phase)
         {
             case TeleportPhase.Started:
+                _finishOwed = false;   // another teleport: its finish is its own
+                _movementOwedUntil = null;
                 // the grid may start a teleport nobody here asked for (being sent home)
                 // like the official viewer, a start message only brings the progress up when nothing else is going on, and not within the
                 // local delay of a teleport that ended inside the region (a late start would leave the progress on screen)
@@ -465,8 +488,18 @@ public sealed class TeleportModel
             case TeleportPhase.Local when Pending:
                 ArriveInside();
                 break;
+            case TeleportPhase.Finished when _finishOwed:
+                _finishOwed = false;
+                break;
+            case TeleportPhase.Finished or TeleportPhase.Local:
+                // the grid's finish with no teleport waiting for it: the progress view stays as it is, the arrival still counts
+                CountArrival();
+                Changed?.Invoke();
+                break;
             case TeleportPhase.Failed:
             {
+                _finishOwed = false;
+                _movementOwedUntil = null;
                 bool home = _homeAsked && Busy;
                 Fail(ErrorText(p.Message, p.RegionName));
                 if (home)
@@ -474,6 +507,7 @@ public sealed class TeleportModel
                 break;
             }
             case TeleportPhase.Cancelled when Busy && _arrivedAt is null:
+                _movementOwedUntil = null;
                 Reset();
                 break;
         }
@@ -496,6 +530,8 @@ public sealed class TeleportModel
         var now = _clock();
         if (Busy && now - _startedAt > Expiry + ExpiryPerAttachment * Math.Max(0, _attachments?.Invoke() ?? 0))
         {
+            // the grid had finished it: if the movement message still comes soon, that is the arrival
+            _movementOwedUntil = _moving && Pending ? now + Expiry : null;
             Reset();
             return;
         }

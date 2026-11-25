@@ -61,8 +61,11 @@ public static class AddonPermissions
     /// <summary>(Interface 0.6, not yet public.) Read the world around the person: the camera, their avatar's place, the region's
     /// size, water, ground, wind, sun and a short summary of the sky. Granted only to add-ons that come with the viewer.</summary>
     public const string RegionRead = "region.read";
+    /// <summary>(Interface 0.6, not yet public.) Play sound files from the add-on's own folder, heard only by the person, under the
+    /// Ambient level. Granted only to add-ons that come with the viewer.</summary>
+    public const string SoundPlay = "sound.play";
 
-    public static IReadOnlyList<string> All { get; } = [Session, Motion, AnimationsRead, AnimationsPlay, ChatRead, ChatSend, Filter, Window, InventoryRead, InventoryWrite, Restraints, RegionRead];
+    public static IReadOnlyList<string> All { get; } = [Session, Motion, AnimationsRead, AnimationsPlay, ChatRead, ChatSend, Filter, Window, InventoryRead, InventoryWrite, Restraints, RegionRead, SoundPlay];
 }
 
 /// <summary>Thrown to an add-on that uses something it was not granted. The viewer catches it and switches the add-on off.</summary>
@@ -271,6 +274,12 @@ public interface IAddonContext
     /// add-ons that come with the viewer are granted; any other gets <see cref="AddonPermissionException"/>.</summary>
     IAddonWorld? World => null;
 
+    // ---- sound (interface 0.6, not yet public) ----
+
+    /// <summary>(Interface 0.6.) Sounds from the add-on's own folder. Needs <see cref="AddonPermissions.SoundPlay"/>, which only
+    /// add-ons that come with the viewer are granted; any other gets <see cref="AddonPermissionException"/>.</summary>
+    IAddonSounds? Sounds => null;
+
     // ---- inventory ----
 
     /// <summary>The user's inventory, read only; null while logged out. Needs <see cref="AddonPermissions.InventoryRead"/>.</summary>
@@ -284,6 +293,42 @@ public interface IAddonContext
     /// <summary>The viewer's restraint enforcement. Needs <see cref="AddonPermissions.Restraints"/>, which only add-ons that come
     /// with the viewer are granted; any other gets <see cref="AddonPermissionException"/>.</summary>
     IAddonRestraints? Restraints => null;
+}
+
+/// <summary>(Interface 0.6.) How a sound is played. <paramref name="Gain"/> is 0 to 1. <paramref name="DelaySeconds"/> waits that long before it
+/// starts (0 to 60). <paramref name="LowPassHz"/> muffles it, cutting what is above that frequency (20 to 20000; null for none).
+/// <paramref name="Position"/> places it in the current region's metres (x east, y north, z up), so it fades with distance and comes from
+/// that side; null plays it around the person (ambient).</summary>
+public sealed record AddonSoundOptions(bool Loop = false, float Gain = 1f, double DelaySeconds = 0, float? LowPassHz = null, Vector3? Position = null);
+
+/// <summary>(Interface 0.6.) One sound the add-on started. Setting a value that is not a number does nothing.</summary>
+public interface IAddonSound : IDisposable
+{
+    /// <summary>Waiting for its delay, or playing. False once it ended or was stopped.</summary>
+    bool IsActive { get; }
+    float Gain { get; set; }
+    float? LowPassHz { get; set; }
+    /// <summary>Where it is; null for an ambient sound, which stays ambient (a placed one stays placed).</summary>
+    Vector3? Position { get; set; }
+    void Stop();
+}
+
+/// <summary>
+/// (Interface 0.6.) Sounds from files in the add-on's own folder, heard only by the person: nothing is sent to the region. They play under
+/// the Ambient level and its mute, and the master level. The viewer stops all of them when the add-on stops for any reason, at logout,
+/// when the avatar is in another region and when a teleport ends; the last two come just before the world's RegionChanged and Teleported
+/// events. A sound started in the Teleported handler goes on. When a teleport changes regions, start sounds there: Teleported can come
+/// after RegionChanged, with another stop before it.
+/// </summary>
+public interface IAddonSounds
+{
+    /// <summary>Plays a 16-bit PCM WAV or an Ogg Vorbis file of at most 8 MB, named relative to the add-on's folder. Null when it was not
+    /// started: a name that leads outside the folder, a file that is not such a sound, an option out of use, eight sounds already waiting or
+    /// playing, logged out, or a grid the add-on may not use it on (see "grids").</summary>
+    IAddonSound? Play(string file, AddonSoundOptions? options = null);
+
+    /// <summary>Stops all of this add-on's sounds.</summary>
+    void StopAll();
 }
 
 /// <summary>(Interface 0.6.) The camera: its place in the current region's metres (x east, y north, z up), where it looks and which way is

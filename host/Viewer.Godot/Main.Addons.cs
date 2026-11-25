@@ -85,6 +85,10 @@ public partial class Main
         public System.Numerics.Vector3? WindAt(float x, float y) =>
             main._addonsFor is { IsEnded: false } session && main._addonsInWorld ? AddonWorldReader.WindAt(session.World, x, y) : null;
 
+        public IAddonSoundOutput? SoundOutput => main._addonSounds;
+
+        public AddonSoundScene SoundScene() => main.AddonSoundSceneNow();
+
         public void PlayLocally(Guid? animation)
         {
             // the own avatar plays it in this viewer only: it joins the region's list for the own avatar and is never sent
@@ -534,6 +538,19 @@ public partial class Main
             case "off": if (id is null || !host.SetEnabled(id, false)) return new { error = "off" }; break;
             case "open": _shell?.Shell.Floaters.Open(AddonsPanel.FloaterId); break;
             case "rlv": return RlvState();
+            case "sounds":
+                // what the host holds (file names are the add-on's own) beside what the engine's players hold
+            {
+                int master = AudioServer.GetBusIndex("Master");
+                return new
+                {
+                    sounds = host.Sounds.Select(v => new { voice = v.Voice, addon = v.AddonId, file = v.File, waiting = v.Waiting, loop = v.Loop,
+                        position = v.Position is { } p ? new[] { p.X, p.Y, p.Z } : null, gain = v.Gain, low_pass = v.LowPassHz }).ToArray(),
+                    engine = _addonSounds?.State() ?? [],
+                    master_db = AudioServer.GetBusVolumeDb(master), master_mute = AudioServer.IsBusMute(master),
+                    origin = _addonsFor is { IsEnded: false } s ? new[] { s.World.OriginOffset.X, s.World.OriginOffset.Y, s.World.OriginOffset.Z } : null,
+                };
+            }
             case "diagnose":
             {
                 // "<add-on id>" or "<add-on id>/<action>": what a running add-on's own diagnostics answer
