@@ -124,6 +124,7 @@ core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	@file llvotree.cpp
 core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
 core/Viewer.Core/World/TreeNoise.cs	LGPL-2.1-only	@file noise.h
 core/Viewer.Core/World/TreeNoise.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core.Tests/UnderwaterViewTests.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
 core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file class3\environment\underWaterF.glsl
 core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
 core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file class3/deferred/waterHazeF.glsl
