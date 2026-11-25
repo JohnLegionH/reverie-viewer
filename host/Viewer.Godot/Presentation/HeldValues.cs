@@ -286,6 +286,9 @@ internal static class EngineNames
     public static readonly StringName HazeComb = "haze_comb";
     public static readonly StringName HazeK = "haze_k";
     public static readonly StringName FlatWater = "flat_water";
+    public static readonly StringName UnderLevel = "under_level";
+    public static readonly StringName UnderDensity = "under_density";
+    public static readonly StringName ScaleBelow = "scale_below";
     public static readonly StringName OriginOffset = "origin_offset";
     public static readonly StringName Ramp = "ramp";
     public static readonly StringName[] Detail = ["detail0", "detail1", "detail2", "detail3"];

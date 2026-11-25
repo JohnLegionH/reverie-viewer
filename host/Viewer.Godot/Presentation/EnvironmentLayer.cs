@@ -149,11 +149,65 @@
  * $/LicenseInfo$
  */
 
+/**
+ * @file class3\environment\underWaterF.glsl
+ *
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2007, Linden Research, Inc.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * $/LicenseInfo$
+ */
+
+/**
+ * @file class3/deferred/waterHazeF.glsl
+ *
+ * $LicenseInfo:firstyear=2023&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2023, Linden Research, Inc.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * $/LicenseInfo$
+ */
+
 // Adapted 2026 by Legion Builds. Ported from the Second Life Viewer 26.4 (release tag Second_Life_Release#e960123-26.4, commit e960123230d521e8557a9582100bebcac36a7ca2). The sky shader's cloud layer (SkyCode) follows the main() of the cloud vertex shader (cloudsV.glsl: the texture coordinates; the cloud colours come from the core, CloudLighting) and of the cloud fragment shader (cloudsF.glsl: the disturbance and noise lookups, the two opacities, the colour times two) for the direction each pixel looks, with the dome mapping of CloudLighting.Planar.
 // The water shader (WaterCode) follows the main() of the water fragment shader (waterF.glsl: the fresnel weights, the mix of
 // what is seen through the water with the reflected light) and the water fog function of waterFogF.glsl (the thickness, the fog light and what survives),
 // written for the engine's shading language. The ripples read a normal map at the wave coordinates of the water vertex shader (waterV.glsl), the fresnel is taken on three wave layers
 // and the refraction reads the scene aside by the ripples (waterF.glsl), and the sun's glint is the punctual light of deferredUtil.glsl (pbrPunctual and its terms). The reflected sky carries only the fresnel factor, as in that shader. The rest of this file is our own code.
+// The view from below the water (from github.com/secondlife/viewer, commit e34b5c188e758b6d24b768cc44fbee459be2855c): the water shader's branch
+// for a camera under the surface follows the main() of indra/newview/app_settings/shaders/class3/environment/underWaterF.glsl; the haze
+// shader (WaterHazeCode) follows the main() of indra/newview/app_settings/shaders/class3/deferred/waterHazeF.glsl; both write
+// getWaterFogViewNoClip of indra/newview/app_settings/shaders/class1/environment/waterFogF.glsl for an eye under the water (FogCode).
 // Copyright (c) 2026 Legion Builds
 
 using Godot;
@@ -166,8 +220,8 @@ namespace Viewer.Godot.Presentation;
 /// Godot's own sky, light and fog: a procedural sky from the frame's blue horizon / blue density, the sun (or the moon
 /// when the sun is below the horizon) as the directional light with the frame's colour, the frame's ambient as ambient
 /// light, and exponential fog from the haze. Water: one plane at the water height reaching to the horizon, coloured by
-/// the water fog colour with depth-based fog and gently animated normals; no reflections or refraction. Owns its RIDs and
-/// resources; <see cref="Clear"/> frees them.
+/// the water fog colour with depth-based fog and gently animated normals; no reflections or refraction. While the camera is under the water
+/// the view is the below-surface one (<see cref="Viewer.Core.World.UnderwaterView"/>). Owns its RIDs and resources; <see cref="Clear"/> frees them.
 /// </summary>
 public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, DirectionalLight3D sun)
 {
@@ -380,6 +434,74 @@ public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, Direc
     /// <summary>Whether the below-surface view is drawn now (the camera last given is under the water).</summary>
     public bool UnderwaterDrawn { get; private set; }
 
+    private const float NotUnder = -1000000000f;
+    private Rid _hazeMesh, _hazeInstance;
+    private ShaderMaterial? _hazeMaterial;
+    private Vector3? _eye;
+    private float _underLevel = NotUnder;
+    private Color _underFogColor;
+    private float _underDensity, _underSlant;
+
+    /// <summary>
+    /// Switches the below-surface view on or off for the camera's place: under the water height of the region it is over. Cheap when
+    /// nothing changed. While it is on, the haze of the air (the engine's fog, or the tone-mapped path's haze pass) is off: below the
+    /// surface the water's haze takes its place.
+    /// </summary>
+    private void UpdateUnderwater()
+    {
+        float level = NotUnder;
+        if (!UnderwaterOff && _eye is { } eye && WaterHeight is { } home && _waterInstance.IsValid)
+        {
+            float height = UnderwaterView.HeightAt(eye.X, -eye.Z, home, NeighbourWater);
+            if (UnderwaterView.EyeBelow(eye.Y, height)) level = height;
+        }
+        if (level == _underLevel) return;
+        bool was = UnderwaterDrawn;
+        _underLevel = level;
+        UnderwaterDrawn = level != NotUnder;
+        _waterMaterial?.SetShaderParameter(EngineNames.UnderLevel, level);
+        if (UnderwaterDrawn) { EnsureHaze(); SetHazeLook(); }
+        if (_hazeInstance.IsValid) RenderingServer.InstanceSetVisible(_hazeInstance, UnderwaterDrawn);
+        if (was != UnderwaterDrawn) SetAirHaze();
+    }
+
+    private void SetAirHaze()
+    {
+        if (Frame is not { } f) return;
+        if (_hdrSet) _hdrEffect!.SetHaze(HazeOff || UnderwaterDrawn ? null : SkyLighting.HazeOf(f), ToneMap.HdrScale(1f));
+        else Stage.EnvironmentOf(world).FogEnabled = !UnderwaterDrawn;
+    }
+
+    private void EnsureHaze()
+    {
+        if (_hazeInstance.IsValid) return;
+        _hazeMesh = Rids.MeshCreate("water haze mesh");
+        PrimLayer.HandOver(_hazeMesh, Viewer.Shell.MeshSurfaceData.Encode([-1, -1, 0, 3, -1, 0, -1, 3, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1], [0, 1, 2],
+            uvs: null, colors: null, slAxes: false, reverseWinding: false));
+        _hazeMaterial = new ShaderMaterial { Shader = KeptShaders.WaterHaze, RenderPriority = -127 };
+        RenderingServer.MeshSurfaceSetMaterial(_hazeMesh, 0, _hazeMaterial.GetRid());
+        _hazeInstance = Rids.InstanceCreate2(_hazeMesh, scenario, "water haze instance");
+        // its corners are screen places, not world places: never culled
+        RenderingServer.InstanceSetCustomAabb(_hazeInstance, new Aabb(new Vector3(-1e7f, -1e7f, -1e7f), new Vector3(2e7f, 2e7f, 2e7f)));
+        RenderingServer.InstanceSetLayerMask(_hazeInstance, GlowPass.NotInGlowLayer);   // not part of the glow picture or the sky probe's capture
+    }
+
+    private void SetHazeLook()
+    {
+        if (_hazeMaterial is null) return;
+        _hazeMaterial.SetShaderParameter(EngineNames.UnderLevel, _underLevel);
+        _hazeMaterial.SetShaderParameter(EngineNames.FogColor, _underFogColor);
+        _hazeMaterial.SetShaderParameter(EngineNames.UnderDensity, _underDensity);
+        _hazeMaterial.SetShaderParameter(EngineNames.FogSlant, _underSlant);
+    }
+
+    /// <summary>Start-up only: shows the haze for a warm-up frame, so its pipeline is made before the first dive.</summary>
+    internal void WarmUpHaze()
+    {
+        EnsureHaze();
+        SetHazeLook();
+    }
+
     private ImageTexture? _waterBump;
     private ShaderMaterial? _waterBumpSet;
     private ImageTexture? _waterBumpRetired;
@@ -436,7 +558,7 @@ public sealed class EnvironmentLayer(Rid scenario, WorldEnvironment world, Direc
     public float WaterTimeOffset { get; set; }
 
     /// <summary>The water mesh, instance, material (its shader, kept for the process since but counted as before) and the sky resources this layer still holds (0 after <see cref="Clear"/>).</summary>
-    public int LiveResources => (_waterMesh.IsValid ? 1 : 0) + (_waterInstance.IsValid ? 1 : 0) + (_waterMaterial is null ? 0 : 2) + (_sky is null ? 0 : 1) + (_skyMaterial is null ? 0 : 1) + (_skyProfile is null ? 0 : 1) + (_cloudSun is null ? 0 : 1) + (_cloudAmb is null ? 0 : 1) + (_cloudNoise is null ? 0 : 1) + (_waterBump is null ? 0 : 1) + (_gammaLut is null ? 0 : 1);
+    public int LiveResources => (_waterMesh.IsValid ? 1 : 0) + (_waterInstance.IsValid ? 1 : 0) + (_waterMaterial is null ? 0 : 2) + (_sky is null ? 0 : 1) + (_skyMaterial is null ? 0 : 1) + (_skyProfile is null ? 0 : 1) + (_cloudSun is null ? 0 : 1) + (_cloudAmb is null ? 0 : 1) + (_cloudNoise is null ? 0 : 1) + (_waterBump is null ? 0 : 1) + (_gammaLut is null ? 0 : 1) + (_hazeMesh.IsValid ? 1 : 0) + (_hazeInstance.IsValid ? 1 : 0) + (_hazeMaterial is null ? 0 : 1);
 
     /// <summary>Lifecycle negative control only (--tr-alter=keepwater): <see cref="Clear"/> forgets the water without
     /// freeing it, the way a buggy clear would leak it. The lifecycle check must fail.</summary>
@@ -551,9 +673,58 @@ void sky() {
 }
 ";
 
+    /// <summary>The water fog along a ray from an eye under the surface, as <see cref="UnderwaterView.Fog"/> writes it: x the share of the fog's light, y what survives.</summary>
+    private const string FogCode = @"
+vec2 under_fog(float density, float slant, float eye_depth, float rise, float len) {
+    float l = max(len, 0.1);
+    float t1 = -density * pow(0.98, slant * max(eye_depth, 0.0));
+    float t2 = density - slant * rise;
+    if (abs(t2) < 1e-4) { t2 = t2 < 0.0 ? -1e-4 : 1e-4; }
+    float t3 = pow(0.98, t2 * l) - 1.0;
+    float inner = min(t1 / t2 * t3, 1.0);
+    return vec2(inner > 0.0 ? pow(inner, 1.0 / 1.7) : 0.0, pow(0.98, l * density));
+}
+";
+
+    /// <summary>
+    /// The water haze for a camera under the surface: one triangle over the whole screen, drawn before every other see-through thing. What
+    /// lies below the surface keeps its transmittance to the power 1.7 and gains the fog's light; what lies above it is left for the
+    /// surface to show. A sky pixel looking up shows the surface even where the water's plane ends before the camera's far distance.
+    /// </summary>
+    internal const string WaterHazeCode = @"
+shader_type spatial;
+render_mode blend_premul_alpha, unshaded, cull_disabled, depth_draw_never, depth_test_disabled, fog_disabled, shadows_disabled;
+uniform vec3 fog_color : source_color = vec3(0.016, 0.149, 0.251);
+uniform float under_density = 2.0;
+uniform float fog_slant = 1.0;
+uniform float under_level = -1000000000.0;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+" + FogCode + @"
+void vertex() { POSITION = vec4(VERTEX.xy, 1.0, 1.0); }
+void fragment() {
+    if (CAMERA_POSITION_WORLD.y >= under_level) { discard; }
+    float depth = textureLod(depth_tex, SCREEN_UV, 0.0).r;
+    vec4 view_at = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, depth, 1.0);
+    vec3 to_point = mat3(INV_VIEW_MATRIX) * (view_at.xyz / view_at.w);   // from the eye to the point, in the world's axes
+    float len = length(to_point);
+    vec3 dir = to_point / len;
+    float eye_depth = under_level - CAMERA_POSITION_WORLD.y;
+    bool open_surface = depth <= 0.0 && dir.y > 0.0;
+    if (!open_surface && CAMERA_POSITION_WORLD.y + to_point.y > under_level) { discard; }
+    if (open_surface) { len = eye_depth / max(dir.y, 1e-5); }
+    vec2 fog = under_fog(under_density, fog_slant, eye_depth, dir.y, len);
+    float survives = open_surface ? fog.y : pow(fog.y, 1.7);
+    ALBEDO = fog_color * fog.x;
+    ALPHA = 1.0 - survives;
+}
+";
+
     internal const string WaterCode = @"
 shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_opaque, unshaded, fog_disabled;
+uniform float under_level = -1000000000.0;   // the water's height while the camera is under it, else far below everything
+uniform float under_density = 2.0;
+uniform float scale_below = 0.2;
 uniform vec3 fog_color : source_color = vec3(0.016, 0.149, 0.251);
 uniform float fog_density = 16.0;
 uniform float fog_slant = 1.0;
@@ -578,6 +749,7 @@ uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 varying vec3 world_pos;
 void vertex() { world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+" + FogCode + @"
 // the region's frame (x east, y north, z up) in the engine's (x, y up, -z north)
 vec3 to_world(vec3 v) { return vec3(v.x, v.z, -v.y); }
 vec3 sky_at(vec3 dir) {
@@ -664,6 +836,16 @@ void fragment() {
     }
     ALBEDO = clamp(color, vec3(0.0), vec3(1.0));
     ALPHA = 1.0;
+    if (CAMERA_POSITION_WORLD.y < under_level) {
+        // seen from below: what lies above, moved by the three wave layers' sum times the scale below, fogged along the way here; no mirror
+        // reflection. (The screen's y runs down here and up in the official shader.)
+        vec2 off = flat_water > 0.5 ? vec2(0.0) : normalize(w1 + w2 + w3).xy * scale_below;
+        vec2 buv = clamp(SCREEN_UV + vec2(off.x, -off.y), vec2(0.0), vec2(0.999));
+        vec4 pb = INV_PROJECTION_MATRIX * vec4(buv * 2.0 - 1.0, texture(depth_tex, buv).r, 1.0);
+        if (length(pb.xyz / pb.w) < dist - 0.05) { buv = SCREEN_UV; }   // not something in front of the surface (the screen copy has no haze on it)
+        vec2 fog = under_fog(under_density, fog_slant, under_level - CAMERA_POSITION_WORLD.y, vdir.y, dist);
+        ALBEDO = max(textureLod(screen_tex, buv, 0.0).rgb * fog.y + fog_color * fog.x, vec3(0.0));
+    }
 }
 ";
 
@@ -836,8 +1018,17 @@ void fragment() {
             _waterMaterial.SetShaderParameter(EngineNames.HazeComb, new Vector3(comb.X, comb.Y, comb.Z));
             _waterMaterial.SetShaderParameter(EngineNames.HazeK, f.DensityMultiplier * f.DistanceMultiplier);
             _waterMaterial.SetShaderParameter(EngineNames.FlatWater, WaterFlat ? 1f : 0f);
+            // the below-surface view's values: the density raised to the underwater modifier, and the scale the surface's view is moved by
+            _underFogColor = new Color(w.FogColor.X, w.FogColor.Y, w.FogColor.Z);
+            _underDensity = UnderwaterView.FogDensity(w.FogDensity, w.FogMod, underwater: true);
+            _underSlant = WaterShading.FogSlant(night ? f.MoonDirection.Z : f.SunDirection.Z);
+            _waterMaterial.SetShaderParameter(EngineNames.UnderDensity, _underDensity);
+            _waterMaterial.SetShaderParameter(EngineNames.ScaleBelow, w.ScaleBelow);
             WaterHeight = wh;
         }
+        // the frame put the air's haze back and may have moved the water: the below-surface view is put right for the camera last given
+        UpdateUnderwater();
+        if (UnderwaterDrawn) { SetHazeLook(); SetAirHaze(); }
     }
 
     /// <summary>Puts the tone mapping post pass on the world (a frame that takes the tone-mapped path) or takes it off (every other), with the official parameters.</summary>
@@ -1026,10 +1217,12 @@ void fragment() {
     /// The water's place in the transparent order, for an eye at <paramref name="eye"/>: after the blended faces on
     /// the far side of it and before those on the camera's side (<see cref="Viewer.Core.World.BlendOrder.WaterDepth"/>;
     /// the faces' places are set by the prim layer). Once placed, the water is ordered by depth with the faces (its
-    /// render priority theirs).
+    /// render priority theirs). Also switches the below-surface view for this eye.
     /// </summary>
     public void OrderWater(Vector3 eye)
     {
+        _eye = eye;
+        UpdateUnderwater();
         if (!_waterInstance.IsValid || _waterMaterial is null) return;
         if (_waterMaterial.RenderPriority != 0) _waterMaterial.RenderPriority = 0;
         float offset = eye.DistanceTo(_waterOrigin) - Viewer.Core.World.BlendOrder.WaterDepth;
@@ -1065,6 +1258,10 @@ void fragment() {
         _skyProfile?.Dispose(); _skyProfile = null;
         _waterBump?.Dispose(); _waterBump = null; _waterBumpSet = null; _waterBumpRetired?.Dispose(); _waterBumpRetired = null; WaterNormalMapId = null;
         _sunTexture?.Dispose(); _sunTexture = null; _sunTextureSet = null; _sunTextureRetired?.Dispose(); _sunTextureRetired = null; SunTextureId = null;
+        if (_hazeInstance.IsValid) { Rids.Free(_hazeInstance); _hazeInstance = default; }   // the instance before its mesh
+        if (_hazeMesh.IsValid) { Rids.Free(_hazeMesh); _hazeMesh = default; }
+        _hazeMaterial?.Dispose(); _hazeMaterial = null;   // the shader is kept (KeptShaders)
+        _underLevel = NotUnder; UnderwaterDrawn = false; _eye = null;
         _gammaLut?.Dispose(); _gammaLut = null; _gammaApplied = 1f;
         e.AdjustmentEnabled = false;
         _cloudSun?.Dispose(); _cloudSun = null; _cloudAmb?.Dispose(); _cloudAmb = null; _cloudNoise?.Dispose(); _cloudNoise = null;

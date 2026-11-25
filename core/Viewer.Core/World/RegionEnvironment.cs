@@ -47,7 +47,7 @@ public sealed record CloudSettings(Vector3 Color, float Scale, Vector3 PosDensit
 /// default when the region sends none.
 /// </summary>
 public sealed record WaterLook(Vector3 FogColor, float FogDensity, Vector2 Wave1, Vector2 Wave2, float FresnelScale, float FresnelOffset,
-    float BlurMultiplier = 0.04f, Vector3? NormalScaleValue = null, float ScaleAbove = 0.0299f, float ScaleBelow = 0.2f, Guid? NormalMapId = null, float FogMod = 0f)
+    float BlurMultiplier = 0.04f, Vector3? NormalScaleValue = null, float ScaleAbove = 0.0299f, float ScaleBelow = 0.2f, Guid? NormalMapId = null, float FogMod = 0.25f)
 {
     /// <summary>How strongly the wave normals are tilted (the official default is 2 on every axis).</summary>
     public Vector3 NormalScale => NormalScaleValue ?? new Vector3(2f, 2f, 2f);
@@ -185,7 +185,7 @@ public sealed record RegionEnvironment(ImmutableArray<SkyFrame> Sky, WaterLook W
     private static WaterLook WaterOf(Dictionary<string, object?> f) =>
         new(Vec(f, "water_fog_color"), Num(f, "water_fog_density", 16f), Vec2(f, "wave1_direction"), Vec2(f, "wave2_direction"), Num(f, "fresnel_scale", 0.4f), Num(f, "fresnel_offset", 0.5f),
         Num(f, "blur_multiplier", 0.04f), f.ContainsKey("normal_scale") ? Vec(f, "normal_scale") : null, Num(f, "scale_above", 0.0299f), Num(f, "scale_below", 0.2f),
-        f.GetValueOrDefault("normal_map") is Guid nm && nm != Guid.Empty ? nm : null);
+        f.GetValueOrDefault("normal_map") is Guid nm && nm != Guid.Empty ? nm : null, Num(f, "underwater_fog_mod", 0.25f));
 
     private static string Str(Dictionary<string, object?> m, string k) => m.GetValueOrDefault(k) as string ?? "";
     // a finite double can still overflow a float (1e300 -> Infinity); such a value takes the field's default,

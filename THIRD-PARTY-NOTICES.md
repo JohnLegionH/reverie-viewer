@@ -131,6 +131,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   - `host/Viewer.Godot/Presentation/EnvironmentLayer.cs` (the water shader): `indra/newview/app_settings/shaders/class3/environment/waterF.glsl` (copyright 2022)
     and `indra/newview/app_settings/shaders/class1/environment/waterFogF.glsl` (copyright 2007).
   - `core/Viewer.Core/World/WaterWaves.cs`: `indra/newview/app_settings/shaders/class1/environment/waterV.glsl` (copyright 2007).
+  - `core/Viewer.Core/World/UnderwaterView.cs` and `host/Viewer.Godot/Presentation/EnvironmentLayer.cs` (the view from below the water; from commit e34b5c188e758b6d24b768cc44fbee459be2855c of github.com/secondlife/viewer): `indra/newview/app_settings/shaders/class3/environment/underWaterF.glsl` (copyright 2007), `indra/newview/app_settings/shaders/class1/environment/waterFogF.glsl` (copyright 2007), `indra/newview/app_settings/shaders/class3/deferred/waterHazeF.glsl` (copyright 2023) and, in `UnderwaterView.cs`, `indra/llinventory/llsettingswater.cpp` (`getModifiedWaterFogDensity`, copyright 2017) and `indra/newview/llviewercamera.cpp` (`cameraUnderWater`, copyright 2010).
   - `core/Viewer.Core/World/TreeMesh.cs` (`TreeMesh`, `TreeLod`): `indra/newview/llvotree.cpp` (copyright 2010) and the species table of `indra/newview/app_settings/trees.xml`.
   - `core/Viewer.Core/World/TreeNoise.cs`: `indra/newview/noise.h` (copyright 2010).
   - `core/Viewer.Core/World/WaterShading.cs` (`Glint`) and `host/Viewer.Godot/Presentation/EnvironmentLayer.cs` (the water shader's glint and wave coordinates):

@@ -47,7 +47,7 @@
 ^core/Viewer\.Core/(Camera|Replay|Platform)/	full
 # World files whose users the code shows: only the areas of those users, found by who names each file's types in host and core
 # (the engine layer that draws it, its own render cases). The sky and the water are drawn by EnvironmentLayer.
-^core/Viewer\.Core/World/(CloudNoise|CloudLighting|SunDisc|WaterShading|WaterWaves|FixedSkyStore|KnownSkies)\.cs$	environment
+^core/Viewer\.Core/World/(CloudNoise|CloudLighting|SunDisc|WaterShading|WaterWaves|UnderwaterView|FixedSkyStore|KnownSkies)\.cs$	environment
 # WaterPlan: the environment layer's water and the neighbour stack's water (terrain). SkyProbe and ToneMap: the sky layer and the avatar skin-light cases.
 ^core/Viewer\.Core/World/WaterPlan\.cs$	environment,terrain
 ^core/Viewer\.Core/World/(SkyProbe|ToneMap)\.cs$	environment,avatars
@@ -60,7 +60,7 @@
 ^core/Viewer\.Core/World/LookSummary\.cs$	terrain
 ^core/Viewer\.Core/World/BlendOrder\.cs$	objects,avatars,environment,build
 # full because: any other World file (WorldState, the object table, materials, lights, motion, appearance, trees, terrain data) is the shared model the protocol fills and every layer reads, or is used by a hub or the session as well; the code shows no narrower set. A new World file lands here until it is placed above.
-^core/Viewer\.Core/World/(?!(CloudNoise|CloudLighting|SunDisc|WaterShading|WaterWaves|FixedSkyStore|KnownSkies|WaterPlan|SkyProbe|ToneMap|GlowChooser|ProjectorPicture|ViewFrustum|Glow|AutoMask|GlowOccluders|TreeNoise|LookSummary|BlendOrder)\.cs$)	full
+^core/Viewer\.Core/World/(?!(CloudNoise|CloudLighting|SunDisc|WaterShading|WaterWaves|UnderwaterView|FixedSkyStore|KnownSkies|WaterPlan|SkyProbe|ToneMap|GlowChooser|ProjectorPicture|ViewFrustum|Glow|AutoMask|GlowOccluders|TreeNoise|LookSummary|BlendOrder)\.cs$)	full
 # Main.cs alone: one render case from each area on Vulkan; the next full gate runs the full set.
 ^host/Viewer\.Godot/Main\.cs$	mainsample
 # full because: the presentation policy, frame budget, camera, backend choice and device code in the shell decide how every picture is drawn and paced.

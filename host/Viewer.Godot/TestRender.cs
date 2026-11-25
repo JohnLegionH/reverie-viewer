@@ -1842,7 +1842,7 @@ public partial class TestRender : Node
             else
             {
                 var (light, survives) = UnderwaterView.Fog(water.FogColor, density, slant, depth, rise, depth / rise);
-                var sky = SkyLighting.DomeColour(frame, (float)elev, AzimuthFromLight(frame, cam.ProjectRayNormal(new Vector2(x, best))));
+                var sky = SkyLighting.DomeColour(frame, (float)elev, (float)AzimuthFromLight(frame, cam.ProjectRayNormal(new Vector2(x, best))));
                 wantV = UnderwaterView.SurfaceFromBelow(sky, light, survives); up++;
             }
             var want = new[] { wantV.X, wantV.Y, wantV.Z };

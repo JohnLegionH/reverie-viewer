@@ -17,7 +17,7 @@ mainsample	^(loginscreen|select|clouds_midday|avatars_attach|golden|mesh_near|ui
 ui	^(ui|loginscreen|logincard|proportions|dialog12|text_|test_window)	vulkan,d3d12	no
 login	^(ui_login|ui_reconnect|loginscreen|logincard|test_window)	vulkan,d3d12	yes
 build	^(handles_|ui_build|select)	vulkan,d3d12	no
-environment	^(haze|sundisc|shared_env|water|personal_sky|sky|clouds?_|skycycle|worldlight|lifecycle_water|neighbours_water|glow_light)	vulkan	no
+environment	^(haze|sundisc|shared_env|water|underwater|personal_sky|sky|clouds?_|skycycle|worldlight|lifecycle_water|neighbours_water|glow_light)	vulkan	no
 avatars	^(avatars|avatarprep|crowd|arrival|skinlight|skinnormal|nametags|pipeline_gate_crowd|lifecycle_avatars|proportions|ui_appearance|ui_outfits)	vulkan	no
 terrain	^(golden_|negative_|terrain|seam_|neighbours|path_terrain|region_|lifecycle_|trees)	vulkan	no
 objects	^(zoo|mesh|detail|layered|glow|projector|blended|meshprep|busy|merge|tex_|auto_mask|mat_|alphazoo|readback|mipcheck|colour|orient|banlines|select|trees|sharedtex|surfaces|primlod|sculpt|decodedbound|region_|viewreuse|keptcollections|engineerrors|warmup|pipeline_gate|teardown|lifecycle_)	vulkan	no

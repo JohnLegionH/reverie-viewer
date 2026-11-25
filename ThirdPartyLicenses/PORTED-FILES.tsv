@@ -124,6 +124,17 @@ core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	@file llvotree.cpp
 core/Viewer.Core/World/TreeMesh.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
 core/Viewer.Core/World/TreeNoise.cs	LGPL-2.1-only	@file noise.h
 core/Viewer.Core/World/TreeNoise.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file class3\environment\underWaterF.glsl
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file class3/deferred/waterHazeF.glsl
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file llsettingswater.h
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	@file llviewercamera.cpp
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	Copyright (C) 2007, Linden Research, Inc.
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	Copyright (C) 2023, Linden Research, Inc.
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	Copyright (C) 2017, Linden Research, Inc.
+core/Viewer.Core/World/UnderwaterView.cs	LGPL-2.1-only	Copyright (C) 2010, Linden Research, Inc.
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class3\environment\underWaterF.glsl
+host/Viewer.Godot/Presentation/EnvironmentLayer.cs	LGPL-2.1-only	@file class3/deferred/waterHazeF.glsl
 core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file waterF.glsl
 core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file class1\environment\waterFogF.glsl
 core/Viewer.Core/World/WaterShading.cs	LGPL-2.1-only	@file class1/deferred/deferredUtil.glsl
