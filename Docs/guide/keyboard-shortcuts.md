@@ -48,6 +48,7 @@ These work in the world, while you are logged in. See [Moving and the camera](mo
 | E or Page Up | Jump (when flying: go up) |
 | C or Page Down | Crouch (when flying: go down) |
 | F or Home | Fly or land |
+| Shift, held while flying | Fly faster (not on Second Life; see [Flying faster](moving-and-the-camera.md#flying-faster)) |
 | Space | Stop moving |
 | Ctrl+R | Always run on or off |
 | M | Mouselook on or off |

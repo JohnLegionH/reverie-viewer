@@ -38,6 +38,9 @@ public enum ViewerFeature
 
     /// <summary>Snap to objects: a Move drag in Build catches on other objects' boxes.</summary>
     SnapToObjects = 7,
+
+    /// <summary>Fast flight: Shift held while flying tells the region the avatar runs.</summary>
+    FastFlight = 8,
 }
 
 /// <summary>Where a feature may run.</summary>
@@ -78,6 +81,8 @@ public static class GridPolicy
         [ViewerFeature.Restrictions] = FeatureReach.Everywhere,
         [ViewerFeature.ViewerStatistics] = FeatureReach.SecondLifeOnly,
         [ViewerFeature.SnapToObjects] = FeatureReach.Everywhere,
+        // The run message itself is one the official viewer sends, but never because Shift is held, so Second Life never sees it from this.
+        [ViewerFeature.FastFlight] = FeatureReach.OpenSimOnly,
     };
 
     /// <summary>The kind of grid a login address belongs to: Second Life when its host is one of Linden Lab's.</summary>
