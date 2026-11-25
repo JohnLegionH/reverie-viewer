@@ -108,6 +108,7 @@ public partial class S1Smoke
         bar.Start(new string('a', Viewer.Shell.Chat.ChatBoxRules.MaxCharacters));
         await Frames(4);
         refused = 0;
+        hub.Nearby.InputLostFocus();   // the typing signal is off, so a key that counted as typing would send it again
         sent.Clear();
         await Press(Key.B);
         if (box.Text.Length != Viewer.Shell.Chat.ChatBoxRules.MaxCharacters || box.Text.Contains('b')) problems.Add("full box: it took another character");
@@ -115,6 +116,13 @@ public partial class S1Smoke
         if (sent.Count != 0) problems.Add($"full box: a refused key counted as typing ({string.Join(",", sent)})");
 
         // a held Tab: the first press acts, the repeats do nothing
+        bar.Start("");
+        await Frames(3);
+        // (the control for the check above: a key the box takes does send the typing signal)
+        hub.Nearby.InputLostFocus();
+        sent.Clear();
+        await Press(Key.B);
+        if (sent.Count == 0) problems.Add("typing: a key the box took sent no typing signal, so the refused-key check proves nothing");
         bar.Start("");
         await Frames(3);
         await Press(Key.Tab, echo: true);
