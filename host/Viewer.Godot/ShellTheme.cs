@@ -204,14 +204,15 @@ public static class ShellTheme
         theme.SetTypeVariation(UiTheme.PrimaryButton, "Button");
         FilledButton(theme, UiTheme.PrimaryButton, t, t.AccentFill, t.AccentFillText);
         // the chat bar's line: a text area that wraps, with a one-line field's face; its text stands the shared 12 px in from the
-        // window's edge. Above and below it keeps a one-line field's 8 in all, so the row is no taller than before; more of that is
-        // above the text, which lines it up with the buttons' text beside it
+        // window's edge. Above and below it keeps 11 in all, less than a button's 12, so the row is no taller than before; most of
+        // that is above the text, which lines it up with the buttons' text beside it
         theme.SetTypeVariation(UiTheme.ChatInput, "TextEdit");
         foreach (var (state, edge) in new[] { ("normal", t.Border), ("focus", t.Accent), ("read_only", t.Border) })
         {
             var chatFace = Box(t, t.Input, edge, 6, 4);
             chatFace.ContentMarginLeft = (int)PanelPadding.Inner;
-            chatFace.ContentMarginBottom = 2;
+            chatFace.ContentMarginTop = 8;
+            chatFace.ContentMarginBottom = 3;
             theme.SetStylebox(state, UiTheme.ChatInput, chatFace);
         }
         theme.SetConstant("line_spacing", UiTheme.ChatInput, 0);
