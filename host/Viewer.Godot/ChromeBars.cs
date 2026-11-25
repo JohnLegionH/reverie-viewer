@@ -152,7 +152,7 @@ public sealed partial class ChatBar : PanelContainer
         cover.Draw += () =>
         {
             if (Input.ScrollVertical > 0 && Input.GetThemeStylebox("normal") is StyleBoxFlat face)
-                cover.DrawRect(new Rect2(2, 2, cover.Size.X - 4, face.ContentMarginTop - 2), face.BgColor);
+                cover.DrawRect(new Rect2(face.BorderWidthLeft, face.BorderWidthTop, cover.Size.X - face.BorderWidthLeft - face.BorderWidthRight, face.ContentMarginTop - face.BorderWidthTop), face.BgColor);
         };
         Input.Draw += cover.QueueRedraw;   // scrolling redraws the box
         Input.AddChild(cover);
@@ -169,7 +169,7 @@ public sealed partial class ChatBar : PanelContainer
         SendButton.Pressed += () => Submit(null);
         row.AddChild(SendButton);
         // the offers float above the box: placed in the window's own coordinates, so the bar's layout leaves them alone
-        _completion = new PanelContainer { Name = "gesture_completion", TopLevel = true, Visible = false, MouseFilter = MouseFilterEnum.Stop };
+        _completion = new PanelContainer { Name = "gesture_completion", TopLevel = true, Visible = false, ThemeTypeVariation = UiTheme.ChatOffers, MouseFilter = MouseFilterEnum.Stop };
         _offers = new VBoxContainer { Name = "offers" };
         _completion.AddChild(_offers);
         AddChild(_completion);
@@ -339,7 +339,7 @@ public sealed partial class ChatBar : PanelContainer
         var size = _completion.GetCombinedMinimumSize();
         _completion.Size = size;
         var box = Input.GetGlobalRect();
-        _completion.GlobalPosition = new Vector2(box.Position.X, box.Position.Y - size.Y - 2);
+        _completion.GlobalPosition = new Vector2(box.Position.X + (int)PanelPadding.Inner, box.Position.Y - size.Y - 2);
     }
 
     private void Accept(string trigger)

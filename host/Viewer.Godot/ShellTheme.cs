@@ -28,6 +28,7 @@ public static class UiTheme
     public const string BarPanel = "BarPanel";
     public const string ChatInput = "ChatInput";
     public const string ChatSend = "ChatSend";
+    public const string ChatOffers = "ChatOffers";
     public const string TitleBarPanel = "TitleBarPanel";
     public const string FlatButton = "FlatButton";
     public const string WindowPanel = "WindowPanel";
@@ -131,6 +132,9 @@ public static class ShellTheme
         // bars: the menu bar, the nav bar, the toolbars and the title bars
         theme.SetTypeVariation(UiTheme.BarPanel, "PanelContainer");
         theme.SetStylebox("panel", UiTheme.BarPanel, Box(t, t.Bar.Opaque(), t.Border, 1, 0));
+        // the chat bar's gesture offers: the bars' solid, square face, padding its content by the shared value
+        theme.SetTypeVariation(UiTheme.ChatOffers, "PanelContainer");
+        theme.SetStylebox("panel", UiTheme.ChatOffers, Box(t, t.Bar.Opaque(), t.Border, (int)PanelPadding.Inner, 0));
         theme.SetTypeVariation(UiTheme.TitleBarPanel, "PanelContainer");
         theme.SetStylebox("panel", UiTheme.TitleBarPanel, Box(t, t.Bar.Opaque(), t.Border, 2, 0));
 

@@ -140,6 +140,8 @@ public partial class S1Smoke
             var inner = popup.GetChild<Control>(0).GetGlobalRect();
             float least = new[] { inner.Position.X - outer.Position.X, inner.Position.Y - outer.Position.Y, outer.End.X - inner.End.X, outer.End.Y - inner.End.Y }.Min();
             if (least + 0.5f < PanelPadding.Inner) problems.Add($"offers: padding {least}, expected {PanelPadding.Inner}");
+            // the pop-up keeps a solid, square face: nothing behind it shows through
+            if (popup.GetThemeStylebox("panel") is not StyleBoxFlat { BgColor.A: >= 0.999f, CornerRadiusTopLeft: 0 }) problems.Add("offers: the pop-up's face is not solid and square");
             if (outer.End.Y > box.GetGlobalRect().Position.Y) problems.Add("offers: the pop-up covers the box");
         }
         await Press(Key.Tab);
@@ -161,6 +163,8 @@ public partial class S1Smoke
         float rose = oneLine - bar.GetGlobalRect().Position.Y;
         float linesRose = lowest - nearbyLines.OffsetBottom;
         if (rose <= 0 || Math.Abs(rose - linesRose) > 1) problems.Add($"nearby lines: the bar rose {rose}, the lines {linesRose}");
+        if (nearbyLines.GetGlobalRect().End.Y > bar.GetGlobalRect().Position.Y + 0.5f) problems.Add("nearby lines: they end below the top of the grown bar");
+        if (Math.Abs(box.Size.Y - box.CustomMinimumSize.Y) > 0.5f) problems.Add($"grown box: {box.Size.Y} tall, its lines take {box.CustomMinimumSize.Y}");
 
         // a scrolled box shows whole lines only: the strip above the first shown line is the box's face. The text goes in as a paste does.
         bar.Start("");
@@ -174,9 +178,11 @@ public partial class S1Smoke
         var face = (StyleBoxFlat)box.GetThemeStylebox("focus");
         var rect = box.GetGlobalRect();
         var toPixels = GetViewport().GetStretchTransform();
-        var from = toPixels * (rect.Position + new Vector2(face.ContentMarginLeft, 2));
+        if (box.ScrollVertical <= 0) problems.Add("scrolled box: it did not scroll, so the strip check proves nothing");
+        // from just inside the border, whatever its width is in this theme
+        var from = toPixels * (rect.Position + new Vector2(face.ContentMarginLeft, face.BorderWidthTop));
         var to = toPixels * new Vector2(rect.End.X - 24, rect.Position.Y + face.ContentMarginTop - 1);
-        var ground = image.GetPixel((int)from.X, (int)from.Y);
+        var ground = image.GetPixel((int)from.X - 3, (int)from.Y + 2);   // in the left padding, where no text is
         int marked = 0;
         for (int y = (int)from.Y; y < (int)to.Y; y++)
             for (int x = (int)from.X; x < (int)to.X; x++)
@@ -185,7 +191,19 @@ public partial class S1Smoke
                 if (Math.Abs(p.R - ground.R) + Math.Abs(p.G - ground.G) + Math.Abs(p.B - ground.B) > 0.12f)
                     marked++;
             }
-        _result["chat_bar_scroll"] = new { rows, scroll = box.ScrollVertical, size = box.Size.Y, min = box.CustomMinimumSize.Y, line = box.GetLineHeight(), style = box.GetThemeStylebox("normal").GetMinimumSize().Y, bar = bar.Size.Y, visible = box.GetVisibleLineCount(), marked, from = from.ToString(), to = to.ToString() };
+        // (the control: the same test of a pixel finds the text of the first shown line)
+        var lineFrom = toPixels * (rect.Position + new Vector2(face.ContentMarginLeft, face.ContentMarginTop));
+        var lineTo = toPixels * new Vector2(rect.End.X - 24, rect.Position.Y + face.ContentMarginTop + box.GetLineHeight());
+        int inked = 0;
+        for (int y = (int)lineFrom.Y; y < (int)lineTo.Y; y++)
+            for (int x = (int)lineFrom.X; x < (int)lineTo.X; x++)
+            {
+                var p = image.GetPixel(x, y);
+                if (Math.Abs(p.R - ground.R) + Math.Abs(p.G - ground.G) + Math.Abs(p.B - ground.B) > 0.12f)
+                    inked++;
+            }
+        if (inked == 0) problems.Add("scrolled box: no text found in the first shown line, so the strip check proves nothing");
+        _result["chat_bar_scroll"] = new { inked, border = face.BorderWidthTop, rows, scroll = box.ScrollVertical, size = box.Size.Y, min = box.CustomMinimumSize.Y, line = box.GetLineHeight(), style = box.GetThemeStylebox("normal").GetMinimumSize().Y, bar = bar.Size.Y, visible = box.GetVisibleLineCount(), marked, from = from.ToString(), to = to.ToString() };
         if (marked != 0) problems.Add($"scrolled box: {marked} pixels of text above the first shown line (scroll {box.ScrollVertical})");
 
         bar.Start("");
