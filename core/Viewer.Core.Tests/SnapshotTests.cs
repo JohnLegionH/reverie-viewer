@@ -111,6 +111,14 @@ public sealed class SnapshotTests
     }
 
     [Fact]
+    public void The_automation_server_lets_the_snapshot_command_through()
+    {
+        string server = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Automation", "AutomationServer.cs"));
+        string list = server[server.IndexOf("string[] Commands = [", StringComparison.Ordinal)..];
+        Assert.Contains("\"snapshot\"", list[..list.IndexOf(']', list.IndexOf("= [", StringComparison.Ordinal))]);
+    }
+
+    [Fact]
     public void A_save_never_overwrites_a_file()
     {
         string folder = NewFolder();
