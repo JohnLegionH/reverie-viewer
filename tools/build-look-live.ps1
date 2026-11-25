@@ -138,57 +138,6 @@ function Mouse2([string]$button, [bool]$down, [double]$x, [double]$y, [bool]$alt
 function State() { Edit @{ action = "state" } }
 function OffGrid([double]$v) { [math]::Abs($v - [math]::Round($v * 2) / 2) }
 
-function OwnObj([uint32]$local) { @(@((Build @{ action = "state" }).own_objects) | Where-Object { [uint32]$_.local -eq $local }) | Select-Object -First 1 }
-function Near($a, $b, [double]$tol) { [math]::Abs([double]$a - [double]$b) -le $tol }
-function Press([string]$k, [bool]$ctrl = $false, [bool]$shift = $false) {
-    [void](In @{ kind = "key"; key = $k; down = $true; shift = $shift; alt = $false; ctrl = $ctrl })
-    [void](In @{ kind = "key"; key = $k; down = $false; shift = $shift; alt = $false; ctrl = $ctrl })
-}
-function EditUntil([scriptblock]$test) { $r = Wait-Until { $s = Edit @{ action = "state" }; if ($s -and (& $test $s)) { $s } } 5; if ($r) { $r } else { Edit @{ action = "state" } } }
-function NoFocus() { [void](In @{ kind = "release_focus" }) }
-# the pointer, always through the engine's input path
-function Mouse([string]$button, [bool]$down, [double]$x, [double]$y, [bool]$shift = $false) { In @{ kind = "mouse"; button = $button; down = $down; shift = $shift; ctrl = $false; alt = $false; x = $x; y = $y } }
-function MoveTo([double]$x, [double]$y) { Mouse "none" $false $x $y }
-function ClickAt([double]$x, [double]$y, [bool]$shift = $false) { [void](MoveTo $x $y); Start-Sleep -Milliseconds 120; [void](Mouse "left" $true $x $y $shift); Start-Sleep -Milliseconds 120; [void](Mouse "left" $false $x $y $shift); Start-Sleep -Milliseconds 300 }
-function ScreenOf($id) { $h = Interact @{ action = "hover"; id = [string]$id }; if ($h -and $null -ne $h.screen_x) { @([double]$h.screen_x, [double]$h.screen_y) } else { $null } }
-# a control of the Build window: the first call scrolls it into view, the second reads where it stands once the scroll is drawn
-function CtlPoint([string]$name) { [void](Edit @{ action = "control"; text = $name }); Start-Sleep -Milliseconds 300; $d = (Edit @{ action = "control"; text = $name }).done; if ($d) { @([double]$d[0], [double]$d[1]) } else { $null } }
-function ClickCtl([string]$name) { $p = CtlPoint $name; if ($p) { ClickAt $p[0] $p[1]; $true } else { Note "not shown: $name"; $false } }
-function Mouse2([string]$button, [bool]$down, [double]$x, [double]$y, [bool]$alt) { In @{ kind = "mouse"; button = $button; down = $down; shift = $false; ctrl = $false; alt = $alt; x = $x; y = $y } }
-function State() { Edit @{ action = "state" } }
-function OffGrid([double]$v) { [math]::Abs($v - [math]::Round($v * 2) / 2) }
-
-# ---- two 1 m boxes in front of the avatar, along x ----
-$me = @((Obs).self.region_position)
-$baseX = [math]::Floor([double]$me[0]) - 1.0; $y = [double]$me[1] - 7.0; $z = [double]$me[2] + 2.1
-$ids = @(); $locals = @()
-for ($k = 0; $k -lt 2; $k++) {
-    [void](Interact @{ action = "aim"; x = ($baseX + 3 * $k); y = $y; z = ([double]$me[2] - 0.9); distance = 7 }); Start-Sleep -Milliseconds 1200
-    $before = @((Build @{ action = "state" }).own_objects | ForEach-Object { $_.id })
-    [void](Build @{ action = "create"; x = ($baseX + 3 * $k); y = $y; z = ([double]$me[2] - 0.9) })
-    $box = Wait-Until { @((Build @{ action = "state" }).own_objects | Where-Object { $before -notcontains $_.id }) | Select-Object -First 1 } 20
-    if (-not $box) { Note "box $k was not made: stopping"; Finish 1 }
-    Add-Rezzed ([uint32]$box.local)
-    $locals += [uint32]$box.local; $ids += [string]$box.id
-}
-$A = $locals[0]; $B = $locals[1]
-NoFocus
-if (-not (State).build_mode) { Press "B" $true }
-[void](EditUntil { param($s) $s.build_mode })
-Press "3" $true
-[void](EditUntil { param($s) $s.tool -eq "edit" })
-foreach ($k in 0, 1) {
-    [void](Edit @{ action = "select"; text = "$($locals[$k])" })
-    [void](Edit @{ action = "size"; x = 1; y = 1; z = 1 })
-    [void](Edit @{ action = "rotation"; x = 0; y = 0; z = 0 })
-    [void](Edit @{ action = "position"; x = ($baseX + 3 * $k); y = ($y + 0.3 * $k); z = $z })
-}
-$ready = Wait-Until { $a = OwnObj $A; $b = OwnObj $B; if ($a -and $b -and (Near $a.sx 1 0.001) -and (Near $b.sx 1 0.001) -and (Near $a.z $z 0.01) -and (Near $b.x ($baseX + 3) 0.01)) { $true } } 20
-Check "0a two upright 1 m boxes stand in the region" ([bool]$ready) (@((OwnObj $A), (OwnObj $B)) | ConvertTo-Json -Compress)
-if (-not $ready) { Finish 1 }
-$s0 = State
-Check "0b Snap to objects is off when build mode opens, and grid snap is on" ($s0.snap_objects -eq $false -and $s0.snap -eq $true -and $s0.grid.mode -eq "world") ("snap_objects {0}; snap {1}; grid {2} {3}" -f $s0.snap_objects, $s0.snap, $s0.grid.mode, $s0.grid.unit)
-
 
 $models = Join-Path $Sandbox "models"
 New-Item -ItemType Directory -Force -Path $models | Out-Null
@@ -275,7 +224,7 @@ public static class NvReal {
     public static int Pink(System.Drawing.Bitmap b) {
         var d = b.LockBits(new System.Drawing.Rectangle(0, 0, b.Width, b.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         var px = new byte[d.Stride * d.Height]; Marshal.Copy(d.Scan0, px, 0, px.Length); b.UnlockBits(d);
-        int n = 0; for (int i = 0; i < px.Length; i += 4) if (px[i] > 200 && px[i + 2] > 200 && px[i + 1] < 120) n++;
+        int n = 0; for (int i = 0; i < px.Length; i += 4) if (px[i] > 230 && px[i + 2] > 230 && px[i + 1] > 40 && px[i + 1] < 175) n++;
         return n;
     }
 }
@@ -316,10 +265,13 @@ function Grab([string]$name) {
 function Find([string]$name) { Api "ui_sounds" @{ action = "find"; name = $name } }
 
 if (-not (Front)) { Note "the viewer's window could not be brought to the front: stopping"; Finish 3 }
-Shot "calibrate"; Start-Sleep -Milliseconds 800
-$cal = [System.Drawing.Image]::FromFile((Join-Path $ShotsDir "calibrate.png"))
-$cs = ClientSize; $script:scaleX = $cs[0] / $cal.Width; $script:scaleY = $cs[1] / $cal.Height; $cal.Dispose()
-Note ("window client {0}x{1}, picture to screen {2:N3} x {3:N3}" -f $cs[0], $cs[1], $script:scaleX, $script:scaleY)
+# the automation's points are in the interface's own units, which an interface size or a dense screen makes larger than a pixel
+Press "B" $true; Start-Sleep -Milliseconds 1200
+$view = Find "floater_build"
+if (-not $view.view_w) { Note "the view's size is not reported: stopping"; Finish 1 }
+$cs = ClientSize; $script:scaleX = $cs[0] / $view.view_w; $script:scaleY = $cs[1] / $view.view_h
+Note ("window client {0}x{1}, view {2}x{3}, view to screen {4:N3} x {5:N3}" -f $cs[0], $cs[1], $view.view_w, $view.view_h, $script:scaleX, $script:scaleY)
+Press "B" $true; Start-Sleep -Milliseconds 800
 
 # ---- two 1 m boxes in front of the avatar, along x ----
 $me = @((Obs).self.region_position)
@@ -360,7 +312,7 @@ $min = Find "minimize"
 RealClick $min.x $min.y
 $bar = Find "floater_build"; $res = Find "minimize"
 [void](Grab "minimized-restore-button")
-Check "1a a real click on Minimize leaves the bar, with Restore where Minimize was" ($whole.h -gt 100 -and $bar.h -lt 40 -and $res.tip -eq "Restore" -and $min.tip -eq "Minimize" -and (Near $res.x $min.x 1.5) -and (Near $res.y $min.y 1.5)) ("height {0} -> {1}; tip '{2}' -> '{3}'; button {4},{5} -> {6},{7}" -f $whole.h, $bar.h, $min.tip, $res.tip, $min.x, $min.y, $res.x, $res.y)
+Check "1a a real click on Minimize leaves the bar, with Restore where Minimize was" ($whole.h -gt 100 -and $bar.h -gt 0 -and $bar.h -lt 40 -and $res.tip -eq "Restore" -and $min.tip -eq "Minimize" -and (Near $res.x $min.x 1.5) -and (Near $res.y $min.y 1.5)) ("height {0} -> {1}; tip '{2}' -> '{3}'; button {4},{5} -> {6},{7}" -f $whole.h, $bar.h, $min.tip, $res.tip, $min.x, $min.y, $res.x, $res.y)
 RealClick $res.x $res.y
 $back = Find "floater_build"; $again = Find "minimize"
 Check "1b a real click on Restore brings the window back at its size and place" ((Near $back.x $whole.x 1.5) -and (Near $back.y $whole.y 1.5) -and (Near $back.h $whole.h 1.5) -and $again.tip -eq "Minimize") ("{0},{1} h {2}; tip '{3}'" -f $back.x, $back.y, $back.h, $again.tip)
@@ -369,7 +321,7 @@ $tb2 = Find "title_bar"
 $barBefore = Find "floater_build"
 RealClick ($tb2.x - 60) $tb2.y
 $back2 = Find "floater_build"
-Check "1c one real click on the minimized bar restores it" ($barBefore.h -lt 40 -and (Near $back2.h $whole.h 1.5) -and (Near $back2.y $whole.y 1.5)) ("height {0} -> {1}" -f $barBefore.h, $back2.h)
+Check "1c one real click on the minimized bar restores it" ($barBefore.h -gt 0 -and $barBefore.h -lt 40 -and (Near $back2.h $whole.h 1.5) -and (Near $back2.y $whole.y 1.5)) ("height {0} -> {1}" -f $barBefore.h, $back2.h)
 
 # ---- 2. the guide during a real drag ----
 $clicked = ClickCtl "snap_objects"

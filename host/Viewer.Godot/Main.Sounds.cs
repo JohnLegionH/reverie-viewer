@@ -171,7 +171,7 @@ public partial class Main
                     return new { found = false };
                 var centre = control.GetGlobalRect().GetCenter();
                 var rect = control.GetGlobalRect();
-                return new { found = true, x = centre.X, y = centre.Y, w = rect.Size.X, h = rect.Size.Y, tip = (control as Control)?.TooltipText, visible = control.IsVisibleInTree() };
+                return new { found = true, x = centre.X, y = centre.Y, w = rect.Size.X, h = rect.Size.Y, tip = control.TooltipText, view_w = GetViewport().GetVisibleRect().Size.X, view_h = GetViewport().GetVisibleRect().Size.Y, visible = control.IsVisibleInTree() };
             }
             case "close_window" when name is not null && _shell is not null:
                 return new { closed = _shell.Shell.Floaters.Close(name), open = _shell.Shell.Floaters.IsOpen(name) };
