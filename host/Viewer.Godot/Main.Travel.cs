@@ -85,6 +85,7 @@ public partial class Main
             {
                 _travelPanels ??= TravelFeature.Install(_shell, UserSettings(null));
                 InstallEnvironmentMenu();
+                InstallSnapshot();   // World > Snapshot, made once, in the menu the travel windows make
                 var s = session!;
                 var tiles = _mapTiles = new MapTileCache((key, ct) => s.FetchMapTileAsync(key, ct));
                 var links = _mapLinks = new MapLinks

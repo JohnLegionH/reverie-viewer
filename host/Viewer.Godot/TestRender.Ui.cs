@@ -235,6 +235,7 @@ public partial class TestRender
     {
         var settings = new SettingsService(null);
         settings.Set(Settings.SnapshotFileFormat, 1);   // JPEG, so the quality row is in the picture
+        TravelFeature.Install(shell, settings);   // it makes the World menu, which Snapshot joins
         var window = SnapshotFeature.Install(shell, settings);
         shell.Shell.Floaters.Open(SnapshotFeature.FloaterId);
         window.ShowPreview(Backdrop());

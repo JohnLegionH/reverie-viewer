@@ -101,6 +101,16 @@ public sealed class SnapshotTests
     }
 
     [Fact]
+    public void The_window_is_added_once_the_world_menu_is_there()
+    {
+        string host = Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot");
+        string travel = File.ReadAllText(Path.Combine(host, "Main.Travel.cs"));
+        int menu = travel.IndexOf("TravelFeature.Install(", StringComparison.Ordinal);
+        Assert.True(menu >= 0 && travel.IndexOf("InstallSnapshot();", StringComparison.Ordinal) > menu, "added after the travel windows make the World menu");
+        Assert.DoesNotContain("InstallSnapshot();", File.ReadAllText(Path.Combine(host, "Main.cs")));
+    }
+
+    [Fact]
     public void A_save_never_overwrites_a_file()
     {
         string folder = NewFolder();

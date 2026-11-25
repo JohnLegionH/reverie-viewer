@@ -1211,7 +1211,6 @@ public partial class Main : Node
         _glow = new GlowPass(prims, World(), envNode);   // the glow of faces that glow; draws nothing while none is loaded
         AddChild(_glow);
         _presented = session;
-        InstallSnapshot();   // World > Snapshot, made once
         if (session.NeighboursEnabled) AttachNeighbours(session);
         _cameraFor = (0, 0);
         if (_loginScreen is not null) _loginScreen.Visible = false;
