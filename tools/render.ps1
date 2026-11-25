@@ -1289,7 +1289,7 @@ foreach ($be in $Backends) {
     # patches seen from under the water: see-through faces carry the water fog; what is above the water carries the sky's air haze and what is under it none
     $classic = Join-Path $repo "fixtures\environment\synthetic-environment.llsd.xml"
     $toned = Join-Path $repo "fixtures\environment\synthetic-environment-hdr.llsd.xml"
-    $thick = Join-Path $repo "fixtures\environment\shared-dusk-thick.llsd.xml"
+    $thick = Join-Path $repo "fixtures\environment\synthetic-environment-thick-haze.llsd.xml"
     foreach ($u in @(@("faces", "faces", $classic), @("haze_classic", "haze", $thick), @("haze_hdr", "haze", $toned))) {
         $tag = "underwater-$($u[0].Replace('_', '-'))-$be"
         $r = Invoke-Render $be $tag "`"--tr-fixture=$waterScene`" --tr-uw=$($u[1]) `"--tr-environment=$($u[2])`""

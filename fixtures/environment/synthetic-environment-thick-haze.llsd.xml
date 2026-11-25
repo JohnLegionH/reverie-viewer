@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Our own synthetic EEP-shaped environment (not grid content): three ground-level sky keyframes and one water frame. -->
+<llsd><map>
+<key>environment</key><map>
+  <key>day_cycle</key><map>
+    <key>frames</key><map>
+      <key>water_a</key><map>
+        <key>type</key><string>water</string>
+        <key>water_fog_color</key><array><real>0.05</real><real>0.25</real><real>0.30</real></array>
+        <key>water_fog_density</key><real>10</real>
+        <key>wave1_direction</key><array><real>1.0</real><real>-0.5</real></array>
+        <key>wave2_direction</key><array><real>0.8</real><real>-1.2</real></array>
+        <key>fresnel_scale</key><real>0.4</real>
+        <key>fresnel_offset</key><real>0.5</real>
+      </map>
+      <key>sky_dawn</key><map>
+        <key>type</key><string>sky</string>
+        <key>sun_rotation</key><array><real>0</real><real>-0.0436</real><real>0</real><real>0.99905</real></array>
+        <key>moon_rotation</key><array><real>0</real><real>0.9990</real><real>0</real><real>0.0436</real></array>
+        <key>moon_brightness</key><real>0.5</real>
+        <key>sunlight_color</key><array><real>2.0</real><real>1.3</real><real>0.9</real><real>1</real></array>
+        <key>legacy_haze</key><map>
+          <key>ambient</key><array><real>0.8</real><real>0.5</real><real>0.5</real></array>
+          <key>blue_horizon</key><array><real>0.6</real><real>0.4</real><real>0.3</real></array>
+          <key>blue_density</key><array><real>0.2</real><real>0.3</real><real>0.6</real></array>
+          <key>haze_horizon</key><real>0.2</real>
+          <key>haze_density</key><real>0.7</real>
+          <key>density_multiplier</key><real>0.015</real>
+          <key>distance_multiplier</key><real>1.0</real>
+        </map>
+      </map>
+      <key>sky_morning</key><map>
+        <key>type</key><string>sky</string>
+        <key>sun_rotation</key><array><real>0</real><real>-0.3827</real><real>0</real><real>0.9239</real></array>
+        <key>moon_rotation</key><array><real>0</real><real>0.9239</real><real>0</real><real>0.3827</real></array>
+        <key>moon_brightness</key><real>0.5</real>
+        <key>sunlight_color</key><array><real>0.9</real><real>0.88</real><real>0.8</real><real>1</real></array>
+        <key>legacy_haze</key><map>
+          <key>ambient</key><array><real>0.9</real><real>0.9</real><real>1.0</real></array>
+          <key>blue_horizon</key><array><real>0.55</real><real>0.62</real><real>0.75</real></array>
+          <key>blue_density</key><array><real>0.2</real><real>0.42</real><real>0.8</real></array>
+          <key>haze_horizon</key><real>0.18</real>
+          <key>haze_density</key><real>0.7</real>
+          <key>density_multiplier</key><real>0.015</real>
+          <key>distance_multiplier</key><real>0.8</real>
+        </map>
+      </map>
+      <key>sky_noon</key><map>
+        <key>type</key><string>sky</string>
+        <key>sun_rotation</key><array><real>0</real><real>-0.7071</real><real>0</real><real>0.7071</real></array>
+        <key>moon_rotation</key><array><real>0</real><real>0.7071</real><real>0</real><real>0.7071</real></array>
+        <key>moon_brightness</key><real>0.5</real>
+        <key>sunlight_color</key><array><real>0.95</real><real>0.95</real><real>0.9</real><real>1</real></array>
+        <key>legacy_haze</key><map>
+          <key>ambient</key><array><real>1.0</real><real>1.0</real><real>1.0</real></array>
+          <key>blue_horizon</key><array><real>0.5</real><real>0.55</real><real>0.7</real></array>
+          <key>blue_density</key><array><real>0.18</real><real>0.4</real><real>0.85</real></array>
+          <key>haze_horizon</key><real>0.15</real>
+          <key>haze_density</key><real>0.6</real>
+          <key>density_multiplier</key><real>0.015</real>
+          <key>distance_multiplier</key><real>0.8</real>
+        </map>
+      </map>
+    </map>
+    <key>tracks</key><array>
+      <array><map><key>key_keyframe</key><real>0</real><key>key_name</key><string>water_a</string></map></array>
+      <array>
+        <map><key>key_keyframe</key><real>0.125</real><key>key_name</key><string>sky_dawn</string></map>
+        <map><key>key_keyframe</key><real>0.25</real><key>key_name</key><string>sky_morning</string></map>
+        <map><key>key_keyframe</key><real>0.5</real><key>key_name</key><string>sky_noon</string></map>
+      </array>
+    </array>
+    <key>type</key><string>daycycle</string>
+  </map>
+  <key>day_length</key><integer>14400</integer>
+  <key>day_offset</key><integer>57600</integer>
+</map>
+<key>success</key><boolean>1</boolean>
+</map></llsd>
