@@ -323,7 +323,7 @@ public class CommandListTests
     public void The_list_opens_on_ctrl_shift_k_and_ctrl_k_stays_camera_controls()
     {
         Assert.Equal("control|shift|K", ViewerShortcuts.CommandList);
-        Assert.Contains(ViewerShortcuts.NotBuilt, s => s.Shortcut == "control|K" && s.Feature == "Camera controls");
+        Assert.Equal("control|K", ViewerShortcuts.ByEntry["me.camera"]);
         Assert.DoesNotContain(ViewerShortcuts.ByEntry.Values, s => s == "control|shift|K");
         Assert.DoesNotContain(ViewerShortcuts.FromOtherViewers.Values, s => s.Shortcut == "control|shift|K");
         Assert.DoesNotContain(ViewerShortcuts.NotBuilt, s => s.Shortcut == "control|shift|K");

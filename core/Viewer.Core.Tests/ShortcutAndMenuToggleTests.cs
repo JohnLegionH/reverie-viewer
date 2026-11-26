@@ -64,7 +64,7 @@ public class ShortcutAndMenuToggleTests
     {
         var notBuilt = ViewerShortcuts.NotBuilt.Select(n => n.Shortcut.ToLowerInvariant()).ToList();
         Assert.Contains("control|f", notBuilt);           // Search
-        Assert.Contains("control|k", notBuilt);           // Camera controls
+        Assert.Equal("control|K", ViewerShortcuts.ByEntry["me.camera"]);   // Camera controls is built
         Assert.Contains("control|grave", notBuilt);       // Snapshot to disk (the Snapshot window, control+shift+S, is built)
         Assert.Contains("control|5", notBuilt);           // Land tool (Build, control+B, is built)
         Assert.Empty(notBuilt.Intersect(ViewerShortcuts.ByEntry.Values.Select(s => s.ToLowerInvariant())));

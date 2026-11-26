@@ -89,6 +89,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 - About Land: **World > About Land**, or right-click the ground.
 - Region and parcel sky settings, terrain, water, prims, sculpties, mesh, glow, projected lights and the neighbouring regions are drawn as the grid sends them.
 - Other people are drawn as the official viewer draws them: a person appears once their look has arrived (about three seconds after it is complete), the parts of their body their outfit hides (alpha layers, a mesh body) are never drawn, and the last finished look stays while a new one arrives. When someone leaves, what they wear goes with them instead of coming off piece by piece.
+- Camera views: **Avatar > Camera controls...** (Ctrl+K, as in the official viewer) has Front, Side and Rear views. **Save as preset** keeps the view on screen under a name, **Use preset** picks one and **Delete** removes a saved one. The picked view and your presets are kept over a restart. The official window's rotate, zoom and move controls are not there yet.
 - Snapshots: **World > Snapshot** (Ctrl+Shift+S) takes a picture and **Save to disk** keeps it as a numbered PNG or JPEG file (quality 1 to 100). Size: the window's own (its drawing size in screen pixels, whatever the interface size), or 1920×1080 up to 7680×4320 (a size the graphics card cannot draw is refused). The interface is left out unless **Show interface** is ticked; at a size other than the window's own, it is drawn as in a window of that size at 100 percent interface size. The first save asks for a folder and remembers it (offered: Reverie in your Pictures folder); no file is ever written over. Saving to the inventory or a profile, e-mail, filters and 360 pictures are not there yet.
 - Parcel ban lines (a wall at the edge of a parcel that refuses you; no setting for it yet) and region restart notices (with the Region restart sound).
 
@@ -158,7 +159,7 @@ Things people coming from other viewers look for. They are not in this preview:
 - Saved chat logs; away and do-not-disturb replies; emoji, spell check and translation.
 - Inventory: emptying the Trash, copy and paste, item properties, a Worn tab and filters.
 - Voice, media on a prim and particles.
-- A camera controls window and saved camera views; a key binding editor.
+- The camera controls window's rotate, zoom and move controls; a key binding editor.
 - Statistics and the debug settings window.
 - Advanced graphics settings (shadows, anti-aliasing and the like); rigged mesh upload.
 - Full RLV: only part of its commands work.

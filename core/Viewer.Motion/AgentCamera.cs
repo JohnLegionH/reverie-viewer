@@ -196,6 +196,7 @@ public class AgentCamera
     private float _distance = -1;   // eased distance; negative until the first pose
     private double _lastDt;          // the last pose's frame time, for a reset of the view's levelling
     private float _targetDistance = CameraOffset.Length();
+    private Vector3 _viewOffset = CameraOffset, _viewFocus = FocusOffset;   // the picked view: the rear view until another is picked
 
     // the unlocked view
     private Vector3 _offsetTarget, _focusFixed, _focusOffset, _focusExtents;
@@ -217,7 +218,7 @@ public class AgentCamera
 
     /// <summary>The distance the camera eases towards. The rear view is held to <see cref="MaxDistance"/> unless the constraints are off
     /// (the official offset is the zoom fraction times the rear offset, with no cap of its own: llagentcamera.cpp 1827-1828).</summary>
-    public float TargetDistance => ConstraintsOff ? CameraOffset.Length() * Zoom : MathF.Min(CameraOffset.Length() * Zoom, MaxDistance);
+    public float TargetDistance => ConstraintsOff ? _viewOffset.Length() * Zoom : MathF.Min(_viewOffset.Length() * Zoom, MaxDistance);
     public float Distance => _distance < 0 ? TargetDistance : _distance;
 
     /// <summary>The preset orbit of the rear view (automation and tests): turns the rear view by <paramref name="yaw"/> (about up) and
@@ -227,8 +228,11 @@ public class AgentCamera
     public void SetOrbit(float yaw, float pitch)
     {
         OrbitYaw = MathF.IEEERemainder(yaw, 2 * MathF.PI);
-        float baseElevation = MathF.Atan2(CameraOffset.Z, -CameraOffset.X);
-        OrbitPitch = Math.Clamp(pitch, -MaxPitch - baseElevation, MaxPitch - baseElevation);
+        float baseElevation = MathF.Atan2(_viewOffset.Z, MathF.Sqrt(_viewOffset.X * _viewOffset.X + _viewOffset.Y * _viewOffset.Y));
+        // the tilt is about the avatar's side axis, so for a camera ahead of the avatar a positive pitch lowers it
+        OrbitPitch = _viewOffset.X > 0f
+            ? Math.Clamp(pitch, baseElevation - MaxPitch, baseElevation + MaxPitch)
+            : Math.Clamp(pitch, -MaxPitch - baseElevation, MaxPitch - baseElevation);
     }
 
     /// <summary>Multiplies the zoom (above 1: farther), within the limits.</summary>
@@ -252,6 +256,28 @@ public class AgentCamera
         _lag = default;
         _distance = -1;
         _hasPose = false;
+    }
+
+    /// <summary>Takes a camera view (where the camera stands and what it looks at, both from the avatar, x forward) as the view the
+    /// camera returns to, and goes to it: the turn and the zoom clear and the focus is back on the avatar.</summary>
+    public void ApplyView(Vector3 offset, Vector3 focus)
+    {
+        _viewOffset = offset;
+        _viewFocus = focus;
+        Zoom = 1f;
+        ResetView(changeCamera: true, turnAvatar: false);
+        _distance = -1;
+        _smoothedOffset = null;
+    }
+
+    /// <summary>The third-person view as it is now, with the turn and the zoom taken into the two offsets, so applying it again puts the
+    /// camera where it is.</summary>
+    public (Vector3 Offset, Vector3 Focus) CurrentView()
+    {
+        var yaw = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, OrbitYaw);
+        var tilt = Quaternion.CreateFromAxisAngle(Vector3.UnitY, OrbitPitch);
+        var offset = Vector3.Transform(Vector3.Normalize(_viewOffset), yaw * tilt) * TargetDistance;
+        return (offset, Vector3.Transform(_viewFocus, yaw));
     }
 
     // ---- the official operations ----
@@ -422,7 +448,7 @@ public class AgentCamera
     {
         if (FocusOnAvatar && Mode == CameraViewMode.ThirdPerson)
         {
-            float offsetDistance = MathF.Max(0.001f, CameraOffset.Length());
+            float offsetDistance = MathF.Max(0.001f, _viewOffset.Length());
             float zoom = (_targetDistance - meters) / offsetDistance;
             bool enter = zoom < MinZoom && meters > 0f && MouselookAllowed;
             if (!ConstraintsOff) zoom = Math.Clamp(zoom, MinZoom, MaxZoom);
@@ -454,7 +480,7 @@ public class AgentCamera
         if (Mode == CameraViewMode.Mouselook) return false;
         if (FocusOnAvatar)
         {
-            float offsetMagnitude = CameraOffset.Length();
+            float offsetMagnitude = _viewOffset.Length();
             float fraction = _targetDistance / offsetMagnitude;
             fraction *= 1f - MathF.Pow(RootRootTwo, clicks);
             return OrbitIn(fraction * offsetMagnitude);
@@ -598,7 +624,7 @@ public class AgentCamera
         if (SeatRotation is null && AvatarPitch != 0f) turn *= Quaternion.CreateFromAxisAngle(Vector3.UnitY, AvatarPitch);
         // the preset pitch tilts about the avatar's own side axis (Y in its frame): positive raises the camera behind it
         var tilt = Quaternion.CreateFromAxisAngle(Vector3.UnitY, OrbitPitch);
-        var direction = Vector3.Transform(Vector3.Normalize(CameraOffset), turn * tilt);
+        var direction = Vector3.Transform(Vector3.Normalize(_viewOffset), turn * tilt);
 
         // the distance asked for, shortened where the region's plane would put the camera behind a wall
         float target = TargetDistance;
@@ -607,7 +633,7 @@ public class AgentCamera
         {
             var normal = new Vector3(CollidePlane.X, CollidePlane.Y, CollidePlane.Z);
             float w = CollidePlane.W;
-            float full = MathF.Min(CameraOffset.Length() * Zoom, MaxDistance);
+            float full = MathF.Min(_viewOffset.Length() * Zoom, MaxDistance);
             float offsetDotNormal = Vector3.Dot(direction * full, normal);
             if (MathF.Abs(offsetDotNormal) < 0.001f) offsetDotNormal = 0.001f;
             float positionDotNormal = Vector3.Dot(baseAt, normal);
@@ -647,7 +673,7 @@ public class AgentCamera
         else _smoothedOffset = before + (offset - before) * Fraction(dt, PositionHalfLife);
         eye = anchor + _smoothedOffset.Value;
 
-        var focus = Vector3.Transform(FocusOffset, turn);
+        var focus = Vector3.Transform(_viewFocus, turn);
         return (eye, anchor + focus);
     }
 

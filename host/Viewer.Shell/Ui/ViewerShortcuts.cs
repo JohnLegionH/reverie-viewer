@@ -16,6 +16,7 @@ public static class ViewerShortcuts
     public static IReadOnlyDictionary<string, string> ByEntry { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["content.inventory"] = "control|I",                     // Inventory
+        ["me.camera"] = "control|K",                             // Camera controls... (the Avatar menu)
         ["me.preferences"] = "control|P",                        // Preferences
         ["me.quit"] = "control|Q",                               // Quit
         ["communicate.conversations"] = "control|T",             // Conversations
@@ -41,7 +42,6 @@ public static class ViewerShortcuts
     public static IReadOnlyList<(string Shortcut, string Feature)> NotBuilt { get; } =
     [
         ("control|F", "Search"),
-        ("control|K", "Camera controls"),
         ("control|grave", "Snapshot to disk"),
         ("control|5", "Land tool"),
         ("control|shift|I", "New inventory window"),

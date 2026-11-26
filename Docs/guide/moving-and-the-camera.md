@@ -181,3 +181,7 @@ Every change takes effect at once. Press **OK** to keep your changes, or **Cance
 ## Next
 
 [Chat and people](chat-and-people.md) shows how to talk to people nearby and in private.
+
+## Camera views
+
+Open **Avatar > Camera controls...** (Ctrl+K). **Front view**, **Side view** and **Rear view** move the camera there. To keep a view of your own, turn and zoom the camera, type a name and press **Save as preset**. Pick it again under **Use preset**; **Delete** removes it. Your presets and the picked view stay after a restart.
