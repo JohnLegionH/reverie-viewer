@@ -19,6 +19,10 @@ public partial class Main
     private bool _hoverToSend;
     private float? _hoverKept;
     private ulong _hoverNextLook;
+    private bool _hoverSupported;   // as last read from the region; nothing is drawn or kept back from others until the region has said it takes a height
+    private bool _hoverRefused;
+    private int _hoverTries;
+    private const int HoverSendTries = 3;
     private Presentation.AvatarPresenter? _hoverAvatars;
 
     private bool HoverOpen => _shell is not null && _shell.Shell.Floaters.IsOpen(HoverHeightFeature.FloaterId);
@@ -38,7 +42,9 @@ public partial class Main
         var setting = Settings.HoverHeightOf(session.AgentId);
         _hoverKept = settings.Contains(setting.Key) ? settings.Get(setting) : null;
         _hoverToSend = _hoverKept is not null;
-        session.RegionChanged += _ => _hoverToSend = _hoverKept is not null;
+        _hoverSupported = _hoverRefused = false;
+        _hoverTries = 0;
+        session.RegionChanged += _ => { _hoverSupported = _hoverRefused = false; _hoverTries = 0; _hoverToSend = _hoverKept is not null; };
     }
 
     private void ShowHover()
@@ -57,6 +63,9 @@ public partial class Main
         if (!finished)
             return;
         UserSettings(null).Set(Settings.HoverHeightOf(session.AgentId), metres);
+        _hoverSupported = true;
+        _hoverRefused = false;
+        _hoverTries = 0;
         _hoverToSend = true;
     }
 
@@ -65,15 +74,15 @@ public partial class Main
         if (_hoverFor is not { } session || session.IsEnded)
             return;
         if (_hoverAvatars is { } avatars)
-            avatars.OwnHover = _hoverKept;   // a presentation made later (a new region) is given it too
+            avatars.OwnHover = _hoverSupported ? _hoverKept : null;   // a presentation made later (a new region) is given it too
         if (!_hoverToSend && !HoverOpen)
             return;
         ulong now = global::Godot.Time.GetTicksMsec();
         if (now < _hoverNextLook)
             return;
         _hoverNextLook = now + 1000;
-        bool supported = session.HoverHeightSupported;
-        if (HoverOpen)
+        bool supported = _hoverSupported = session.HoverHeightSupported;
+        if (HoverOpen && !_hoverRefused)
             _hover?.ShowSupport(supported);
         if (_hoverToSend && supported && _hoverKept is { } metres)
         {
@@ -85,7 +94,16 @@ public partial class Main
     private async Task SendHover(ViewerSession session, float metres)
     {
         bool sent = await session.SetHoverHeightAsync(metres);
-        if (!sent && HoverOpen)
+        if (sent || _hoverFor != session || _hoverKept != metres)
+            return;
+        if (++_hoverTries < HoverSendTries)
+        {
+            _hoverNextLook = global::Godot.Time.GetTicksMsec() + 5000UL * (ulong)_hoverTries;
+            _hoverToSend = true;
+            return;
+        }
+        _hoverRefused = true;
+        if (HoverOpen)
             _hover?.ShowRefused();
     }
 }
