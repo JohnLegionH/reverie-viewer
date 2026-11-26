@@ -300,6 +300,7 @@
   "camera.name": "Preset name",
   "camera.save": "Save as preset",
   "camera.delete": "Delete",
+  "camera.mouselook": "Leave mouselook to save a view.",
   "camera.not-saved": "Not saved. Give the preset a name that is not Front, Side or Rear.",
   "snapshot.title": "Snapshot",
   "snapshot.preview": "Snapshot preview",

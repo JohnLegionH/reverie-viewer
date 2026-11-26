@@ -13,7 +13,13 @@ public partial class Main
         if (_shell is null)
             return;
         _cameraControls ??= CameraControlsFeature.Install(_shell, UserSettings(null),
-            view => _follow.ApplyView(view.Offset, view.Focus), () => _follow.CurrentView());
+            view =>
+            {
+                _mouseLook.Leave();   // a picked view is a third-person one: the mouse is let go and the own avatar drawn again
+                _follow.ApplyView(view.Offset, view.Focus);
+            },
+            () => _follow.CurrentView());
+        _cameraControls.InMouseLook = () => _mouseLook.Active;
         var picked = _cameraControls.Picked;
         _follow.ApplyView(picked.Offset, picked.Focus);   // the view picked last is the view of a new session
     }

@@ -265,6 +265,7 @@ public class AgentCamera
         _viewOffset = offset;
         _viewFocus = focus;
         Zoom = 1f;
+        AvatarPitch = 0f;
         ResetView(changeCamera: true, turnAvatar: false);
         _distance = -1;
         _smoothedOffset = null;
@@ -274,10 +275,17 @@ public class AgentCamera
     /// camera where it is.</summary>
     public (Vector3 Offset, Vector3 Focus) CurrentView()
     {
+        // with the focus moved off the avatar the view is what the last frame showed, taken back into the avatar's frame
+        if (!FocusOnAvatar && _hasPose && _anchor is { } anchor)
+        {
+            var back = Quaternion.Conjugate(AvatarFrame(_heading));
+            return (Vector3.Transform(_lastEye - anchor - ThirdPersonHeadOffset, back), Vector3.Transform(_lastTarget - anchor, back));
+        }
         var yaw = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, OrbitYaw);
-        var tilt = Quaternion.CreateFromAxisAngle(Vector3.UnitY, OrbitPitch);
-        var offset = Vector3.Transform(Vector3.Normalize(_viewOffset), yaw * tilt) * TargetDistance;
-        return (offset, Vector3.Transform(_viewFocus, yaw));
+        float pitch = SeatRotation is null ? AvatarPitch : 0f;   // the agent's own tilt, which picking a view levels
+        var frame = yaw * Quaternion.CreateFromAxisAngle(Vector3.UnitY, pitch);
+        var offset = Vector3.Transform(Vector3.Normalize(_viewOffset), frame * Quaternion.CreateFromAxisAngle(Vector3.UnitY, OrbitPitch)) * TargetDistance;
+        return (offset, Vector3.Transform(_viewFocus, frame));
     }
 
     // ---- the official operations ----

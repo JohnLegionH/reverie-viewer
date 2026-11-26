@@ -40,6 +40,9 @@ public sealed partial class CameraControlsWindow : VBoxContainer
     private readonly List<CameraPreset> _choices = [];
     private readonly Label _status;
 
+    /// <summary>Whether the view on screen is mouselook, which is not a view that can be saved.</summary>
+    public Func<bool>? InMouseLook { get; set; }
+
     public CameraPresets Presets { get; }
     public OptionButton Use { get; }
     public LineEdit PresetName { get; }
@@ -138,6 +141,11 @@ public sealed partial class CameraControlsWindow : VBoxContainer
 
     private void SaveCurrent()
     {
+        if (InMouseLook?.Invoke() == true)
+        {
+            _status.Text = _strings.Get("camera.mouselook");
+            return;
+        }
         var (offset, focus) = _current();
         if (!Presets.Save(PresetName.Text, offset, focus))
         {

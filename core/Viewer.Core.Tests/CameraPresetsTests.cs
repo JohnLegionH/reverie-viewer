@@ -11,7 +11,7 @@ namespace Viewer.Core.Tests;
 public class CameraPresetsTests
 {
     private static (Vector3 Eye, Vector3 Target) PoseOf(FollowCamera camera, float heading = 0.7f) =>
-        camera.Pose(new Vector3(100, 100, 30), heading, 0.0);
+        camera.Pose(new Vector3(100, 100, 30), heading, 10.0);   // long enough for the smoothing to have arrived
 
     private static void Same((Vector3 Eye, Vector3 Target) a, (Vector3 Eye, Vector3 Target) b)
     {
@@ -59,6 +59,32 @@ public class CameraPresetsTests
         var picked = new FollowCamera();
         picked.ApplyView(CameraPresets.Front.Offset, CameraPresets.Front.Focus);
         PoseOf(picked);
+        picked.ApplyView(offset, focus);
+        Same(before, PoseOf(picked));
+    }
+
+    [Fact]
+    public void A_view_taken_after_tilting_on_the_avatar_keeps_the_tilt()
+    {
+        var seen = new FollowCamera();
+        PoseOf(seen);
+        seen.OrbitOver(0.4f);
+        var before = PoseOf(seen);
+        var (offset, focus) = seen.CurrentView();
+        var picked = new FollowCamera();
+        picked.ApplyView(offset, focus);
+        Same(before, PoseOf(picked));
+    }
+
+    [Fact]
+    public void A_view_taken_with_the_focus_off_the_avatar_puts_the_camera_back_where_it_was()
+    {
+        var seen = new FollowCamera();
+        PoseOf(seen);
+        seen.SetCameraPosAndFocus(new Vector3(96, 103, 33), new Vector3(101, 99, 31));
+        var before = PoseOf(seen);
+        var (offset, focus) = seen.CurrentView();
+        var picked = new FollowCamera();
         picked.ApplyView(offset, focus);
         Same(before, PoseOf(picked));
     }
