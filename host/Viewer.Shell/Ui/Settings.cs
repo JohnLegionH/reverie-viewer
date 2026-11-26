@@ -205,6 +205,10 @@ public static class Settings
     public const string UiLanguageKey = "ui_language", GraphicsPresetKey = "graphics_preset", GraphicsBackendKey = "graphics_backend",
         WindowModeKey = "window_mode", LoginStartLocationKey = "login_start_location", CacheFolderKey = "cache_folder";
 
+    /// <summary>The hover height an account chose for its avatar, in metres; absent until the person sets one. One key per account, as the
+    /// official viewer keeps it per account.</summary>
+    public static Setting<float> HoverHeightOf(Guid agent) => new("hover_height_" + agent.ToString("N"), 0f, v => Viewer.Core.Avatars.HoverHeightRules.Clamp(v));
+
     /// <summary>When an account last logged out, in whole seconds since 1970 (0: never). One key per account, so accounts that
     /// share a computer keep their own. The inventory's Recent tab lists what is newer than this.</summary>
     public static Setting<long> LastLogoutOf(Guid agent) => new("last_logout_" + agent.ToString("N"), 0L, v => v >= 0 ? v : null);

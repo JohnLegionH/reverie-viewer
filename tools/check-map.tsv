@@ -135,6 +135,7 @@
 ^host/Viewer\.Godot/GesturesWindow\.cs$	ui,smoke
 ^host/Viewer\.Godot/(LinkStrip|Main\.Window|MouseLookSetting)\.cs$|^host/Viewer\.Shell/WindowMenu\.cs$	ui
 # Interface: the Snapshot window and taking its pictures.
+^host/Viewer\.Godot/(HoverHeightWindow|Main\.HoverHeight)\.cs$	ui,avatars,smoke
 ^host/Viewer\.Godot/(SnapshotWindow|Main\.Snapshot)\.cs$|^host/Viewer\.Shell/Ui/Snapshots/	ui,smoke
 # The soak run (test only) cycles the object scenes.
 ^host/Viewer\.Shell/SoakTools\.cs$	objects

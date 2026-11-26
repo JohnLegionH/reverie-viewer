@@ -127,6 +127,10 @@ You can also work from the world:
 
 If a restraint (RLV) locks an object, it cannot be taken off, and its entry is greyed. RLV is off until you turn it on in **Me > Add-ons**.
 
+## Hover height
+
+If your avatar stands above or sinks into the ground, open **Avatar > Hover height...** (Ctrl+Alt+H) and move the slider, or type a value, from -2 to 2 metres. Others see the change. The viewer keeps your choice for that account and tells each region you reach. If the controls are greyed, the region does not offer hover height.
+
 ## Outfits
 
 Open **Content > Outfits** (Ctrl+O), or the **Outfits** button on the dock. The **Outfit** tab of the Appearance window shows the same panel.

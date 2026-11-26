@@ -213,6 +213,13 @@ public sealed class ViewerSession : IDisposable
     public Viewer.Core.Building.ITextureUploadService? BuildService => _transport as Viewer.Core.Building.ITextureUploadService;
 
     /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
+    /// <summary>Whether the agent's region takes a hover height (false when the transport cannot say).</summary>
+    public bool HoverHeightSupported => (_transport as IHoverHeightTransport)?.HoverHeightSupported ?? false;
+
+    /// <summary>States the agent's hover height to its region; false when the region does not take it or did not accept it.</summary>
+    public Task<bool> SetHoverHeightAsync(float metres, CancellationToken ct = default) =>
+        (_transport as IHoverHeightTransport)?.SendHoverHeightAsync(metres, ct) ?? Task.FromResult(false);
+
     /// <summary>The grid's own settings (chat ranges, map server, search and guide addresses, currency, export flag) from the agent's
     /// region, or Second Life's defaults while the region has sent none.</summary>
     public GridFeatures GridFeatures

@@ -342,6 +342,16 @@ public interface IGroupRequester
 /// <summary>The agent's money balance as the grid last gave it.</summary>
 public sealed record BalanceChanged(int Balance) : TransportEvent;
 
+/// <summary>A transport that can state the agent's own hover height to its region.</summary>
+public interface IHoverHeightTransport
+{
+    /// <summary>Whether the agent's region takes a hover height.</summary>
+    bool HoverHeightSupported { get; }
+
+    /// <summary>States the height in metres; false when the region does not take it or did not accept it.</summary>
+    Task<bool> SendHoverHeightAsync(float metres, CancellationToken ct);
+}
+
 /// <summary>A transport that reads the grid's own settings from the agent's region and can ask for the money balance (the answer is a
 /// <see cref="BalanceChanged"/> event).</summary>
 public interface IGridFeaturesSource

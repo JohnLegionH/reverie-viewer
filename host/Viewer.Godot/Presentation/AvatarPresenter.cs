@@ -956,14 +956,19 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
         return true;
     }
 
+    /// <summary>The hover height the person chose for their own avatar; null draws what the avatar's visual parameters say.</summary>
+    public float? OwnHover { get; set; }
+    private float? _ownHoverDrawn;
+
     /// <summary>The avatar's shaped skeleton from its visual parameters, when they change (the male/female choice, the proportions, the hover height).</summary>
     private void UpdateShape(AvatarEntry e, DrawnAvatar d)
     {
+        if (e.IsSelf && _ownHoverDrawn != OwnHover) { _ownHoverDrawn = OwnHover; d.ShapeVersion = -1; }   // a new choice of hover redraws the shape
         if (_layer is null || d.Id < 0 || d.ShapeVersion == e.ShapeVersion) return;
         d.ShapeVersion = e.ShapeVersion;
         AvatarShape? shape = null;
         if (e.VisualParams is { Count: > 0 } vp && _body is { IsCompletedSuccessfully: true, Result: { } loaded } && loaded.Body.Shape is not null)
-            shape = AvatarShape.From(_layer.Rig, loaded.Body.Shape, vp, AvatarShape.HoverOverride(e.IsSelf, e.Hover));
+            shape = AvatarShape.From(_layer.Rig, loaded.Body.Shape, vp, e.IsSelf ? OwnHover : AvatarShape.HoverOverride(false, e.Hover));
         StartBodyMorph(d, shape);
         _layer.SetShape(d.Id, shape);
         // the body's own height and hover, which the official viewer seats it by

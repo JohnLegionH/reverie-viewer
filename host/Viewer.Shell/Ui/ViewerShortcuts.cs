@@ -16,6 +16,7 @@ public static class ViewerShortcuts
     public static IReadOnlyDictionary<string, string> ByEntry { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["content.inventory"] = "control|I",                     // Inventory
+        ["me.hover"] = "control|alt|H",                          // Hover height... (the Avatar menu)
         ["me.preferences"] = "control|P",                        // Preferences
         ["me.quit"] = "control|Q",                               // Quit
         ["communicate.conversations"] = "control|T",             // Conversations
@@ -56,7 +57,6 @@ public static class ViewerShortcuts
         ("alt|shift|R", "Detach all attachments"),
         ("alt|shift|S", "Sit or stand"),
         ("alt|shift|A", "Stop animating me"),
-        ("control|alt|H", "Hover height"),
         ("control|shift|W", "Close all windows"),
         ("F1", "Help"),
         ("control|8", "Zoom in"), ("control|9", "Default zoom"), ("control|0", "Zoom out"),

@@ -86,6 +86,7 @@ public partial class Main
                 _travelPanels ??= TravelFeature.Install(_shell, UserSettings(null));
                 InstallEnvironmentMenu();
                 InstallSnapshot();   // World > Snapshot, made once, in the menu the travel windows make
+                AttachHover(session!);   // Avatar > Hover height
                 var s = session!;
                 var tiles = _mapTiles = new MapTileCache((key, ct) => s.FetchMapTileAsync(key, ct));
                 var links = _mapLinks = new MapLinks
@@ -115,6 +116,7 @@ public partial class Main
         FollowMapGrid();
         _travel?.Pump();
         UpdateBanWall();
+        UpdateHover();
     }
 
     private IReadOnlyList<FriendRow> Friends() => _comms?.Friends.Friends ?? [];

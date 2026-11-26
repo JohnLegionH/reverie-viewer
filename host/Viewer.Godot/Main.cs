@@ -1181,6 +1181,7 @@ public partial class Main : Node
         _handoffLedger.Exists = session.Identity.Holds;
         _handoffLedger.Locate = session.Identity.CurrentAvatar;
         _attachmentFrames = avatars;
+        _hoverAvatars = avatars;
         HookRiggedLogs(prims, session);
         _bindings ??= KeyBindings.Load(KeysFile(), Log);
         _driver = new OwnAvatarDriver(avatars.Scene, session.World,
