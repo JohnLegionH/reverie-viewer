@@ -13,7 +13,9 @@
 30	menu:communicate.conversations
 63	pref:share_online_status
 64	menu:content.inventory
+70	menu:content.inventory
 75	menu:content.inventory
+77	menu:content.inventory
 91	menu:content.outfits
 92	menu:content.outfits
 94	menu:me.appearance

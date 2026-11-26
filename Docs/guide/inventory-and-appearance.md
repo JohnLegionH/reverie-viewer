@@ -39,7 +39,19 @@ An item you are wearing shows **(worn)** after its name.
 
 - **All items** shows the whole tree.
 - **Recent items** shows items that arrived since you last logged out.
+- **Worn** shows only what you are wearing or have attached, under the folders that hold it. It changes as you put things on and take them off.
 - The box next to the search line sorts by **name** or by **date**. The viewer remembers your choice.
+
+### Item properties
+
+1. Right-click an item and choose **Properties**. The **Item Properties** window opens. Folders have no properties.
+2. It shows the **Name**, **Description**, **Creator**, **Owner** and **Acquired** date. **You can** (or **Owner can**, for an item that is not yours) shows the current permissions. **Next owner** shows what the next person to get the item will be allowed.
+3. To change the name or description, type and press Enter. Leaving the field or closing the window also saves. Press Esc instead to put the old text back.
+4. To change what the next owner may do, tick or clear **Modify**, **Copy** or **Transfer**. A change saves at once. With **Copy** cleared, **Transfer** stays ticked.
+
+Greyed fields are ones the item does not let you change. A name and description need **Modify**. The next-owner boxes need the item to be yours and to allow **Transfer**; you cannot give a permission you do not have yourself. Library items and items in the Trash are read only.
+
+The window does not set a sale price or group sharing, and it does not show the contents of an object.
 
 ### Search
 

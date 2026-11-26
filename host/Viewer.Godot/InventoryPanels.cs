@@ -984,8 +984,8 @@ public partial class InventoryPanel : VBoxContainer
 
     private void OnItemCollapsed(TreeItem item)
     {
-        if (_building || _view is null)
-            return;
+        if (_building || _view is null || _view.Tab == InventoryTab.Worn)
+            return;   // the Worn tab's folders close in the tree only: which folders are open belongs to All items
         var id = InventoryTree.IdOf(item);
         if (id == Guid.Empty)
             return;
@@ -1013,9 +1013,13 @@ public partial class InventoryPanel : VBoxContainer
     /// <summary>Properties was chosen for this item.</summary>
     public event Action<Guid>? PropertiesRequested;
 
+    /// <summary>Whether an item's properties can be shown: an item that is held, and for a link the item it points to as well.</summary>
+    private bool HasProperties(Guid id) =>
+        _model?.Item(id) is { } item && (item.Kind != ItemKind.Link || item.LinkedId is not { } target || _model.Item(target) is not null);
+
     public void OnProperties()
     {
-        if (_model?.Item(_selected) is not null)
+        if (HasProperties(_selected))
             PropertiesRequested?.Invoke(_selected);
     }
 
@@ -1114,6 +1118,12 @@ public partial class InventoryPanel : VBoxContainer
         _selected = id;
         if (_view is not null && _model?.Folder(id) is not null)
         {
+            if (_view.Tab == InventoryTab.Worn)
+            {
+                if (TreeView.GetSelected() is { } row)
+                    row.Collapsed = !row.Collapsed;
+                return;
+            }
             if (FolderTreeInput.Press(RowButton.Left, RowPart.Name, isFolder: true, doubleClick: true) == TreeAction.SelectAndToggle)
             {
                 _view.Toggle(id);
@@ -1154,7 +1164,7 @@ public partial class InventoryPanel : VBoxContainer
         Context.SetItemDisabled(Context.GetItemIndex(7), AttachButton.Disabled);
         Context.SetItemDisabled(Context.GetItemIndex(8), DetachButton.Disabled);
         Context.SetItemDisabled(Context.GetItemIndex(9), !CanOpen(_selected));
-        Context.SetItemDisabled(Context.GetItemIndex(PropertiesEntry), _model?.Item(_selected) is null);   // an item has properties, a folder none
+        Context.SetItemDisabled(Context.GetItemIndex(PropertiesEntry), !HasProperties(_selected));   // an item has properties, a folder none
         Context.SetItemDisabled(Context.GetItemIndex(10), _view is null || (_selected != Guid.Empty && _model?.IsInLibrary(_selected) == true));
         // at the pointer: in the window's own coordinates when popups are drawn inside it, in screen coordinates when they are windows of their own
         Context.Position = GetViewport().GuiEmbedSubwindows ? (Vector2I)GetGlobalMousePosition() : DisplayServer.MouseGetPosition();

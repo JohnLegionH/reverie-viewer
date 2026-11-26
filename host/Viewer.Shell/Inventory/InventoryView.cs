@@ -186,8 +186,9 @@ public sealed class InventoryViewModel
         var cof = _model.FolderOfKind(FolderKind.CurrentOutfit);
         var worn = WornItems?.Invoke() ?? new HashSet<Guid>();
         int held = worn.Count(id => _model.Item(id) is not null);
-        bool pending = (cof != Guid.Empty && _model.LoadState(cof) != FolderLoad.Loaded)
-            || (held < worn.Count && (_model.UnloadedFolderCount > 0 || _model.InFlight > 0));
+        // a folder that failed is not waited for: the count is then of what could be read
+        bool pending = (cof != Guid.Empty && _model.LoadState(cof) is FolderLoad.NotLoaded or FolderLoad.Loading)
+            || (held < worn.Count && _model.InFlight > 0);
         return pending
             ? new("inventory.status.worn_loading", Array.Empty<object>())
             : new("inventory.status.worn", new object[] { new Counted("count.items", held) });

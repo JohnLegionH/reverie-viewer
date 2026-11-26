@@ -101,6 +101,19 @@ public class InventoryWornTabTests
     }
 
     [Fact]
+    public void A_folder_that_failed_to_load_does_not_leave_the_status_loading_for_good()
+    {
+        var rig = Make(clothesLoaded: false);
+        rig.View.Rows();
+        for (int guard = 0; rig.Model.InFlight > 0 && guard < 20; guard++)
+            foreach (var folder in rig.Asked.ToArray())
+                if (rig.Model.LoadState(folder) == FolderLoad.Loading)
+                    rig.Model.Apply(new InventoryFolderFetched(folder, false, -1, -1, [], []));
+        Assert.Equal(0, rig.Model.InFlight);
+        Assert.Equal("inventory.status.worn", rig.View.Status().Key);
+    }
+
+    [Fact]
     public void The_other_tabs_do_not_ask_what_is_worn()
     {
         var rig = Make();

@@ -163,6 +163,16 @@ public class ItemPropertiesTests
         Assert.True(Encoding.UTF8.GetByteCount(done.Description) <= ItemEdit.MaxDescriptionBytes);
     }
 
+    [Fact]
+    public void A_window_not_refilled_since_the_item_changed_elsewhere_asks_for_nothing_the_user_did_not_change()
+    {
+        var item = Item(Rights());
+        var shown = Same(item);
+        var elsewhere = item with { Name = "Renamed elsewhere", Description = "Changed elsewhere", Permissions = item.Permissions! with { NextOwnerMask = C | T | Move } };
+        Assert.Equal(Same(elsewhere), ItemEdit.Changes(elsewhere, shown, shown));
+        Assert.Equal(Same(elsewhere) with { NextCopy = false }, ItemEdit.Changes(elsewhere, shown, shown with { NextCopy = false }));
+    }
+
     // ---------------- saving ----------------
 
     private static (InventoryActions Actions, List<ActionIntent> Sent, InventoryModel Model) Rig(InventoryItemData item, ActionStatus status = ActionStatus.Sent)

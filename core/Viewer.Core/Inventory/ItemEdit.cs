@@ -51,6 +51,20 @@ public static class ItemEdit
             next && (p.NextOwnerMask & ItemPermissions.Copy) != 0);
     }
 
+    /// <summary>What a window's values ask for. <paramref name="shown"/> is what the window was filled with: a value the user has
+    /// not changed asks for the item's own, so a window not refilled yet does not undo a change made elsewhere.</summary>
+    public static ItemEditRequest Changes(InventoryItemData item, ItemEditRequest shown, ItemEditRequest now)
+    {
+        uint next = item.Permissions?.NextOwnerMask ?? 0;
+        bool Box(bool was, bool isNow, uint bit) => isNow != was ? isNow : (next & bit) != 0;
+        return new ItemEditRequest(
+            now.Name != shown.Name ? now.Name : item.Name,
+            now.Description != shown.Description ? now.Description : item.Description,
+            Box(shown.NextModify, now.NextModify, ItemPermissions.Modify),
+            Box(shown.NextCopy, now.NextCopy, ItemPermissions.Copy),
+            Box(shown.NextTransfer, now.NextTransfer, ItemPermissions.Transfer));
+    }
+
     /// <summary>The item as it would be saved: <paramref name="current"/> with the asked values in the fields that may change.
     /// Equal to <paramref name="current"/> when nothing may or does change.</summary>
     public static InventoryItemData Apply(InventoryModel model, InventoryItemData current, ItemEditRequest wanted)

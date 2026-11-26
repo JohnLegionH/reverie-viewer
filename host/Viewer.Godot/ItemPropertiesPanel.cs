@@ -39,6 +39,7 @@ public partial class ItemPropertiesPanel : ScrollContainer
     private InventoryActions? _actions;
     private Func<Guid, string?> _nameOf = _ => null;
     private string _shownName = "", _shownDescription = "";
+    private readonly bool[] _shownNext = new bool[3];
     private bool _filling, _namesPending;
     private volatile bool _modelDirty;
     private long _drawnAt;
@@ -97,8 +98,22 @@ public partial class ItemPropertiesPanel : ScrollContainer
         edit.AccessibilityName = _strings.Get(key);
         edit.TextSubmitted += _ => Commit();
         edit.FocusExited += Commit;
+        // Esc puts back the item's text and leaves the field; the shell's own Esc handling would leave it first, which saves it
+        edit.SetMeta(ShellRoot.TakesEscapeMeta, true);
+        // a press anywhere else, an empty part of the window included, leaves the field and so saves it
+        edit.SetMeta(ShellRoot.CommitsOnPressOutsideMeta, true);
+        edit.GuiInput += e => CancelOnEscape(e, edit);
         grid.AddChild(edit);
         return edit;
+    }
+
+    private void CancelOnEscape(InputEvent e, LineEdit field)
+    {
+        if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+            return;
+        field.Text = field == NameEdit ? _shownName : _shownDescription;
+        field.AcceptEvent();
+        field.ReleaseFocus();
     }
 
     private Label Value(GridContainer grid, string name, string key)
@@ -193,6 +208,8 @@ public partial class ItemPropertiesPanel : ScrollContainer
             HeldLabel.Text = _strings.Get(p is not null && p.OwnerId != _model!.OwnerId ? "item_properties.owner_can" : "item_properties.you_can");
             Show(Held, p?.OwnerMask ?? 0, false, false, false);
             Show(Next, p?.NextOwnerMask ?? 0, rights.NextModify, rights.NextCopy, rights.NextTransfer);
+            for (int i = 0; i < 3; i++)
+                _shownNext[i] = Next[i].ButtonPressed;
             if (item is null)
                 Notice.Text = _strings.Get("item_properties.none");
         }
@@ -206,7 +223,7 @@ public partial class ItemPropertiesPanel : ScrollContainer
         {
             if (edit.Text != value)
                 edit.Text = value;
-            shown = value;
+            shown = edit.Text;   // what the field holds: a value longer than it takes is not read as typed
         }
         edit.Editable = open;
         // the theme draws a read-only field's text as an editable one's: a locked field is greyed here
@@ -243,19 +260,19 @@ public partial class ItemPropertiesPanel : ScrollContainer
     {
         if (_filling || _actions is null || _model?.Item(ItemId) is not { } item)
             return;
-        // a field the user has not changed asks for the item's own value, so a change from elsewhere is not undone
-        var wanted = new ItemEditRequest(
-            NameEdit.Text != _shownName ? NameEdit.Text : item.Name,
-            DescriptionEdit.Text != _shownDescription ? DescriptionEdit.Text : item.Description,
-            Next[0].ButtonPressed, Next[1].ButtonPressed, Next[2].ButtonPressed);
+        var wanted = ItemEdit.Changes(item,
+            new ItemEditRequest(_shownName, _shownDescription, _shownNext[0], _shownNext[1], _shownNext[2]),
+            new ItemEditRequest(NameEdit.Text, DescriptionEdit.Text, Next[0].ButtonPressed, Next[1].ButtonPressed, Next[2].ButtonPressed));
         var result = _actions.SaveProperties(item.Id, wanted);
         Notice.Text = !result.Submitted && result.Code is not null ? _strings.Get("item_properties.not_saved") : "";
         // show what the item holds now (a name that was refused goes back)
         var held = _model.Item(item.Id);
         if (held is not null)
         {
-            NameEdit.Text = _shownName = held.Name;
-            DescriptionEdit.Text = _shownDescription = held.Description;
+            NameEdit.Text = held.Name;
+            DescriptionEdit.Text = held.Description;
+            _shownName = NameEdit.Text;
+            _shownDescription = DescriptionEdit.Text;
         }
         Refresh();
     }
