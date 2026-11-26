@@ -3,8 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Viewer.Core.Session;
+using Viewer.Core.Diagnostics;
 using Viewer.Core.Social;
 using Viewer.Core.World;
 
@@ -27,9 +29,16 @@ public partial class Main
         // the own place: seated, it is worked out from the seat like anyone's; standing, it is the agent's latest motion
         var seated = session.World.AvatarOf(session.AgentId) is { ParentLocalId: not 0 } me ? PlaceInRegion(session.World, me) : null;
         var own = (seated ?? motion.Motion.Position) - session.World.OriginOffset;
-        return NearbyAvatars.List(session.AgentId, own, exact, session.CoarseLocations)
-            .Select(a => (a, session.Names.Get(a.Id) ?? NameCache.Placeholder(a.Id)))
+        var list = NearbyAvatars.List(session.AgentId, own, exact, session.CoarseLocations)
+            .Select(a => (Avatar: a, Name: session.Names.Get(a.Id) ?? NameCache.Placeholder(a.Id)))
             .ToList();
+#if NV_AUTOMATION
+        // for a driven run, what the tab is given: counts, ids and distances, never a name
+        if (Viewer.Automation.AutomationArgs.Enabled(global::Godot.OS.GetCmdlineUserArgs()))
+            Log.Info("nearby.list", CoreLog.F("count", list.Count), CoreLog.F("rows", string.Join(";", list.Select(r =>
+                r.Avatar.Id + "=" + r.Avatar.Distance.ToString("0.00", CultureInfo.InvariantCulture) + (r.Avatar.Approximate ? "~" : "")))));
+#endif
+        return list;
     }
 
     private static System.Numerics.Vector3? PlaceInRegion(WorldState world, AvatarState avatar) =>
