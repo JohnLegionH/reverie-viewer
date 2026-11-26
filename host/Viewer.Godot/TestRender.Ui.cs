@@ -472,7 +472,9 @@ public partial class TestRender
                 break;
             default:
                 var chat = ChatFeature.Install(shell, settings);
-                PeopleFeature.Install(shell, settings, chat.Conversations);
+                var peoplePanel = PeopleFeature.Install(shell, settings, chat.Conversations);
+                if (scene == "people")
+                    peoplePanel.Tabs.CurrentTab = 1;   // this picture checks the friends list; the window opens on Nearby
                 var inventoryPanel = InventoryFeature.Install(shell);
                 if (scene is "inventory" or "newmenu")
                     ExampleInventoryDrag(inventoryPanel, dragCue: scene == "inventory");
