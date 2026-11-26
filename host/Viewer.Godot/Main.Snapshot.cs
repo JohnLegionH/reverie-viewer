@@ -57,9 +57,13 @@ public partial class Main
 
     private bool SnapshotOpen => _shell is not null && _shell.Shell.Floaters.IsOpen(SnapshotFeature.FloaterId);
 
+    private int? _snapshotMaxSideForTest;   // set only by the development automation, to meet the refusal on a card that can draw every size
+
     /// <summary>The graphics card's largest 2D texture side.</summary>
-    private static int SnapshotMaxSide()
+    private int SnapshotMaxSide()
     {
+        if (_snapshotMaxSideForTest is { } limit)
+            return limit;
         var device = RenderingServer.GetRenderingDevice();
         return device is null ? 16384 : (int)device.LimitGet(RenderingDevice.Limit.MaxTextureSize2D);
     }
@@ -204,8 +208,9 @@ public partial class Main
             {
                 root.ContentScaleMode = Window.ContentScaleModeEnum.Viewport;
                 root.ContentScaleAspect = Window.ContentScaleAspectEnum.Ignore;
-                root.ContentScaleSize = new Vector2I(width, height);
-                root.ContentScaleFactor = SnapshotModel.ScaleFactor(factor, (int)drawn.Y, height);
+                var scale = SnapshotModel.ContentScale(width, height, factor, (int)drawn.Y);
+                root.ContentScaleSize = new Vector2I(scale.Width, scale.Height);
+                root.ContentScaleFactor = scale.Factor;
             }
             _snapshotVideoPeak = 0;
             for (int i = 0; i < (resize ? SnapshotSettleFrames : 2); i++)
@@ -298,8 +303,8 @@ public partial class Main
         }
     }
 
-    /// <summary>The snapshot command of the development automation: what the window holds, and the answer to its folder question (given to
-    /// the folder dialog's own "folder chosen" signal).</summary>
+    /// <summary>The snapshot command of the development automation: what the window holds and has chosen, the answer to its folder question
+    /// (given to the folder dialog's own "folder chosen" signal), and a lower stand-in for the graphics card's limit.</summary>
     public object SnapshotCall(string action, string? folder)
     {
         if (action == "choose_folder" && folder is not null && _snapshot is { } window && window.FolderDialog.Visible)
@@ -307,6 +312,8 @@ public partial class Main
             window.FolderDialog.Hide();
             window.FolderDialog.EmitSignal(FileDialog.SignalName.DirSelected, folder);
         }
+        if (action == "limit_max_side")
+            _snapshotMaxSideForTest = int.TryParse(folder, out int limit) && limit > 0 ? limit : null;
         var drawn = SnapshotView.Size;
         return new
         {
@@ -314,6 +321,8 @@ public partial class Main
             width = _snapshotShot?.GetWidth() ?? 0, height = _snapshotShot?.GetHeight() ?? 0,
             shot_bytes = (long)(_snapshotShot?.GetDataSize() ?? 0), preview = _snapshot?.HasPreview ?? false,
             asking_folder = _snapshot?.FolderDialog.Visible ?? false, saved = _snapshotSaved, status = _snapshot?.StatusText ?? "",
+            size_index = _snapshot?.SizeChoice.Selected ?? -1, format_index = _snapshot?.FormatChoice.Selected ?? -1,
+            show_interface = _snapshot?.ShowInterface.ButtonPressed ?? false,
             window_width = (int)drawn.X, window_height = (int)drawn.Y, max_side = SnapshotMaxSide(),
             private_before = _snapshotPrivateBefore, private_after = _snapshotPrivateAfter, video_before = _snapshotVideoBefore,
             video_peak = _snapshotVideoPeak, private_now = SnapshotPrivateBytes(), video_now = SnapshotVideoBytes(),

@@ -48,11 +48,27 @@ public sealed class SnapshotTests
         Assert.True(SnapshotModel.Allowed(SnapshotModel.Sizes[0], 4096));
     }
 
-    [Fact]
-    public void The_interface_keeps_its_share_of_a_larger_picture()
+    // the engine's rule in its viewport stretch mode: what is drawn is the content size divided by the content scale factor, rounded down
+    [Theory]
+    [InlineData(0.75f)]
+    [InlineData(1f)]
+    [InlineData(1.1f)]
+    [InlineData(1.5f)]
+    [InlineData(2f)]
+    public void A_chosen_size_is_drawn_at_that_size_at_any_interface_size(float interfaceScale)
     {
-        Assert.Equal(3f, SnapshotModel.ScaleFactor(1f, 720, 2160));
-        Assert.Equal(1.5f, SnapshotModel.ScaleFactor(1.5f, 1080, 1080));
+        foreach (var size in SnapshotModel.Sizes.Skip(1))
+        {
+            var scale = SnapshotModel.ContentScale(size.Width, size.Height, interfaceScale, 648);
+            Assert.Equal((size.Width, size.Height), ((int)MathF.Floor(scale.Width / scale.Factor), (int)MathF.Floor(scale.Height / scale.Factor)));
+        }
+    }
+
+    [Fact]
+    public void The_capture_sets_the_content_scale_the_rule_gives()
+    {
+        Assert.Contains("SnapshotModel.ContentScale(width, height", Host());
+        Assert.Contains("root.ContentScaleFactor = scale.Factor", Host());
     }
 
     [Fact]

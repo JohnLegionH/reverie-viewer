@@ -28,8 +28,12 @@ public static class SnapshotModel
     /// <summary>Whether the graphics card can draw a picture of this size (<paramref name="maxSide"/>: its largest 2D texture side).</summary>
     public static bool Allowed(SnapshotSize size, int maxSide) => size.IsWindow || (size.Width <= maxSide && size.Height <= maxSide);
 
-    /// <summary>The content scale for a picture of another height, so the interface covers the same share of it as of the window.</summary>
-    public static float ScaleFactor(float factor, int windowHeight, int targetHeight) => factor * targetHeight / Math.Max(1, windowHeight);
+    /// <summary>The window's content scale for a picture of a chosen size. In the engine's viewport stretch mode the picture drawn is the
+    /// content size divided by the factor, so the factor is 1 and the content size is the picture's size: any other factor (the
+    /// interface size, <paramref name="factor"/>, or a ratio of heights) would draw a smaller picture. That mode draws the interface
+    /// one picture pixel to one interface unit, so it takes up the share it would in a window of that size at 100 percent.</summary>
+    public static (int Width, int Height, float Factor) ContentScale(int width, int height, float factor, int windowHeight) =>
+        (width, height, 1f);
 
     public static string DefaultFolder(string pictures) => Path.Combine(pictures, "Reverie");
 
