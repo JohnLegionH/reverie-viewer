@@ -12,8 +12,5 @@ internal sealed class WindowPicture(Viewport viewport)
 
     private ViewportTexture Texture => _texture ??= viewport.GetTexture();
 
-    /// <summary>The picture's size in pixels.</summary>
-    public Vector2 Size => Texture.GetSize();
-
     public Image Take() => Texture.GetImage();
 }

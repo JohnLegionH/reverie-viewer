@@ -103,6 +103,8 @@ public partial class Main
         }
         var strings = _shell.Shell.Strings;
         var size = window.ChosenSize;
+        var drawing = GetWindow().Size;
+        var wanted = SnapshotModel.Resolve(size, drawing.X, drawing.Y);   // named if the picture cannot be taken
         int maxSide = SnapshotMaxSide();
         DropSnapshotShot();
         if (!SnapshotModel.Allowed(size, maxSide))
@@ -131,7 +133,10 @@ public partial class Main
             }
             if (image is null)
             {
-                window.ShowStatus(strings.Get(!withInterface && SnapshotDialogUp() ? "snapshot.dialog" : "snapshot.failed"));
+                if (!withInterface && SnapshotDialogUp())
+                    window.ShowStatus(strings.Get("snapshot.dialog"));
+                else
+                    window.ShowStatus(strings.Get("snapshot.failed", wanted.Width, wanted.Height));
                 return;
             }
             _snapshotShot = image;
@@ -179,8 +184,8 @@ public partial class Main
         var aspect = root.ContentScaleAspect;
         var content = root.ContentScaleSize;
         float factor = root.ContentScaleFactor;
-        var drawn = SnapshotView.Size;
-        var (width, height) = SnapshotModel.Resolve(size, (int)drawn.X, (int)drawn.Y);
+        var drawing = root.Size;   // the window's drawing size in pixels, whatever the interface size is
+        var (width, height) = SnapshotModel.Resolve(size, drawing.X, drawing.Y);
         bool resize = !size.IsWindow;
         var hidden = new List<Node>();
 
@@ -208,7 +213,7 @@ public partial class Main
             {
                 root.ContentScaleMode = Window.ContentScaleModeEnum.Viewport;
                 root.ContentScaleAspect = Window.ContentScaleAspectEnum.Ignore;
-                var scale = SnapshotModel.ContentScale(width, height, factor, (int)drawn.Y);
+                var scale = SnapshotModel.ContentScale(width, height, factor, drawing.Y);
                 root.ContentScaleSize = new Vector2I(scale.Width, scale.Height);
                 root.ContentScaleFactor = scale.Factor;
             }
@@ -221,7 +226,7 @@ public partial class Main
             if (!withInterface && SnapshotDialogUp())
                 return null;   // one opened while the picture was being drawn
             var image = SnapshotView.Take();
-            if (image is null || image.GetWidth() != width || image.GetHeight() != height)
+            if (image is null || !SnapshotModel.Accepts(size, image.GetWidth(), image.GetHeight()))
             {
                 Log.Info("snapshot.wrong-size", CoreLog.F("wanted-width", width), CoreLog.F("wanted-height", height),
                     CoreLog.F("width", image?.GetWidth() ?? 0), CoreLog.F("height", image?.GetHeight() ?? 0));
@@ -314,7 +319,7 @@ public partial class Main
         }
         if (action == "limit_max_side")
             _snapshotMaxSideForTest = int.TryParse(folder, out int limit) && limit > 0 ? limit : null;
-        var drawn = SnapshotView.Size;
+        var drawing = GetWindow().Size;
         return new
         {
             open = SnapshotOpen, busy = _snapshotBusy, has_shot = _snapshotShot is not null,
@@ -323,7 +328,7 @@ public partial class Main
             asking_folder = _snapshot?.FolderDialog.Visible ?? false, saved = _snapshotSaved, status = _snapshot?.StatusText ?? "",
             size_index = _snapshot?.SizeChoice.Selected ?? -1, format_index = _snapshot?.FormatChoice.Selected ?? -1,
             show_interface = _snapshot?.ShowInterface.ButtonPressed ?? false,
-            window_width = (int)drawn.X, window_height = (int)drawn.Y, max_side = SnapshotMaxSide(),
+            window_width = drawing.X, window_height = drawing.Y, max_side = SnapshotMaxSide(),
             private_before = _snapshotPrivateBefore, private_after = _snapshotPrivateAfter, video_before = _snapshotVideoBefore,
             video_peak = _snapshotVideoPeak, private_now = SnapshotPrivateBytes(), video_now = SnapshotVideoBytes(),
         };

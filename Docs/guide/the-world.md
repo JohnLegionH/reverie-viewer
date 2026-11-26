@@ -132,6 +132,7 @@ Landmarks, a places list and a teleport history are not in this viewer yet. The 
 - **Size**: the window's own size, or a fixed size from 1920×1080 to 7680×4320. For a moment the view is drawn at that size; the viewer window keeps its own size. A size your graphics card cannot draw is refused with a message, and nothing is saved.
 - **Format**: PNG, or JPEG with a quality from 1 to 100.
 - **Show interface** is off, so the picture is of the world alone: no bars, windows, name tags, floating text or selection marks. When it is on, the Snapshot window itself is still left out. At a fixed size, the interface is drawn as it would be in a window of that size at 100 percent interface size.
+- **Current window** gives a picture with the window's own number of screen pixels, whatever your interface size.
 - **Save to disk** writes the picture as the next numbered file, such as Snapshot_001.png. A file is never written over. The first save asks for a folder (offered: Reverie in your Pictures folder) and remembers it; **Change...** picks another.
 
 Saving to your inventory or profile, e-mail, filters and 360 pictures are not in this viewer yet.
