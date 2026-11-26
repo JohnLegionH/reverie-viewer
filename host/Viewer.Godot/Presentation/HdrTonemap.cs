@@ -356,7 +356,15 @@ void main()
     public override void _RenderCallback(int effectCallbackType, RenderData renderData)
     {
         if (_rd is null || !_pipeline.IsValid || effectCallbackType != (int)EffectCallbackTypeEnum.PostTransparent) return;
-        if (renderData.GetRenderSceneBuffers() is not RenderSceneBuffersRD buffers) return;
+        // The scene buffers are a reference-counted engine object, and the managed wrapper GodotSharp returns holds a
+        // reference of its own. Left to the garbage collector, that wrapper can outlive the viewport that owns the
+        // buffers (a freed SubViewport), and its finalizer then destroys them on the .NET finalizer thread: the
+        // rendering device refuses those frees ("free_rid can only be called from the render thread"), its textures
+        // stay registered with nothing behind them, and the engine's own shutdown later faults freeing them
+        // (0xC0000005 at exit). Letting go of the wrapper here, on the render thread and while the engine still
+        // holds its own reference, leaves the engine the only owner, so the buffers are destroyed on its own thread.
+        using var sceneBuffers = renderData.GetRenderSceneBuffers();
+        if (sceneBuffers is not RenderSceneBuffersRD buffers) return;
         var size = buffers.GetInternalSize();
         if (size.X <= 0 || size.Y <= 0) return;
         uint groupsX = (uint)((size.X + 7) / 8), groupsY = (uint)((size.Y + 7) / 8);
