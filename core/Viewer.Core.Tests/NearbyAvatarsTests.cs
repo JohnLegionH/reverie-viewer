@@ -31,6 +31,40 @@ public class NearbyAvatarsTests
     }
 
     [Fact]
+    public void A_seated_avatars_place_is_its_seat_turned_and_moved_through_the_linkset()
+    {
+        // a root turned a quarter about up at (10, 20, 30), a seat prim 2 m along its x, the avatar 1 m above the seat prim
+        var quarter = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2);
+        (Vector3, Quaternion, uint)? Find(uint id) => id switch
+        {
+            1 => (new Vector3(10, 20, 30), quarter, 0u),
+            2 => (new Vector3(2, 0, 0), Quaternion.Identity, 1u),
+            _ => null,
+        };
+        var at = NearbyAvatars.WorldPosition(new Vector3(0, 0, 1), 2, Find);
+        Assert.NotNull(at);
+        Assert.True((at!.Value - new Vector3(10, 22, 31)).Length() < 0.001f, at.ToString());
+    }
+
+    [Fact]
+    public void A_standing_avatars_place_is_its_own() =>
+        Assert.Equal(new Vector3(1, 2, 3), NearbyAvatars.WorldPosition(new Vector3(1, 2, 3), 0, _ => null));
+
+    [Fact]
+    public void A_seat_the_viewer_does_not_have_or_a_loop_of_seats_gives_no_place()
+    {
+        Assert.Null(NearbyAvatars.WorldPosition(Vector3.Zero, 7, _ => null));
+        Assert.Null(NearbyAvatars.WorldPosition(Vector3.Zero, 7, id => (Vector3.Zero, Quaternion.Identity, id)));
+    }
+
+    [Fact]
+    public void The_first_exact_position_of_an_avatar_is_the_one_used()
+    {
+        var row = Assert.Single(NearbyAvatars.List(Self, Own, Exact((A, new(105, 100, 25)), (A, new(150, 100, 25))), Coarse()));
+        Assert.Equal(5f, row.Distance, 3);
+    }
+
+    [Fact]
     public void The_own_avatar_is_not_listed() =>
         Assert.Empty(NearbyAvatars.List(Self, Own, Exact((Self, Own)), Coarse((Self, Own))));
 

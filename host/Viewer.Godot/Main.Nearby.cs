@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Viewer.Core.Session;
 using Viewer.Core.Social;
+using Viewer.Core.World;
 
 namespace Viewer.Godot;
 
@@ -14,13 +15,24 @@ public partial class Main
 {
     private IReadOnlyList<(NearbyAvatar Avatar, string Name)>? NearbyNow(ViewerSession session)
     {
-        if (session.IsEnded || session.World.LastSelfMotion is not { } self)
+        if (session.IsEnded || session.World.LastSelfMotion is not { } motion)
             return null;
-        var origin = session.World.OriginOffset;   // positions in the world are in the anchor region's frame; the list's are the region's own
-        // a seated avatar's position is measured from its seat, so it is taken from the coarse list instead
-        var exact = session.World.AvatarList().Where(a => a.ParentLocalId == 0).Select(a => (a.AgentId, a.Position - origin));
-        return NearbyAvatars.List(session.AgentId, self.Motion.Position - origin, exact, session.CoarseLocations)
+        // every region the session sees, the current one first; places are made relative to the current region's corner, as its coarse list is
+        var worlds = session.Worlds;
+        var exact = worlds.SelectMany(w => w.World.AvatarList()
+            .Select(a => (a.AgentId, At: PlaceInRegion(w.World, a)))
+            .Where(a => a.At is not null)
+            .Select(a => (a.AgentId, a.At!.Value - w.OriginOffset + w.Offset)))
+            .ToList();
+        // the own place: seated, it is worked out from the seat like anyone's; standing, it is the agent's latest motion
+        var seated = session.World.AvatarOf(session.AgentId) is { ParentLocalId: not 0 } me ? PlaceInRegion(session.World, me) : null;
+        var own = (seated ?? motion.Motion.Position) - session.World.OriginOffset;
+        return NearbyAvatars.List(session.AgentId, own, exact, session.CoarseLocations)
             .Select(a => (a, session.Names.Get(a.Id) ?? NameCache.Placeholder(a.Id)))
             .ToList();
     }
+
+    private static System.Numerics.Vector3? PlaceInRegion(WorldState world, AvatarState avatar) =>
+        NearbyAvatars.WorldPosition(avatar.Position, avatar.ParentLocalId,
+            id => world.Object(new ObjectId(avatar.Id.Epoch, id)) is { } o ? (o.Position, o.Rotation, o.ParentLocalId) : null);
 }

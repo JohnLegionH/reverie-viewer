@@ -47,7 +47,7 @@ public sealed partial class NearbyTab : VBoxContainer
             if (_selected != Guid.Empty) MenuRequested?.Invoke(_selected);
         };
         AddChild(List);
-        Note = new Label { Name = "nearby_note", Text = strings.Get("nearby.none"), ThemeTypeVariation = ReverieStyle.Muted };
+        Note = new Label { Name = "nearby_note", Text = strings.Get("nearby.none"), AccessibilityName = strings.Get("nearby.none"), ThemeTypeVariation = ReverieStyle.Muted };
         AddChild(Note);
         var buttons = new HBoxContainer { Name = "nearby_buttons" };
         MessageButton = new RvButton(strings.Get("friends.message")) { Name = "nearby_message", Disabled = true };

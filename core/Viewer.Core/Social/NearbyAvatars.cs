@@ -21,12 +21,26 @@ public static class NearbyAvatars
     /// <summary>A coarse height of this or more means the height is not known.</summary>
     public const float UnknownHeight = 1020f;
 
+    /// <summary>Where something sent relative to a parent is in its region: turned and moved by each parent up to the root. A seated
+    /// avatar's position is relative to its seat. Null when a parent is not known or the parents do not end.</summary>
+    public static Vector3? WorldPosition(Vector3 position, uint parent, Func<uint, (Vector3 Position, Quaternion Rotation, uint Parent)?> find)
+    {
+        for (int step = 0; parent != 0; step++)
+        {
+            if (step >= 8 || find(parent) is not { } up)
+                return null;
+            position = Vector3.Transform(position, up.Rotation) + up.Position;
+            parent = up.Parent;
+        }
+        return position;
+    }
+
     public static IReadOnlyList<NearbyAvatar> List(Guid self, Vector3 own, IEnumerable<(Guid Id, Vector3 Position)> exact,
         IReadOnlyList<CoarseAvatar> coarse, float range = DefaultRange)
     {
         var found = new Dictionary<Guid, NearbyAvatar>();
         foreach (var (id, at) in exact)
-            found[id] = new NearbyAvatar(id, Vector3.Distance(own, at), false);
+            found.TryAdd(id, new NearbyAvatar(id, Vector3.Distance(own, at), false));
         foreach (var other in coarse)
         {
             if (found.ContainsKey(other.Id))
