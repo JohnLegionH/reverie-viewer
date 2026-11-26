@@ -34,7 +34,7 @@ public class InventoryTabNamesTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("recents")]
-    [InlineData("worn")]
+    [InlineData("favorites")]
     public void Anything_else_names_no_tab(string? text)
     {
         Assert.False(InventoryTabNames.TryParse(text, out _));

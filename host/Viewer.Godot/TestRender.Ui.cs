@@ -43,13 +43,33 @@ public partial class TestRender
             panel.TreeView.HoldCue(new Viewer.Shell.Inventory.DropCue(note, G(13)));
     }
 
+    /// <summary>The Item Properties scene: a made-up item the agent may copy and give away but not modify, so the picture shows
+    /// greyed and open fields side by side.</summary>
+    private static void ExampleItemProperties(ShellRoot shell)
+    {
+        Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        Guid owner = G(1), root = G(2), libraryOwner = G(3), libraryRoot = G(4), creator = G(5), chair = G(30);
+        var model = new Viewer.Core.Inventory.InventoryModel((_, _) => { });
+        model.Apply(new Viewer.Core.Inventory.InventorySkeletonReceived(owner, root, libraryOwner, libraryRoot,
+            new[] { new Viewer.Core.Inventory.InventoryFolderData(root, Guid.Empty, "My Inventory", Viewer.Core.Inventory.FolderKind.Root, 1, -1) },
+            new[] { new Viewer.Core.Inventory.InventoryFolderData(libraryRoot, Guid.Empty, "Library", Viewer.Core.Inventory.FolderKind.Root, 1, 0) }));
+        const uint copy = Viewer.Core.Inventory.ItemPermissions.Copy, transfer = Viewer.Core.Inventory.ItemPermissions.Transfer;
+        var rights = new Viewer.Core.Inventory.ItemPermissions(copy | transfer, copy | transfer, 0, 0, copy | transfer, creator, owner, Guid.Empty, false, 0, 0);
+        model.Apply(new Viewer.Core.Inventory.InventoryFolderFetched(root, true, 2, 1, Array.Empty<Viewer.Core.Inventory.InventoryFolderData>(),
+            new[] { new Viewer.Core.Inventory.InventoryItemData(chair, root, "Oak chair", Viewer.Core.Inventory.ItemKind.Object, 6, 6, 0,
+                new DateTimeOffset(2026, 3, 14, 12, 0, 0, TimeSpan.Zero), null, "A chair for the porch", null, rights) }));
+        var panel = ItemPropertiesFeature.Install(shell);
+        panel.Bind(model, new Viewer.Shell.Inventory.InventoryActions(model, _ => new ActionResult(ActionStatus.Sent)), id => id == creator ? "Example Maker" : "Test User");
+        panel.ShowItem(chair);
+    }
+
     /// <summary>The picture size of the interface scenes.</summary>
     private const int UiWidth = 960, UiHeight = 600;
 
     /// <summary>The scene names --tr-ui accepts: the in-world frame and each window on its own.</summary>
     public static readonly string[] UiScenes =
     [
-        "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
+        "inworld", "inventory", "inventory-150", "inventory-200", "itemproperties", "itemproperties-150", "itemproperties-200", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-placement", "build-placement-150", "build-placement-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
@@ -350,6 +370,8 @@ public partial class TestRender
             scene = scene[..^4];   // a Build case at 150 or 200 %: the same window, drawn larger
         else if (pct != 100 && scene.StartsWith("snapshot", StringComparison.Ordinal))
             scene = "snapshot";
+        else if (pct != 100 && (scene.StartsWith("inventory", StringComparison.Ordinal) || scene.StartsWith("itemproperties", StringComparison.Ordinal)))
+            scene = scene[..^4];
         else if (pct != 100)
             scene = "preferences-sound";
         // --tr-ui-small-window: not a larger picture but the same one, the window staying the smallest supported size on screen, so at
@@ -460,6 +482,8 @@ public partial class TestRender
                     rig.Viewport.GuiEmbedSubwindows = true;   // the menus are drawn inside the picture
                 }
                 OutfitFeature.Install(shell);
+                if (scene == "itemproperties")
+                    ExampleItemProperties(shell);
                 var appearancePanel = AppearanceFeature.Install(shell, redrawGapMs: 0);
                 if (scene.StartsWith("appearance", StringComparison.Ordinal))
                     await ExampleAppearance(appearancePanel, scene);
@@ -498,6 +522,7 @@ public partial class TestRender
                 {
                     "inworld" => "",
                     "inventory" or "newmenu" => InventoryFeature.FloaterId,
+                    "itemproperties" => ItemPropertiesFeature.FloaterId,
                     "outfits" => OutfitFeature.FloaterId,
                     "people" => PeopleFeature.PeopleId,
                     "conversations" => ChatFeature.ConversationsId,

@@ -82,6 +82,7 @@ public partial class Main
     {
         if (Model?.Session is not { IsEnded: false } s)
             return;
+        _itemProperties?.Commit();   // text typed in Item Properties is saved while the session lives
         using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(20));
         try { await s.LogoutAsync(cts.Token); }
         catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException) { GD.Print("logout: " + ex.GetType().Name); }

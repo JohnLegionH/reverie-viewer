@@ -422,6 +422,7 @@ public partial class Main : Node
             GetTree().Quit(0);
             return;
         }
+        _itemProperties?.Commit();   // text typed in Item Properties is saved while the session lives
         LetGoOfSelections();   // the region is told before the logout goes
         _close.Request();
         _shell?.Shell.Floaters.SavePlaces();   // the windows still open keep their places for the next run

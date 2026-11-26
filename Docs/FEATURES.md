@@ -46,7 +46,7 @@ Press **Ctrl+Shift+K** to search every window, command and setting by name, also
 
 ## Inventory and appearance
 
-- Browse, search, rename, make folders, drag to move, move to Trash: **Content > Inventory** (Ctrl+I). Tabs: All items, Recent items. Recent items lists what is already loaded (the Hypergrid suitcase too) by the official viewer's rules: since your last logout by default, or newer or older than a number of hours and days, and only the kinds you choose under **Show**; **Reset** goes back to Since logoff.
+- Browse, search, rename, make folders, drag to move, move to Trash: **Content > Inventory** (Ctrl+I). Tabs: All items, Recent items, Worn. Worn lists what you are wearing or have attached, under the folders that hold it. Right-click an item > **Properties** opens **Item Properties**: name, description, creator, owner, acquired date, your permissions and the next owner's; name, description and next-owner permissions can be changed where the item allows it. Recent items lists what is already loaded (the Hypergrid suitcase too) by the official viewer's rules: since your last logout by default, or newer or older than a number of hours and days, and only the kinds you choose under **Show**; **Reset** goes back to Since logoff.
 - Make new scripts, notecards, gestures, clothing and body parts: Inventory window.
 - Open notecards and scripts; wear, add, take off, attach and detach items: Inventory window.
 - Outfits: **Content > Outfits** (Ctrl+O).
