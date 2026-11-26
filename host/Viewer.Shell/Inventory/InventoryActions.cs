@@ -160,6 +160,23 @@ public sealed class InventoryActions
 
     // ---------------- the changes ----------------
 
+    /// <summary>Saves an item's properties.</summary>
+    /// <remarks>The whole item is rebuilt from the one the model holds (<see cref="ItemEdit.Apply"/>); with nothing to change nothing is
+    /// sent. A sent change is shown at once and the folder is not read again, as a read can be answered before the grid applied it.</remarks>
+    public InventoryActionResult SaveProperties(Guid id, ItemEditRequest wanted)
+    {
+        if (_model.Item(id) is not { } item)
+            return Refused("inventory.unknown");
+        var changed = ItemEdit.Apply(_model, item, wanted);
+        if (changed == item)
+            return new InventoryActionResult(false, null, null);
+        var result = _submit(new InventoryItemUpdateIntent(changed));
+        bool sent = result.Status is ActionStatus.Sent or ActionStatus.OutcomeUnknown;
+        if (sent)
+            _model.Apply(new InventoryChanged([], [changed], [], []));
+        return new InventoryActionResult(sent, result.Code ?? (result.Issues is { Count: > 0 } issues ? issues[0].Code : null), result);
+    }
+
     private static InventoryActionResult Refused(string code) => new(false, code, null);
 
     public InventoryActionResult NewFolder(Guid selected, string name)

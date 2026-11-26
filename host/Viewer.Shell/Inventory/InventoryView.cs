@@ -7,7 +7,7 @@ namespace Viewer.Shell.Inventory;
 
 public enum InventorySort { ByName, ByDate }
 
-public enum InventoryTab { All, Recent }
+public enum InventoryTab { All, Recent, Worn }
 
 /// <summary>One visible line of the inventory tree or the recent list.</summary>
 /// <param name="IconKey">Names the icon to draw (see <see cref="InventoryIcons"/>).</param>
@@ -90,6 +90,9 @@ public sealed class InventoryViewModel
     /// <summary>The time the Recent tab's "hours and days ago" count from.</summary>
     public Func<DateTimeOffset> Now { get; set; } = () => DateTimeOffset.UtcNow;
 
+    /// <summary>The ids of the items the avatar wears or has attached, for the Worn tab; asked only while that tab is shown.</summary>
+    public Func<IReadOnlySet<Guid>>? WornItems { get; set; }
+
     public InventorySort Sort { get; set; }
     public InventoryTab Tab { get; set; }
     public string SearchText { get; set; } = "";
@@ -126,7 +129,68 @@ public sealed class InventoryViewModel
         // Recent panel filters its loaded inventory (the background fetch, when on, brings the rest)
         if (tokens.Count > 0 && Tab == InventoryTab.All)
             _model.EnsureAllLoaded();
-        return Tab == InventoryTab.Recent ? RecentRows(tokens) : TreeRows(tokens);
+        return Tab switch { InventoryTab.Recent => RecentRows(tokens), InventoryTab.Worn => WornRows(tokens), _ => TreeRows(tokens) };
+    }
+
+    /// <summary>The worn items under the folders that hold them, every such folder open (the official viewer's Worn tab, which
+    /// shows only folders with something in them). A worn item not held yet, or an unread current outfit, is asked for.</summary>
+    private List<InventoryRow> WornRows(List<string> tokens)
+    {
+        var cof = _model.FolderOfKind(FolderKind.CurrentOutfit);
+        if (cof != Guid.Empty && _model.LoadState(cof) == FolderLoad.NotLoaded)
+            _model.EnsureLoaded(cof);
+        var worn = WornItems?.Invoke() ?? new HashSet<Guid>();
+        var shown = new HashSet<Guid>();
+        var folders = new HashSet<Guid>();
+        bool missing = false;
+        foreach (var id in worn)
+        {
+            if (_model.Item(id) is not { } item)
+            {
+                missing = true;
+                continue;
+            }
+            if (tokens.Count > 0 && !Matches(item.Name, tokens))
+                continue;
+            shown.Add(id);
+            var parent = item.ParentId;
+            for (int guard = 0; parent != Guid.Empty && guard < 64 && folders.Add(parent); guard++)
+                parent = _model.Folder(parent)?.ParentId ?? Guid.Empty;
+        }
+        if (missing)
+            _model.EnsureAllLoaded();
+        var rows = new List<InventoryRow>();
+        foreach (var root in new[] { _model.RootId, _model.LibraryRootId })
+            if (folders.Contains(root))
+                AddWornFolder(rows, root, 0, folders, shown);
+        return rows;
+    }
+
+    private void AddWornFolder(List<InventoryRow> rows, Guid id, int depth, HashSet<Guid> folders, HashSet<Guid> shown)
+    {
+        if (_model.Folder(id) is not { } f)
+            return;
+        string name = id == _model.RootId ? _myInventoryName : id == _model.LibraryRootId ? _libraryName : f.Name;
+        rows.Add(new InventoryRow(id, true, name, InventoryIcons.ForFolder(f.Kind, true), depth, true, true, FolderLoad.Loaded, f.Kind, ItemKind.Other, null, false,
+            f.Kind == FolderKind.Trash, _model.IsSystemFolder(id), _model.IsInLibrary(id)));
+        foreach (var sub in OrderedFolders(_model.ChildFolders(id)))
+            if (folders.Contains(sub.Id))
+                AddWornFolder(rows, sub.Id, depth + 1, folders, shown);
+        foreach (var item in OrderedItems(_model.ChildItems(id)))
+            if (shown.Contains(item.Id))
+                rows.Add(ItemRow(item, depth + 1));
+    }
+
+    private InventoryStatus WornStatus()
+    {
+        var cof = _model.FolderOfKind(FolderKind.CurrentOutfit);
+        var worn = WornItems?.Invoke() ?? new HashSet<Guid>();
+        int held = worn.Count(id => _model.Item(id) is not null);
+        bool pending = (cof != Guid.Empty && _model.LoadState(cof) != FolderLoad.Loaded)
+            || (held < worn.Count && (_model.UnloadedFolderCount > 0 || _model.InFlight > 0));
+        return pending
+            ? new("inventory.status.worn_loading", Array.Empty<object>())
+            : new("inventory.status.worn", new object[] { new Counted("count.items", held) });
     }
 
     private List<InventoryRow> TreeRows(List<string> tokens)
@@ -231,6 +295,8 @@ public sealed class InventoryViewModel
     {
         if (!_model.HasSkeleton)
             return new("inventory.status.waiting", Array.Empty<object>());
+        if (Tab == InventoryTab.Worn)
+            return WornStatus();
         int items = _model.AllItems().Count, folders = _model.AllFolders().Count;
         bool searching = Tokens(SearchText).Count > 0;
         if (searching)
