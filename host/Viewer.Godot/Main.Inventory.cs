@@ -181,29 +181,23 @@ public partial class Main
             }
             case "properties":
             {
-                // the Properties window's fields as drawn, for a scratch test account only. text "reveal": the item (its id in kind) selected and
-                // scrolled to; "row": where its row is, for a pointer press; "choose": Properties picked in the open row menu; "candidates": own
+                // the Properties window's fields as drawn, for a scratch test account only. text "choose": Properties picked from the row menu of the item (its id in kind);
+                // "candidates": own
                 // items a check can use; else the window is read
                 if (Environment.GetEnvironmentVariable("NV_OUTFIT_SCRATCH_OK") != "1")
                     return new { refused = "scratch_only" };
                 Guid.TryParse(kind, out var wantedItem);
-                if (text == "reveal" && wantedItem != Guid.Empty)
-                {
-                    p.Reveal(wantedItem);
-                    return new { revealed = m.Item(wantedItem) is not null };
-                }
-                if (text == "row")
-                    return p.RowCentre(wantedItem) is { } at ? new { found = true, x = at.X, y = at.Y } : new { found = false, x = 0f, y = 0f };
                 if (text == "choose")
                 {
+                    // the item's row menu set up as a right-click sets it up, without showing it (the menu is a window of its own, which would
+                    // appear at the real pointer), then Properties picked through the menu's own handler when it is on
+                    p.Reveal(wantedItem);
+                    p.Rebuild();
+                    p.PrepareRowMenu(wantedItem);
                     bool enabled = !p.Context.IsItemDisabled(p.Context.GetItemIndex(InventoryPanel.PropertiesEntry));
-                    bool menuOpen = p.Context.Visible;
-                    if (enabled && menuOpen)
-                    {
+                    if (enabled)
                         p.Context.EmitSignal(global::Godot.PopupMenu.SignalName.IdPressed, InventoryPanel.PropertiesEntry);
-                        p.Context.Hide();
-                    }
-                    return new { menu_open = menuOpen, enabled, selected = p.SelectedItem.ToString() };
+                    return new { enabled, selected = p.SelectedItem.ToString() };
                 }
                 if (text == "candidates")
                 {

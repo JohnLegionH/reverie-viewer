@@ -1041,29 +1041,6 @@ public partial class InventoryPanel : VBoxContainer
         Walk(TreeView.GetRoot());
         return ids;
     }
-
-    /// <summary>The middle of an item's row on screen, for a pointer press; null when it is not drawn in view.</summary>
-    internal Vector2? RowCentre(Guid id)
-    {
-        TreeItem? Find(TreeItem? item)
-        {
-            for (var c = item?.GetFirstChild(); c is not null; c = c.GetNext())
-            {
-                if (InventoryTree.IdOf(c) == id)
-                    return c;
-                if (Find(c) is { } found)
-                    return found;
-            }
-            return null;
-        }
-        if (Find(TreeView.GetRoot()) is not { } row)
-            return null;
-        var area = TreeView.GetItemAreaRect(row);
-        var local = new Vector2(area.Position.X + Math.Min(80, area.Size.X / 2), area.Position.Y + area.Size.Y / 2 - TreeView.GetScroll().Y);
-        if (local.Y < 0 || local.Y > TreeView.Size.Y)
-            return null;
-        return TreeView.GetGlobalTransformWithCanvas() * local;
-    }
 #endif
 
     /// <summary>The item or folder selected now (Guid.Empty for none).</summary>
@@ -1152,6 +1129,15 @@ public partial class InventoryPanel : VBoxContainer
     {
         if (!_contextToggle.PressOpens("context", (long)Time.GetTicksMsec()))
             return;   // the right-click that just closed it
+        PrepareRowMenu(id);
+        // at the pointer: in the window's own coordinates when popups are drawn inside it, in screen coordinates when they are windows of their own
+        Context.Position = GetViewport().GuiEmbedSubwindows ? (Vector2I)GetGlobalMousePosition() : DisplayServer.MouseGetPosition();
+        Context.Popup();
+    }
+
+    /// <summary>Selects a row and sets which entries of its right-click menu are on.</summary>
+    internal void PrepareRowMenu(Guid id)
+    {
         _selected = id;
         RefreshControls();
         RetryInMenu(RetryButton.Visible);
@@ -1166,9 +1152,6 @@ public partial class InventoryPanel : VBoxContainer
         Context.SetItemDisabled(Context.GetItemIndex(9), !CanOpen(_selected));
         Context.SetItemDisabled(Context.GetItemIndex(PropertiesEntry), !HasProperties(_selected));   // an item has properties, a folder none
         Context.SetItemDisabled(Context.GetItemIndex(10), _view is null || (_selected != Guid.Empty && _model?.IsInLibrary(_selected) == true));
-        // at the pointer: in the window's own coordinates when popups are drawn inside it, in screen coordinates when they are windows of their own
-        Context.Position = GetViewport().GuiEmbedSubwindows ? (Vector2I)GetGlobalMousePosition() : DisplayServer.MouseGetPosition();
-        Context.Popup();
     }
 
     /// <summary>Whether an item opens in a window of its own: a notecard or a texture, or a link to one.</summary>

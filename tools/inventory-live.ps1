@@ -6,7 +6,7 @@
 #   development export. Each round is a new viewer with an empty sandbox, so what it reads comes from the grid:
 #     1. (from round 2) the name, description and next-owner rights saved in the round before are what the grid serves;
 #     2. the Worn tab's rows equal the worn set, then again after an object is put on and after it is taken off;
-#     3. Properties, opened from the item's right-click menu (a pointer press on its row), shows the item's values;
+#     3. Properties, picked from the item's row menu through the menu's handler (the menu is not shown), shows the item's values;
 #     4. a new name, description and next-owner right are typed and clicked in (engine input);
 #     5. a no-modify item of the account, when it has one, shows greyed fields that a click does not change.
 #   After the last round one more login checks it and puts the item back as it was found.
@@ -77,19 +77,14 @@ function Wait-Worn([string]$id, [bool]$present) {
     return [bool]$ok
 }
 
-# Properties from the row's right-click menu: a pointer press on the row opens the menu, Properties is picked in it
+# Properties from the item's row menu, picked through the menu's handler. The menu is not shown: it is a window of its own that
+# would open at the real pointer, so the right-click itself is not part of this check
 function Open-Properties([string]$id) {
     [void](Invoke-LiveApi "windows" @{ action = "close"; name = "item_properties" })
     [void](Invoke-LiveApi "windows" @{ action = "open"; name = "inventory" })
     [void](Inv @{ action = "status"; tab = "all" })
-    [void](Props "reveal" $id)
-    $row = Wait-LiveUntil { $r = Props "row" $id; if ($r -and $r.found) { $r } } 10
-    if (-not $row) { return $null }
-    Start-Sleep -Milliseconds 300
-    $row = Props "row" $id
-    Invoke-LivePointer ([double]$row.x) ([double]$row.y) "right"
     $c = Props "choose" $id
-    if (-not $c -or -not $c.menu_open -or -not $c.enabled -or $c.selected -ne $id) { Write-LiveNote "menu: $($c | ConvertTo-Json -Compress)"; return $null }
+    if (-not $c -or -not $c.enabled -or $c.selected -ne $id) { Write-LiveNote "menu: $($c | ConvertTo-Json -Compress)"; return $null }
     return Wait-LiveUntil { $p = Props "state"; if ($p -and $p.shown -and $p.item -eq $id -and $p.creator -ne "(loading)" -and $p.owner -ne "(loading)") { $p } } 30
 }
 
