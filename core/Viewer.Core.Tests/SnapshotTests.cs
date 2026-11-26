@@ -71,6 +71,41 @@ public sealed class SnapshotTests
         Assert.Contains("root.ContentScaleFactor = scale.Factor", Host());
     }
 
+    // the window's own picture is whatever the window draws: no other figure for its size is held against it
+    [Theory]
+    [InlineData(2576, 1263)]
+    [InlineData(2097, 1203)]
+    [InlineData(2560, 1440)]
+    [InlineData(1921, 1081)]
+    [InlineData(1152, 648)]
+    public void The_window_s_own_picture_is_taken_at_any_window_size(int width, int height) =>
+        Assert.True(SnapshotModel.Accepts(SnapshotModel.Sizes[0], width, height));
+
+    [Fact]
+    public void An_empty_picture_and_a_fixed_size_drawn_at_another_size_are_not_taken()
+    {
+        var fixedSize = new SnapshotSize(1920, 1080);
+        Assert.True(SnapshotModel.Accepts(fixedSize, 1920, 1080));
+        Assert.False(SnapshotModel.Accepts(fixedSize, 1920, 1079));
+        Assert.False(SnapshotModel.Accepts(fixedSize, 1152, 648));
+        Assert.False(SnapshotModel.Accepts(SnapshotModel.Sizes[0], 0, 0));
+    }
+
+    // the viewport texture reports the window's size times the interface size, which is not the size of the picture it holds
+    [Fact]
+    public void The_capture_does_not_judge_the_picture_by_the_viewport_texture_s_reported_size()
+    {
+        Assert.DoesNotContain("SnapshotView.Size", Host());
+        Assert.Contains("SnapshotModel.Accepts(size, image.GetWidth(), image.GetHeight())", Host());
+    }
+
+    [Fact]
+    public void A_failed_picture_s_message_names_the_size_that_failed()
+    {
+        Assert.Contains("2576 by 1263", StringTable.English().Get("snapshot.failed", 2576, 1263));
+        Assert.Contains("\"snapshot.failed\", wanted.Width, wanted.Height", Host());
+    }
+
     [Fact]
     public void The_default_folder_is_reverie_under_pictures() =>
         Assert.Equal(Path.Combine("pictures", "Reverie"), SnapshotModel.DefaultFolder("pictures"));

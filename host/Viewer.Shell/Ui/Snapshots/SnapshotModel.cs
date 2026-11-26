@@ -35,6 +35,11 @@ public static class SnapshotModel
     public static (int Width, int Height, float Factor) ContentScale(int width, int height, float factor, int windowHeight) =>
         (width, height, 1f);
 
+    /// <summary>Whether a picture read from the window is the one asked for. A chosen size has to be drawn at exactly that size. The
+    /// window's own picture is whatever the window draws, so its own size is the answer: it only has to hold something.</summary>
+    public static bool Accepts(SnapshotSize size, int width, int height) =>
+        size.IsWindow ? width > 0 && height > 0 : width == size.Width && height == size.Height;
+
     public static string DefaultFolder(string pictures) => Path.Combine(pictures, "Reverie");
 
     public static string Extension(SnapshotFormat format) => format == SnapshotFormat.Jpeg ? ".jpg" : ".png";

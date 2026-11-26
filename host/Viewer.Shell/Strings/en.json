@@ -308,7 +308,7 @@
   "snapshot.ready": "Picture ready: {0} by {1}.",
   "snapshot.refused": "The longest picture side this graphics card can draw, in pixels, is {0}. Choose a smaller size.",
   "snapshot.dialog": "Answer the open question first, then press Refresh.",
-  "snapshot.failed": "The picture could not be taken. Try Refresh, or a smaller size.",
+  "snapshot.failed": "The picture could not be taken at {0} by {1}. Try Refresh, or a smaller size.",
   "snapshot.saved": "Saved as {0}.",
   "snapshot.save.failed": "The picture could not be saved. Choose another folder.",
   "menu.world.environment": "Environment",
