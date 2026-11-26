@@ -144,6 +144,13 @@ public static class TestWindow
         }
     }
 
+    /// <summary>Sets the no-activate window style again if something rewrote the window's style without it.</summary>
+    public static void KeepNotActivatable()
+    {
+        if (MainHandle() is var h && h != IntPtr.Zero && GetWindowLong(h, GwlExStyle) is var ex && (ex & WsExNoActivate) == 0)
+            SetWindowLong(h, GwlExStyle, ex | WsExNoActivate);
+    }
+
     /// <summary>
     /// Brings a minimised main window back to its place without activating it, then puts it at the bottom of the stacking order.
     /// The engine's own restore (<c>WindowSetMode(Windowed)</c>) and SW_RESTORE both activate the window, which would take focus from
@@ -198,6 +205,7 @@ public static class TestWindow
                 _lastBottom = now;
                 return;
             }
+            if (OffScreenTarget is not null) KeepNotActivatable();
             if ((now - _lastBottom) * 1000 / _frequency >= BottomEveryMs)
             {
                 _lastBottom = now;
