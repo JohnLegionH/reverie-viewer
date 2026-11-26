@@ -352,7 +352,10 @@ public partial class TestRender
             scene = "snapshot";
         else if (pct != 100)
             scene = "preferences-sound";
-        int picW = UiWidth * pct / 100, picH = UiHeight * pct / 100;
+        // --tr-ui-small-window: not a larger picture but the same one, the window staying the smallest supported size on screen, so at
+        // 150 and 200 percent the layout has that much less room (a by-hand look, not a case of the render set: it has no golden)
+        bool smallWindow = OS.GetCmdlineUserArgs().Contains("--tr-ui-small-window");
+        int picW = smallWindow ? 1152 : UiWidth * pct / 100, picH = smallWindow ? 648 : UiHeight * pct / 100;
         var strings = StringTable.English();
         // NV_UI_NORESTYLE=1: the windows as the classic look built them, for the before list of controls (NV_UI_CONTROLS=1)
         ReverieRestyle.Enabled = System.Environment.GetEnvironmentVariable("NV_UI_NORESTYLE") != "1";
@@ -363,7 +366,7 @@ public partial class TestRender
         var rig = MakeRig(new Vector2I(picW, picH));
         if (pct != 100)
         {
-            rig.Viewport.Size2DOverride = new Vector2I(UiWidth, UiHeight);
+            rig.Viewport.Size2DOverride = new Vector2I(picW * 100 / pct, picH * 100 / pct);
             rig.Viewport.Size2DOverrideStretch = true;
         }
         var shell = new ShellRoot(new ShellController(strings, () => { })) { FixedClockText = TestClockText };
