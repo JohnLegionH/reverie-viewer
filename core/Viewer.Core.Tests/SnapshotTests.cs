@@ -9,7 +9,7 @@ namespace Viewer.Core.Tests;
 
 public sealed class SnapshotTests
 {
-    private static string NewFolder() => Path.Combine(Path.GetTempPath(), "snapshot-test-" + Guid.NewGuid().ToString("N"));
+    private static string NewFolder() => TestTemp.NewFolderPath("snapshot-test");
 
     [Fact]
     public void The_official_shortcut_belongs_to_the_snapshot_entry()

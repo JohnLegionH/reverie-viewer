@@ -87,8 +87,8 @@ public sealed partial class SnapshotWindow : VBoxContainer
         AddRow("snapshot.size", SizeChoice);
 
         FormatChoice = new OptionButton { Name = "snapshot_format", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        FormatChoice.AddItem("PNG");
-        FormatChoice.AddItem("JPEG");
+        FormatChoice.AddItem(strings.Get("snapshot.format.png"));
+        FormatChoice.AddItem(strings.Get("snapshot.format.jpeg"));
         FormatChoice.Select(settings.Get(Settings.SnapshotFileFormat));
         FormatChoice.ItemSelected += i => { settings.Set(Settings.SnapshotFileFormat, (int)i); ShowQuality(); };
         AddRow("snapshot.format", FormatChoice);
