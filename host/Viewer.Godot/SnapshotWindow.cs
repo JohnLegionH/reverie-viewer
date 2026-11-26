@@ -55,6 +55,16 @@ public sealed partial class SnapshotWindow : VBoxContainer
     /// <summary>The picture has to be taken again (Refresh, or a change of size or of the interface choice).</summary>
     public Action? CaptureRequested { get; set; }
     public Action? SaveRequested { get; set; }
+
+    /// <summary>Save to inventory was pressed (the price is asked), the price was agreed to, or the question was dropped.</summary>
+    public Action? InventoryRequested { get; set; }
+    public Action? InventoryConfirmed { get; set; }
+    public Action? InventoryCancelled { get; set; }
+    public Button InventoryButton { get; private set; } = null!;
+    public Button InventoryConfirmButton { get; private set; } = null!;
+    public Button InventoryCancelButton { get; private set; } = null!;
+    private HBoxContainer _feeRow = null!;
+    private Label _fee = null!;
     public Action? ChangeFolderRequested { get; set; }
     public Action<string>? FolderChosen { get; set; }
 
@@ -120,6 +130,18 @@ public sealed partial class SnapshotWindow : VBoxContainer
         _status = new Label { Name = "snapshot_status", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(200, 0) };
         AddChild(_status);
 
+        // the fee, shown before anything is saved to the inventory
+        _feeRow = new HBoxContainer { Name = "snapshot_fee_row", Visible = false };
+        _fee = new Label { Name = "snapshot_fee", AccessibilityName = strings.Get("snapshot.inventory"), SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(100, 0) };
+        _feeRow.AddChild(_fee);
+        InventoryConfirmButton = new RvButton(strings.Get("snapshot.inventory.confirm"), primary: true) { Name = "snapshot_fee_save" };
+        InventoryConfirmButton.Pressed += () => InventoryConfirmed?.Invoke();
+        _feeRow.AddChild(InventoryConfirmButton);
+        InventoryCancelButton = new RvButton(strings.Get("snapshot.inventory.cancel")) { Name = "snapshot_fee_cancel" };
+        InventoryCancelButton.Pressed += () => InventoryCancelled?.Invoke();
+        _feeRow.AddChild(InventoryCancelButton);
+        AddChild(_feeRow);
+
         FolderDialog = new FileDialog
         {
             Name = "snapshot_folder_dialog", FileMode = FileDialog.FileModeEnum.OpenDir, Access = FileDialog.AccessEnum.Filesystem,
@@ -139,6 +161,9 @@ public sealed partial class SnapshotWindow : VBoxContainer
         RefreshButton.Pressed += () => CaptureRequested?.Invoke();
         bar.AddChild(RefreshButton);
         bar.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+        InventoryButton = new RvButton(_strings.Get("snapshot.inventory")) { Name = "snapshot_inventory", Disabled = true };
+        InventoryButton.Pressed += () => InventoryRequested?.Invoke();
+        bar.AddChild(InventoryButton);
         SaveButton = new RvButton(_strings.Get("snapshot.save"), primary: true) { Name = "snapshot_save", Disabled = true };
         SaveButton.Pressed += () => SaveRequested?.Invoke();
         bar.AddChild(SaveButton);
@@ -167,9 +192,18 @@ public sealed partial class SnapshotWindow : VBoxContainer
     {
         _preview.Texture = preview;
         SaveButton.Disabled = preview is null;
+        InventoryButton.Disabled = preview is null;
     }
 
     public void ShowStatus(string text) => _status.Text = text;
+
+    /// <summary>The fee question (null: none); Upload is offered only when <paramref name="canConfirm"/>.</summary>
+    public void ShowFee(string? text, bool canConfirm = false)
+    {
+        _feeRow.Visible = text is not null;
+        _fee.Text = text ?? string.Empty;
+        InventoryConfirmButton.Disabled = !canConfirm;
+    }
 
     public void ShowFolder(string? folder)
     {

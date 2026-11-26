@@ -256,3 +256,7 @@ Regions restart now and then. Before one does, the grid sends a warning. The vie
 ## Next
 
 The [feature cheat sheet](../FEATURES.md) lists what else you can do and where to find it.
+
+## Saving a snapshot to your inventory
+
+In **World > Snapshot**, press **Save to inventory**. The window shows what the grid charges for the upload and the size the picture will have (at most 1024 on a side). Press **Upload** to save it, or **Cancel**. It goes to your Photo Album folder. If the grid refuses, the window shows its reason.

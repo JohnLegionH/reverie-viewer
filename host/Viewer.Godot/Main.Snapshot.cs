@@ -51,6 +51,9 @@ public partial class Main
         _snapshot.CaptureRequested = () => _ = CaptureSnapshot();
         _snapshot.Closed = ReleaseSnapshot;
         _snapshot.SaveRequested = SaveSnapshot;
+        _snapshot.InventoryRequested = () => _ = AskSnapshotFee();
+        _snapshot.InventoryConfirmed = () => _ = UploadSnapshot();
+        _snapshot.InventoryCancelled = DropSnapshotUpload;
         _snapshot.ChangeFolderRequested = () => AskSnapshotFolder(thenSave: false);
         _snapshot.FolderChosen = OnSnapshotFolderChosen;
     }
@@ -78,6 +81,7 @@ public partial class Main
 
     private void DropSnapshotShot()
     {
+        DropSnapshotUpload();   // a question about a picture that is gone is dropped
         _snapshotShot?.Dispose();
         _snapshotShot = null;
         _snapshot?.ShowPreview(null);
