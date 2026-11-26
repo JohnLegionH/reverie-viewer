@@ -21,6 +21,8 @@ public partial class Main
 
     private void DropSnapshotUpload()
     {
+        if (_snapshotSave is { State: SnapshotSaveState.Uploading })
+            return;   // an upload under way stays on show to its end: it goes on, and the fee with it
         _snapshotSave?.Cancel();
         _snapshot?.ShowFee(null);
     }
@@ -73,7 +75,7 @@ public partial class Main
         if (_snapshot is not { } window || _shell is null || _snapshotSave is not { State: SnapshotSaveState.Priced } save)
             return;
         var strings = _shell.Shell.Strings;
-        window.ShowFee(strings.Get("snapshot.inventory.uploading"));
+        window.ShowFee(strings.Get("snapshot.inventory.uploading"), canCancel: false);
         await save.ConfirmAsync(default);
         Log.Info("snapshot.inventory-upload", CoreLog.F("state", save.State.ToString()), CoreLog.F("item", save.ItemId.ToString()));
         if (_snapshotSave == save)
@@ -87,6 +89,7 @@ public partial class Main
         {
             "no_folder" or "no_service" => strings.Get("snapshot.inventory.no_service"),
             "price_changed" => strings.Get("snapshot.inventory.price_changed"),
+            { } lost when SnapshotSave.Unanswered(lost) => strings.Get("snapshot.inventory.no_answer"),
             var reason => strings.Get("snapshot.inventory.refused", reason ?? string.Empty),
         };
     }

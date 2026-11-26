@@ -23,6 +23,7 @@ public sealed class SnapshotSave
     }
 
     private UploadBatch? _batch;
+    private readonly object _gate = new();   // Cancel comes from the interface's thread, the grid's answers from another
 
     public SnapshotSaveState State { get; private set; }
 
@@ -33,6 +34,9 @@ public sealed class SnapshotSave
     public string? Reason { get; private set; }
 
     public Guid ItemId { get; private set; }
+
+    /// <summary>Whether a reason means no answer came, rather than a refusal: the upload may then have happened all the same.</summary>
+    public static bool Unanswered(string reason) => reason is "failed" or "no_answer" || reason.EndsWith("Exception", StringComparison.Ordinal);
 
     /// <summary>The new item's name: when the picture was taken.</summary>
     public static string NameFor(DateTime taken) => "Snapshot " + taken.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
@@ -53,15 +57,18 @@ public sealed class SnapshotSave
         var batch = _batch = new UploadBatch(_service, _folder, [job], _clock);
         State = SnapshotSaveState.AskingPrice;
         await batch.CheckPriceAsync(ct).ConfigureAwait(false);
-        if (_batch != batch)
-            return;   // cancelled meanwhile
-        if (batch.PricePerItem is { } price)
+        lock (_gate)
         {
-            Price = price;
-            State = SnapshotSaveState.Priced;
+            if (_batch != batch)
+                return;   // cancelled meanwhile
+            if (batch.PricePerItem is { } price)
+            {
+                Price = price;
+                State = SnapshotSaveState.Priced;
+            }
+            else
+                Refuse(batch.PriceError);
         }
-        else
-            Refuse(batch.PriceError);
     }
 
     /// <summary>Uploads the picture at the price shown; does nothing unless a price is shown.</summary>
@@ -84,12 +91,15 @@ public sealed class SnapshotSave
     /// <summary>Drops a question not yet agreed to. An upload under way goes on.</summary>
     public void Cancel()
     {
-        if (State == SnapshotSaveState.Uploading)
-            return;
-        _batch = null;
-        Price = null;
-        Reason = null;
-        State = SnapshotSaveState.Idle;
+        lock (_gate)
+        {
+            if (State == SnapshotSaveState.Uploading)
+                return;
+            _batch = null;
+            Price = null;
+            Reason = null;
+            State = SnapshotSaveState.Idle;
+        }
     }
 
     private void Refuse(string? reason)

@@ -300,6 +300,7 @@
   "snapshot.inventory.saved": "Saved to your inventory.",
   "snapshot.inventory.refused": "The grid refused the upload: {0}",
   "snapshot.inventory.price_changed": "The grid's fee changed, so nothing was uploaded. Press Save to inventory to see the new fee.",
+  "snapshot.inventory.no_answer": "The grid did not answer. Look in your inventory before you try again, so that you do not pay twice.",
   "snapshot.inventory.no_service": "This grid does not take uploads here.",
   "snapshot.title": "Snapshot",
   "snapshot.preview": "Snapshot preview",

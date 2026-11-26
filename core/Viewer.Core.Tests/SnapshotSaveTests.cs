@@ -103,6 +103,16 @@ public class SnapshotSaveTests
         Assert.Empty(grid.Requests);
     }
 
+    [Theory]
+    [InlineData("failed", true)]
+    [InlineData("no_answer", true)]
+    [InlineData("HttpRequestException", true)]
+    [InlineData("You do not have enough money.", false)]
+    [InlineData("no_folder", false)]
+    [InlineData("price_changed", false)]
+    public void A_lost_answer_is_told_from_a_refusal(string reason, bool unanswered) =>
+        Assert.Equal(unanswered, SnapshotSave.Unanswered(reason));
+
     [Fact]
     public void The_item_is_named_with_the_time_the_picture_was_taken() =>
         Assert.Equal("Snapshot 2026-11-26 14:05:09", SnapshotSave.NameFor(new DateTime(2026, 11, 26, 14, 5, 9)));

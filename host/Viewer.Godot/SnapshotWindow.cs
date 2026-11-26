@@ -198,11 +198,12 @@ public sealed partial class SnapshotWindow : VBoxContainer
     public void ShowStatus(string text) => _status.Text = text;
 
     /// <summary>The fee question (null: none); Upload is offered only when <paramref name="canConfirm"/>.</summary>
-    public void ShowFee(string? text, bool canConfirm = false)
+    public void ShowFee(string? text, bool canConfirm = false, bool canCancel = true)
     {
         _feeRow.Visible = text is not null;
         _fee.Text = text ?? string.Empty;
         InventoryConfirmButton.Disabled = !canConfirm;
+        InventoryCancelButton.Disabled = !canCancel;
     }
 
     public void ShowFolder(string? folder)
