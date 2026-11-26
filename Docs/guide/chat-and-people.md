@@ -292,3 +292,7 @@ See the end of the [cheat sheet](../FEATURES.md#not-in-reverie-yet) for the full
 ## Next
 
 [Finding your way around](finding-your-way-around.md) shows the top bar, the dock and the command search.
+
+## Who is nearby
+
+The **Nearby** tab of the People window lists the avatars within 130 metres, nearest first, with their distance, and keeps up as they move. Double-click a name to send a message, or pick it and choose **More...** for the rest of what you can do with that resident.
