@@ -739,6 +739,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
                 // the whole item, as the official viewer's updateServer sends it
                 _client.Network.SendPacket(InventoryMovePackets.Update(self.AgentID, self.SessionID, update.Item));
                 KeepLibraryStoreParent(update.Item.Id, update.Item.ParentId, update.Item.Name);
+                KeepLibraryStoreProperties(update.Item);
                 break;
             case StartConferenceCommand conference:
                 // the reply (the session started, or refused) arrives as the group chat join answer for this session id

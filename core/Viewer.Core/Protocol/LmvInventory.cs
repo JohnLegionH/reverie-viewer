@@ -244,6 +244,28 @@ internal sealed partial class LmvTransport
         }
     }
 
+    /// <summary>Gives the library's own copy of an updated item its new description, next-owner permissions and flags, so a later
+    /// report from the library does not carry the old ones back to the core.</summary>
+    private void KeepLibraryStoreProperties(InventoryItemData item)
+    {
+        try
+        {
+            var store = _client.Inventory.Store;
+            if (store is null || item.Permissions is not { } rights || !store.TryGetValue(new UUID(item.Id), out var node) || node is not InventoryItem held)
+                return;
+            var permissions = held.Permissions;
+            permissions.NextOwnerMask = (PermissionMask)rights.NextOwnerMask;
+            held.Permissions = permissions;
+            held.Description = item.Description;
+            held.Flags = item.Flags;
+            store.UpdateNodeFor(held);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _log.Warn("inventory.store-update-skipped", CoreLog.F("error", ex.GetType().Name));
+        }
+    }
+
     /// <summary>Gives the library's own copy of a moved item or folder its new parent (and name), as the library's move calls
     /// do, so a later report from the library about that entry does not carry the old parent back to the core.</summary>
     private void KeepLibraryStoreParent(Guid id, Guid newParent, string? newName)

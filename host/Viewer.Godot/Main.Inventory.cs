@@ -17,6 +17,7 @@ public partial class Main
     private InventoryPanel? _inventoryPanel;
     private ViewerSession? _inventoryFor;
     private OutfitPanel? _outfitPanel;
+    private ItemPropertiesPanel? _itemProperties;
     private Guid _inventoryAgent;
     private Viewer.Core.Inventory.InventoryBackgroundFetch? _inventoryFetch;
     private readonly System.Diagnostics.Stopwatch _inventoryClock = System.Diagnostics.Stopwatch.StartNew();
@@ -55,6 +56,17 @@ public partial class Main
         {
             _inventoryPanel ??= InventoryFeature.Install(_shell, settings: UserSettings(null));
             var worn = new Viewer.Shell.Outfit.WornObjects(session!.World, session.AgentId, () => System.Environment.TickCount64);
+            if (_itemProperties is null)
+            {
+                var properties = _itemProperties = ItemPropertiesFeature.Install(_shell);
+                var floaters = _shell.Shell.Floaters;
+                _inventoryPanel.PropertiesRequested += id =>
+                {
+                    if (properties.ShowItem(id))
+                        floaters.Open(ItemPropertiesFeature.FloaterId);
+                };
+            }
+            _itemProperties.Bind(session.Inventory, new Viewer.Shell.Inventory.InventoryActions(session.Inventory, session.Actions.Submit), session.Names.Get);
             _inventoryPanel.CanDetachItem = RlvCanDetach;
             _inventoryPanel.Bind(session.Inventory, session.Actions.Submit, LogoutTime.Previous(UserSettings(null), session.AgentId), worn.Items);
             _outfitPanel ??= OutfitFeature.Install(_shell);
@@ -71,6 +83,8 @@ public partial class Main
         else
         {
             _inventoryPanel?.Bind(null, null);
+            _itemProperties?.Bind(null, null, null);
+            _shell?.Shell.Floaters.Close(ItemPropertiesFeature.FloaterId);
             _outfitPanel?.Bind(null, null);
             DetachNotecards();
         }
@@ -94,7 +108,7 @@ public partial class Main
             return null;
         if (Viewer.Shell.Inventory.InventoryTabNames.TryParse(tab, out var chosenTab))   // "all" or "recent": the window shows that tab, as a click on it does
         {
-            p.Tabs.CurrentTab = chosenTab == Viewer.Shell.Inventory.InventoryTab.Recent ? 1 : 0;
+            p.Tabs.CurrentTab = (int)chosenTab;
             v.Tab = chosenTab;
         }
         switch (action)
@@ -146,6 +160,73 @@ public partial class Main
                     since = v.RecentSince?.ToString("o"), since_logoff = v.Recent.SinceLogoff, hours = v.Recent.Hours, days = v.Recent.Days,
                     filter_row_shown = p.RecentFilters.IsVisibleInTree(),
                     folders_asked = Math.Max(0, m.InFlight - inFlightBefore) + Math.Max(0, unloadedBefore - m.UnloadedFolderCount), unloaded = m.UnloadedFolderCount,
+                };
+            }
+            case "worn":
+            {
+                // the Worn tab's item rows beside the worn set read afresh from the current outfit and the world (ids only)
+                p.Tabs.CurrentTab = (int)Viewer.Shell.Inventory.InventoryTab.Worn;
+                v.Tab = Viewer.Shell.Inventory.InventoryTab.Worn;
+                var session = _inventoryFor;
+                var attached = session.World.Snapshot().Objects.Values.Where(o => o.WearerAgentId == session.AgentId && o.AttachmentPoint is not null && o.AttachItemId is { } a && a != Guid.Empty)
+                    .Select(o => o.AttachItemId!.Value).ToList();
+                var linked = Viewer.Core.Inventory.OutfitPlanner.Current(m).Where(e => m.Item(e.TargetId) is not { } t
+                    || t.Kind is Viewer.Core.Inventory.ItemKind.Clothing or Viewer.Core.Inventory.ItemKind.Bodypart or Viewer.Core.Inventory.ItemKind.Object).Select(e => e.TargetId);
+                return new
+                {
+                    rows = p.TreeItemIds().Where(id => m.Item(id) is not null).Select(id => id.ToString()).OrderBy(x => x).ToArray(),
+                    expected = linked.Concat(attached).Distinct().Select(id => id.ToString()).OrderBy(x => x).ToArray(),
+                    attached = attached.Distinct().Count(), status = v.Status().Key, shown = p.IsVisibleInTree(), draws = p.TreeDraws,
+                };
+            }
+            case "properties":
+            {
+                // the Properties window's fields as drawn, for a scratch test account only. text "reveal": the item (its id in kind) selected and
+                // scrolled to; "row": where its row is, for a pointer press; "choose": Properties picked in the open row menu; "candidates": own
+                // items a check can use; else the window is read
+                if (Environment.GetEnvironmentVariable("NV_OUTFIT_SCRATCH_OK") != "1")
+                    return new { refused = "scratch_only" };
+                Guid.TryParse(kind, out var wantedItem);
+                if (text == "reveal" && wantedItem != Guid.Empty)
+                {
+                    p.Reveal(wantedItem);
+                    return new { revealed = m.Item(wantedItem) is not null };
+                }
+                if (text == "row")
+                    return p.RowCentre(wantedItem) is { } at ? new { found = true, x = at.X, y = at.Y } : new { found = false, x = 0f, y = 0f };
+                if (text == "choose")
+                {
+                    bool enabled = !p.Context.IsItemDisabled(p.Context.GetItemIndex(InventoryPanel.PropertiesEntry));
+                    bool menuOpen = p.Context.Visible;
+                    if (enabled && menuOpen)
+                    {
+                        p.Context.EmitSignal(global::Godot.PopupMenu.SignalName.IdPressed, InventoryPanel.PropertiesEntry);
+                        p.Context.Hide();
+                    }
+                    return new { menu_open = menuOpen, enabled, selected = p.SelectedItem.ToString() };
+                }
+                if (text == "candidates")
+                {
+                    var own = m.AllItems().Where(i => !m.IsInLibrary(i.ParentId) && i.Permissions is not null && i.Kind is not (Viewer.Core.Inventory.ItemKind.Link or Viewer.Core.Inventory.ItemKind.LinkFolder)
+                        && !m.IsDescendantOf(i.Id, m.FolderOfKind(Viewer.Core.Inventory.FolderKind.Trash))).ToList();
+                    return new
+                    {
+                        no_modify = own.Where(i => !i.Permissions!.AllowsModifyBy(m.OwnerId)).Take(5).Select(i => i.Id.ToString()).ToArray(),
+                        full = own.Where(i => i.Kind == Viewer.Core.Inventory.ItemKind.Notecard && Viewer.Core.Inventory.ItemEdit.RightsFor(m, i) is { Name: true, NextModify: true, NextCopy: true })
+                            .Select(i => new { id = i.Id.ToString(), name = i.Name }).Take(20).ToArray(),
+                    };
+                }
+                if (_itemProperties is not { } w)
+                    return new { open = false };
+                var held = m.Item(w.ItemId);
+                return new
+                {
+                    open = _shell!.Shell.Floaters.IsOpen(ItemPropertiesFeature.FloaterId), shown = w.IsVisibleInTree(), item = w.ItemId.ToString(),
+                    name = w.NameEdit.Text, description = w.DescriptionEdit.Text, name_editable = w.NameEdit.Editable, description_editable = w.DescriptionEdit.Editable,
+                    creator = w.CreatorValue.Text, owner = w.OwnerValue.Text, acquired = w.AcquiredValue.Text, held_label = w.HeldLabel.Text,
+                    held = w.Held.Select(b => b.ButtonPressed).ToArray(), next = w.Next.Select(b => b.ButtonPressed).ToArray(), next_disabled = w.Next.Select(b => b.Disabled).ToArray(),
+                    item_creator = held?.Permissions?.CreatorId.ToString(), item_owner = held?.Permissions?.OwnerId.ToString(), item_owner_mask = held?.Permissions?.OwnerMask,
+                    item_next_mask = held?.Permissions?.NextOwnerMask, item_created = held?.CreatedAt?.ToUnixTimeSeconds(),
                 };
             }
             case "sort":

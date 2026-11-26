@@ -81,6 +81,7 @@
 ^core/Viewer\.Core/(Session|Net|Protocol|Identity)/	login
 ^core/Viewer\.Core/(Inventory|Map|Links|Social|Actions|Interaction|Assets|Physics|Scheduling|Diagnostics)/	smoke
 ^host/Viewer\.Godot/(Main\.(Inventory|Travel|Hypergrid|Links|Interact|Gestures|NewItems)|TestRender\.Interact)\.cs$	smoke,ui
+^host/Viewer\.Godot/ItemPropertiesPanel\.cs$	smoke,ui
 ^host/Viewer\.Godot/Automation/	smoke
 ^host/Viewer\.Shell/(Inventory|Travel|Interact|Links|Overrider)/	smoke,ui
 ^host/Viewer\.Automation/	smoke

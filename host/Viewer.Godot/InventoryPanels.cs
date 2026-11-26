@@ -554,15 +554,16 @@ public partial class InventoryPanel : VBoxContainer
         top.AddChild(SortChoice);
         AddChild(top);
 
-        // All items / Recent items: the segmented control (one tab style for switching views within a window), the tabs on a track
+        // All items / Recent items / Worn: the segmented control (one tab style for switching views within a window), the tabs on a track
         Tabs = new TabBar { Name = "tabs", ThemeTypeVariation = ReverieStyle.TabBar, ClipTabs = false };   // unclipped, so the track is as wide as the tabs
         Tabs.AccessibilityName = strings.Get("inventory.tabs");
         Tabs.AddTab(strings.Get("inventory.tab.all"));
         Tabs.AddTab(strings.Get("inventory.tab.recent"));
+        Tabs.AddTab(strings.Get("inventory.tab.worn"));
         Tabs.TabChanged += i =>
         {
             RecentFilters.Visible = i == 1;
-            if (_view is not null) { _view.Tab = i == 1 ? InventoryTab.Recent : InventoryTab.All; _dirty = true; }
+            if (_view is not null) { _view.Tab = (InventoryTab)(int)i; _dirty = true; }   // the tabs are in the enum's order
         };
         var track = new PanelContainer { Name = "tabs_track", ThemeTypeVariation = ReverieStyle.Track, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
         track.AddChild(Tabs);
@@ -653,9 +654,11 @@ public partial class InventoryPanel : VBoxContainer
         ContextNew = new PopupMenu { Name = "context_new" };
         FillNewMenu(ContextNew, "context_new", fromRow: true);
         Context.AddSubmenuNodeItem(strings.Get("inventory.new"), ContextNew, 10);
+        Context.AddItem(strings.Get("inventory.button.properties"), PropertiesEntry);
         Context.IdPressed += id => { switch (id) { case 0: OnNewFolder(); break; case 1: OnRename(); break; case 2: OnTrash(); break; case 3: OnRetry(); break;
             case 4: OnWear(); break; case 5: OnAdd(); break; case 6: OnTakeOff(); break; case 7: OnAttachMenu(); break; case 8: OnDetach(); break;
-            case 9: if (CanOpen(_selected)) OpenRequested?.Invoke(_selected); break; } };
+            case 9: if (CanOpen(_selected)) OpenRequested?.Invoke(_selected); break;
+            case PropertiesEntry: OnProperties(); break; } };
         AddChild(Context);
         Bind(null, null);
     }
@@ -753,7 +756,8 @@ public partial class InventoryPanel : VBoxContainer
             _view = new InventoryViewModel(model, _strings.Get("inventory.root.mine"), _strings.Get("inventory.root.library"))
             {
                 Sort = (InventorySort)SortChoice.GetSelectedId(),
-                Tab = Tabs.CurrentTab == 1 ? InventoryTab.Recent : InventoryTab.All,
+                Tab = (InventoryTab)Tabs.CurrentTab,
+                WornItems = () => Viewer.Shell.Outfit.WornList.Items(model, wornObjects?.Invoke() ?? new HashSet<Guid>()),
                 SearchText = Search.Text,
                 RecentSince = recentSince,
                 Recent = _recentFilter,
@@ -787,12 +791,30 @@ public partial class InventoryPanel : VBoxContainer
         // what the user did redraws at once; changes from the network (a background fetch sends several a second) at most
         // four times a second, and nothing is drawn while the window is hidden
         long now = (long)Time.GetTicksMsec();
+        PollWorn(now);
         if (!_gate.Due(now, _dirty, _modelDirty, IsVisibleInTree() || !_drawn))   // the first draw after a bind happens even hidden: it asks for the folders
             return;
         _dirty = _modelDirty = false;
         _gate.Drew(now);
         _drawn = true;
         Rebuild();
+    }
+
+    private long _wornPolledAt;
+    private string _wornKey = "";
+
+    /// <summary>An object put on or taken off in the world need not change any inventory entry, so while the Worn tab is on screen
+    /// (and only then) what is worn is compared four times a second.</summary>
+    private void PollWorn(long now)
+    {
+        if (_view is not { Tab: InventoryTab.Worn, WornItems: { } worn } || now - _wornPolledAt < 250 || !IsVisibleInTree())
+            return;
+        _wornPolledAt = now;
+        string key = string.Join(",", worn().OrderBy(id => id));
+        if (key == _wornKey)
+            return;
+        _wornKey = key;
+        _dirty = true;
     }
 
     /// <summary>How many times the tree was cleared and drawn again (the automation's check that repeated reads of a folder do not redraw it).</summary>
@@ -985,6 +1007,61 @@ public partial class InventoryPanel : VBoxContainer
 
     private readonly MenuToggle _contextToggle = new();
 
+    /// <summary>The right-click menu's Properties entry.</summary>
+    internal const int PropertiesEntry = 11;
+
+    /// <summary>Properties was chosen for this item.</summary>
+    public event Action<Guid>? PropertiesRequested;
+
+    public void OnProperties()
+    {
+        if (_model?.Item(_selected) is not null)
+            PropertiesRequested?.Invoke(_selected);
+    }
+
+#if NV_AUTOMATION
+    /// <summary>The ids of the rows in the tree as drawn (the development command's check of what a tab lists).</summary>
+    internal List<Guid> TreeItemIds()
+    {
+        var ids = new List<Guid>();
+        void Walk(TreeItem? item)
+        {
+            for (var c = item?.GetFirstChild(); c is not null; c = c.GetNext())
+            {
+                var id = InventoryTree.IdOf(c);
+                if (id != Guid.Empty)
+                    ids.Add(id);
+                Walk(c);
+            }
+        }
+        Walk(TreeView.GetRoot());
+        return ids;
+    }
+
+    /// <summary>The middle of an item's row on screen, for a pointer press; null when it is not drawn in view.</summary>
+    internal Vector2? RowCentre(Guid id)
+    {
+        TreeItem? Find(TreeItem? item)
+        {
+            for (var c = item?.GetFirstChild(); c is not null; c = c.GetNext())
+            {
+                if (InventoryTree.IdOf(c) == id)
+                    return c;
+                if (Find(c) is { } found)
+                    return found;
+            }
+            return null;
+        }
+        if (Find(TreeView.GetRoot()) is not { } row)
+            return null;
+        var area = TreeView.GetItemAreaRect(row);
+        var local = new Vector2(area.Position.X + Math.Min(80, area.Size.X / 2), area.Position.Y + area.Size.Y / 2 - TreeView.GetScroll().Y);
+        if (local.Y < 0 || local.Y > TreeView.Size.Y)
+            return null;
+        return TreeView.GetGlobalTransformWithCanvas() * local;
+    }
+#endif
+
     /// <summary>The item or folder selected now (Guid.Empty for none).</summary>
     public Guid SelectedItem => _selected;
 
@@ -1077,6 +1154,7 @@ public partial class InventoryPanel : VBoxContainer
         Context.SetItemDisabled(Context.GetItemIndex(7), AttachButton.Disabled);
         Context.SetItemDisabled(Context.GetItemIndex(8), DetachButton.Disabled);
         Context.SetItemDisabled(Context.GetItemIndex(9), !CanOpen(_selected));
+        Context.SetItemDisabled(Context.GetItemIndex(PropertiesEntry), _model?.Item(_selected) is null);   // an item has properties, a folder none
         Context.SetItemDisabled(Context.GetItemIndex(10), _view is null || (_selected != Guid.Empty && _model?.IsInLibrary(_selected) == true));
         // at the pointer: in the window's own coordinates when popups are drawn inside it, in screen coordinates when they are windows of their own
         Context.Position = GetViewport().GuiEmbedSubwindows ? (Vector2I)GetGlobalMousePosition() : DisplayServer.MouseGetPosition();
