@@ -154,7 +154,7 @@ public partial class ItemPropertiesPanel : ScrollContainer
         ItemId = Guid.Empty;
         if (model is not null)
             model.Changed += MarkDirty;
-        Notice.Text = "";
+        Notice.Text = string.Empty;
         Refresh();
     }
 
@@ -170,9 +170,9 @@ public partial class ItemPropertiesPanel : ScrollContainer
         if (item is null)
             return false;
         ItemId = item.Id;
-        Notice.Text = "";
+        Notice.Text = string.Empty;
         _shownName = _shownDescription = "";
-        NameEdit.Text = DescriptionEdit.Text = "";
+        NameEdit.Text = DescriptionEdit.Text = string.Empty;
         Refresh();
         return true;
     }
