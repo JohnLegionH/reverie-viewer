@@ -3,6 +3,7 @@
 
 using System;
 using Godot;
+using Viewer.Core.Media;
 using Viewer.Core.Music;
 using Viewer.Core.Session;
 using Viewer.Shell;
@@ -36,17 +37,19 @@ public partial class Main
     /// <summary>The stream player (null until the first frame of a session), for the automation's checks.</summary>
     public RadioPlayer? Radio => _radio;
 
-    private sealed class MusicPlayback(RadioPlayer radio) : IMusicPlayback
+    private sealed class MusicPlayback(RadioPlayer radio, MediaSiteSettings sites) : IMusicPlayback
     {
-        public void Play(Uri url) => radio.Play(url);
+        // the player works on its own thread: it gets the answers as they stand now, and asks for any other site through SiteNeeded
+        public void Play(Uri url) => radio.Play(url, sites.SoundSnapshot());
         public void Stop() => radio.Stop();
+        public string? SiteNeeded => radio.SiteNeeded;
     }
 
-    private sealed class MusicPrefs(SettingsService settings) : IMusicPrefs
+    private sealed class MusicPrefs(SettingsService settings, MediaSiteSettings sites) : IMusicPrefs
     {
         public bool On { get => settings.Get(AudioLevels.MusicOn); set => settings.Set(AudioLevels.MusicOn, value); }
-        public SiteAnswer AnswerFor(string site) => MusicSiteAnswers.Get(settings.GetText(AudioLevels.MusicSitesKey), site);
-        public void SetAnswer(string site, SiteAnswer answer) => settings.SetText(AudioLevels.MusicSitesKey, MusicSiteAnswers.Set(settings.GetText(AudioLevels.MusicSitesKey), site, answer));
+        public SiteAnswer AnswerFor(string site) => sites.IsBlocked(site) ? SiteAnswer.DontPlay : sites.Get(MediaKind.Sound, site);
+        public void SetAnswer(string site, SiteAnswer answer) => sites.Set(MediaKind.Sound, site, answer);
     }
 
     private sealed class MusicAsker(Main main) : IMusicAsker
@@ -62,7 +65,8 @@ public partial class Main
         if (_parcelMusic is null)
         {
             _radio = new RadioPlayer();
-            _parcelMusic = new ParcelMusicController(new MusicPlayback(_radio), new MusicPrefs(settings), new MusicAsker(this));
+            var sites = new MediaSiteSettings(settings.GetText, (key, text) => settings.SetText(key, text));
+            _parcelMusic = new ParcelMusicController(new MusicPlayback(_radio, sites), new MusicPrefs(settings, sites), new MusicAsker(this));
         }
         if (_musicWaitingAsk is { } waiting)
             AskMusic(waiting.Site, waiting.Answered);
@@ -146,14 +150,29 @@ public partial class Main
         _musicWaitingAsk = null;
         if (_musicAsk is null)
         {
-            _musicAsk = new ConfirmationDialog { Name = "music_ask", Title = strings.Get("music.ask.title"), OkButtonText = strings.Get("music.ask.play"), CancelButtonText = strings.Get("music.ask.dontplay") };
+            _musicAsk = BuildMusicAsk(strings);
             _musicAsk.Confirmed += () => Answer(true);
             _musicAsk.Canceled += () => Answer(false);
             AddChild(_musicAsk);
         }
         _musicAnswer = answered;
-        _musicAsk.DialogText = strings.Get("music.ask.text", site);
-        _musicAsk.PopupCentered();
+        ShowMusicAsk(_musicAsk, strings, site);
+    }
+
+    /// <summary>The width the question's words wrap to, in interface units.</summary>
+    private const int MusicAskWidth = 460;
+
+    internal static ConfirmationDialog BuildMusicAsk(Viewer.Shell.StringTable strings) => new()
+    {
+        Name = "music_ask", Title = strings.Get("music.ask.title"), OkButtonText = strings.Get("music.ask.play"), CancelButtonText = strings.Get("music.ask.dontplay"),
+        DialogAutowrap = true,
+    };
+
+    internal static void ShowMusicAsk(ConfirmationDialog dialog, Viewer.Shell.StringTable strings, string site)
+    {
+        dialog.DialogText = strings.Get("music.ask.text", site);
+        dialog.ResetSize();
+        dialog.PopupCentered(new Vector2I(MusicAskWidth, 0));
     }
 
     private void CancelMusicAsk()

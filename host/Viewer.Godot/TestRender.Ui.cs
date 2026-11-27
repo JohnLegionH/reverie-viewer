@@ -77,6 +77,7 @@ public partial class TestRender
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
         "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog",
+        "music-ask", "music-ask-150", "music-ask-200",
     ];
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
@@ -370,6 +371,8 @@ public partial class TestRender
             scene = scene[..^4];   // a Build case at 150 or 200 %: the same window, drawn larger
         else if (pct != 100 && scene.StartsWith("snapshot", StringComparison.Ordinal))
             scene = "snapshot";
+        else if (pct != 100 && scene.StartsWith("music-ask", StringComparison.Ordinal))
+            scene = "music-ask";
         else if (pct != 100 && (scene.StartsWith("inventory", StringComparison.Ordinal) || scene.StartsWith("itemproperties", StringComparison.Ordinal)))
             scene = scene[..^4];
         else if (pct != 100)
@@ -459,6 +462,12 @@ public partial class TestRender
                 break;
             case "snapshot":
                 ExampleSnapshot(shell);
+                break;
+            case "music-ask":   // the parcel music question, built and shown as the viewer does it
+                rig.Viewport.GuiEmbedSubwindows = true;
+                var musicAsk = Main.BuildMusicAsk(strings);
+                shell.AddChild(musicAsk);
+                Main.ShowMusicAsk(musicAsk, strings, "radio.example.org");
                 break;
             case "gestures-used":
                 ExampleGestureListUsed(shell);

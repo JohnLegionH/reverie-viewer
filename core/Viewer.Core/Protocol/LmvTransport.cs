@@ -241,6 +241,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     private sealed record ParcelKey(Simulator Sim, int Id);
     private readonly EnvironmentFetcher<ParcelKey> _parcelEnvironment;
     private readonly LegacyMaterialFetcher<Simulator> _materials;
+    private readonly Viewer.Core.Media.PrimMediaFetcher<Simulator> _primMedia;
 
     /// <summary>The last render material entries raised per object, per simulator (raised again only when they change).</summary>
     private readonly Dictionary<Simulator, Dictionary<uint, IReadOnlyList<Viewer.Core.World.RenderMaterialEntry>>> _pbr = new();
@@ -266,6 +267,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _certificates.Trust = trust;
         _environment = new EnvironmentFetcher<Simulator>((sim, llsd, why) => Raise(new EnvironmentReceived(Map(sim), llsd, why)));
         _parcelEnvironment = new EnvironmentFetcher<ParcelKey>((k, llsd, why) => Raise(new ParcelEnvironmentReceived(Map(k.Sim), k.Id, llsd, why)));
+        _primMedia = new Viewer.Core.Media.PrimMediaFetcher<Simulator>(FetchObjectMediaAsync, (sim, id, version, faces) => Raise(new ObjectMediaReceived(Map(sim), id, version, faces)));
         _materials = new LegacyMaterialFetcher<Simulator>(FetchLegacyMaterialsAsync, (sim, m) => Raise(new LegacyMaterialsReceived(Map(sim), m)));
         _simRefs.OnReplaced = OnSimRefReplaced;
         _textureHttp = new TextureHttp(outbound, _log, _certificates);
@@ -329,6 +331,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _client.Network.RegisterCallback(PacketType.ScriptTeleportRequest, OnScriptTeleportRequest);
         _client.Network.RegisterCallback(PacketType.GenericMessage, OnGenericMessage);
         _client.Parcels.ParcelProperties += OnParcelProperties;
+        _client.Parcels.ParcelMediaUpdateReply += OnParcelMediaUpdate;
+        _client.Parcels.ParcelMediaCommand += OnParcelMediaCommand;
         _client.Avatars.UUIDNameReply += OnNames;
         _client.Friends.friendsListReady += OnFriendsReady;
         _client.Friends.FriendOnline += OnFriendOnline;
@@ -1195,9 +1199,10 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
     {
         if (e.SequenceID == ParcelInfoSequence && e.Parcel is { } pr)
             Raise(ToParcelDetails(pr));
-        if (ToParcelMusic(e.SequenceID, e.Parcel?.LocalID ?? 0, e.Parcel?.MusicURL, MapOrNull(e.Simulator)) is { } music)
+        var media = e.Parcel is { } described ? ToParcelMediaInfo(described.Media) : null;
+        if (ToParcelMusic(e.SequenceID, e.Parcel?.LocalID ?? 0, e.Parcel?.MusicURL, MapOrNull(e.Simulator), media) is { } music)
             Raise(music);
-        if (ToAgentParcel(e.SequenceID, e.Parcel?.Name, e.Parcel?.LocalID ?? 0, MapOrNull(e.Simulator), e.Parcel?.Flags.HasFlag(ParcelFlags.SoundLocal) == true, e.Parcel?.Bitmap, e.Parcel?.MusicURL) is { } here)
+        if (ToAgentParcel(e.SequenceID, e.Parcel?.Name, e.Parcel?.LocalID ?? 0, MapOrNull(e.Simulator), e.Parcel?.Flags.HasFlag(ParcelFlags.SoundLocal) == true, e.Parcel?.Bitmap, e.Parcel?.MusicURL, media) is { } here)
         {
             Raise(here);
             if (here.LocalId > 0 && e.Simulator is { } hereSim && IsAgentsRegion(hereSim))
@@ -1209,13 +1214,40 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
 
     /// <summary>The agent's own parcel from a parcel-properties message; null for the numbers that mean something else (a selected
     /// parcel, one that denies entry, the one under the pointer, About Land's request).</summary>
-    internal static AgentParcelChanged? ToAgentParcel(int sequenceId, string? name, int localId, SimRef? sim, bool soundLocal = false, byte[]? bitmap = null, string? musicUrl = null) =>
-        sequenceId >= 0 && sequenceId != ParcelInfoSequence && sim is not null ? new AgentParcelChanged(sim, name ?? "", localId, soundLocal, bitmap, musicUrl ?? "") : null;
+    internal static AgentParcelChanged? ToAgentParcel(int sequenceId, string? name, int localId, SimRef? sim, bool soundLocal = false, byte[]? bitmap = null, string? musicUrl = null,
+        Viewer.Core.Media.ParcelMediaInfo? media = null) =>
+        sequenceId >= 0 && sequenceId != ParcelInfoSequence && sim is not null ? new AgentParcelChanged(sim, name ?? "", localId, soundLocal, bitmap, musicUrl ?? "", media) : null;
 
     /// <summary>The music address of the parcel a parcel-properties message describes, with any sequence number except the ones that mean the
     /// message describes no parcel the agent could stand in (a parcel that keeps the agent out); null for those and for a message without a parcel.</summary>
-    internal static ParcelMusicReceived? ToParcelMusic(int sequenceId, int localId, string? musicUrl, SimRef? sim) =>
-        sim is not null && localId > 0 && ToParcelCollision(sequenceId) is null ? new ParcelMusicReceived(sim, localId, musicUrl ?? "") : null;
+    internal static ParcelMusicReceived? ToParcelMusic(int sequenceId, int localId, string? musicUrl, SimRef? sim, Viewer.Core.Media.ParcelMediaInfo? media = null) =>
+        sim is not null && localId > 0 && ToParcelCollision(sequenceId) is null ? new ParcelMusicReceived(sim, localId, musicUrl ?? "", media) : null;
+
+    internal static Viewer.Core.Media.ParcelMediaInfo ToParcelMediaInfo(LibreMetaverse.ParcelMedia m) =>
+        new(m.MediaURL ?? "", m.MediaID.Guid, m.MediaAutoScale, m.MediaType ?? "", m.MediaDesc ?? "", m.MediaWidth, m.MediaHeight, m.MediaLoop);
+
+    internal static ParcelMediaCommanded ToParcelMediaCommand(SimRef? sim, ParcelMediaCommandEventArgs e) =>
+        new(sim, (Viewer.Core.Media.ParcelMediaVerb)(uint)e.MediaCommand, e.Time, (uint)e.ParcelFlags);
+
+    internal static IReadOnlyList<Viewer.Core.Media.FaceMediaEntry> ToFaceMedia(MediaEntry?[]? faces) =>
+        (faces ?? []).Select((m, face) => m is null ? null : new Viewer.Core.Media.FaceMediaEntry(face, m.CurrentURL ?? "", m.HomeURL ?? "", m.AutoPlay, m.AutoLoop, m.AutoScale,
+                m.AutoZoom, m.InteractOnFirstClick, m.Width, m.Height, (int)m.Controls, (int)m.ControlPermissions, (int)m.InteractPermissions, m.EnableWhiteList, m.WhiteList ?? []))
+            .OfType<Viewer.Core.Media.FaceMediaEntry>().ToArray();
+
+    private void OnParcelMediaUpdate(object? sender, ParcelMediaUpdateReplyEventArgs e) =>
+        Raise(new ParcelMediaUpdated(MapOrNull(e.Simulator), ToParcelMediaInfo(e.Media)));
+
+    private void OnParcelMediaCommand(object? sender, ParcelMediaCommandEventArgs e) => Raise(ToParcelMediaCommand(MapOrNull(e.Simulator), e));
+
+    /// <summary>The media on one object's faces from the region's ObjectMedia capability; null when it could not be had (asked again later).
+    /// This asks the region only: no media address is opened.</summary>
+    private async Task<IReadOnlyList<Viewer.Core.Media.FaceMediaEntry>?> FetchObjectMediaAsync(Simulator sim, Guid objectId, CancellationToken ct)
+    {
+        if (sim.Caps?.CapabilityURI("ObjectMedia") is null)
+            return null;
+        var (ok, _, faces) = await _client.Objects.RequestObjectMediaAsync(new UUID(objectId), sim, ct).ConfigureAwait(false);
+        return ok ? ToFaceMedia(faces) : null;
+    }
 
     /// <summary>A parcel as About Land shows it.</summary>
     internal static ParcelDetailsReceived ToParcelDetails(Parcel pr) => new(pr.LocalID, pr.Name ?? "", pr.Desc ?? "", pr.OwnerID.Guid, pr.IsGroupOwned, pr.Area,
@@ -1580,6 +1612,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _environment.CancelAll();   // nothing of this session's environment fetch outlives the logout
         _parcelEnvironment.CancelAll();
         _materials.CancelAll();     // nor any legacy material request
+        _primMedia.CancelAll();
         CancelTextureFetches();     // nor any texture range request
         if (!_client.Network.Connected)
             return;
@@ -1714,6 +1747,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
             _environment.CancelRegion();
             _parcelEnvironment.CancelRegion();   // and the parcel's
             _materials.CancelRegion();   // and its legacy material requests
+            _primMedia.CancelAll();
             lock (_pbr) _pbr.Clear();   // and what its objects' render material parameters were
             CancelTextureFetches();   // the previous region's texture capability is gone
         }
@@ -1795,6 +1829,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _environment.CancelAll();   // no environment fetch outlives the session
         _parcelEnvironment.CancelAll();
         _materials.CancelAll();     // nor any legacy material request
+        _primMedia.CancelAll();
         CancelTextureFetches();     // nor any texture range request
         Raise(ToDisconnected(e.Reason, e.Message));
     }
@@ -1840,6 +1875,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         Raise(new ObjectUpdated(MapOrNull(e.Simulator), data, e.IsAttachment, parent is null ? null : ToAvatarData(parent)));
         if (ToObjectSound(MapOrNull(e.Simulator), prim) is { } sound)
             Raise(sound);   // the object's own sound as its update states it
+        if (data.MediaFaces != 0 && e.Simulator is { } mediaSim)
+            _primMedia.Want(mediaSim, data.FullId, data.MediaVersion);
         // the legacy materials its faces name, asked of the region (each id once per region)
         if (data.Materials is { } fm && e.Simulator is { } sim)
             _materials.Want(sim, fm.All.Where(f => f is { } x && x.MaterialId != Guid.Empty).Select(f => f!.Value.MaterialId));
@@ -2112,7 +2149,21 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
 
     internal static PrimData ToPrimData(Primitive p) => new(
         p.LocalID, p.ID.Guid, p.ParentID, (int)p.PrimData.AttachmentPoint, V(p.Position), Q(p.Rotation), V(p.Scale), V(p.Velocity), V(p.AngularVelocity),
-        V(p.Acceleration), ToTextureAnim(p.TextureAnim), ToShape(p), ToColors(p.Textures), ToTextures(p.Textures), LmvMaterials.ToMaterials(p.Textures), ToLight(p), ToProjector(p), ToInteraction(p), AttachItemOf(p), (int)p.PrimData.Material, ToFlexible(p));
+        V(p.Acceleration), ToTextureAnim(p.TextureAnim), ToShape(p), ToColors(p.Textures), ToTextures(p.Textures), LmvMaterials.ToMaterials(p.Textures), ToLight(p), ToProjector(p), ToInteraction(p), AttachItemOf(p), (int)p.PrimData.Material, ToFlexible(p), MediaVersionOf(p), MediaFacesOf(p));
+
+    /// <summary>The object's media version string ("x-mv:number/agent"); empty when the object states none.</summary>
+    private static string MediaVersionOf(Primitive p) => p.MediaURL?.StartsWith("x-mv:", StringComparison.Ordinal) == true ? p.MediaURL : "";
+
+    /// <summary>A bit for each face whose texture entry has the media bit, for an object that states a media version.</summary>
+    private static ulong MediaFacesOf(Primitive p)
+    {
+        ulong faces = 0;
+        if (MediaVersionOf(p).Length > 0 && p.Textures is { } textures)
+            for (int i = 0; i < textures.FaceTextures.Length && i < 64; i++)
+                if ((textures.FaceTextures[i] ?? textures.DefaultTexture)?.MediaFlags == true)
+                    faces |= 1UL << i;
+        return faces;
+    }
 
     /// <summary>The inventory item a worn object was taken from: the object states it in its "AttachItemID" name-value pair (official viewer:
     /// llviewerobject.cpp, getAttachmentItemID). Empty when the object does not say.</summary>
@@ -2273,6 +2324,7 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _environment.Dispose();   // cancels any environment fetch; nothing is delivered after this
         _parcelEnvironment.Dispose();
         _materials.Dispose();     // and any legacy material request
+        _primMedia.Dispose();
         _textureFetches.Cancel(); // and every texture range request
         _mapFetches.Cancel();     // and every map tile request
         StopClientBake();
@@ -2325,6 +2377,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
         _client.Network.UnregisterCallback(PacketType.ScriptTeleportRequest, OnScriptTeleportRequest);
         _client.Network.UnregisterCallback(PacketType.GenericMessage, OnGenericMessage);
         _client.Parcels.ParcelProperties -= OnParcelProperties;
+        _client.Parcels.ParcelMediaUpdateReply -= OnParcelMediaUpdate;
+        _client.Parcels.ParcelMediaCommand -= OnParcelMediaCommand;
         _client.Avatars.UUIDNameReply -= OnNames;
         _client.Friends.friendsListReady -= OnFriendsReady;
         _client.Friends.FriendOnline -= OnFriendOnline;
