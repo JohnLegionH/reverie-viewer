@@ -85,6 +85,14 @@ public class DataDirectoriesTests
     }
 
     [Fact]
+    public void The_packs_folder_is_local_to_the_person_and_not_in_the_roaming_settings_or_the_cache()
+    {
+        var env = Env(("APPDATA", @"C:\Users\u\AppData\Roaming"), ("LOCALAPPDATA", @"C:\Users\u\AppData\Local"), ("HOME", "/home/u"));
+        Assert.Equal(@"C:\Users\u\AppData\Local\ReverieViewer\Packs", DataDirectories.PacksFolder(DataPlatform.Windows, env, "ReverieViewer"));
+        Assert.Equal("/home/u/.local/share/ReverieViewer/packs", DataDirectories.PacksFolder(DataPlatform.Linux, env, "ReverieViewer"));
+    }
+
+    [Fact]
     public void A_log_folder_named_in_the_environment_replaces_the_users_log_folder()
     {
         var logs = DataDirectories.LogsFolder(Env(("NV_LOG_DIR", @"X:\runs\logs")), @"C:\Users\u\AppData\Local\ReverieViewer\Logs");

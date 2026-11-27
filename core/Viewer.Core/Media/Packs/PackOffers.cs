@@ -31,6 +31,7 @@ public sealed class PackOffers(PackManifest manifest, PackStore store, IPackAnsw
     private readonly Func<PackOffer, CancellationToken, Task<PackInstallResult>> _install = install ?? store.InstallAsync;
     private PackOffer? _asking;
     private int _question;
+    private bool _removing;
     private (PackOffer Offer, CancellationTokenSource Cancel, Task<PackInstallResult> Task)? _download;
 
     /// <summary>Something needs the pack <paramref name="id"/>: says how it stands, and asks the person if that is the next step.</summary>
@@ -57,7 +58,9 @@ public sealed class PackOffers(PackManifest manifest, PackStore store, IPackAnsw
     /// <summary>The person asks for the pack themselves: an earlier no is forgotten.</summary>
     public PackWant AskAgain(string id)
     {
-        answers.SetRefused(id, false);
+        // while nothing could be asked (no such pack, or another is being handled) the no stays
+        if (manifest.Offer(id) is not null && (_asking is null || _asking.Id == id) && _download is null)
+            answers.SetRefused(id, false);
         return Want(id);
     }
 
@@ -78,6 +81,13 @@ public sealed class PackOffers(PackManifest manifest, PackStore store, IPackAnsw
             return null;
         _download = null;
         done.Cancel.Dispose();
+        if (_removing)
+        {
+            // the download may have got past its last look at the cancel: what it put in place is removed too
+            _removing = false;
+            store.Remove(done.Offer.Id);
+            return (done.Offer, PackInstallResult.Cancelled);
+        }
         var result = done.Task.IsCompletedSuccessfully ? done.Task.Result : PackInstallResult.DownloadFailed;
         return (done.Offer, result);
     }
@@ -88,7 +98,10 @@ public sealed class PackOffers(PackManifest manifest, PackStore store, IPackAnsw
         if (_asking?.Id == id)
             CancelQuestion();
         if (_download is { } running && running.Offer.Id == id)
+        {
+            _removing = true;
             running.Cancel.Cancel();
+        }
         return store.Remove(id);
     }
 

@@ -7,7 +7,6 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Viewer.Core.Media.Packs;
-using Viewer.Core.Platform;
 using Viewer.Shell.Sound;
 using Xunit;
 
@@ -19,16 +18,10 @@ namespace Viewer.Core.Tests.Media;
 /// </summary>
 public sealed class PackTests : IDisposable
 {
-    private readonly string _base = Path.Combine(Path.GetTempPath(), "packtests-" + Guid.NewGuid().ToString("N"));
+    private readonly string _base = TestTemp.NewFolder("packs");
     private string Root => Path.Combine(_base, "packs");
 
-    public PackTests() => Directory.CreateDirectory(_base);
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_base, true); }
-        catch (IOException) { }
-    }
+    public void Dispose() => TestTemp.Delete(_base);
 
     /// <summary>Answers each request with the next reply set for its path; counts the requests.</summary>
     private sealed class PackServer : IDisposable
@@ -252,7 +245,7 @@ public sealed class PackTests : IDisposable
     [InlineData("a/../../escape.txt")]
     [InlineData("..\\escape.txt")]
     [InlineData("/escape.txt")]
-    [InlineData("C:/escape.txt")]
+    [InlineData("c:escape.txt")]
     [InlineData("a/.. /escape.txt")]
     [InlineData("installed.json")]
     public async Task An_archive_with_a_path_that_leaves_the_pack_is_refused_whole(string bad)
@@ -275,10 +268,12 @@ public sealed class PackTests : IDisposable
     }
 
     [Fact]
-    public async Task A_redirect_to_plain_http_on_another_host_is_not_followed()
+    public async Task A_redirect_to_an_address_that_is_not_allowed_is_not_followed()
     {
         var zip = GoodZip();
-        using var server = new PackServer { Body = zip, RedirectTo = "http://192.0.2.1/pack.zip" };
+        using var server = new PackServer { Body = zip };
+        // an address with a sign-in in it, which this server would answer: only the check keeps the download from going there
+        server.RedirectTo = server.Url("/moved.zip").ToString().Replace("http://", "http://user:word@", StringComparison.Ordinal);
         var result = await Store().InstallAsync(OfferFor(server, zip)).WaitAsync(TimeSpan.FromSeconds(30));
         Assert.Equal(PackInstallResult.DownloadFailed, result);
         Assert.Equal(1, server.Requests);
@@ -299,9 +294,13 @@ public sealed class PackTests : IDisposable
     {
         var zip = GoodZip();
         using var server = new PackServer { Body = zip, Stall = true };
-        using var cancel = new CancellationTokenSource(300);
+        using var cancel = new CancellationTokenSource();
         var store = new PackStore(Root, allowLoopbackHttp: true);
-        Assert.Equal(PackInstallResult.Cancelled, await store.InstallAsync(OfferFor(server, zip), cancel.Token).WaitAsync(TimeSpan.FromSeconds(30)));
+        var running = store.InstallAsync(OfferFor(server, zip), cancel.Token);
+        for (var until = DateTime.UtcNow.AddSeconds(30); server.Requests == 0 && DateTime.UtcNow < until;)
+            await Task.Delay(20);
+        cancel.Cancel();
+        Assert.Equal(PackInstallResult.Cancelled, await running.WaitAsync(TimeSpan.FromSeconds(30)));
         Assert.Equal(1, server.Requests);
         Assert.Equal(0, FilesUnderRoot());
     }
@@ -464,6 +463,40 @@ public sealed class PackTests : IDisposable
     }
 
     [Fact]
+    public async Task A_download_that_finishes_as_its_pack_is_removed_leaves_no_pack_and_reports_no_success()
+    {
+        var zip = GoodZip();
+        using var server = new PackServer { Body = zip };
+        var store = Store();
+        var gate = new TaskCompletionSource();
+        var asker = new Asker();
+        // the download is already past its last look at the cancel: it installs the pack after the removal
+        var offers = new PackOffers(ManifestFor(server, zip), store, Answers([]), asker, async (offer, _) =>
+        {
+            await gate.Task;
+            return await store.InstallAsync(offer);
+        });
+        offers.Want("video");
+        asker.Answer!(true);
+        offers.Remove("video");
+        gate.SetResult();
+        Assert.Equal(PackInstallResult.Cancelled, (await Finished(offers)).Result);
+        Assert.Null(store.Find("video"));
+    }
+
+    [Fact]
+    public void Asking_again_while_the_pack_cannot_be_asked_about_keeps_the_no()
+    {
+        var zip = GoodZip();
+        using var server = new PackServer { Body = zip };
+        var kept = new Dictionary<string, string>();
+        Answers(kept).SetRefused("video", true);
+        var offers = new PackOffers(PackManifest.Empty, Store(), Answers(kept), new Asker());
+        Assert.Equal(PackWant.Unavailable, offers.AskAgain("video"));
+        Assert.True(Answers(kept).IsRefused("video"));
+    }
+
+    [Fact]
     public void With_an_empty_manifest_nothing_is_asked_and_no_folder_is_made()
     {
         var asker = new Asker();
@@ -486,14 +519,6 @@ public sealed class PackTests : IDisposable
         offers.Remove("video");
         Assert.Equal(PackInstallResult.Cancelled, (await Finished(offers)).Result);
         Assert.Equal(0, FilesUnderRoot());
-    }
-
-    [Fact]
-    public void The_packs_folder_is_local_to_the_person_and_not_in_the_roaming_settings_or_the_cache()
-    {
-        var env = new Dictionary<string, string> { ["APPDATA"] = @"X:\u\Roaming", ["LOCALAPPDATA"] = @"X:\u\Local", ["HOME"] = "/home/u" };
-        Assert.Equal(@"X:\u\Local\Reverie\Packs", DataDirectories.PacksFolder(DataPlatform.Windows, k => env.GetValueOrDefault(k), "Reverie"));
-        Assert.Equal("/home/u/.local/share/Reverie/packs", DataDirectories.PacksFolder(DataPlatform.Linux, k => env.GetValueOrDefault(k), "Reverie"));
     }
 
     [Theory]

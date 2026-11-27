@@ -22,6 +22,7 @@ public partial class Main
 {
     private PackOffers? _packs;
     private PackStore? _packStore;
+    private ViewerSession? _packSession;
     private bool _packsLooked;
     private string? _packOfferAtLogin;
     private ConfirmationDialog? _packAsk;
@@ -76,6 +77,12 @@ public partial class Main
             LookForPacks();
         if (_packs is not { } packs || _strings is not { } strings)
             return;
+        if (!ReferenceEquals(_packSession, session))
+        {
+            if (_packSession is not null)
+                packs.CancelQuestion();   // leaving takes an open question away; it is not an answer
+            _packSession = session;
+        }
         if (_packOfferAtLogin is { Length: > 0 } id && session is { IsEnded: false } && session.AgentId != Guid.Empty)
         {
             _packOfferAtLogin = null;
@@ -179,6 +186,8 @@ public partial class Main
             LookForPacks();
         string? want = action switch { "want" => WantPack(id).ToString(), "ask_again" => WantPack(id, again: true).ToString(), _ => null };
         bool? removed = action == "remove" ? _packs?.Remove(id) ?? false : null;
+        if (action == "remove" && _packWaitingWord?.Offer.Id == id)
+            _packWaitingWord = null;   // no word that a pack arrived after it was removed
         var installed = _packStore?.Find(id);
         return new
         {
