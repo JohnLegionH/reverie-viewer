@@ -862,25 +862,21 @@ function Invoke-HandleCases {
 function Invoke-ProportionsCases {
     # the window's own 3D view shows a sphere and a cube as a circle and a square (--tr-proportions=PCT:STEP,...): windowed sizes of other proportions than the
     # screen's, a resize, the maximized window and the full-screen one, at 100 % and at 150 % content scale (the display scale of a 2560x1440 screen at 144 dpi).
-    # The window is the usual one (not the quarter-of-the-screen test window), as the run sets its own size. The negative control stretches the scene sideways
-    # (--tr-alter=stretch) and the run MUST fail.
-    $prior = $env:NV_TEST_WINDOW_FULL
-    $env:NV_TEST_WINDOW_FULL = "1"
-    try {
-        foreach ($be in $Backends) {
-            foreach ($c in @(@(100, "1280x720,1920x1080,2560x1080,1000x900,720x1000,maximized,fullscreen"), @(150, "1280x720,2560x1080,maximized,fullscreen"))) {
-                $name = "proportions_$($c[0])_$be"
-                $r = Invoke-Render $be $name "--tr-proportions=$($c[0]):$($c[1])"
-                $p = $r.Json.proportions
-                $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $p -and -not @($p.problems).Count -and @($p.steps).Count -gt 0
-                $steps = if ($p) { (@($p.steps | ForEach-Object { "$($_.step): picture $($_.picture), sphere $($_.sphere_width_over_height), cube $($_.cube_width_over_height)" }) -join "; ") } else { "no result" }
-                Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $steps$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
-            }
-            $n = Invoke-Render $be "proportions_negative_$be" "--tr-proportions=100:1280x720 --tr-alter=stretch"
-            if ($n.Exit -ne 0 -and @($n.Json.proportions.problems).Count -gt 0) { Add-Case "proportions_negative_$be" "PASS" "the stretched picture was rejected: $(@($n.Json.proportions.problems)[0])" $n.Seconds }
-            else { Add-Case "proportions_negative_$be" "FAIL" "the stretched picture was not rejected (exit $($n.Exit))" $n.Seconds }
+    # The run sets its own window sizes in the usual off-screen test window: maximized and full screen are drawn at those sizes without either window mode, which
+    # would put the window on a monitor. The negative control stretches the scene sideways (--tr-alter=stretch) and the run MUST fail.
+    foreach ($be in $Backends) {
+        foreach ($c in @(@(100, "1280x720,1920x1080,2560x1080,1000x900,720x1000,maximized,fullscreen"), @(150, "1280x720,2560x1080,maximized,fullscreen"))) {
+            $name = "proportions_$($c[0])_$be"
+            $r = Invoke-Render $be $name "--tr-proportions=$($c[0]):$($c[1])"
+            $p = $r.Json.proportions
+            $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $p -and -not @($p.problems).Count -and @($p.steps).Count -gt 0
+            $steps = if ($p) { (@($p.steps | ForEach-Object { "$($_.step): picture $($_.picture), sphere $($_.sphere_width_over_height), cube $($_.cube_width_over_height)" }) -join "; ") } else { "no result" }
+            Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $steps$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
         }
-    } finally { $env:NV_TEST_WINDOW_FULL = $prior }
+        $n = Invoke-Render $be "proportions_negative_$be" "--tr-proportions=100:1280x720 --tr-alter=stretch"
+        if ($n.Exit -ne 0 -and @($n.Json.proportions.problems).Count -gt 0) { Add-Case "proportions_negative_$be" "PASS" "the stretched picture was rejected: $(@($n.Json.proportions.problems)[0])" $n.Seconds }
+        else { Add-Case "proportions_negative_$be" "FAIL" "the stretched picture was not rejected (exit $($n.Exit))" $n.Seconds }
+    }
 }
 
 function Invoke-NeighbourCases {
