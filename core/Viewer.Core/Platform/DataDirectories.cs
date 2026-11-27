@@ -65,6 +65,20 @@ public sealed record DataDirectories(string Settings, string Cache, string Logs)
         }
     }
 
+    /// <summary>The person's folder for optional downloaded packs. It is local to the machine (packs are large and made for one platform), and
+    /// outside the cache, which may be cleared at any time. Windows <c>%LOCALAPPDATA%\&lt;product&gt;\Packs</c>; Linux
+    /// <c>$XDG_DATA_HOME/&lt;product&gt;/packs</c> (default <c>~/.local/share</c>); macOS <c>~/Library/Application Support/&lt;product&gt;/Packs</c>.</summary>
+    public static string PacksFolder(DataPlatform platform, Func<string, string?> env, string product)
+    {
+        var dirs = For(platform, env, product);   // checks the product name and the variables
+        return platform switch
+        {
+            DataPlatform.Windows => Join('\\', Required(env, "LOCALAPPDATA", '\\'), product, "Packs"),
+            DataPlatform.Linux => Join('/', Xdg(env, "XDG_DATA_HOME", ".local/share"), product, "packs"),
+            _ => Join('/', dirs.Settings, "Packs"),
+        };
+    }
+
     /// <summary>The folder the session log goes to: <c>NV_LOG_DIR</c> when it names an absolute folder (test and automation runs set it so
     /// they never replace the log of a session someone is using), else <paramref name="usual"/>.</summary>
     public static string LogsFolder(Func<string, string?> env, string usual)
