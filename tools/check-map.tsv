@@ -18,7 +18,7 @@
 ^host/Viewer\.Godot/(WorldSoundPlayer|UiSoundPlayer|AddonSoundPlayer)\.cs$	smoke
 ^core/Viewer\.Core/Music/	smoke
 ^core/Viewer\.Core/Media/	smoke
-^host/Viewer\.Godot/Main\.Music\.cs$	ui,smoke
+^host/Viewer\.Godot/Main\.(Music|MediaPacks)\.cs$	ui,smoke
 ^tools/[A-Za-z0-9-]+-live\.ps1$|^tools/live-smoke\.ps1$	none
 ^tools/(live-env|live-check|live-takeback|live-driver|other-clients|aim-lib|aim-check|automation|soak-live|login-proof|login-dialogs|prefs-auto-check|ui-checks|ui-sound-check|world-sound-check|window-check|window-record|contact-sheets|close-cycles|crash-trim|package|ship-export|rebuild-corej2k|nupkg-fixed-time|assert-[a-z-]+|boot-logo-check)\.ps1$	none
 ^tools/(select-checks\.ps1|CheckSelector\.cs|check-map\.tsv|check-areas\.tsv|test\.sh)$	none

@@ -69,6 +69,7 @@ public sealed class PackStore(string root, bool allowLoopbackHttp = false, TimeS
         string staging = Path.Combine(root, StagingFolder, work);
         try
         {
+            ClearLeftovers();
             Directory.CreateDirectory(Path.GetDirectoryName(part)!);
             var fetched = await Download(offer, part, cancel).ConfigureAwait(false);
             if (fetched != PackInstallResult.Installed)
@@ -104,6 +105,26 @@ public sealed class PackStore(string root, bool allowLoopbackHttp = false, TimeS
             return false;
         string home = Path.Combine(root, id);
         return Directory.Exists(home) && TryDeleteFolder(home);
+    }
+
+    /// <summary>Removes what a viewer that ended during a download left behind. Only what is more than a day old: another viewer of the same
+    /// person may be downloading now.</summary>
+    private void ClearLeftovers()
+    {
+        var before = DateTime.UtcNow.AddDays(-1);
+        try
+        {
+            string downloads = Path.Combine(root, DownloadFolder), stages = Path.Combine(root, StagingFolder);
+            if (Directory.Exists(downloads))
+                foreach (var file in Directory.GetFiles(downloads, "*.part"))
+                    if (File.GetLastWriteTimeUtc(file) < before)
+                        TryDelete(file);
+            if (Directory.Exists(stages))
+                foreach (var folder in Directory.GetDirectories(stages))
+                    if (Directory.GetLastWriteTimeUtc(folder) < before)
+                        TryDeleteFolder(folder);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     private async Task<PackInstallResult> Download(PackOffer offer, string part, CancellationToken cancel)

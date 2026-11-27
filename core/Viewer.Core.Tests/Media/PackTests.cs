@@ -350,6 +350,26 @@ public sealed class PackTests : IDisposable
         Assert.Equal(PackState.Ready, store.State("video", withdrawn));
     }
 
+    [Fact]
+    public async Task What_a_viewer_left_unfinished_long_ago_is_cleared_at_the_next_download_and_a_recent_one_is_not()
+    {
+        string oldPart = Path.Combine(Root, ".download", "old.part"), newPart = Path.Combine(Root, ".download", "new.part");
+        string oldStage = Path.Combine(Root, ".staging", "old"), newStage = Path.Combine(Root, ".staging", "new");
+        Directory.CreateDirectory(Path.GetDirectoryName(oldPart)!);
+        File.WriteAllText(oldPart, "half");
+        File.WriteAllText(newPart, "half");
+        Directory.CreateDirectory(oldStage);
+        Directory.CreateDirectory(newStage);
+        File.SetLastWriteTimeUtc(oldPart, DateTime.UtcNow.AddDays(-3));
+        Directory.SetLastWriteTimeUtc(oldStage, DateTime.UtcNow.AddDays(-3));
+        using var server = new PackServer { Body = GoodZip() };
+        Assert.Equal(PackInstallResult.Installed, await Store().InstallAsync(OfferFor(server, server.Body)));
+        Assert.False(File.Exists(oldPart), "the old part file stays");
+        Assert.False(Directory.Exists(oldStage), "the old staging folder stays");
+        Assert.True(File.Exists(newPart));
+        Assert.True(Directory.Exists(newStage));
+    }
+
     // ---- the question
 
     private sealed class Asker : IPackAsker
@@ -477,9 +497,9 @@ public sealed class PackTests : IDisposable
     }
 
     [Theory]
-    [InlineData(52_000_000L, "52 MB")]
-    [InlineData(172_600_000L, "173 MB")]
-    [InlineData(1_000_001L, "2 MB")]
-    [InlineData(900L, "1 MB")]
+    [InlineData(52_000_000L, "52\u00A0MB")]
+    [InlineData(172_600_000L, "173\u00A0MB")]
+    [InlineData(1_000_001L, "2\u00A0MB")]
+    [InlineData(900L, "1\u00A0MB")]
     public void The_size_shown_is_never_smaller_than_the_download(long bytes, string shown) => Assert.Equal(shown, MediaPackSettings.SizeText(bytes));
 }

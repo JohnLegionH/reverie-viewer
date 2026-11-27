@@ -28,5 +28,5 @@ public sealed class MediaPackSettings(Func<string, string?> read, Action<string,
     }
 
     /// <summary>A download's size in whole megabytes (a million bytes), rounded up so it is never shown smaller than it is.</summary>
-    public static string SizeText(long bytes) => Math.Max(1, (bytes + 999_999) / 1_000_000).ToString(CultureInfo.CurrentCulture) + " MB";
+    public static string SizeText(long bytes) => Math.Max(1, (bytes + 999_999) / 1_000_000).ToString(CultureInfo.CurrentCulture) + "\u00A0MB";
 }

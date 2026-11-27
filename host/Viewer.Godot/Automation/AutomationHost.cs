@@ -464,6 +464,12 @@ public partial class AutomationHost : Node
             }
             case "ui_sounds":   // {action: log|clear|play|state|find|close_window, slot?, name?}: the interface sounds' decisions, a slot played as its Play button does, where a control is, a window closed (development builds only)
                 return m.UiSoundsCall(Str(call.Body, "action") ?? "log", Str(call.Body, "slot"), Str(call.Body, "name")) is { } snd ? AutomationReply.Ok(snd) : AutomationReply.Error(409, "no sounds");
+            case "media_pack":   // {action: state|want|ask_again|remove, id}: how an optional pack stands, a want for it as the viewer would raise one, and its removal (development builds only)
+            {
+                string packAction = Str(call.Body, "action") ?? "state", packId = Str(call.Body, "id") ?? "video";
+                return packAction is "state" or "want" or "ask_again" or "remove"
+                    ? AutomationReply.Ok(m.MediaPackCall(packAction, packId)) : AutomationReply.Error(400, "action must be state, want, ask_again or remove");
+            }
             case "world_sounds":   // {action: state|clear|feed, events?, objects?, listener?}: sounds in the world: each source, where it plays and at what gain, the decisions; feed (without a session) puts sound events into a service made for the check (development builds only)
                 return m.WorldSoundsCall(Str(call.Body, "action") ?? "state", call.Body) is { } ws ? AutomationReply.Ok(ws) : AutomationReply.Error(409, "no sounds");
 case "windows":   // {action: state|open|move|resize|close, name?, x?, y?, w?, h?}: the open windows' ids and rectangles; a window opened, moved, resized or closed as the user does it (development builds only)

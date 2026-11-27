@@ -78,7 +78,29 @@ public partial class TestRender
         "gestures-used", "addons", "addon-ao", "addon-rlv",
         "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog",
         "music-ask", "music-ask-150", "music-ask-200",
+        "pack-ask", "pack-ask-150", "pack-ask-200", "pack-failed", "pack-failed-150", "pack-failed-200",
     ];
+
+    /// <summary>A question box is as tall as what it holds: every line of its words shown, its buttons inside it, and no more than two lines'
+    /// worth of empty space between the words and the buttons.</summary>
+    private void CheckQuestionFits(AcceptDialog dialog, string name)
+    {
+        var label = dialog.GetLabel();
+        var button = dialog.GetOkButton();
+        int lines = label.GetLineCount();
+        float line = label.GetLineHeight(), spacing = label.GetThemeConstant("line_spacing");
+        float wordsEnd = label.GetGlobalRect().Position.Y + lines * line + Math.Max(0, lines - 1) * spacing;
+        float buttonTop = button.GetGlobalRect().Position.Y, gap = buttonTop - wordsEnd;
+        _result["question"] = new { lines, line, gap, width = dialog.Size.X, height = dialog.Size.Y };
+        if (gap > 2 * line)
+            _failures.Add($"{name}: {gap:F0} px of empty space between the question's words and its buttons (a line is {line:F0} px, {lines} lines of words)");
+        if (gap < 0)
+            _failures.Add($"{name}: the question's words run under its buttons by {-gap:F0} px");
+        if (label.GetVisibleLineCount() < lines)
+            _failures.Add($"{name}: {lines - label.GetVisibleLineCount()} of the question's {lines} lines are not shown");
+        if (button.GetGlobalRect().End.Y > dialog.Size.Y + 0.5f)
+            _failures.Add($"{name}: the buttons reach past the bottom of the box");
+    }
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
     private const string ExampleScriptText =
@@ -371,8 +393,8 @@ public partial class TestRender
             scene = scene[..^4];   // a Build case at 150 or 200 %: the same window, drawn larger
         else if (pct != 100 && scene.StartsWith("snapshot", StringComparison.Ordinal))
             scene = "snapshot";
-        else if (pct != 100 && scene.StartsWith("music-ask", StringComparison.Ordinal))
-            scene = "music-ask";
+        else if (pct != 100 && (scene.StartsWith("music-ask", StringComparison.Ordinal) || scene.StartsWith("pack-", StringComparison.Ordinal)))
+            scene = scene[..^4];
         else if (pct != 100 && (scene.StartsWith("inventory", StringComparison.Ordinal) || scene.StartsWith("itemproperties", StringComparison.Ordinal)))
             scene = scene[..^4];
         else if (pct != 100)
@@ -416,6 +438,7 @@ public partial class TestRender
         EditPanel? contentsPanel = null;
         FacePickerWindows? texturePickers = null;
         FolderPickPanel? takeFolder = null;
+        AcceptDialog? askShown = null;
         switch (scene)
         {
             case "login":
@@ -468,6 +491,21 @@ public partial class TestRender
                 var musicAsk = Main.BuildMusicAsk(strings);
                 shell.AddChild(musicAsk);
                 Main.ShowMusicAsk(musicAsk, strings, "radio.example.org");
+                askShown = musicAsk;
+                break;
+            case "pack-ask":   // the question before a pack's download, built and shown as the viewer does it
+                rig.Viewport.GuiEmbedSubwindows = true;
+                var packAsk = Main.BuildPackAsk(strings);
+                shell.AddChild(packAsk);
+                Main.ShowPackQuestion(packAsk, strings, "video", 52_000_000, "downloads.example.org");
+                askShown = packAsk;
+                break;
+            case "pack-failed":   // the word after a download that did not end well (the longer of its two texts)
+                rig.Viewport.GuiEmbedSubwindows = true;
+                var packDone = Main.BuildPackDone(strings);
+                shell.AddChild(packDone);
+                Main.ShowPackDone(packDone, strings, "web", installed: false);
+                askShown = packDone;
                 break;
             case "gestures-used":
                 ExampleGestureListUsed(shell);
@@ -730,6 +768,10 @@ public partial class TestRender
             if (runs.Count == 0)
                 _failures.Add("the notecard shows no embedded item link");
         }
+        if (askShown is not null)
+            CheckQuestionFits(askShown, $"{scene}@{pct}");
+        if (scene == "pack-ask" && askShown is ConfirmationDialog download && !download.GetCancelButton().HasFocus())
+            _failures.Add($"{scene}@{pct}: Enter must not start a download: the refusing button does not have the focus");
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);
         if (scene == "preferences-sound" && !wrongToken)

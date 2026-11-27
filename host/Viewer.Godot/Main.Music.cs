@@ -148,6 +148,11 @@ public partial class Main
             _musicWaitingAsk = (site, answered);   // the words are not ready yet: asked on a later frame, never answered for the person
             return;
         }
+        if (PackBoxUp)
+        {
+            _musicWaitingAsk = (site, answered);   // one box at a time: asked when the pack's box is gone
+            return;
+        }
         _musicWaitingAsk = null;
         if (_musicAsk is null)
         {
@@ -173,9 +178,27 @@ public partial class Main
     internal static void ShowMusicAsk(ConfirmationDialog dialog, Viewer.Shell.StringTable strings, string site)
     {
         dialog.DialogText = strings.Get("music.ask.text", site);
-        dialog.ResetSize();
-        dialog.PopupCentered(new Vector2I(MusicAskWidth, 0));
+        PopupQuestion(dialog, MusicAskWidth);
     }
+
+    /// <summary>Shows a question box of <paramref name="width"/> as tall as what it holds. Wrapped words know their height only once they have
+    /// their width, so the words are given it first and the box takes its height again when they have been laid out.</summary>
+    internal static void PopupQuestion(AcceptDialog dialog, int width)
+    {
+        dialog.GetLabel().CustomMinimumSize = new Vector2(width - QuestionSideMargins, 0);
+        dialog.ResetSize();
+        dialog.PopupCentered(new Vector2I(width, 0));
+        Callable.From(() =>
+        {
+            if (!IsInstanceValid(dialog) || !dialog.Visible)
+                return;
+            dialog.Size = new Vector2I(width, (int)MathF.Ceiling(dialog.GetContentsMinimumSize().Y));
+            dialog.MoveToCenter();
+        }).CallDeferred();
+    }
+
+    /// <summary>What the theme keeps free beside a dialog's words, both sides together.</summary>
+    private const int QuestionSideMargins = 24;
 
     private void CancelMusicAsk()
     {
