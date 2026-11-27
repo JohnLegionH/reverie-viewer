@@ -19,7 +19,7 @@ public sealed partial class NearbyTab : VBoxContainer
 {
     private readonly StringTable _strings;
     private readonly List<Guid> _rows = new();
-    private double _wait;
+    private readonly NearbyRefresh _gate = new();
     private Guid _selected;
 
     public ItemList List { get; }
@@ -30,21 +30,23 @@ public sealed partial class NearbyTab : VBoxContainer
     /// <summary>Who is near, nearest first, with the name to show for each; null while there is no session.</summary>
     public Func<IReadOnlyList<(NearbyAvatar Avatar, string Name)>?>? Source { get; set; }
     public event Action<Guid>? MessageRequested;
-    public Action<Guid>? MenuRequested { get; set; }
+    /// <summary>The resident's menu is asked for, at this point (the click, or under the More button).</summary>
+    public Action<Guid, Vector2>? MenuRequested { get; set; }
 
     public NearbyTab(StringTable strings)
     {
         _strings = strings;
         Name = "nearby_tab";
         List = new ItemList { Name = "nearby_list", AccessibilityName = strings.Get("nearby.list"), SizeFlagsVertical = SizeFlags.ExpandFill, AllowRmbSelect = true };
-        List.ItemSelected += i => { _selected = RowId((int)i); ShowButtons(); };
+        List.ItemSelected += i => { _gate.Clicked(); _selected = RowId((int)i); ShowButtons(); };
         List.ItemActivated += i => { var id = RowId((int)i); if (id != Guid.Empty) MessageRequested?.Invoke(id); };
-        List.ItemClicked += (i, _, button) =>
+        List.ItemClicked += (i, at, button) =>
         {
+            _gate.Clicked();
             if (button != (long)MouseButton.Right) return;
             _selected = RowId((int)i);
             ShowButtons();
-            if (_selected != Guid.Empty) MenuRequested?.Invoke(_selected);
+            if (_selected != Guid.Empty) MenuRequested?.Invoke(_selected, List.GlobalPosition + at);
         };
         AddChild(List);
         Note = new Label { Name = "nearby_note", Text = strings.Get("nearby.none"), AccessibilityName = strings.Get("nearby.none"), ThemeTypeVariation = ReverieStyle.Muted };
@@ -54,7 +56,7 @@ public sealed partial class NearbyTab : VBoxContainer
         MessageButton.Pressed += () => { if (_selected != Guid.Empty) MessageRequested?.Invoke(_selected); };
         buttons.AddChild(MessageButton);
         MoreButton = new RvButton(strings.Get("nearby.more")) { Name = "nearby_more", Disabled = true };
-        MoreButton.Pressed += () => { if (_selected != Guid.Empty) MenuRequested?.Invoke(_selected); };
+        MoreButton.Pressed += () => { if (_selected != Guid.Empty) MenuRequested?.Invoke(_selected, MoreButton.GlobalPosition + new Vector2(0, MoreButton.Size.Y)); };
         buttons.AddChild(MoreButton);
         AddChild(buttons);
     }
@@ -70,11 +72,10 @@ public sealed partial class NearbyTab : VBoxContainer
 
     public void Tick(double delta)
     {
-        _wait -= delta;
-        if (_wait > 0) return;
-        _wait = 1.0;
-        Refresh();
+        if (_gate.Due(delta)) Refresh();
     }
+
+    public void Hidden() => _gate.Hidden();
 
     public void Refresh()
     {

@@ -337,9 +337,31 @@ public sealed class ViewerSession : IDisposable
     }
 
     private IReadOnlyList<CoarseAvatar> _coarse = [];
+    private readonly Dictionary<SimRef, IReadOnlyList<CoarseAvatar>> _neighbourCoarse = new();
 
     /// <summary>The region's coarse-location list (everyone the region tells this agent about), replaced by each update and emptied when a new region connects.</summary>
     public IReadOnlyList<CoarseAvatar> CoarseLocations { get { lock (_lock) return _coarse; } }
+
+    /// <summary>The coarse lists of every connected region, the current one first, each place relative to the current region's corner.
+    /// As the official viewer's nearby list reads them (LLWorld::getAvatars goes through every region).</summary>
+    public IReadOnlyList<CoarseAvatar> CoarseAround
+    {
+        get
+        {
+            lock (_lock)
+            {
+                var all = new List<CoarseAvatar>(_coarse);
+                if (_currentSim is { } here)
+                    foreach (var sim in _neighbours.Keys.OrderBy(s => s.Handle))
+                        if (_neighbourCoarse.TryGetValue(sim, out var list))
+                        {
+                            var offset = RegionPlacement.Offset(here, sim);
+                            all.AddRange(list.Select(a => a with { Position = a.Position + offset }));
+                        }
+                return all;
+            }
+        }
+    }
 
     /// <summary>What is known of the session at the moment the grid ended it: the grid's words and the place the agent stood (the soles of its body box).</summary>
     private DropInfo DropOf(Disconnected d)
@@ -952,6 +974,8 @@ public sealed class ViewerSession : IDisposable
             case CoarseLocationsUpdated coarse:
                 if (IsCurrent(coarse.Sim))
                     lock (_lock) _coarse = coarse.Avatars;
+                else if (coarse.Sim is { } other)
+                    lock (_lock) { if (_neighbours.ContainsKey(other)) _neighbourCoarse[other] = coarse.Avatars; }
                 break;
             case TeleportProgressed tp:
                 // llviewermessage.cpp send_agent_update: no update goes while a teleport is under way (any state but none or arriving)
@@ -1283,6 +1307,7 @@ public sealed class ViewerSession : IDisposable
         {
             if (!_neighbours.Remove(sim, out gone))
                 return;
+            _neighbourCoarse.Remove(sim);
         }
         _silent.Heard(sim);
         if (ReferenceEquals(gone.World, _anchorWorld))
@@ -1371,6 +1396,7 @@ public sealed class ViewerSession : IDisposable
             _currentSim = c.Sim;
             _region = region;
             _coarse = [];
+            _neighbourCoarse.Clear();   // each region sends its list again
             _agentParcel = null;   // the new region names the parcel the agent lands on
             _agentParcelId = null;
             _parcelMusic = "";   // and says what plays there
@@ -1481,7 +1507,7 @@ public sealed class ViewerSession : IDisposable
                 _originSim = c.Sim;   // a landing anchors the frame on the new region; a repeat connect keeps it
             _currentSim = c.Sim;
         }
-        lock (_lock) { _coarse = []; _agentParcel = null; _parcelMusic = ""; }   // the new region starts its own list and says which parcel the agent is on
+        lock (_lock) { _coarse = []; _neighbourCoarse.Clear(); _agentParcel = null; _parcelMusic = ""; }   // the new region starts its own list and says which parcel the agent is on
         if (ReferenceEquals(_originSim, c.Sim))
             World.SetOriginOffset(System.Numerics.Vector3.Zero);
         World.BeginRegion(c.Sim, region);

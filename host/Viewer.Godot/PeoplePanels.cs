@@ -445,6 +445,8 @@ public partial class PeoplePanel : VBoxContainer
     {
         if (Tabs.CurrentTab == 0 && IsVisibleInTree())
             Nearby.Tick(delta);   // read once a second while it is on screen; nothing otherwise
+        else
+            Nearby.Hidden();
         if (!_dirty)
             return;
         _dirty = false;

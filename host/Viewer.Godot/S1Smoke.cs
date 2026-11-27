@@ -818,6 +818,10 @@ public partial class S1Smoke : Node
             foreach (var c in Descendants(frame).OfType<Control>().Where(c => c is Label or Button or CheckBox or ItemList or OptionButton or TabContainer))
                 if (string.IsNullOrWhiteSpace(c.AccessibilityName)) problems.Add($"people {c.Name}: no accessible name");
 
+            people.Tabs.CurrentTab = 1;   // the window opens on Nearby
+            for (int i = 0; i < 3; i++)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
             // the list and the online mark
             if (people.FriendList.ItemCount != 2) problems.Add($"friend list holds {people.FriendList.ItemCount} rows");
             else if (people.FriendList.GetItemText(0) == people.FriendList.GetItemText(1).Replace("Beta", "Alpha")) problems.Add("the online friend is not marked");

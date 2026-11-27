@@ -15,14 +15,16 @@ public partial class Main
 {
     /// <summary>A resident's name in nearby chat or in a message was clicked: the avatar menu opens at the pointer (View Profile, IM,
     /// Offer and Request Teleport, Add Friend, and the rest of the official name menu; what is not built is greyed with its reason).</summary>
-    private void OnNameClicked(Guid agent)
+    private void OnNameClicked(Guid agent) => OpenNameMenu(agent, GetViewport().GetMousePosition());
+
+    private void OpenNameMenu(Guid agent, Vector2 at)
     {
         if (_interactUi is null)
             return;
         var entries = NameMenuEntries(agent);
         if (entries.Count == 0)
             return;
-        _interactUi.Menu.Open(GetViewport().GetMousePosition(), entries, id => ChooseNameEntry(agent, id), GetViewport().GetVisibleRect().Size);
+        _interactUi.Menu.Open(at, entries, id => ChooseNameEntry(agent, id), GetViewport().GetVisibleRect().Size);
     }
 
     private IReadOnlyList<ContextEntry> NameMenuEntries(Guid agent)

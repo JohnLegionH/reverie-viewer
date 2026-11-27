@@ -28,8 +28,10 @@ public partial class Main
             .ToList();
         // the own place: seated, it is worked out from the seat like anyone's; standing, it is the agent's latest motion
         var seated = session.World.AvatarOf(session.AgentId) is { ParentLocalId: not 0 } me ? PlaceInRegion(session.World, me) : null;
+        if (seated is null && session.World.AvatarOf(session.AgentId) is { ParentLocalId: not 0 })
+            return null;   // seated on something not received yet: the own place is not known
         var own = (seated ?? motion.Motion.Position) - session.World.OriginOffset;
-        var list = NearbyAvatars.List(session.AgentId, own, exact, session.CoarseLocations)
+        var list = NearbyAvatars.List(session.AgentId, own, exact, session.CoarseAround)
             .Select(a => (Avatar: a, Name: session.Names.Get(a.Id) ?? NameCache.Placeholder(a.Id)))
             .ToList();
 #if NV_AUTOMATION

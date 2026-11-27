@@ -295,4 +295,4 @@ See the end of the [cheat sheet](../FEATURES.md#not-in-reverie-yet) for the full
 
 ## Who is nearby
 
-The **Nearby** tab of the People window lists the avatars within 130 metres, nearest first, with their distance, and keeps up as they move. Double-click a name to send a message, or pick it and choose **More...** for the rest of what you can do with that resident.
+Open **Communicate > Nearby people** (the same place as in the official viewer). The **Nearby** tab of the People window lists the avatars within 130 metres, in your region and the ones next to it, nearest first, with their distance, and keeps up as they move. Double-click a name to send a message, or pick it and choose **More...** for the rest of what you can do with that resident.

@@ -63,7 +63,7 @@ public partial class Main
                 }
                 var s = session!;
                 _people.Nearby.Source = () => NearbyNow(s);
-                _people.Nearby.MenuRequested = OnNameClicked;
+                _people.Nearby.MenuRequested = OpenNameMenu;
                 _preferences?.Bind(s.AgentId.ToString("N"), null);   // this account's saved look
                 var strings = _shell.Shell.Strings;
                 _comms = new CommsHub(s.AgentId, s.Names, s.Actions.Submit, UserSettings(null), () => DateTimeOffset.Now, s.RequestQueuedNames,
