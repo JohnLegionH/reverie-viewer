@@ -89,6 +89,7 @@ public static class CaptureFile
         or TeleportProgressed or TeleportOffered or TeleportRequested or ServerAlert or ParcelCollision or CoarseLocationsUpdated or FriendLocated
         or Viewer.Core.Inventory.InventorySkeletonReceived or Viewer.Core.Inventory.InventoryFolderFetched or Viewer.Core.Inventory.InventoryChanged or Viewer.Core.Inventory.OutfitCommandFinished or Viewer.Core.Inventory.LookRebuildFinished
         or SitResponded or ObjectPropertiesReceived or ParcelDetailsReceived or AgentParcelChanged or ParcelMusicReceived
+        or ParcelMediaUpdated or ParcelMediaCommanded or ObjectMediaReceived
         or TaskInventoryReceived or ContentsCopied or PayPriceReceived
         or ScriptDialogReceived or ScriptPermissionRequested or LoadUrlRequested or MapDestinationRequested or ObjectInstantMessage or InventoryOffered);
 
@@ -97,7 +98,7 @@ public static class CaptureFile
         LoginProgressed p => p with { Message = null },
         Disconnected => new Disconnected("scrubbed"),
         ObjectUpdated o => o with { SimParentAvatar = o.SimParentAvatar is null ? null : ScrubAvatar(o.SimParentAvatar, a),
-            Prim = o.Prim.Interaction is { HoverText: not null } hi ? o.Prim with { Interaction = hi with { HoverText = null } } : o.Prim },   // floating text is what people wrote: dropped
+            Prim = (o.Prim with { MediaVersion = "", MediaFaces = 0 }) is var plain && o.Prim.Interaction is { HoverText: not null } hi ? plain with { Interaction = hi with { HoverText = null } } : plain },   // floating text is what people wrote: dropped
         AvatarUpdated u => u with { Avatar = ScrubAvatar(u.Avatar, a) },
         AvatarAppearanceReceived r => r with { Appearance = r.Appearance with { AgentId = a.Id(r.Appearance.AgentId) } },
         AvatarAnimationsReceived an => an with { AgentId = a.Id(an.AgentId) },

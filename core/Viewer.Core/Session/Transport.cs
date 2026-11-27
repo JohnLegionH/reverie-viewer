@@ -427,13 +427,22 @@ public sealed record ObjectPropertiesReceived(Guid ObjectId, string Name, string
 /// <param name="SoundLocal">The parcel lets sounds be heard only inside it (its "sounds only within parcel" flag).</param>
 /// <param name="Bitmap">The parcel's cells (one bit per 4 m square of the region, row by row from the south-west corner), when the region sent them.</param>
 /// <param name="MusicUrl">The parcel's music address as the region sent it (empty when it has none).</param>
-public sealed record AgentParcelChanged(SimRef Sim, string Name, int LocalId, bool SoundLocal = false, byte[]? Bitmap = null, string MusicUrl = "") : TransportEvent;
+public sealed record AgentParcelChanged(SimRef Sim, string Name, int LocalId, bool SoundLocal = false, byte[]? Bitmap = null, string MusicUrl = "", Viewer.Core.Media.ParcelMediaInfo? Media = null) : TransportEvent;
 
 /// <summary>A parcel's music address, as any parcel-properties message of the region carries it, whatever its sequence number: About Land's
 /// update after a save arrives with the number of About Land's own request (or the last request for the parcel), which is not the number
 /// that announces the agent's parcel, and a grid whose server does not send the agent-parcel number for that update would otherwise leave the
 /// music as it was. The session applies it to the agent's parcel only.</summary>
-public sealed record ParcelMusicReceived(SimRef Sim, int LocalId, string Url) : TransportEvent;
+public sealed record ParcelMusicReceived(SimRef Sim, int LocalId, string Url, Viewer.Core.Media.ParcelMediaInfo? Media = null) : TransportEvent;
+
+/// <summary>A ParcelMediaUpdate message: the parcel media a script set for this agent or the parcel.</summary>
+public sealed record ParcelMediaUpdated(SimRef? Sim, Viewer.Core.Media.ParcelMediaInfo Media) : TransportEvent;
+
+/// <summary>A ParcelMediaCommandMessage: a script's play, pause, stop, loop, unload or time command.</summary>
+public sealed record ParcelMediaCommanded(SimRef? Sim, Viewer.Core.Media.ParcelMediaVerb Command, float Time, uint Flags) : TransportEvent;
+
+/// <summary>The region's ObjectMedia answer for one object: the faces that have media, for the media version the object stated.</summary>
+public sealed record ObjectMediaReceived(SimRef? Sim, Guid ObjectId, string Version, IReadOnlyList<Viewer.Core.Media.FaceMediaEntry> Faces) : TransportEvent;
 
 // ---------------- sounds in the world ----------------
 

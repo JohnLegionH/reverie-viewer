@@ -1776,7 +1776,7 @@
   "topbar.music.unmute": "Unmute parcel music",
   "topbar.music.volume": "Parcel music volume",
   "music.ask.title": "Parcel music",
-  "music.ask.text": "This parcel plays music from {0}. Play music from this site? Your answer is remembered for the site.",
+  "music.ask.text": "This parcel's music comes from {0}. If you play it, that site will see your internet address. Play music from this site? Your answer is remembered for the site.",
   "music.ask.play": "Play",
   "music.ask.dontplay": "Don't play",
   "prefs.sound.row.interface": "Interface sounds",

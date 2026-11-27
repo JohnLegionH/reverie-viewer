@@ -732,7 +732,7 @@ function Invoke-UiSceneCases {
     # every interface window and the in-world frame, each on its own, in the Classic look on each backend; the login screen and the in-world
     # frame also in High contrast. Goldens: fixtures\ui\golden-ui-<scene>-<look>-<backend>.png (-Propose writes a missing one; approved after
     # viewing). The negative control draws the in-world frame with the accent and the text colour replaced (--tr-alter=wrongtoken): the diff MUST fail.
-    $scenes = @("inworld", "inventory", "inventory-150", "inventory-200", "itemproperties", "itemproperties-150", "itemproperties-200", "outfits", "people", "people-nearby", "people-nearby-150", "people-nearby-200", "people-rows", "people-rows-150", "people-rows-200", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog", "permission", "inspect", "land", "personal", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview", "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "build", "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-placement", "build-placement-150", "build-placement-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting", "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue", "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo", "gestures-used", "addons", "addon-ao", "addon-rlv", "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog")
+    $scenes = @("inworld", "inventory", "inventory-150", "inventory-200", "itemproperties", "itemproperties-150", "itemproperties-200", "outfits", "people", "people-nearby", "people-nearby-150", "people-nearby-200", "people-rows", "people-rows-150", "people-rows-200", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog", "permission", "inspect", "land", "personal", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview", "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "build", "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-placement", "build-placement-150", "build-placement-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting", "notecard", "notecard-readonly", "gesture", "gestures", "newmenu", "scriptqueue", "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo", "gestures-used", "addons", "addon-ao", "addon-rlv", "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog", "music-ask", "music-ask-150", "music-ask-200")
     $plan = @()
     if ($UiSceneOnly) { $scenes = @($scenes | Where-Object { $_ -eq $UiSceneOnly }) }
     foreach ($sc in $scenes) { $plan += ,@($sc, "classic") }
@@ -862,25 +862,21 @@ function Invoke-HandleCases {
 function Invoke-ProportionsCases {
     # the window's own 3D view shows a sphere and a cube as a circle and a square (--tr-proportions=PCT:STEP,...): windowed sizes of other proportions than the
     # screen's, a resize, the maximized window and the full-screen one, at 100 % and at 150 % content scale (the display scale of a 2560x1440 screen at 144 dpi).
-    # The window is the usual one (not the quarter-of-the-screen test window), as the run sets its own size. The negative control stretches the scene sideways
-    # (--tr-alter=stretch) and the run MUST fail.
-    $prior = $env:NV_TEST_WINDOW_FULL
-    $env:NV_TEST_WINDOW_FULL = "1"
-    try {
-        foreach ($be in $Backends) {
-            foreach ($c in @(@(100, "1280x720,1920x1080,2560x1080,1000x900,720x1000,maximized,fullscreen"), @(150, "1280x720,2560x1080,maximized,fullscreen"))) {
-                $name = "proportions_$($c[0])_$be"
-                $r = Invoke-Render $be $name "--tr-proportions=$($c[0]):$($c[1])"
-                $p = $r.Json.proportions
-                $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $p -and -not @($p.problems).Count -and @($p.steps).Count -gt 0
-                $steps = if ($p) { (@($p.steps | ForEach-Object { "$($_.step): picture $($_.picture), sphere $($_.sphere_width_over_height), cube $($_.cube_width_over_height)" }) -join "; ") } else { "no result" }
-                Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $steps$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
-            }
-            $n = Invoke-Render $be "proportions_negative_$be" "--tr-proportions=100:1280x720 --tr-alter=stretch"
-            if ($n.Exit -ne 0 -and @($n.Json.proportions.problems).Count -gt 0) { Add-Case "proportions_negative_$be" "PASS" "the stretched picture was rejected: $(@($n.Json.proportions.problems)[0])" $n.Seconds }
-            else { Add-Case "proportions_negative_$be" "FAIL" "the stretched picture was not rejected (exit $($n.Exit))" $n.Seconds }
+    # The run sets its own window sizes in the usual off-screen test window: maximized and full screen are drawn at those sizes without either window mode, which
+    # would put the window on a monitor. The negative control stretches the scene sideways (--tr-alter=stretch) and the run MUST fail.
+    foreach ($be in $Backends) {
+        foreach ($c in @(@(100, "1280x720,1920x1080,2560x1080,1000x900,720x1000,maximized,fullscreen"), @(150, "1280x720,2560x1080,maximized,fullscreen"))) {
+            $name = "proportions_$($c[0])_$be"
+            $r = Invoke-Render $be $name "--tr-proportions=$($c[0]):$($c[1])"
+            $p = $r.Json.proportions
+            $ok = $r.Exit -eq 0 -and $r.Json.backend.driver -eq $be -and $p -and -not @($p.problems).Count -and @($p.steps).Count -gt 0
+            $steps = if ($p) { (@($p.steps | ForEach-Object { "$($_.step): picture $($_.picture), sphere $($_.sphere_width_over_height), cube $($_.cube_width_over_height)" }) -join "; ") } else { "no result" }
+            Add-Case $name ($(if ($ok) { "PASS" } else { "FAIL" })) "backend=$($r.Json.backend.driver) $steps$(if (-not $ok) { '; exit ' + $r.Exit + ' ' + (@($r.Json.failures) -join ' | ') })" $r.Seconds
         }
-    } finally { $env:NV_TEST_WINDOW_FULL = $prior }
+        $n = Invoke-Render $be "proportions_negative_$be" "--tr-proportions=100:1280x720 --tr-alter=stretch"
+        if ($n.Exit -ne 0 -and @($n.Json.proportions.problems).Count -gt 0) { Add-Case "proportions_negative_$be" "PASS" "the stretched picture was rejected: $(@($n.Json.proportions.problems)[0])" $n.Seconds }
+        else { Add-Case "proportions_negative_$be" "FAIL" "the stretched picture was not rejected (exit $($n.Exit))" $n.Seconds }
+    }
 }
 
 function Invoke-NeighbourCases {
