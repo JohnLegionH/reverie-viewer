@@ -70,7 +70,7 @@
 ^host/Viewer\.Godot/(ShellTheme|ColourPickerWindow|ShellRoot|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.UiExamples|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.PrefsSound|TestRender\.PrefsLayout|TestRender\.PrefsSmall|PreferencePages.Sound|UnsavedQuestion|TestRender.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
 ^host/Viewer\.Godot/Reverie/	ui
 ^host/Viewer\.Godot/[A-Za-z]*(Panels?|Pages|Tab|View|Overlay)\.cs$	ui
-^host/Viewer\.Godot/Main\.(Prefs|Chat|GridPresentation|Notifications|Names|NameMenu|InterfaceSize|Notecards|Addons|Sounds|WorldSounds|ViewChecks|Aim|FrameBurst|FrameTime|LookProbe|MovingProbe|MeshProbe|AvatarProbe|WornTrace|CrossingFrames|HandoffFrames|LoginDump|InventoryMoveCheck|InventoryPointerCheck|TexturePreview)\.cs$	ui,smoke
+^host/Viewer\.Godot/Main\.(Prefs|Chat|GridPresentation|Notifications|Names|NameMenu|InterfaceSize|Notecards|Addons|Sounds|WorldSounds|AudioGenerators|ViewChecks|Aim|FrameBurst|FrameTime|LookProbe|MovingProbe|MeshProbe|AvatarProbe|WornTrace|CrossingFrames|HandoffFrames|LoginDump|InventoryMoveCheck|InventoryPointerCheck|TexturePreview)\.cs$	ui,smoke
 ^host/Viewer\.Shell/(Ui|Strings|Chat|Notifications|Social|Sound|Addons)/	ui
 ^host/Viewer\.Shell/(StringTable|Ellipsis|ClockText|BrandText|AboutText|KeyBindings|WindowMemory|ColourChart|MouseLookMode|MouseLookSettings|ContentCacheSetting|CacheUse|FrameTimeLogSettings|CloseRequest)\.cs$	ui
 ^core/Viewer\.Addons\.Api/|^addons/	ui
