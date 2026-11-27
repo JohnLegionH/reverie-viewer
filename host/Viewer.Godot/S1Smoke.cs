@@ -81,6 +81,7 @@ public partial class S1Smoke : Node
                 await ShellCheck();
                 await KeysCheck();
                 await MenuChoiceCheck();
+                await MenuOverWindowCheck();
                 await CommandListCheck();
                 FontCheck();
                 await ChatCheck();
