@@ -21,6 +21,7 @@ public partial class Main
     private RadioPlayer? _radio;
     private ParcelMusicController? _parcelMusic;
     private AudioStreamPlayer? _musicPlayer;
+    private AudioStreamGenerator? _musicStream;   // kept in a field: its playback points at it (Main.AudioGenerators.cs)
     private AudioStreamGeneratorPlayback? _musicPlayback;
     private int _musicRate;
     private ConfirmationDialog? _musicAsk;
@@ -82,7 +83,10 @@ public partial class Main
                 _musicPlayer = new AudioStreamPlayer { Name = "parcel_music" };
                 AddChild(_musicPlayer);
             }
-            _musicPlayer.Stream = new AudioStreamGenerator { MixRate = rate, BufferLength = 0.4f };
+            // a new rate: the old generator is stopped and kept until the audio thread has mixed past the stop
+            ReleaseGenerator(_musicPlayer, ref _musicPlayback, ref _musicStream);
+            _musicStream = new AudioStreamGenerator { MixRate = rate, BufferLength = 0.4f };
+            _musicPlayer.Stream = _musicStream;
             _musicPlayer.Play();
             _musicPlayback = _musicPlayer.GetStreamPlayback() as AudioStreamGeneratorPlayback;
             _musicRate = rate;
