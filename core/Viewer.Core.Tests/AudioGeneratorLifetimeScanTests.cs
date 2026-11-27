@@ -75,6 +75,10 @@ public class AudioGeneratorLifetimeScanTests
         int playbackGone = release.IndexOf("Playback?.Dispose();", prune, StringComparison.Ordinal);
         int generatorGone = release.IndexOf("Generator.Dispose();", prune, StringComparison.Ordinal);
         Assert.True(done > prune && playbackGone > done && generatorGone > playbackGone, "disposed after the witness, playback before generator");
+        // a generator the quit could not see mixed past is given an engine reference that is never returned, so it is never freed
+        int timeout = release.IndexOf("if (waiting > 0)", quit, StringComparison.Ordinal);
+        Assert.True(timeout > quit && release.IndexOf("r.Generator.Reference();", timeout, StringComparison.Ordinal) > timeout
+            && release.IndexOf("r.Playback?.Reference();", timeout, StringComparison.Ordinal) > timeout, "the timeout keeps an engine reference");
         // _ExitTree releases them before the engine's shutdown, even when an earlier step threw
         string main = Host("Main.cs");
         int exit = main.IndexOf("public override void _ExitTree()", StringComparison.Ordinal);

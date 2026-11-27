@@ -47,6 +47,24 @@ public sealed class MixStepWitness
     /// <summary>The frames those callbacks delivered.</summary>
     public long Frames { get; private set; }
 
+    /// <summary>The longest a reading may take. get_time_since_last_mix waits on the driver lock, which a callback holds while it mixes,
+    /// so a slow reading may come after a later callback started and give a start that is too early. A start's error is at most
+    /// the reading's length; at most this, two readings of one callback stay within <see cref="SameCallbackUsec"/>.</summary>
+    public const double MaxReadingUsec = 100;
+
+    /// <summary>The last finished callback from one reading: the tick clock before it, the time since the last mix, the time to the
+    /// next, the time since the last mix read again, and the clock after it. Null when the reading took longer than
+    /// <see cref="MaxReadingUsec"/>, or when its two starts disagree (a callback ran between them).</summary>
+    public static (double StartUsec, int Frames)? Reading(double beforeUsec, double secondsSinceLastMix, double secondsToNextMix, double secondsSinceLastMixAgain, double afterUsec, double mixRate)
+    {
+        if (afterUsec - beforeUsec > MaxReadingUsec)
+            return null;
+        double start = beforeUsec - secondsSinceLastMix * 1e6, startAgain = afterUsec - secondsSinceLastMixAgain * 1e6;
+        if (Math.Abs(start - startAgain) > MaxReadingUsec)
+            return null;
+        return (start, FramesOf(secondsSinceLastMix, secondsToNextMix, mixRate));
+    }
+
     /// <summary>The last callback's length in frames: the time since it started plus the time to the next one is its length in
     /// seconds (AudioDriver::get_time_to_next_mix). Rounded down, never negative.</summary>
     public static int FramesOf(double secondsSinceLastMix, double secondsToNextMix, double mixRate) =>

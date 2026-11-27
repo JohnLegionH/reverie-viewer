@@ -67,6 +67,38 @@ public class MixStepWitnessTests
     }
 
     [Fact]
+    public void A_reading_that_took_longer_than_a_tenth_of_a_millisecond_is_refused()
+    {
+        // quick: the start is the clock before the read less the time since the last mix; frames from both times
+        var quick = MixStepWitness.Reading(10_000, 0.004, 0.006, 0.00402, 10_020, 48000);
+        Assert.NotNull(quick);
+        Assert.Equal(6_000, quick.Value.StartUsec, 1);
+        Assert.Equal(480, quick.Value.Frames);
+        // the read waited on the driver lock for 3 ms (a mix in progress): its start would be 3 ms early, so it is refused
+        Assert.Null(MixStepWitness.Reading(10_000, 0.001, 0.009, 0.001, 13_000, 48000));
+        // the two readings of the start disagree (a callback ran between them)
+        Assert.Null(MixStepWitness.Reading(10_000, 0.009, 0.001, 0.0001, 10_050, 48000));
+    }
+
+    [Fact]
+    public void A_callback_read_late_and_again_on_time_counts_once()
+    {
+        var w = new MixStepWitness(Stop);
+        // one 480-frame callback that started at Stop + 5 ms: a poll blocked on the lock during the next mix reads it 3 ms late
+        foreach (var r in new[]
+                 {
+                     MixStepWitness.Reading(Stop + 9_000, 0.001, 0.009, 0.001, Stop + 12_000, 48000),   // refused
+                     MixStepWitness.Reading(Stop + 9_000, 0.004, 0.006, 0.00401, Stop + 9_010, 48000),
+                     MixStepWitness.Reading(Stop + 12_000, 0.007, 0.003, 0.00701, Stop + 12_010, 48000),
+                 })
+            if (r is { } got)
+                w.Observe(got.StartUsec, got.Frames);
+        Assert.Equal(1, w.Callbacks);
+        Assert.Equal(480, w.Frames);
+        Assert.False(w.Done);
+    }
+
+    [Fact]
     public void Frames_of_the_last_callback_come_from_the_time_since_it_and_the_time_to_the_next()
     {
         Assert.Equal(480, MixStepWitness.FramesOf(0.004, 0.006, 48000));

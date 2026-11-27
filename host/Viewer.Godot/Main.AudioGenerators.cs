@@ -36,8 +36,8 @@ public partial class Main
 
     private readonly List<RetiredGenerator> _retiredGenerators = new();
 
-    /// <summary>Generators the quit could not see mixed past (no mixing output): kept referenced, never freed by the host.</summary>
-    private static readonly List<AudioStreamGenerator> KeptAtQuit = new();
+    /// <summary>What the quit's witnesses saw for each generator released: its player, callbacks and frames since the stop.</summary>
+    private readonly List<string> _releasedAtQuit = new();
 
     /// <summary>Stops the player and retires its generator: the fields let go at once, the generator itself stays referenced
     /// until <see cref="PruneRetiredGenerators"/> sees a whole mix step after the stop.</summary>
@@ -79,6 +79,7 @@ public partial class Main
             _retiredGenerators.RemoveAt(i);
             if (GodotObject.IsInstanceValid(r.Player) && r.Player.Stream == r.Generator)
                 r.Player.Stream = null;
+            _releasedAtQuit.Add($"{r.Player.Name}:{r.Witness.Callbacks}/{r.Witness.Frames}");
             r.Playback?.Dispose();
             r.Generator.Dispose();
         }
@@ -94,16 +95,15 @@ public partial class Main
         double toNext = AudioServer.GetTimeToNextMix();
         double sinceAgain = AudioServer.GetTimeSinceLastMix();
         double after = Time.GetTicksUsec();
-        double start = before - since * 1e6, startAgain = after - sinceAgain * 1e6;
-        if (Math.Abs(start - startAgain) > 200 + (after - before))
-            return null;
-        return (start, MixStepWitness.FramesOf(since, toNext, AudioServer.GetMixRate()));
+        return MixStepWitness.Reading(before, since, toNext, sinceAgain, after, AudioServer.GetMixRate());
     }
 
     /// <summary>At quit, before the engine's shutdown: every generator is stopped and kept until the audio thread has mixed past
-    /// the stop, then released. Logs quit.audio with what was released and how long the wait took.</summary>
+    /// the stop, then released. Logs quit.audio with what was released, how long the wait took, and for each generator released the
+    /// driver callbacks and frames its witness counted after the stop.</summary>
     private void ReleaseAudioGenerators()
     {
+        _releasedAtQuit.Clear();
         ReleaseGenerator(_windPlayer, ref _windPlayback, ref _windStream);
         ReleaseGenerator(_musicPlayer, ref _musicPlayback, ref _musicStream);
         int retired = _retiredGenerators.Count;
@@ -116,13 +116,20 @@ public partial class Main
         }
         if (waiting > 0)
         {
-            // no mix seen in the time allowed: the output is not mixing. The generators stay referenced, so the host never frees one
-            // the audio thread could still reach; the engine's own shutdown lets them go.
+            // no whole mix step seen in the time allowed (an output that is not mixing, for example a device being re-opened, can
+            // start mixing again before the engine stops its audio thread). The managed wrappers are disposed when the engine's
+            // scripting shuts down, before the audio thread stops (Main::cleanup: finish_languages before audio_server->finish), so
+            // each generator and playback gets one engine reference of its own that is never given back: they are never freed in
+            // this process, and the audio thread can never read a freed generator.
             foreach (var r in _retiredGenerators)
-                KeptAtQuit.Add(r.Generator);
+            {
+                r.Generator.Reference();
+                r.Playback?.Reference();
+            }
             Log.Warn("quit.audio-not-mixed", CoreLog.F("generators", waiting), CoreLog.F("ms", clock.ElapsedMilliseconds));
             _retiredGenerators.Clear();
         }
-        Log.Info("quit.audio", CoreLog.F("released", retired - waiting), CoreLog.F("kept", waiting), CoreLog.F("ms", clock.ElapsedMilliseconds));
+        Log.Info("quit.audio", CoreLog.F("released", retired - waiting), CoreLog.F("kept", waiting), CoreLog.F("ms", clock.ElapsedMilliseconds),
+            CoreLog.F("witnessed", _releasedAtQuit.Count == 0 ? "none" : string.Join(",", _releasedAtQuit)));
     }
 }
