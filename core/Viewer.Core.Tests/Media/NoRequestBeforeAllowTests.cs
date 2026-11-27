@@ -128,6 +128,30 @@ public sealed class NoRequestBeforeAllowTests
         public void Dispose() => Radio.Dispose();
     }
 
+    private sealed class AnswersAtOnce : IMusicAsker
+    {
+        public void Ask(string site, Uri url, Action<bool> answered) => answered(true);
+    }
+
+    private sealed class Recorder : IMusicPlayback
+    {
+        public List<string> Log { get; } = [];
+        public void Play(Uri url) => Log.Add("play");
+        public void Stop() => Log.Add("stop");
+    }
+
+    [Fact]
+    public void An_answer_given_at_once_leaves_the_allowed_music_on()
+    {
+        var settings = new Dictionary<string, string>();
+        var sites = new MediaSiteSettings(k => settings.GetValueOrDefault(k), (k, v) => settings[k] = v);
+        var played = new Recorder();
+        var controller = new ParcelMusicController(played, new Prefs(sites), new AnswersAtOnce());
+        controller.ParcelAddress("http://radio.example.org/stream");
+        Assert.True(controller.IsPlaying);
+        Assert.Equal(["play"], played.Log);
+    }
+
     [Fact]
     public async Task Nothing_connects_while_the_question_is_open_or_after_a_refusal()
     {

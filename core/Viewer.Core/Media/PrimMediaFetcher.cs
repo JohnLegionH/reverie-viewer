@@ -68,6 +68,12 @@ internal sealed class PrimMediaFetcher<TSim>(Func<TSim, Guid, CancellationToken,
         catch (OperationCanceledException) { }
     }
 
+    /// <summary>The object has no media any more: an answer still on its way is dropped. True when its media had been asked for.</summary>
+    public bool Forget(Guid objectId)
+    {
+        lock (_lock) return _wanted.Remove(objectId);
+    }
+
     public void CancelAll()
     {
         lock (_lock)

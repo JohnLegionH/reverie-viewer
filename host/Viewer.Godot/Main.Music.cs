@@ -3,6 +3,7 @@
 
 using System;
 using Godot;
+using Viewer.Core.Diagnostics;
 using Viewer.Core.Media;
 using Viewer.Core.Music;
 using Viewer.Core.Session;
@@ -157,6 +158,7 @@ public partial class Main
         }
         _musicAnswer = answered;
         ShowMusicAsk(_musicAsk, strings, site);
+        Log.Info("music.ask", CoreLog.F("site", site));
     }
 
     /// <summary>The width the question's words wrap to, in interface units.</summary>
@@ -187,6 +189,8 @@ public partial class Main
     {
         var answer = _musicAnswer;
         _musicAnswer = null;
+        if (answer is not null)
+            Log.Info("music.answer", CoreLog.F("play", play));
         answer?.Invoke(play);
     }
 }

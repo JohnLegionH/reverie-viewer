@@ -1877,6 +1877,8 @@ internal sealed partial class LmvTransport : Viewer.Core.Inventory.IInventoryReq
             Raise(sound);   // the object's own sound as its update states it
         if (data.MediaFaces != 0 && e.Simulator is { } mediaSim)
             _primMedia.Want(mediaSim, data.FullId, data.MediaVersion);
+        else if (data.MediaFaces == 0 && _primMedia.Forget(data.FullId))
+            Raise(new ObjectMediaReceived(MapOrNull(e.Simulator), data.FullId, data.MediaVersion, []));   // its media was taken off
         // the legacy materials its faces name, asked of the region (each id once per region)
         if (data.Materials is { } fm && e.Simulator is { } sim)
             _materials.Want(sim, fm.All.Where(f => f is { } x && x.MaterialId != Guid.Empty).Select(f => f!.Value.MaterialId));

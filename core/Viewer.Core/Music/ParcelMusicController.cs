@@ -144,11 +144,11 @@ public sealed class ParcelMusicController
             Stop();
             return;
         }
-        if (_consent.Want(MediaKind.Sound, _url, _furtherSites, Evaluate) != MediaDecision.Allowed)
-        {
+        // what plays stops before a question is put: an answer can come back before Want returns, and it must not be undone here
+        if (_furtherSites.Prepend(RadioUrl.Site(_url)).Any(site => _consent.AnswerFor(MediaKind.Sound, site) != SiteAnswer.Play))
             Stop();
+        if (_consent.Want(MediaKind.Sound, _url, _furtherSites, Evaluate) != MediaDecision.Allowed)
             return;
-        }
         if (!_playing || _playingUrl != _url)
         {
             _playing = true;

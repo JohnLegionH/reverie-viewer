@@ -160,6 +160,27 @@ public sealed class MediaMessageTests
         Assert.Equal(3, asked.Count);
     }
 
+    [Fact]
+    public async Task An_object_whose_media_was_removed_gets_no_late_answer_and_is_asked_about_again_later()
+    {
+        var answer = new TaskCompletionSource<IReadOnlyList<FaceMediaEntry>?>();
+        var got = new ConcurrentQueue<string>();
+        int asked = 0;
+        using var fetcher = new PrimMediaFetcher<object>((_, _, _) => Interlocked.Increment(ref asked) == 1 ? answer.Task : Task.FromResult<IReadOnlyList<FaceMediaEntry>?>([]),
+            (_, _, version, _) => got.Enqueue(version), (_, _) => Task.CompletedTask);
+        var one = Guid.NewGuid();
+        fetcher.Want(new object(), one, "v1");
+        await Until(() => asked == 1);
+        Assert.True(fetcher.Forget(one), "the object had media that was asked for");
+        Assert.False(fetcher.Forget(one));
+        Assert.False(fetcher.Forget(Guid.NewGuid()));
+        answer.SetResult([new FaceMediaEntry(0, "a", "b")]);
+        fetcher.Want(new object(), one, "v1");   // media put back: asked for anew
+        await Until(() => !got.IsEmpty);
+        Assert.Equal(["v1"], got);
+        Assert.Equal(2, asked);
+    }
+
     private static async Task Until(Func<bool> done)
     {
         var end = DateTime.UtcNow.AddSeconds(10);
