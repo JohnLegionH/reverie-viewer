@@ -68,7 +68,7 @@ public sealed class MediaConsentTests
     }
 
     [Theory]
-    [InlineData("file:///c:/x.mp4")]
+    [InlineData("file:///clip.mp4")]
     [InlineData("secondlife:///app/agent/x/about")]
     [InlineData("")]
     [InlineData(null)]
