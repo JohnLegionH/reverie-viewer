@@ -76,6 +76,8 @@ public partial class Main
         bool inWorld = session is not null && !session.IsEnded && session.AgentId != Guid.Empty;
         var wanted = inWorld ? session : null;
         UpdateParcelMusic(wanted);
+        UpdateMediaPacks(wanted);
+        PruneRetiredGenerators();   // a generator retired on a music rate change goes once the audio thread has mixed past its stop
         if (!ReferenceEquals(_worldSoundsFor, wanted) && !_soundsFed)
             FollowSession(wanted, player);
         if (_worldSounds is not { } sounds)
@@ -104,6 +106,7 @@ public partial class Main
     // the wind (llvieweraudio.cpp audio_update_wind): the region's wind at the agent, less the agent's velocity, in the agent's frame;
     // heard only while flying, faded over two seconds, no louder than master x ambient (WindSound, WindGenerator)
     private AudioStreamPlayer? _windPlayer;
+    private AudioStreamGenerator? _windStream;   // kept in a field: its playback points at it (Main.AudioGenerators.cs)
     private AudioStreamGeneratorPlayback? _windPlayback;
     private readonly WindGenerator _wind = new();
     private float _windMax;
@@ -182,7 +185,8 @@ public partial class Main
     {
         if (_windPlayer is null)
         {
-            _windPlayer = new AudioStreamPlayer { Name = "wind", Stream = new AudioStreamGenerator { MixRate = WindGenerator.SampleRate, BufferLength = 0.15f } };
+            _windStream = new AudioStreamGenerator { MixRate = WindGenerator.SampleRate, BufferLength = 0.15f };
+            _windPlayer = new AudioStreamPlayer { Name = "wind", Stream = _windStream };
             AddChild(_windPlayer);
             _windPlayer.Play();
             _windPlayback = _windPlayer.GetStreamPlayback() as AudioStreamGeneratorPlayback;

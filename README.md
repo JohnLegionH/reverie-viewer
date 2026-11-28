@@ -131,7 +131,7 @@ OpenGL mode. On older hardware the viewer refuses to start and says why; on Wind
 What you will notice is missing in this preview:
 
 - Inventory is not complete: no emptying the trash, no copy and paste, no item properties, no Worn tab and no filters.
-- No giving or paying people, no profiles and no list of people nearby.
+- No giving or paying people and no profiles.
 - No landmarks yet (making one, a places list, teleport history).
 - No saved chat logs and no particles. Snapshots save to disk only.
 - No rigged mesh, sound or animation upload.

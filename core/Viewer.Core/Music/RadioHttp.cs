@@ -38,6 +38,12 @@ internal sealed class RadioResponse : IDisposable
     }
 }
 
+/// <summary>The stream led to a site that may not be opened without an answer; nothing was sent to it.</summary>
+internal sealed class SiteNotAllowedException(string site) : Exception("the stream leads to another site: " + site)
+{
+    public string Site { get; } = site;
+}
+
 /// <summary>
 /// A minimal HTTP/1.0 client for radio streams. The system HTTP client refuses the answer old Shoutcast servers give to a bare address ("ICY 200 OK"
 /// in place of an HTTP status line), so the request is made here: GET with the Icy-MetaData header, the status line read as HTTP or ICY, redirects
@@ -50,7 +56,7 @@ internal static class RadioHttp
     private static readonly TimeSpan OpenTimeout = TimeSpan.FromSeconds(15);
     private const int ReadTimeoutMs = 15000;
 
-    public static async Task<RadioResponse> GetAsync(Uri uri, CancellationToken ct)
+    public static async Task<RadioResponse> GetAsync(Uri uri, Func<Uri, bool> may, CancellationToken ct)
     {
         for (int hop = 0; ; hop++)
         {
@@ -62,6 +68,8 @@ internal static class RadioHttp
                     throw new IOException("too many redirects");
                 if (!Uri.TryCreate(uri, location, out var next) || !RadioUrl.TryParse(next.ToString(), out uri))
                     throw new IOException("the redirect does not lead to an http or https address");
+                if (!may(uri))
+                    throw new SiteNotAllowedException(RadioUrl.Site(uri));
                 continue;
             }
             return response;

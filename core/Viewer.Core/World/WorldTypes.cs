@@ -37,7 +37,9 @@ public sealed record PrimData(
     PrimInteraction? Interaction = null,
     Guid AttachItemId = default,
     int Material = 0,
-    Viewer.Core.Building.FlexibleParams? Flexible = null);
+    Viewer.Core.Building.FlexibleParams? Flexible = null,
+    string MediaVersion = "",
+    ulong MediaFaces = 0);
 
 /// <summary>An avatar object as the protocol adapter reports it. <paramref name="ParentLocalId"/> is the object it sits on
 /// (0 when standing); while seated its position and rotation are relative to that object.</summary>

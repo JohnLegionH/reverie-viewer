@@ -43,6 +43,10 @@ public partial class ShellRoot : Control
     /// <summary>The region between the bars: the login screen and, later, the world's own overlays go here.</summary>
     public Control MainView { get; }
 
+    /// <summary>Over the windows and placed as the main view is: the right-click menu. A press is picked by tree order, not by what is
+    /// drawn on top, so a menu below the window layer could not be pressed where it lies over a window.</summary>
+    public Control MenuLayer { get; }
+
     public TopBar TopBar { get; }
 
     /// <summary>The top bar's menu bar.</summary>
@@ -122,6 +126,8 @@ public partial class ShellRoot : Control
         _floaterLayer = new Control { Name = "floaters", MouseFilter = MouseFilterEnum.Ignore };
         _floaterLayer.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_floaterLayer);
+        MenuLayer = new Control { Name = "menu_layer", MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(MenuLayer);
         foreach (var spec in shell.Floaters.Specs)
             AddFrame(spec);
         shell.Floaters.Changed += SyncFloaters;
@@ -737,6 +743,7 @@ public partial class ShellRoot : Control
         MainArea = new Rect2(regions.Main.X, regions.Main.Y, regions.Main.W, regions.Main.H);
         Place(TopBar, regions.MenuBar);
         Place(MainView, regions.Main);
+        Place(MenuLayer, regions.Main);
         Place(Chat, regions.ChatBar with { Y = regions.ChatBar.Y - grown, H = regions.ChatBar.H + grown });
         Chat.Visible = regions.ChatBar.H > 0;
         // the dock: centred, 14 above the bottom row (the chat bar in the world, the window's edge before), wrapping within the width

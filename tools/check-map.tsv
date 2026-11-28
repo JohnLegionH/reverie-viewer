@@ -17,7 +17,8 @@
 (^|/)LICENSE[A-Za-z0-9-]*\.txt$	none
 ^host/Viewer\.Godot/(WorldSoundPlayer|UiSoundPlayer|AddonSoundPlayer)\.cs$	smoke
 ^core/Viewer\.Core/Music/	smoke
-^host/Viewer\.Godot/Main\.Music\.cs$	ui,smoke
+^core/Viewer\.Core/Media/	smoke
+^host/Viewer\.Godot/Main\.(Music|MediaPacks)\.cs$	ui,smoke
 ^tools/[A-Za-z0-9-]+-live\.ps1$|^tools/live-smoke\.ps1$	none
 ^tools/(live-env|live-check|live-takeback|live-driver|other-clients|aim-lib|aim-check|automation|soak-live|login-proof|login-dialogs|prefs-auto-check|ui-checks|ui-sound-check|world-sound-check|window-check|window-record|contact-sheets|close-cycles|crash-trim|package|ship-export|rebuild-corej2k|nupkg-fixed-time|assert-[a-z-]+|boot-logo-check)\.ps1$	none
 ^tools/(select-checks\.ps1|CheckSelector\.cs|check-map\.tsv|check-areas\.tsv|test\.sh)$	none
@@ -69,7 +70,7 @@
 ^host/Viewer\.Godot/(ShellTheme|ColourPickerWindow|ShellRoot|ChromeBars|FloaterFrame|FloaterResizeHandle|Main\.Chrome|Main\.Windows|Main\.TopBarCheck|Main\.ScreenChecks|TestRender\.Ui|TestRender\.UiChrome|TestRender\.UiExamples|TestRender\.FloaterDrag|TestRender\.Reverie|TestRender\.PrefsSound|TestRender\.PrefsLayout|TestRender\.PrefsSmall|PreferencePages.Sound|UnsavedQuestion|TestRender.Dialog|DisplayScaleProbe|Crosshair|PlaceholderFit|UiSound[A-Za-z]*)\.cs$	ui
 ^host/Viewer\.Godot/Reverie/	ui
 ^host/Viewer\.Godot/[A-Za-z]*(Panels?|Pages|Tab|View|Overlay)\.cs$	ui
-^host/Viewer\.Godot/Main\.(Prefs|Chat|GridPresentation|Notifications|Names|NameMenu|InterfaceSize|Notecards|Addons|Sounds|WorldSounds|ViewChecks|Aim|FrameBurst|FrameTime|LookProbe|MovingProbe|MeshProbe|AvatarProbe|WornTrace|CrossingFrames|HandoffFrames|LoginDump|InventoryMoveCheck|InventoryPointerCheck|TexturePreview)\.cs$	ui,smoke
+^host/Viewer\.Godot/Main\.(Prefs|Chat|GridPresentation|Notifications|Names|NameMenu|InterfaceSize|Notecards|Addons|Sounds|WorldSounds|AudioGenerators|ViewChecks|Aim|FrameBurst|FrameTime|LookProbe|MovingProbe|MeshProbe|AvatarProbe|WornTrace|CrossingFrames|HandoffFrames|LoginDump|InventoryMoveCheck|InventoryPointerCheck|TexturePreview)\.cs$	ui,smoke
 ^host/Viewer\.Shell/(Ui|Strings|Chat|Notifications|Social|Sound|Addons)/	ui
 ^host/Viewer\.Shell/(StringTable|Ellipsis|ClockText|BrandText|AboutText|KeyBindings|WindowMemory|ColourChart|MouseLookMode|MouseLookSettings|ContentCacheSetting|CacheUse|FrameTimeLogSettings|CloseRequest)\.cs$	ui
 ^core/Viewer\.Addons\.Api/|^addons/	ui
@@ -81,6 +82,7 @@
 ^core/Viewer\.Core/(Session|Net|Protocol|Identity)/	login
 ^core/Viewer\.Core/(Inventory|Map|Links|Social|Actions|Interaction|Assets|Physics|Scheduling|Diagnostics)/	smoke
 ^host/Viewer\.Godot/(Main\.(Inventory|Travel|Hypergrid|Links|Interact|Gestures|NewItems)|TestRender\.Interact)\.cs$	smoke,ui
+^host/Viewer\.Godot/ItemPropertiesPanel\.cs$	smoke,ui
 ^host/Viewer\.Godot/Automation/	smoke
 ^host/Viewer\.Shell/(Inventory|Travel|Interact|Links|Overrider)/	smoke,ui
 ^host/Viewer\.Automation/	smoke
@@ -136,6 +138,7 @@
 ^host/Viewer\.Godot/(LinkStrip|Main\.Window|MouseLookSetting)\.cs$|^host/Viewer\.Shell/WindowMenu\.cs$	ui
 # Interface: the Snapshot window and taking its pictures.
 ^host/Viewer\.Godot/(HoverHeightWindow|Main\.HoverHeight)\.cs$	ui,avatars,smoke
+^host/Viewer\.Godot/(NearbyTab|Main\.Nearby)\.cs$	ui,smoke
 ^host/Viewer\.Godot/(SnapshotWindow|Main\.Snapshot)\.cs$|^host/Viewer\.Shell/Ui/Snapshots/	ui,smoke
 # The soak run (test only) cycles the object scenes.
 ^host/Viewer\.Shell/SoakTools\.cs$	objects

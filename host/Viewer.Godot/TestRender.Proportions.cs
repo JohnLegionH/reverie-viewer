@@ -58,8 +58,7 @@ public partial class TestRender
         var fails = new List<string>();
         foreach (var step in steps)
         {
-            if (step == "maximized") window.Mode = Window.ModeEnum.Maximized;
-            else if (step == "fullscreen") window.Mode = Window.ModeEnum.Fullscreen;
+            if (step is "maximized" or "fullscreen") StandInFor(window, step);
             else
             {
                 var wh = step.Split('x');
@@ -119,6 +118,29 @@ public partial class TestRender
             _failures.Add("proportions: " + f);
         stage.QueueFree();
         return _failures.Count == 0 ? 0 : 1;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int index);
+
+    private const int SmCaptionHeight = 4;   // SM_CYCAPTION
+
+    /// <summary>Gives the window the size it would have maximized or full screen, and leaves it a plain window where it is: either
+    /// mode would move a window that is off every monitor onto one. The monitor taken is the rightmost, the one nearest a test window.</summary>
+    private static void StandInFor(Window window, string step)
+    {
+        int screen = 0, right = int.MinValue;
+        for (int i = 0; i < DisplayServer.GetScreenCount(); i++)
+        {
+            int edge = DisplayServer.ScreenGetPosition(i).X + DisplayServer.ScreenGetSize(i).X;
+            if (edge > right) { right = edge; screen = i; }
+        }
+        var whole = DisplayServer.ScreenGetSize(screen);
+        var work = DisplayServer.ScreenGetUsableRect(screen).Size;
+        int caption = OperatingSystem.IsWindows() ? GetSystemMetrics(SmCaptionHeight) : 0;
+        var (w, h) = Viewer.Core.Diagnostics.ScreenStandIn.Size(step, (whole.X, whole.Y), (work.X, work.Y), caption);
+        window.Mode = Window.ModeEnum.Windowed;
+        window.Size = new Vector2I(w, h);
     }
 
     private WindowPicture? _windowPicture;

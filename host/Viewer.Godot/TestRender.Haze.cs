@@ -17,6 +17,8 @@ namespace Viewer.Godot;
 /// the CPU: the face's linear colour seen through the official haze (<see cref="SkyLighting.SeenThroughHaze"/>: the scene times the red channel's survival plus the haze's own light, made linear
 /// and scaled by the sky's scale), then the automatic exposure the scene settles at (the view is that one colour; <see cref="AutoExposure.Settled"/>) and the post pass's tone mapping, for a light, a dark
 /// and a middle face colour. "off" leaves the haze pass out and "noexposure" the automatic exposure: the negative controls, which must fail.
+/// "glow" runs the glow pass beside the view (as it runs while a glowing face is in view) and lets the exposure move at its own speed instead of jumping, for the light face
+/// looking towards the light: the view must settle at the same colour, because the glow pass's own picture must not take part in the view's tone mapping or its exposure.
 /// </summary>
 public partial class TestRender
 {
@@ -30,9 +32,19 @@ public partial class TestRender
         rig.Camera.Fov = 10f; rig.Camera.Near = 1f; rig.Camera.Far = 3000f;
         EnvironmentLayer.HazeOff = kind == "off";
         EnvironmentLayer.DynamicExposure = kind != "noexposure";   // "noexposure" leaves the automatic exposure out while the model keeps it: the negative control for it, which must fail
-        HdrTonemapEffect.ExposureInstant = true; HdrTonemapEffect.ReadExposure = true;   // the view is one flat colour, so the exposure it settles at is worked out from that colour alone
+        bool withGlow = kind == "glow";
+        // the view is one flat colour, so the exposure it settles at is worked out from that colour alone; with the glow pass it moves at its own speed, as in the live view,
+        // so that another picture writing the same exposure would pull it away from the view's own value
+        HdrTonemapEffect.ExposureInstant = !withGlow; HdrTonemapEffect.ReadExposure = true;
         var layer = new EnvironmentLayer(rig.Scenario, rig.Environment, rig.Sun) { HdrEnabled = true };
         layer.Apply(RegionEnvironment.Default, frame, null, 256, 256);
+        GlowPass? glowPass = null;
+        if (withGlow)
+        {
+            glowPass = new GlowPass(null, rig.World, rig.Environment);
+            rig.Root.AddChild(glowPass);
+            glowPass.WarmUp();   // drawn every frame whatever the scene holds, as while a glowing face is in view
+        }
         await Frames(3);
         var texture = ImageTexture.CreateFromImage(Image.CreateFromData(1, 1, false, Image.Format.Rgba8, [170, 110, 85, 255]));
         var material = new ShaderMaterial { Shader = FaceShader.Create(true, false) };
@@ -48,8 +60,9 @@ public partial class TestRender
         var towards = new System.Numerics.Vector3(sun.X, sun.Y, 0f);
         towards = System.Numerics.Vector3.Normalize(towards.LengthSquared() < 1e-6f ? System.Numerics.Vector3.UnitX : towards);
         var across = new System.Numerics.Vector3(-towards.Y, towards.X, 0f);
+        if (withGlow) faces = [faces[0]];
         foreach (var face in faces)
-        foreach (var (name, dir) in new[] { ("towards the light", towards), ("across the light", across) })
+        foreach (var (name, dir) in withGlow ? new[] { ("towards the light", towards) } : new[] { ("towards the light", towards), ("across the light", across) })
         {
             var albedo = new System.Numerics.Vector3(Decode8(face.R), Decode8(face.G), Decode8(face.B));
             texture.Dispose();
@@ -61,6 +74,12 @@ public partial class TestRender
                 rig.Camera.Transform = new Transform3D(Basis.LookingAt(look, Vector3.Up), Vector3.Zero);
                 quad.Transform = new Transform3D(rig.Camera.Transform.Basis, look * distance);
                 await Frames(4);
+                if (withGlow)
+                {
+                    // the official speed closes 90 per cent of the gap in 2 s; 8 s leaves the view's own value well inside the tolerance
+                    var settle = System.Diagnostics.Stopwatch.StartNew();
+                    while (settle.Elapsed.TotalSeconds < 8) await Frames(1);
+                }
                 var img = rig.Texture.GetImage();
                 var px = img.GetPixel(32, 32);
                 int[] got = [(int)MathF.Round(px.R * 255f), (int)MathF.Round(px.G * 255f), (int)MathF.Round(px.B * 255f)];
@@ -76,7 +95,8 @@ public partial class TestRender
                 if (face.Name == "light" && name == "towards the light" && distance == 2500f) img.SavePng(Path.Combine(_out, $"{_tag}.png"));
             }
         }
-        _result["haze"] = new { kind, tolerance = HazeTolerance, tonemap_ran = HdrTonemapEffect.Ran, hdr_active = layer.HdrActive, rows };
+        _result["haze"] = new { kind, tolerance = HazeTolerance, tonemap_ran = HdrTonemapEffect.Ran, hdr_active = layer.HdrActive, glow_active = glowPass?.Active ?? false, rows };
+        if (glowPass is not null) { rig.Root.RemoveChild(glowPass); glowPass.QueueFree(); }
         EnvironmentLayer.HazeOff = false;
         HdrTonemapEffect.ExposureInstant = false; HdrTonemapEffect.ReadExposure = false; EnvironmentLayer.DynamicExposure = true;
         rig.Root.RemoveChild(quad); quad.Free(); material.Dispose(); texture.Dispose();

@@ -84,6 +84,9 @@ public partial class PeoplePanel : VBoxContainer
 
     public TabContainer Tabs { get; }
 
+    /// <summary>The Nearby tab.</summary>
+    public NearbyTab Nearby { get; }
+
     // friends
     public VBoxContainer OffersBox { get; }
     public Label OffersTitle { get; }
@@ -147,6 +150,12 @@ public partial class PeoplePanel : VBoxContainer
         Tabs.AccessibilityName = strings.Get("people.tabs");
         AddChild(Tabs);
 
+        // ---- nearby (the first tab, as in the official viewer) ----
+        Nearby = new NearbyTab(strings);
+        Nearby.MessageRequested += agent => MessageRequested?.Invoke(agent);
+        Tabs.AddChild(Nearby);
+        Tabs.SetTabTitle(0, strings.Get("people.tab.nearby"));
+
         // ---- friends ----
         var friends = new VBoxContainer { Name = "friends_tab" };
         OffersTitle = Note("offers_title", strings.Get("friends.offers.title"));
@@ -194,7 +203,7 @@ public partial class PeoplePanel : VBoxContainer
         FriendsStatus.ThemeTypeVariation = UiTheme.ErrorLabel;
         friends.AddChild(FriendsStatus);
         Tabs.AddChild(friends);
-        Tabs.SetTabTitle(0, strings.Get("people.tab.friends"));
+        Tabs.SetTabTitle(1, strings.Get("people.tab.friends"));
 
         // ---- groups ----
         var groups = new VBoxContainer { Name = "groups_tab" };
@@ -231,7 +240,7 @@ public partial class PeoplePanel : VBoxContainer
         GroupsStatus.ThemeTypeVariation = UiTheme.ErrorLabel;
         groups.AddChild(GroupsStatus);
         Tabs.AddChild(groups);
-        Tabs.SetTabTitle(1, strings.Get("people.tab.groups"));
+        Tabs.SetTabTitle(2, strings.Get("people.tab.groups"));
 
         // ---- notices ----
         var notices = new VBoxContainer { Name = "notices_tab" };
@@ -267,10 +276,10 @@ public partial class PeoplePanel : VBoxContainer
         NoticesStatus.ThemeTypeVariation = UiTheme.ErrorLabel;
         notices.AddChild(NoticesStatus);
         Tabs.AddChild(notices);
-        Tabs.SetTabTitle(2, strings.Get("people.tab.notices"));
+        Tabs.SetTabTitle(3, strings.Get("people.tab.notices"));
         Blocked = new BlockedTab(strings);
         Tabs.AddChild(Blocked);
-        Tabs.SetTabTitle(3, strings.Get("people.tab.blocked"));
+        Tabs.SetTabTitle(4, strings.Get("people.tab.blocked"));
         Bind(null);
     }
 
@@ -434,6 +443,10 @@ public partial class PeoplePanel : VBoxContainer
 
     public override void _Process(double delta)
     {
+        if (Tabs.CurrentTab == 0 && IsVisibleInTree())
+            Nearby.Tick(delta);   // read once a second while it is on screen; nothing otherwise
+        else
+            Nearby.Hidden();
         if (!_dirty)
             return;
         _dirty = false;
@@ -558,7 +571,7 @@ public partial class PeoplePanel : VBoxContainer
         }
         NoticesStatus.Text = hub?.Groups.Status is { } ns && notice is not null ? ChatText.Status(ns, _strings) : "";
         int unread = hub?.Groups.UnreadNotices ?? 0;
-        Tabs.SetTabTitle(2, unread > 0 ? _strings.Get("people.tab.notices.unread", unread) : _strings.Get("people.tab.notices"));
+        Tabs.SetTabTitle(3, unread > 0 ? _strings.Get("people.tab.notices.unread", unread) : _strings.Get("people.tab.notices"));
     }
 
     private string GroupName(Guid group) => _groupRows.Find(g => g.Id == group)?.Name ?? Viewer.Core.Social.NameCache.Placeholder(group);

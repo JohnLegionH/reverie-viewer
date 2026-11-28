@@ -43,13 +43,33 @@ public partial class TestRender
             panel.TreeView.HoldCue(new Viewer.Shell.Inventory.DropCue(note, G(13)));
     }
 
+    /// <summary>The Item Properties scene: a made-up item the agent may copy and give away but not modify, so the picture shows
+    /// greyed and open fields side by side.</summary>
+    private static void ExampleItemProperties(ShellRoot shell)
+    {
+        Guid G(int n) => new($"00000000-0000-4000-8000-{n:D12}");
+        Guid owner = G(1), root = G(2), libraryOwner = G(3), libraryRoot = G(4), creator = G(5), chair = G(30);
+        var model = new Viewer.Core.Inventory.InventoryModel((_, _) => { });
+        model.Apply(new Viewer.Core.Inventory.InventorySkeletonReceived(owner, root, libraryOwner, libraryRoot,
+            new[] { new Viewer.Core.Inventory.InventoryFolderData(root, Guid.Empty, "My Inventory", Viewer.Core.Inventory.FolderKind.Root, 1, -1) },
+            new[] { new Viewer.Core.Inventory.InventoryFolderData(libraryRoot, Guid.Empty, "Library", Viewer.Core.Inventory.FolderKind.Root, 1, 0) }));
+        const uint copy = Viewer.Core.Inventory.ItemPermissions.Copy, transfer = Viewer.Core.Inventory.ItemPermissions.Transfer;
+        var rights = new Viewer.Core.Inventory.ItemPermissions(copy | transfer, copy | transfer, 0, 0, copy | transfer, creator, owner, Guid.Empty, false, 0, 0);
+        model.Apply(new Viewer.Core.Inventory.InventoryFolderFetched(root, true, 2, 1, Array.Empty<Viewer.Core.Inventory.InventoryFolderData>(),
+            new[] { new Viewer.Core.Inventory.InventoryItemData(chair, root, "Oak chair", Viewer.Core.Inventory.ItemKind.Object, 6, 6, 0,
+                new DateTimeOffset(2026, 3, 14, 12, 0, 0, TimeSpan.Zero), null, "A chair for the porch", null, rights) }));
+        var panel = ItemPropertiesFeature.Install(shell);
+        panel.Bind(model, new Viewer.Shell.Inventory.InventoryActions(model, _ => new ActionResult(ActionStatus.Sent)), id => id == creator ? "Example Maker" : "Test User");
+        panel.ShowItem(chair);
+    }
+
     /// <summary>The picture size of the interface scenes.</summary>
     private const int UiWidth = 960, UiHeight = 600;
 
     /// <summary>The scene names --tr-ui accepts: the in-world frame and each window on its own.</summary>
     public static readonly string[] UiScenes =
     [
-        "inworld", "inventory", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
+        "inworld", "inventory", "inventory-150", "inventory-200", "itemproperties", "itemproperties-150", "itemproperties-200", "outfits", "people", "people-150", "people-200", "people-nearby", "people-nearby-150", "people-nearby-200", "people-rows", "people-rows-150", "people-rows-200", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-placement", "build-placement-150", "build-placement-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
@@ -57,7 +77,30 @@ public partial class TestRender
         "texturepicker", "build-contents", "takefolder", "gridoptions", "objectcontents", "buy", "objectinfo",
         "gestures-used", "addons", "addon-ao", "addon-rlv",
         "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog",
+        "music-ask", "music-ask-150", "music-ask-200",
+        "pack-ask", "pack-ask-150", "pack-ask-200", "pack-failed", "pack-failed-150", "pack-failed-200",
     ];
+
+    /// <summary>A question box is as tall as what it holds: every line of its words shown, its buttons inside it, and no more than two lines'
+    /// worth of empty space between the words and the buttons.</summary>
+    private void CheckQuestionFits(AcceptDialog dialog, string name)
+    {
+        var label = dialog.GetLabel();
+        var button = dialog.GetOkButton();
+        int lines = label.GetLineCount();
+        float line = label.GetLineHeight(), spacing = label.GetThemeConstant("line_spacing");
+        float wordsEnd = label.GetGlobalRect().Position.Y + lines * line + Math.Max(0, lines - 1) * spacing;
+        float buttonTop = button.GetGlobalRect().Position.Y, gap = buttonTop - wordsEnd;
+        _result["question"] = new { lines, line, gap, width = dialog.Size.X, height = dialog.Size.Y };
+        if (gap > 2 * line)
+            _failures.Add($"{name}: {gap:F0} px of empty space between the question's words and its buttons (a line is {line:F0} px, {lines} lines of words)");
+        if (gap < 0)
+            _failures.Add($"{name}: the question's words run under its buttons by {-gap:F0} px");
+        if (label.GetVisibleLineCount() < lines)
+            _failures.Add($"{name}: {lines - label.GetVisibleLineCount()} of the question's {lines} lines are not shown");
+        if (button.GetGlobalRect().End.Y > dialog.Size.Y + 0.5f)
+            _failures.Add($"{name}: the buttons reach past the bottom of the box");
+    }
 
     /// <summary>The example script the script editor's pictures show (this viewer's own text).</summary>
     private const string ExampleScriptText =
@@ -350,6 +393,12 @@ public partial class TestRender
             scene = scene[..^4];   // a Build case at 150 or 200 %: the same window, drawn larger
         else if (pct != 100 && scene.StartsWith("snapshot", StringComparison.Ordinal))
             scene = "snapshot";
+        else if (pct != 100 && (scene.StartsWith("music-ask", StringComparison.Ordinal) || scene.StartsWith("pack-", StringComparison.Ordinal)))
+            scene = scene[..^4];
+        else if (pct != 100 && (scene.StartsWith("inventory", StringComparison.Ordinal) || scene.StartsWith("itemproperties", StringComparison.Ordinal)))
+            scene = scene[..^4];
+        else if (pct != 100 && scene.StartsWith("people-", StringComparison.Ordinal))
+            scene = scene[..^4];
         else if (pct != 100)
             scene = "preferences-sound";
         // --tr-ui-small-window: not a larger picture but the same one, the window staying the smallest supported size on screen, so at
@@ -391,6 +440,7 @@ public partial class TestRender
         EditPanel? contentsPanel = null;
         FacePickerWindows? texturePickers = null;
         FolderPickPanel? takeFolder = null;
+        AcceptDialog? askShown = null;
         switch (scene)
         {
             case "login":
@@ -438,6 +488,27 @@ public partial class TestRender
             case "snapshot":
                 ExampleSnapshot(shell);
                 break;
+            case "music-ask":   // the parcel music question, built and shown as the viewer does it
+                rig.Viewport.GuiEmbedSubwindows = true;
+                var musicAsk = Main.BuildMusicAsk(strings);
+                shell.AddChild(musicAsk);
+                Main.ShowMusicAsk(musicAsk, strings, "radio.example.org");
+                askShown = musicAsk;
+                break;
+            case "pack-ask":   // the question before a pack's download, built and shown as the viewer does it
+                rig.Viewport.GuiEmbedSubwindows = true;
+                var packAsk = Main.BuildPackAsk(strings);
+                shell.AddChild(packAsk);
+                Main.ShowPackQuestion(packAsk, strings, "video", 52_000_000, "downloads.example.org");
+                askShown = packAsk;
+                break;
+            case "pack-failed":   // the word after a download that did not end well (the longer of its two texts)
+                rig.Viewport.GuiEmbedSubwindows = true;
+                var packDone = Main.BuildPackDone(strings);
+                shell.AddChild(packDone);
+                Main.ShowPackDone(packDone, strings, "web", installed: false);
+                askShown = packDone;
+                break;
             case "gestures-used":
                 ExampleGestureListUsed(shell);
                 break;
@@ -450,7 +521,19 @@ public partial class TestRender
                 break;
             default:
                 var chat = ChatFeature.Install(shell, settings);
-                PeopleFeature.Install(shell, settings, chat.Conversations);
+                var peoplePanel = PeopleFeature.Install(shell, settings, chat.Conversations);
+                if (scene == "people")
+                    peoplePanel.Tabs.CurrentTab = 1;   // this picture checks the friends list; the window opens on Nearby
+                if (scene == "people-rows")
+                {
+                    peoplePanel.Nearby.Source = () =>
+                    [
+                        (new Viewer.Core.Social.NearbyAvatar(Guid.Parse("00000000-0000-0000-0000-00000000000a"), 4.2f, false), "Test User"),
+                        (new Viewer.Core.Social.NearbyAvatar(Guid.Parse("00000000-0000-0000-0000-00000000000b"), 37.5f, false), "Example Resident With A Long Name"),
+                        (new Viewer.Core.Social.NearbyAvatar(Guid.Parse("00000000-0000-0000-0000-00000000000c"), 112.0f, true), "Another Example"),
+                    ];
+                    peoplePanel.Nearby.Refresh();
+                }
                 var inventoryPanel = InventoryFeature.Install(shell);
                 if (scene is "inventory" or "newmenu")
                     ExampleInventoryDrag(inventoryPanel, dragCue: scene == "inventory");
@@ -460,6 +543,8 @@ public partial class TestRender
                     rig.Viewport.GuiEmbedSubwindows = true;   // the menus are drawn inside the picture
                 }
                 OutfitFeature.Install(shell);
+                if (scene == "itemproperties")
+                    ExampleItemProperties(shell);
                 var appearancePanel = AppearanceFeature.Install(shell, redrawGapMs: 0);
                 if (scene.StartsWith("appearance", StringComparison.Ordinal))
                     await ExampleAppearance(appearancePanel, scene);
@@ -498,8 +583,9 @@ public partial class TestRender
                 {
                     "inworld" => "",
                     "inventory" or "newmenu" => InventoryFeature.FloaterId,
+                    "itemproperties" => ItemPropertiesFeature.FloaterId,
                     "outfits" => OutfitFeature.FloaterId,
-                    "people" => PeopleFeature.PeopleId,
+                    "people" or "people-nearby" or "people-rows" => PeopleFeature.PeopleId,
                     "conversations" => ChatFeature.ConversationsId,
                     "map" => TravelFeature.MapId,
                     "minimap" => TravelFeature.MiniMapId,
@@ -696,6 +782,10 @@ public partial class TestRender
             if (runs.Count == 0)
                 _failures.Add("the notecard shows no embedded item link");
         }
+        if (askShown is not null)
+            CheckQuestionFits(askShown, $"{scene}@{pct}");
+        if (scene == "pack-ask" && askShown is ConfirmationDialog download && !download.GetCancelButton().HasFocus())
+            _failures.Add($"{scene}@{pct}: Enter must not start a download: the refusing button does not have the focus");
         var img = rig.Texture.GetImage();
         img.Convert(Image.Format.Rgba8);
         if (scene == "preferences-sound" && !wrongToken)

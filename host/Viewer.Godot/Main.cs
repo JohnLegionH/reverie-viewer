@@ -422,6 +422,7 @@ public partial class Main : Node
             GetTree().Quit(0);
             return;
         }
+        _itemProperties?.Commit();   // text typed in Item Properties is saved while the session lives
         LetGoOfSelections();   // the region is told before the logout goes
         _close.Request();
         _shell?.Shell.Floaters.SavePlaces();   // the windows still open keep their places for the next run
@@ -1681,6 +1682,10 @@ public partial class Main : Node
         finally
         {
             // whatever happens above, the rest of the shutdown runs
+            // The engine frees the scene while its audio thread still mixes: each generator is stopped and kept until the audio
+            // thread has mixed past the stop (Main.AudioGenerators.cs).
+            _quitWatchdog.Enter("audio");
+            try { ReleaseAudioGenerators(); } catch (Exception e) { Log.Warn("quit.audio-failed", CoreLog.F("detail", e.Message)); }
             _quitWatchdog.Enter("variant-disposal");
             VariantDisposal.DrainAll("shutdown");   // nothing held is left to a finalizer
             // The engine corrupts its heap when it quits with resources we made still live: free any a failed teardown left.

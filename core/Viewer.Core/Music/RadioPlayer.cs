@@ -6,7 +6,7 @@ using System.Text;
 namespace Viewer.Core.Music;
 
 /// <summary>Where a <see cref="RadioPlayer"/> is.</summary>
-public enum RadioState { Idle, Connecting, Playing, Failed }
+public enum RadioState { Idle, Connecting, Playing, Failed, NeedsAnswer }
 
 /// <summary>
 /// Plays one internet radio stream at a time into a <see cref="PcmQueue"/>. <see cref="Play"/> takes an http or https address: a station's own
@@ -48,8 +48,14 @@ public sealed class RadioPlayer : IDisposable
     /// <summary>Why the player is in the failed state.</summary>
     public string? Error { get { lock (_gate) return _error; } }
 
-    /// <summary>Starts the stream at <paramref name="url"/>, ending the one that plays.</summary>
-    public void Play(Uri url)
+    /// <summary>A site the stream led to that it may not open without an answer; null otherwise.</summary>
+    public string? SiteNeeded { get { lock (_gate) return _siteNeeded; } }
+
+    private string? _siteNeeded;
+
+    /// <summary>Starts the stream at <paramref name="url"/>, ending the one that plays. A redirect or a playlist entry that leads to another
+    /// site is opened only when <paramref name="mayOpen"/> (called on the player's thread) says that site may be; without it, never.</summary>
+    public void Play(Uri url, Func<string, bool>? mayOpen = null)
     {
         if (!RadioUrl.TryParse(url.ToString(), out url))
             throw new ArgumentException("only http and https addresses are played", nameof(url));
@@ -65,9 +71,10 @@ public sealed class RadioPlayer : IDisposable
             _resolved = null;
             _format = AudioFormat.Unknown;
             _error = null;
+            _siteNeeded = null;
         }
         Output.Clear();
-        _ = Task.Factory.StartNew(() => Run(url, cts.Token, generation), cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        _ = Task.Factory.StartNew(() => Run(url, mayOpen, cts.Token, generation), cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
     }
 
     /// <summary>Ends the stream and closes its connection.</summary>
@@ -82,6 +89,7 @@ public sealed class RadioPlayer : IDisposable
             _current = _resolved = null;
             _format = AudioFormat.Unknown;
             _error = null;
+            _siteNeeded = null;
         }
         Output.Clear();
     }
@@ -95,7 +103,7 @@ public sealed class RadioPlayer : IDisposable
                 change();
     }
 
-    private async Task Run(Uri start, CancellationToken ct, int generation)
+    private async Task Run(Uri start, Func<string, bool>? mayOpen, CancellationToken ct, int generation)
     {
         int failures = 0;
         string why = "";
@@ -104,10 +112,15 @@ public sealed class RadioPlayer : IDisposable
             long before = Output.TotalFrames;
             try
             {
-                await ReadStream(start, ct, generation);
+                await ReadStream(start, mayOpen, ct, generation);
                 why = "the stream ended";
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch (SiteNotAllowedException e)
+            {
+                Set(generation, () => { _state = RadioState.NeedsAnswer; _siteNeeded = e.Site; });
+                return;
+            }
             catch (Exception e) when (e is not OutOfMemoryException)
             {
                 if (ct.IsCancellationRequested)
@@ -136,13 +149,17 @@ public sealed class RadioPlayer : IDisposable
     /// <summary>The server answered, but not with a stream this player can read: no point in trying again.</summary>
     private sealed class StreamRefused(string message) : Exception(message);
 
-    private async Task ReadStream(Uri start, CancellationToken ct, int generation)
+    private async Task ReadStream(Uri start, Func<string, bool>? mayOpen, CancellationToken ct, int generation)
     {
+        string own = RadioUrl.Site(start);
+        bool May(Uri next) => RadioUrl.Site(next) is var site && (site == own || mayOpen?.Invoke(site) == true);
         var target = start;
         bool triedSemicolon = false;
         for (int depth = 0; ; )
         {
-            using var response = await RadioHttp.GetAsync(target, ct);
+            if (!May(target))
+                throw new SiteNotAllowedException(RadioUrl.Site(target));   // before anything is looked up or connected to
+            using var response = await RadioHttp.GetAsync(target, May, ct);
             using var closer = ct.Register(response.Dispose);   // a stop closes the connection, which ends a read that is waiting
             if (response.Status >= 500)
                 throw new IOException($"the server answered {response.Status}");   // busy or down: worth trying again

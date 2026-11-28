@@ -167,6 +167,54 @@ public sealed class ViewerSession : IDisposable
     /// It changes when the agent moves to a parcel, and when the region reports a new address for that parcel whatever the update's sequence number was.</summary>
     public string ParcelMusicUrl { get { lock (_lock) return _parcelMusic; } }
 
+    /// <summary>The media of the agent's parcel, as the region described it. Nothing is loaded from its address.</summary>
+    public Viewer.Core.Media.ParcelMediaInfo ParcelMedia { get { lock (_lock) return _media; } }
+
+    private Viewer.Core.Media.ParcelMediaInfo _media = Viewer.Core.Media.ParcelMediaInfo.None;
+    private ParcelMediaCommanded? _mediaCommand;
+    private const int MaxObjectsWithMedia = 4096;
+    private readonly Dictionary<Guid, (SimRef Sim, IReadOnlyList<Viewer.Core.Media.FaceMediaEntry> Faces)> _objectMedia = [];
+
+    private void KeepParcelMedia(Viewer.Core.Media.ParcelMediaInfo media, string evt)
+    {
+        lock (_lock)
+        {
+            if (_media == media) return;
+            _media = media;
+        }
+        _log.Info(evt, CoreLog.F("url", media.Url), CoreLog.F("type", media.Type), CoreLog.F("texture", media.TextureId), CoreLog.F("auto-scale", media.AutoScale),
+            CoreLog.F("loop", media.Loop), CoreLog.F("width", media.Width), CoreLog.F("height", media.Height));
+    }
+
+    /// <summary>Under the lock: a new region says anew what its parcel's media is.</summary>
+    private void ForgetParcelMedia()
+    {
+        _media = Viewer.Core.Media.ParcelMediaInfo.None;
+        _mediaCommand = null;
+    }
+
+    private void KeepObjectMedia(ObjectMediaReceived media)
+    {
+        if (media.Sim is not { } sim) return;
+        lock (_lock)
+        {
+            if (media.Faces.Count == 0) _objectMedia.Remove(media.ObjectId);
+            else if (_objectMedia.Count < MaxObjectsWithMedia || _objectMedia.ContainsKey(media.ObjectId)) _objectMedia[media.ObjectId] = (sim, media.Faces);
+        }
+        foreach (var face in media.Faces)
+            _log.Info("media.face", CoreLog.F("object", media.ObjectId), CoreLog.F("face", face.Face), CoreLog.F("current", face.CurrentUrl), CoreLog.F("home", face.HomeUrl),
+                CoreLog.F("auto-play", face.AutoPlay), CoreLog.F("whitelist", face.WhitelistEnabled));
+    }
+
+    /// <summary>The last parcel media command a script sent in this region; null when none came.</summary>
+    public ParcelMediaCommanded? LastParcelMediaCommand { get { lock (_lock) return _mediaCommand; } }
+
+    /// <summary>The media on an object's faces as the region answered for it; empty when it has none.</summary>
+    public IReadOnlyList<Viewer.Core.Media.FaceMediaEntry> ObjectMedia(Guid objectId)
+    {
+        lock (_lock) return _objectMedia.TryGetValue(objectId, out var kept) ? kept.Faces : [];
+    }
+
     /// <summary>The camera constraint plane the region last sent (normal x, y, z, distance w; all zero: none).</summary>
     public System.Numerics.Vector4 CameraCollidePlane { get; private set; }
 
@@ -344,9 +392,31 @@ public sealed class ViewerSession : IDisposable
     }
 
     private IReadOnlyList<CoarseAvatar> _coarse = [];
+    private readonly Dictionary<SimRef, IReadOnlyList<CoarseAvatar>> _neighbourCoarse = new();
 
     /// <summary>The region's coarse-location list (everyone the region tells this agent about), replaced by each update and emptied when a new region connects.</summary>
     public IReadOnlyList<CoarseAvatar> CoarseLocations { get { lock (_lock) return _coarse; } }
+
+    /// <summary>The coarse lists of every connected region, the current one first, each place relative to the current region's corner.
+    /// As the official viewer's nearby list reads them (LLWorld::getAvatars goes through every region).</summary>
+    public IReadOnlyList<CoarseAvatar> CoarseAround
+    {
+        get
+        {
+            lock (_lock)
+            {
+                var all = new List<CoarseAvatar>(_coarse);
+                if (_currentSim is { } here)
+                    foreach (var sim in _neighbours.Keys.OrderBy(s => s.Handle))
+                        if (_neighbourCoarse.TryGetValue(sim, out var list))
+                        {
+                            var offset = RegionPlacement.Offset(here, sim);
+                            all.AddRange(list.Select(a => a with { Position = a.Position + offset }));
+                        }
+                return all;
+            }
+        }
+    }
 
     /// <summary>What is known of the session at the moment the grid ended it: the grid's words and the place the agent stood (the soles of its body box).</summary>
     private DropInfo DropOf(Disconnected d)
@@ -934,12 +1004,29 @@ public sealed class ViewerSession : IDisposable
                 break;
             case AgentParcelChanged parcel:
                 if (IsCurrent(parcel.Sim))
+                {
                     lock (_lock) { _agentParcel = parcel.Name; _agentParcelId = parcel.LocalId; _parcelMusic = parcel.MusicUrl; }
+                    KeepParcelMedia(parcel.Media ?? Viewer.Core.Media.ParcelMediaInfo.None, "media.parcel");
+                }
                 break;
             case ParcelMusicReceived music:
                 // the agent's own parcel only: another parcel's message (a selection, a neighbour) says nothing about what plays here
                 if (IsCurrent(music.Sim))
-                    lock (_lock) { if (_agentParcelId == music.LocalId) _parcelMusic = music.Url; }
+                {
+                    bool own;
+                    lock (_lock) { own = _agentParcelId == music.LocalId; if (own) _parcelMusic = music.Url; }
+                    if (own && music.Media is { } described) KeepParcelMedia(described, "media.parcel");
+                }
+                break;
+            case ParcelMediaUpdated update when update.Sim is { } updateSim && IsCurrent(updateSim):
+                KeepParcelMedia(update.Media, "media.parcel-update");
+                break;
+            case ParcelMediaCommanded command when command.Sim is { } commandSim && IsCurrent(commandSim):
+                lock (_lock) _mediaCommand = command;
+                _log.Info("media.parcel-command", CoreLog.F("command", command.Command), CoreLog.F("time", command.Time));
+                break;
+            case ObjectMediaReceived objectMedia:
+                KeepObjectMedia(objectMedia);
                 break;
             case ParcelEnvironmentReceived parcelEnv when IsCurrent(parcelEnv.Sim):
                 if (parcelEnv.Llsd is not { } parcelAnswer)
@@ -959,6 +1046,8 @@ public sealed class ViewerSession : IDisposable
             case CoarseLocationsUpdated coarse:
                 if (IsCurrent(coarse.Sim))
                     lock (_lock) _coarse = coarse.Avatars;
+                else if (coarse.Sim is { } other)
+                    lock (_lock) { if (_neighbours.ContainsKey(other)) _neighbourCoarse[other] = coarse.Avatars; }
                 break;
             case TeleportProgressed tp:
                 // llviewermessage.cpp send_agent_update: no update goes while a teleport is under way (any state but none or arriving)
@@ -1290,6 +1379,7 @@ public sealed class ViewerSession : IDisposable
         {
             if (!_neighbours.Remove(sim, out gone))
                 return;
+            _neighbourCoarse.Remove(sim);
         }
         _silent.Heard(sim);
         if (ReferenceEquals(gone.World, _anchorWorld))
@@ -1378,9 +1468,11 @@ public sealed class ViewerSession : IDisposable
             _currentSim = c.Sim;
             _region = region;
             _coarse = [];
+            _neighbourCoarse.Clear();   // each region sends its list again
             _agentParcel = null;   // the new region names the parcel the agent lands on
             _agentParcelId = null;
             _parcelMusic = "";   // and says what plays there
+            ForgetParcelMedia();
         }
         _world.UpdateRegion(region);
         _world.ChooseAppearanceMode(c.Sim.Name, c.ServerBakedAppearance);
@@ -1488,7 +1580,13 @@ public sealed class ViewerSession : IDisposable
                 _originSim = c.Sim;   // a landing anchors the frame on the new region; a repeat connect keeps it
             _currentSim = c.Sim;
         }
-        lock (_lock) { _coarse = []; _agentParcel = null; _parcelMusic = ""; }   // the new region starts its own list and says which parcel the agent is on
+        lock (_lock)
+        {
+            _coarse = []; _neighbourCoarse.Clear(); _agentParcel = null; _parcelMusic = "";   // the new region starts its own list and says which parcel the agent is on
+            ForgetParcelMedia();
+            foreach (var gone in _objectMedia.Where(o => !o.Value.Sim.SamePlace(c.Sim)).Select(o => o.Key).ToList())
+                _objectMedia.Remove(gone);
+        }
         if (ReferenceEquals(_originSim, c.Sim))
             World.SetOriginOffset(System.Numerics.Vector3.Zero);
         World.BeginRegion(c.Sim, region);

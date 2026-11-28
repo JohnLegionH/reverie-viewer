@@ -11,9 +11,12 @@
 21	menu:build.tool.focus pref:disable_camera_constraints
 29	menu:communicate.chat
 30	menu:communicate.conversations
+50	menu:communicate.people
 63	pref:share_online_status
 64	menu:content.inventory
+70	menu:content.inventory
 75	menu:content.inventory
+77	menu:content.inventory
 91	menu:content.outfits
 92	menu:content.outfits
 94	menu:me.appearance
@@ -56,4 +59,3 @@ sl	menu:help.about	Help > About [APP_NAME]	none
 sl	menu:app.about	Help > About [APP_NAME]	none
 sl	menu:me.quit	Me > Exit [APP_NAME]	Ctrl+Q
 sl	menu:app.quit	Me > Exit [APP_NAME]	Ctrl+Q
-sl	menu:communicate.people	Communicate > Nearby people	Ctrl+Shift+A
