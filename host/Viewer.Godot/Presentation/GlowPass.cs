@@ -115,6 +115,10 @@ void fragment() { COLOR = vec4(texture(src, UV).rgb, 1.0); }
     private readonly SubViewport?[] _blurs = new SubViewport?[GlowBlur.Passes];
     private Camera3D? _camera;
     private global::Godot.Environment? _env;
+    // the glow camera's own compositor, with no effects: without one the camera takes the compositor of the world's environment, and under a sky that takes the
+    // tone-mapped path that is the tone mapping post pass (HdrTonemapEffect), which would haze and tone map the glow picture and step the view's shared exposure
+    // from the glow picture's mostly black frame (the view then washes out whenever a glowing face is in view)
+    private Compositor? _compositor;
     private CanvasLayer? _layer;
     private ColorRect? _out;
     private readonly List<ShaderMaterial> _materials = new();
@@ -235,7 +239,8 @@ void fragment() { COLOR = vec4(texture(src, UV).rgb, 1.0); }
             World3D = _world,
         };
         _textures[0] = _picture.GetTexture();
-        _camera = new Camera3D { Current = true, CullMask = CameraMask | TestCameraBits };
+        _compositor = new Compositor();
+        _camera = new Camera3D { Current = true, CullMask = CameraMask | TestCameraBits, Compositor = _compositor };
         _env = new global::Godot.Environment
         {
             BackgroundMode = global::Godot.Environment.BGMode.Color, BackgroundColor = Colors.Black, FogEnabled = false,
@@ -347,5 +352,7 @@ void fragment() { COLOR = vec4(texture(src, UV).rgb, 1.0); }
         _materials.Clear();
         _env?.Dispose();
         _env = null;
+        _compositor?.Dispose();
+        _compositor = null;
     }
 }
