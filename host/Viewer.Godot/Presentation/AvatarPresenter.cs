@@ -1601,7 +1601,17 @@ public sealed partial class AvatarPresenter : IDisposable, IAttachmentFrames
             defaults = d?.Defaults is not { Started: true } df ? null : DefaultsProbe(d, df),
             bakes_version = d?.BakesVersion ?? -1, entry_bakes_version = e.BakesVersion,
             slots = d is null ? [] : d.Bakes.OrderBy(b => b.Key).Select(b => new { slot = b.Key, id = Short(b.Value.Id), on_gpu = b.Value.Texture is not null, done = b.Value.Done }).ToArray(),
+            hover = d is null ? null : HoverProbe(e, d),
         };
+    }
+
+    /// <summary>A development aid for the live check of hover height: the height the avatar's appearance message stated, the height its shape is
+    /// drawn with, its pelvis over its soles, and where its pelvis and soles are drawn (region frame, metres; null while it is not drawn).</summary>
+    private object? HoverProbe(AvatarEntry e, DrawnAvatar d)
+    {
+        if (_layer is null || d.Id < 0 || !_layer.TryShape(d.Id, out _, out float shapeHover, out _) || !_layer.TryPelvisAboveSoles(d.Id, out float above)) return null;
+        bool drawn = _layer.TryDrawnSoles(d.Id, out var soles);
+        return new { message = e.Hover, shape = shapeHover, pelvis_above_soles = above, pelvis_z = drawn ? soles.Z + above : (float?)null, soles_z = drawn ? soles.Z : (float?)null };
     }
 
     /// <summary>A development aid: what the avatar's built-in motions give now: the joints they turn as the mix poses them, the blink weights, the hand pose and the flying roll.</summary>

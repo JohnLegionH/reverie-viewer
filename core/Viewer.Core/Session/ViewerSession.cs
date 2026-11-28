@@ -260,7 +260,6 @@ public sealed class ViewerSession : IDisposable
     /// <summary>The grid's texture upload (its two capability steps), when the transport has one.</summary>
     public Viewer.Core.Building.ITextureUploadService? BuildService => _transport as Viewer.Core.Building.ITextureUploadService;
 
-    /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
     /// <summary>Whether the agent's region takes a hover height (false when the transport cannot say).</summary>
     public bool HoverHeightSupported => (_transport as IHoverHeightTransport)?.HoverHeightSupported ?? false;
 
@@ -268,6 +267,7 @@ public sealed class ViewerSession : IDisposable
     public Task<bool> SetHoverHeightAsync(float metres, CancellationToken ct = default) =>
         (_transport as IHoverHeightTransport)?.SendHoverHeightAsync(metres, ct) ?? Task.FromResult(false);
 
+    /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
     /// <summary>The grid's own settings (chat ranges, map server, search and guide addresses, currency, export flag) from the agent's
     /// region, or Second Life's defaults while the region has sent none.</summary>
     public GridFeatures GridFeatures

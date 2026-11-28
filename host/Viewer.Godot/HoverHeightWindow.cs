@@ -93,6 +93,7 @@ public sealed partial class HoverHeightWindow : VBoxContainer
     {
         Slider.Editable = supported;
         Entry.Editable = supported;
+        Slider.TooltipText = Entry.TooltipText = Entry.GetLineEdit().TooltipText = supported ? "" : _strings.Get("hover.unsupported");
         _status.Text = supported ? "" : _strings.Get("hover.unsupported");
         _status.Visible = !supported;
     }

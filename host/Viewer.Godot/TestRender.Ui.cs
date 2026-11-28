@@ -79,6 +79,7 @@ public partial class TestRender
         "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog",
         "music-ask", "music-ask-150", "music-ask-200",
         "pack-ask", "pack-ask-150", "pack-ask-200", "pack-failed", "pack-failed-150", "pack-failed-200",
+        "hover", "hover-150", "hover-200", "hover-off",
     ];
 
     /// <summary>A question box is as tall as what it holds: every line of its words shown, its buttons inside it, and no more than two lines'
@@ -397,7 +398,7 @@ public partial class TestRender
             scene = scene[..^4];
         else if (pct != 100 && (scene.StartsWith("inventory", StringComparison.Ordinal) || scene.StartsWith("itemproperties", StringComparison.Ordinal)))
             scene = scene[..^4];
-        else if (pct != 100 && scene.StartsWith("people-", StringComparison.Ordinal))
+        else if (pct != 100 && (scene.StartsWith("people-", StringComparison.Ordinal) || scene.StartsWith("hover-", StringComparison.Ordinal)))
             scene = scene[..^4];
         else if (pct != 100)
             scene = "preferences-sound";
@@ -441,6 +442,7 @@ public partial class TestRender
         FacePickerWindows? texturePickers = null;
         FolderPickPanel? takeFolder = null;
         AcceptDialog? askShown = null;
+        HoverHeightWindow? hoverShown = null;
         switch (scene)
         {
             case "login":
@@ -579,6 +581,8 @@ public partial class TestRender
                     prefs.ShowCategory(scene == "preferences" ? "interface" : scene["preferences-".Length..]);   // "preferences" is the Interface page
                 if (scene.StartsWith("commandlist", StringComparison.Ordinal))
                     ExampleCommandList(shell, settings, prefs, scene);
+                if (scene.StartsWith("hover", StringComparison.Ordinal))
+                    hoverShown = HoverHeightFeature.Install(shell);
                 open = scene switch
                 {
                     "inworld" => "",
@@ -586,6 +590,7 @@ public partial class TestRender
                     "itemproperties" => ItemPropertiesFeature.FloaterId,
                     "outfits" => OutfitFeature.FloaterId,
                     "people" or "people-nearby" or "people-rows" => PeopleFeature.PeopleId,
+                    "hover" or "hover-off" => HoverHeightFeature.FloaterId,
                     "conversations" => ChatFeature.ConversationsId,
                     "map" => TravelFeature.MapId,
                     "minimap" => TravelFeature.MiniMapId,
@@ -631,6 +636,17 @@ public partial class TestRender
         else if (open.Length > 0)
             shell.Shell.Floaters.Open(open);
         await Frames(10);
+        if (hoverShown is not null)
+        {
+            // an example height in a region that takes it; "hover-off" is a region that does not, where each greyed control says why
+            bool takes = scene != "hover-off";
+            hoverShown.ShowHeight(takes ? 0.25f : 0f);
+            hoverShown.ShowSupport(takes);
+            await Frames(4);
+            string why = strings.Get("hover.unsupported");
+            if (!takes && (hoverShown.Slider.TooltipText != why || hoverShown.Entry.GetLineEdit().TooltipText != why))
+                _failures.Add("hover-off: a greyed hover height control has no tooltip saying why");
+        }
         if (scene == "preferences-sound" && soundOpen && shell.FindChild("page_sound", true, false) is PrefPageView soundView
             && soundView.FindChild("section_more", true, false) is Control moreSection)
         {
