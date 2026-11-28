@@ -154,7 +154,7 @@ Every key is listed in the [keyboard shortcuts](guide/keyboard-shortcuts.md) sec
 Things people coming from other viewers look for. They are not in this preview:
 
 - Snapshots to the inventory or a profile, photo mode, filters and 360 pictures; search; a places list and a teleport history window (Back works).
-- Profiles; a list of people nearby; paying or giving items to people; groups beyond chat, notices and your active group.
+- Profiles; paying or giving items to people; groups beyond chat, notices and your active group.
 - Land, parcel and estate tools; the Land build tool; the object weights window (Reverie shows the land impact only).
 - Saved chat logs; away and do-not-disturb replies; emoji, spell check and translation.
 - Inventory: emptying the Trash, copy and paste, item properties, a Worn tab and filters.

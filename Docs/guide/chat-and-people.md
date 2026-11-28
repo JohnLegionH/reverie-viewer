@@ -280,7 +280,7 @@ All steps happen at the same time, unless you add **Wait** steps.
 
 - The **/** key does not open the gesture list.
 - Voice chat and push-to-talk.
-- A list of people nearby, and profiles.
+- Profiles.
 - Paying or giving items to a person.
 - Groups beyond chat, notices and your active group.
 - Saved chat logs.
