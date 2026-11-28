@@ -789,7 +789,7 @@ public partial class Main
         return new
         {
             found = true, shown = true, matches = all.Count,
-            text = ctl switch { Label l => l.Text, Button b => b.Text, LinkButton k => k.Text, LineEdit e => e.Text, _ => null },   // what the control says (development builds only)
+            text = ctl switch { Label l => l.Text, Button b => b.Text, LinkButton k => k.Text, LineEdit e => e.Text, SpinBox v => v.GetLineEdit().Text, _ => null },   // what the control says (development builds only)
             reach = r.Kind.ToString().ToLowerInvariant(),
             point = r.Point is { } p ? new[] { p.X + offset.X, p.Y + offset.Y } : null,
             rect = new[] { g.Position.X + offset.X, g.Position.Y + offset.Y, g.Size.X, g.Size.Y },

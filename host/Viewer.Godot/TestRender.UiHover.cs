@@ -175,6 +175,25 @@ public partial class TestRender
         await Frames(4);
         if (Math.Abs(hover.Entry.Value - 0.5) > 0.0005 || told == 0 || status.Visible)
             Fail($"a number typed after a word: value {hover.Entry.Value}, {told} change(s) told, message shown {status.Visible}");
+
+        // while the grid's refusal shows, a typed word is still answered, and a refusal that arrives after it does not take its place
+        hover.ForgetEntry();
+        await Drag(0f);
+        hover.ShowRefused();
+        await TypeIntoBox("abc");
+        Press(view, Key.Enter);
+        await Frames(4);
+        if (!Readable())
+            Fail($"a word entered while a refusal showed got no message of its own: \"{status.Text}\"");
+        hover.ShowRefused();
+        await Frames(4);
+        if (!Readable())
+            Fail($"a later refusal replaced the not-a-number message with \"{status.Text}\"");
+        await TypeIntoBox("0.5");
+        Press(view, Key.Enter);
+        await Frames(4);
+        if (status.Visible)
+            Fail($"a number entered after a refusal and a word left \"{status.Text}\" showing");
         hover.Changed = changed;
 
         // Tab and Shift+Tab go round the window's controls and never out of it
