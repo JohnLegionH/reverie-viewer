@@ -45,6 +45,13 @@ public partial class Main
         _hoverSupported = _hoverRefused = false;
         _hoverTries = 0;
         session.RegionChanged += _ => { _hoverSupported = _hoverRefused = false; _hoverTries = 0; _hoverToSend = _hoverKept is not null; };
+        if (HoverOpen)
+        {
+            // left open since an earlier session: nothing opens it again, so it is told of this account's height here
+            _hover.ForgetEntry();
+            ShowHover();
+            _hoverNextLook = 0;
+        }
     }
 
     private void ShowHover()
