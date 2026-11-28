@@ -1169,7 +1169,7 @@ foreach ($be in $Backends) {
     Add-Case "haze_noexposure_$be" ($(if ($okx) { "PASS" } else { "FAIL" })) "the faces without the automatic exposure fail the model (exit $($x.Exit), largest error $(if ($x.Json.haze) { ($x.Json.haze.rows | Measure-Object max_error -Maximum).Maximum } else { 'none' }))" $x.Seconds
     # the glow pass drawing beside the view (as while a glowing face is in view) must leave the view's exposure and colours as they are
     $g = Invoke-Render $be "haze-glow-$be" "--tr-haze=glow `"--tr-environment=$duskSky`""
-    $okg = $g.Exit -eq 0 -and $g.Json.haze -and $g.Json.haze.glow_active -and $g.Json.haze.hdr_active
+    $okg = $g.Exit -eq 0 -and $g.Json.backend.driver -eq $be -and $g.Json.haze -and $g.Json.haze.glow_active -and $g.Json.haze.hdr_active -and $g.Json.haze.tonemap_ran -gt 0
     Add-Case "haze_glow_$be" ($(if ($okg) { "PASS" } else { "FAIL" })) "with the glow pass drawing: glow active $(if ($g.Json.haze) { $g.Json.haze.glow_active }), largest error $(if ($g.Json.haze) { ($g.Json.haze.rows | Measure-Object max_error -Maximum).Maximum } else { 'none' })$(if (-not $okg -and $g.Json) { ' | ' + ($g.Json.failures -join ' | ') })" $g.Seconds
     $golden = Join-Path $repo "fixtures\environment\golden-shared-environment-dusk-$be.png"
     if (-not (Test-Path -LiteralPath $golden)) {
