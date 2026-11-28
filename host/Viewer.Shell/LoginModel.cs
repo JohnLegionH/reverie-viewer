@@ -392,6 +392,12 @@ public sealed class LoginModel(StringTable strings, Func<SessionOptions, ViewerS
                 if (outcome.Ok)
                 {
                     Session = session;
+                    // however the session ends, the login screen that comes back must not still say the person is in world
+                    session.Ended += _ =>
+                    {
+                        if (ReferenceEquals(Session, session))
+                            SetStatus(strings.Get("login.status.ready"));
+                    };
                     // a first login switches the shared environment after teleport on, once and persistently (llagent.cpp setFirstLogin)
                     if (outcome.Reply?.FirstLogin == true)
                         UserSettings?.Set(Settings.SwitchToSharedEnvAfterTeleport, true);

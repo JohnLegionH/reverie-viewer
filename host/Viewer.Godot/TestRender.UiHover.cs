@@ -52,49 +52,127 @@ public partial class TestRender
         if (status.Visible)
             Fail("the refusal message stayed after the person changed the height");
 
-        // a typed entry that is not a number puts the box back and says why; nothing is told to the owner
+        // a typed entry that is not a number puts the box back and says why; nothing is told to the owner. This is a person's route: the
+        // slider is dragged with the pointer, the box is clicked, Ctrl+A and the letters arrive as key events, and the box is left by a key or
+        // by a press elsewhere. Nothing here moves the keyboard or sets the height by a call: a press on a place that cannot take the keyboard
+        // leaves it in the box, which only the pointer shows.
         int told = 0;
         var changed = hover.Changed;
         hover.Changed = (_, _) => told++;
-        hover.ShowHeight(0.25f);
-        await Frames(2);
-        string good = line.Text;
-        foreach (var (word, byLeaving) in new[] { ("abc", false), ("1.2.3", false), ("abc", true) })
+        var frame = shell.Frames[HoverHeightFeature.FloaterId];
+        var heightLabel = hover.FindChild("hover_row", true, false).GetChild<Control>(0);
+        Vector2 In(Control c, float x, float y) => c.GetGlobalTransformWithCanvas() * new Vector2(x, y);
+        Vector2 pointer = Vector2.Zero;
+        async Task Mouse(Vector2 at, bool? press, bool held = false)
         {
-            hover.Slider.Value = 0.25;
-            hover.ForgetEntry();
-            hover.Slider.GrabFocus();   // away and back, as clicking into the box again: after Enter the box has stopped editing
-            await Frames(2);
-            line.GrabFocus();
-            await Frames(2);
-            if (status.Visible)
-                Fail($"a message already showed before \"{word}\" was typed");
-            told = 0;
-            line.SelectAll();
-            Type(view, word);
-            await Frames(3);
-            if (line.Text != word)
-                Fail($"the typing did not reach the box: it holds \"{line.Text}\", not \"{word}\"");
-            if (byLeaving)
-                hover.Slider.GrabFocus();
+            var to = view.GetFinalTransform() * at;
+            if (press is { } down)
+                view.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = down, Position = to, GlobalPosition = to, ButtonMask = down ? MouseButtonMask.Left : 0 });
             else
-                Press(view, Key.Enter);
-            await Frames(3);
-            string how = $"\"{word}\" " + (byLeaving ? "by leaving the box" : "by Enter");
-            if (line.Text != good || Math.Abs(hover.Entry.Value - 0.25) > 0.0005 || told != 0)
-                Fail($"{how} left \"{line.Text}\" in the box, value {hover.Entry.Value}, {told} change(s) told (want \"{good}\")");
-            if (!status.Visible || status.Text != strings.Get("hover.not_a_number"))
-                Fail($"{how} was dropped with no message");
+                view.PushInput(new InputEventMouseMotion { Position = to, GlobalPosition = to, Relative = to - pointer, ButtonMask = held ? MouseButtonMask.Left : 0 });
+            pointer = to;
+            await Frames(1);
         }
-        hover.Slider.GrabFocus();
-        await Frames(2);
-        line.GrabFocus();
-        await Frames(2);
-        line.SelectAll();
-        Type(view, "0.5");
-        await Frames(3);
+        async Task Click(Vector2 at)
+        {
+            await Mouse(at, null);
+            await Mouse(at, true);
+            await Mouse(at, false);
+            await Frames(3);
+        }
+        async Task Drag(float fraction)
+        {
+            var size = hover.Slider.Size;
+            var from = In(hover.Slider, size.X / 2, size.Y / 2);
+            var to = In(hover.Slider, fraction <= 0 ? -30 : fraction >= 1 ? size.X + 30 : size.X * fraction, size.Y / 2);
+            await Mouse(from, null);
+            await Mouse(from, true);
+            for (int i = 1; i <= 6; i++)
+                await Mouse(from.Lerp(to, i / 6f), null, held: true);
+            await Mouse(to, false);
+            await Frames(3);
+        }
+        async Task TypeIntoBox(string text)
+        {
+            await Click(In(line, line.Size.X / 2, line.Size.Y / 2));
+            view.PushInput(new InputEventKey { Keycode = Key.A, PhysicalKeycode = Key.A, CtrlPressed = true, Pressed = true });
+            view.PushInput(new InputEventKey { Keycode = Key.A, PhysicalKeycode = Key.A, CtrlPressed = true, Pressed = false });
+            await Frames(2);
+            foreach (char c in text)
+            {
+                var code = char.IsAsciiLetterOrDigit(c) ? (Key)char.ToUpperInvariant(c) : c == '-' ? Key.Minus : Key.Period;
+                view.PushInput(new InputEventKey { Keycode = code, PhysicalKeycode = code, Unicode = c, Pressed = true });
+                view.PushInput(new InputEventKey { Keycode = code, PhysicalKeycode = code, Pressed = false });
+                await Frames(1);
+            }
+            await Frames(2);
+            if (line.Text != text)
+                Fail($"the typing did not reach the box: it holds \"{line.Text}\", not \"{text}\"");
+        }
+        bool Readable() => status.IsVisibleInTree() && status.Text == strings.Get("hover.not_a_number") && status.Size.Y > 0
+            && frame.GetGlobalRect().Encloses(status.GetGlobalRect());
+        (string Name, Func<Task> Leave)[] ways =
+        [
+            ("Enter", () => { Press(view, Key.Enter); return Task.CompletedTask; }),
+            ("Tab", () => { Press(view, Key.Tab); return Task.CompletedTask; }),
+            ("a press on the window's empty body", () => Click(In(hover, hover.Size.X / 2, hover.Size.Y - 3))),
+            ("a press on the title bar", () => Click(In(frame, frame.Size.X / 2, 10))),
+            ("a press on the Height label", () => Click(In(heightLabel, heightLabel.Size.X / 2, heightLabel.Size.Y / 2))),
+            ("a press outside the window", () => Click(In(frame, frame.Size.X / 2, frame.Size.Y + 40))),
+        ];
+        foreach (var (end, fraction, want) in new[] { ("left end", 0f, -2.0), ("right end", 1f, 2.0), ("middle", 0.625f, double.NaN) })
+        {
+            foreach (var (way, leave) in ways)
+            {
+                foreach (string word in way == "Enter" ? new[] { "abc", "1.2.3" } : new[] { "abc" })
+                {
+                    hover.ForgetEntry();
+                    await Drag(fraction);
+                    double at = hover.Entry.Value;
+                    if (double.IsNaN(want) ? Math.Abs(at) > 1.9 : Math.Abs(at - want) > 0.0005)
+                        Fail($"the drag to the {end} left the value at {at}");
+                    string good = line.Text;
+                    if (status.Visible)
+                        Fail($"a message already showed before \"{word}\" was typed");
+                    await TypeIntoBox(word);
+                    told = 0;
+                    await leave();
+                    await Frames(4);
+                    string how = $"\"{word}\" at the {end}, left by {way},";
+                    if (line.Text != good || Math.Abs(hover.Entry.Value - at) > 0.0005 || told != 0)
+                        Fail($"{how} left \"{line.Text}\" in the box, value {hover.Entry.Value}, {told} change(s) told (want \"{good}\")");
+                    if (!Readable())
+                        Fail($"{how} was dropped with no message");
+                }
+            }
+            // it stays said, also over a close and reopen, until a valid entry; the same number typed again is one
+            hover.ForgetEntry();
+            await Drag(fraction);
+            string same = line.Text;
+            await TypeIntoBox("abc");
+            Press(view, Key.Enter);
+            await Frames(30);
+            shell.Shell.Floaters.Close(HoverHeightFeature.FloaterId);
+            await Frames(3);
+            shell.Shell.Floaters.Open(HoverHeightFeature.FloaterId);
+            await Frames(4);
+            if (!Readable())
+                Fail($"the message at the {end} did not stay until the next valid entry");
+            await TypeIntoBox(same);
+            Press(view, Key.Enter);
+            await Frames(4);
+            if (status.Visible)
+                Fail($"the message stayed after \"{same}\" was entered at the {end}");
+        }
+        hover.ForgetEntry();
+        await Drag(0f);
+        await TypeIntoBox("abc");
         Press(view, Key.Enter);
-        await Frames(3);
+        await Frames(4);
+        told = 0;
+        await TypeIntoBox("0.5");
+        Press(view, Key.Enter);
+        await Frames(4);
         if (Math.Abs(hover.Entry.Value - 0.5) > 0.0005 || told == 0 || status.Visible)
             Fail($"a number typed after a word: value {hover.Entry.Value}, {told} change(s) told, message shown {status.Visible}");
         hover.Changed = changed;

@@ -66,7 +66,7 @@ public static class HoverHeightFeature
         {
             if (id != FloaterId)
                 return;
-            window.ForgetEntry();
+            window.CheckEntry();   // something typed that is no number is still said when the window is opened again
             if (giveBack && outside is not null && GodotObject.IsInstanceValid(outside) && outside.IsVisibleInTree())
                 outside.GrabFocus();
             inWindow = giveBack = false;
@@ -140,7 +140,7 @@ public sealed partial class HoverHeightWindow : VBoxContainer
 
     /// <summary>What was typed is entered (Enter, or the box is left): something that is not a number leaves the last good value in the
     /// box, and the window says why. The typed text is kept until the engine's value box has read it too, which it may do later in the frame.</summary>
-    private void CheckEntry()
+    internal void CheckEntry()
     {
         if (_typed is null)
             return;
@@ -159,7 +159,18 @@ public sealed partial class HoverHeightWindow : VBoxContainer
     private void PutBack()
     {
         ShowHeight(_good);
-        Entry.GetLineEdit().Text = Math.Round(_good, 3).ToString("0.###", CultureInfo.InvariantCulture);
+        Entry.GetLineEdit().Text = Math.Round(_good, 3).ToString("0.0##", CultureInfo.InvariantCulture);   // as the value box writes it
+    }
+
+    // A press on something that cannot take the keyboard (the window's body, its title bar, a label) leaves it in the value box, so the box
+    // would never be told it was left. With something typed there and not yet entered, any press outside the box leaves it.
+    public override void _Input(InputEvent e)
+    {
+        if (_typed is null || e is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right or MouseButton.Middle } press)
+            return;
+        var line = Entry.GetLineEdit();
+        if (line.HasFocus() && !Entry.GetGlobalRect().HasPoint(GetGlobalTransform() * ((InputEventMouseButton)MakeInputLocal(press)).Position))
+            line.ReleaseFocus();
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -210,6 +221,13 @@ public sealed partial class HoverHeightWindow : VBoxContainer
     public void ForgetRefusal()
     {
         _refused = false;
+        ShowStatus();
+    }
+
+    /// <summary>The message for a typed entry that is no number, for a picture of it.</summary>
+    internal void ShowNotANumber()
+    {
+        _notANumber = true;
         ShowStatus();
     }
 

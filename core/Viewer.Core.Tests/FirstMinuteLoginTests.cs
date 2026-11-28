@@ -114,6 +114,32 @@ public class FirstMinuteLoginTests
     }
 
     [Fact]
+    public async Task After_a_logout_the_login_screen_no_longer_says_you_are_in_world()
+    {
+        var (m, _) = Model();
+        m.UserName = "Test User";
+        Assert.True(await m.LoginAsync());
+        m.Announce(En.Get("login.status.in_world"));   // as a login that reached the world leaves the line; the fake stops short of it
+        var told = new List<string>();
+        m.StatusChanged += told.Add;
+        await m.Session!.LogoutAsync(CancellationToken.None);
+        Assert.Equal(En.Get("login.status.ready"), m.Status);
+        Assert.Contains(En.Get("login.status.ready"), told);   // the screen is told, not only the property changed
+        m.Session!.Dispose();
+    }
+
+    // The engine host cannot run in the unit tests, so this checks the wiring in the source: the tags are drawn over the main view, which
+    // outlives the world, and the frame loop that plans them stops with the world.
+    [Fact]
+    public void The_name_tags_are_hidden_as_the_world_is_taken_down()
+    {
+        string main = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "host", "Viewer.Godot", "Main.cs"));
+        var teardown = System.Text.RegularExpressions.Regex.Match(main, @"private void Unpresent\(\)\s*\{(.*?)\r?\n    \}", System.Text.RegularExpressions.RegexOptions.Singleline);
+        Assert.True(teardown.Success, "Unpresent was not found");
+        Assert.Contains("_nameTags?.HideAll()", teardown.Groups[1].Value);
+    }
+
+    [Fact]
     public void The_saved_name_is_one_text_kept_only_when_asked_for()
     {
         var s = new SettingsService(null);

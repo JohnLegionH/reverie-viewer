@@ -646,6 +646,17 @@ public partial class TestRender
             string why = strings.Get("hover.unsupported");
             if (!takes && (hoverShown.Slider.TooltipText != why || hoverShown.Entry.GetLineEdit().TooltipText != why))
                 _failures.Add("hover-off: a greyed hover height control has no tooltip saying why");
+            // --tr-hover-message: the picture shows a typed word's message, at the left end; its words must all stand inside the window
+            if (takes && OS.GetCmdlineUserArgs().Contains("--tr-hover-message"))
+            {
+                hoverShown.ShowHeight(-2f);
+                hoverShown.ShowNotANumber();
+                await Frames(4);
+                var said = (Label)hoverShown.FindChild("hover_status", true, false);
+                if (!said.IsVisibleInTree() || said.GetVisibleLineCount() < said.GetLineCount()
+                    || !shell.Frames[HoverHeightFeature.FloaterId].GetGlobalRect().Encloses(said.GetGlobalRect()))
+                    _failures.Add("hover: the message does not stand wholly inside the window");
+            }
         }
         if (scene == "preferences-sound" && soundOpen && shell.FindChild("page_sound", true, false) is PrefPageView soundView
             && soundView.FindChild("section_more", true, false) is Control moreSection)

@@ -1254,6 +1254,8 @@ public partial class Main : Node
         // together at the end.
         TeardownSteps.RunAll(msg => Log.Warn("teardown.step-failed", CoreLog.F("detail", msg)), (name, ms) => Log.Info("teardown.step-slow", CoreLog.F("step", name), CoreLog.F("ms", Math.Round(ms, 1))),
             ("ban wall", FreeBanWall),
+            // the tags are drawn over the main view, which stays: the frame loop that plans them stops with the world
+            ("name tags", () => { _nameTags?.HideAll(); _lastTags = []; }),
             ("glow", () => { if (_glow is not null) { RemoveChild(_glow); _glow.Free(); _glow = null; } }),
             ("neighbours", DetachNeighbours),
             ("presenter", () => _presenter?.Dispose()),
