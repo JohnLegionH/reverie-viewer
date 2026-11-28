@@ -267,7 +267,6 @@ public sealed class ViewerSession : IDisposable
     public Task<bool> SetHoverHeightAsync(float metres, CancellationToken ct = default) =>
         (_transport as IHoverHeightTransport)?.SendHoverHeightAsync(metres, ct) ?? Task.FromResult(false);
 
-    /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
     /// <summary>The grid's own settings (chat ranges, map server, search and guide addresses, currency, export flag) from the agent's
     /// region, or Second Life's defaults while the region has sent none.</summary>
     public GridFeatures GridFeatures
@@ -286,6 +285,7 @@ public sealed class ViewerSession : IDisposable
     /// <summary>Whether the agent's region offers a capability by this name (false when the transport cannot say).</summary>
     public bool RegionHas(string capability) => (_transport as IGridFeaturesSource)?.HasRegionCapability(capability) ?? false;
 
+    /// <summary>The edit limits of the agent's region: the official ones with the grid's own from its simulator features.</summary>
     public Viewer.Core.Building.EditLimits EditLimits => (_transport as Viewer.Core.Protocol.LmvTransport)?.EditLimits() ?? Viewer.Core.Building.EditLimits.Official;
 
     /// <summary>The grid's model upload (the same capability as images, with a model request), or null when the transport has none.</summary>
