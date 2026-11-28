@@ -69,7 +69,7 @@ public partial class TestRender
     /// <summary>The scene names --tr-ui accepts: the in-world frame and each window on its own.</summary>
     public static readonly string[] UiScenes =
     [
-        "inworld", "inventory", "inventory-150", "inventory-200", "itemproperties", "itemproperties-150", "itemproperties-200", "outfits", "people", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
+        "inworld", "inventory", "inventory-150", "inventory-200", "itemproperties", "itemproperties-150", "itemproperties-200", "outfits", "people", "people-150", "people-200", "people-nearby", "people-nearby-150", "people-nearby-200", "people-rows", "people-rows-150", "people-rows-200", "conversations", "map", "minimap", "teleport", "notifications", "scriptdialog",
         "permission", "inspect", "land", "preferences", "preferences-general", "preferences-graphics", "preferences-chat", "preferences-moveview",
         "preferences-privacy", "preferences-cache", "preferences-sound", "preferences-sound-150", "preferences-sound-200", "preferences-sound-open", "preferences-sound-open-150", "preferences-sound-open-200", "reconnect", "login", "appearance", "appearance-shape", "appearance-shirt", "personal", "build",
         "build-look", "build-search", "build-create", "build-object", "build-150", "build-200", "build-contents-150", "build-contents-200", "build-look-150", "build-look-200", "build-placement", "build-placement-150", "build-placement-200", "build-create-150", "build-create-200", "build-object-150", "build-object-200", "colourpicker", "script", "script-error", "script-readonly", "script-engine", "script-engine-on", "script-engine-early", "script-engine-nosave", "script-engine-slua", "script-sl", "commandlist", "commandlist-search", "commandlist-setting",
@@ -397,6 +397,8 @@ public partial class TestRender
             scene = scene[..^4];
         else if (pct != 100 && (scene.StartsWith("inventory", StringComparison.Ordinal) || scene.StartsWith("itemproperties", StringComparison.Ordinal)))
             scene = scene[..^4];
+        else if (pct != 100 && scene.StartsWith("people-", StringComparison.Ordinal))
+            scene = scene[..^4];
         else if (pct != 100)
             scene = "preferences-sound";
         // --tr-ui-small-window: not a larger picture but the same one, the window staying the smallest supported size on screen, so at
@@ -519,7 +521,19 @@ public partial class TestRender
                 break;
             default:
                 var chat = ChatFeature.Install(shell, settings);
-                PeopleFeature.Install(shell, settings, chat.Conversations);
+                var peoplePanel = PeopleFeature.Install(shell, settings, chat.Conversations);
+                if (scene == "people")
+                    peoplePanel.Tabs.CurrentTab = 1;   // this picture checks the friends list; the window opens on Nearby
+                if (scene == "people-rows")
+                {
+                    peoplePanel.Nearby.Source = () =>
+                    [
+                        (new Viewer.Core.Social.NearbyAvatar(Guid.Parse("00000000-0000-0000-0000-00000000000a"), 4.2f, false), "Test User"),
+                        (new Viewer.Core.Social.NearbyAvatar(Guid.Parse("00000000-0000-0000-0000-00000000000b"), 37.5f, false), "Example Resident With A Long Name"),
+                        (new Viewer.Core.Social.NearbyAvatar(Guid.Parse("00000000-0000-0000-0000-00000000000c"), 112.0f, true), "Another Example"),
+                    ];
+                    peoplePanel.Nearby.Refresh();
+                }
                 var inventoryPanel = InventoryFeature.Install(shell);
                 if (scene is "inventory" or "newmenu")
                     ExampleInventoryDrag(inventoryPanel, dragCue: scene == "inventory");
@@ -571,7 +585,7 @@ public partial class TestRender
                     "inventory" or "newmenu" => InventoryFeature.FloaterId,
                     "itemproperties" => ItemPropertiesFeature.FloaterId,
                     "outfits" => OutfitFeature.FloaterId,
-                    "people" => PeopleFeature.PeopleId,
+                    "people" or "people-nearby" or "people-rows" => PeopleFeature.PeopleId,
                     "conversations" => ChatFeature.ConversationsId,
                     "map" => TravelFeature.MapId,
                     "minimap" => TravelFeature.MiniMapId,

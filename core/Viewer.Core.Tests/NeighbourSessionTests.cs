@@ -96,6 +96,35 @@ public class NeighbourSessionTests
         Assert.True(RegionPlacement.InReach(new Vector3(100, 100, 20), east, 256, 256, 256));
     }
 
+    // ---------------- coarse locations around the agent ----------------
+
+    [Fact]
+    public async Task A_neighbours_coarse_list_is_given_in_the_current_regions_frame()
+    {
+        var (s, t) = await InWorld();
+        using var _s = s;
+        Connect(t, North);
+        var here = Guid.NewGuid();
+        var there = Guid.NewGuid();
+        t.Raise(new CoarseLocationsUpdated(Home, [new CoarseAvatar(here, new Vector3(100, 200, 24))]));
+        t.Raise(new CoarseLocationsUpdated(North, [new CoarseAvatar(there, new Vector3(100, 30, 24))]));
+        var all = s.CoarseAround;
+        Assert.Equal(new[] { new CoarseAvatar(here, new Vector3(100, 200, 24)), new CoarseAvatar(there, new Vector3(100, 286, 24)) }, all);
+        Assert.Equal(new[] { new CoarseAvatar(here, new Vector3(100, 200, 24)) }, s.CoarseLocations);   // the map's own list is as before
+    }
+
+    [Fact]
+    public async Task A_gone_neighbours_coarse_list_goes_with_it()
+    {
+        var (s, t) = await InWorld();
+        using var _s = s;
+        Connect(t, North);
+        t.Raise(new CoarseLocationsUpdated(North, [new CoarseAvatar(Guid.NewGuid(), new Vector3(100, 30, 24))]));
+        Assert.Single(s.CoarseAround);
+        t.Raise(new SimDisconnected(North));
+        Assert.Empty(s.CoarseAround);
+    }
+
     // ---------------- connecting ----------------
 
     [Fact]

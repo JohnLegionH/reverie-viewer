@@ -81,6 +81,7 @@ public partial class S1Smoke : Node
                 await ShellCheck();
                 await KeysCheck();
                 await MenuChoiceCheck();
+                await MenuOverWindowCheck();
                 await CommandListCheck();
                 FontCheck();
                 await ChatCheck();
@@ -818,6 +819,10 @@ public partial class S1Smoke : Node
             foreach (var c in Descendants(frame).OfType<Control>().Where(c => c is Label or Button or CheckBox or ItemList or OptionButton or TabContainer))
                 if (string.IsNullOrWhiteSpace(c.AccessibilityName)) problems.Add($"people {c.Name}: no accessible name");
 
+            people.Tabs.CurrentTab = 1;   // the window opens on Nearby
+            for (int i = 0; i < 3; i++)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
             // the list and the online mark
             if (people.FriendList.ItemCount != 2) problems.Add($"friend list holds {people.FriendList.ItemCount} rows");
             else if (people.FriendList.GetItemText(0) == people.FriendList.GetItemText(1).Replace("Beta", "Alpha")) problems.Add("the online friend is not marked");
@@ -858,7 +863,7 @@ public partial class S1Smoke : Node
             if (!sent.OfType<Viewer.Core.Actions.FriendRightsIntent>().Any(r => r.Rights.HasFlag(FriendRightsFlags.ModifyObjects) && r.ModifyConfirmed)) problems.Add("the confirmed right was not sent");
 
             // groups
-            people.Tabs.CurrentTab = 1;
+            people.Tabs.CurrentTab = 2;
             for (int i = 0; i < 3; i++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (people.GroupList.ItemCount != 1) problems.Add($"group list holds {people.GroupList.ItemCount} rows");
@@ -874,7 +879,7 @@ public partial class S1Smoke : Node
             if (conversations.Tabs.TabCount != 2 || !conversations.Tabs.GetTabTitle(1).Contains("Example Group")) problems.Add($"group chat tabs: {conversations.Tabs.TabCount}");
 
             // notices
-            people.Tabs.CurrentTab = 2;
+            people.Tabs.CurrentTab = 3;
             for (int i = 0; i < 3; i++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (people.NoticeList.ItemCount != 1) problems.Add($"notice list holds {people.NoticeList.ItemCount} rows");
