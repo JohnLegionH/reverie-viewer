@@ -189,11 +189,12 @@ public partial class TestRender
         await Frames(4);
         if (!Readable())
             Fail($"a later refusal replaced the not-a-number message with \"{status.Text}\"");
+        told = 0;
         await TypeIntoBox("0.5");
         Press(view, Key.Enter);
         await Frames(4);
-        if (status.Visible)
-            Fail($"a number entered after a refusal and a word left \"{status.Text}\" showing");
+        if (status.Visible || told == 0)
+            Fail($"a number entered after a refusal and a word left \"{status.Text}\" showing, {told} change(s) told");
         hover.Changed = changed;
 
         // Tab and Shift+Tab go round the window's controls and never out of it

@@ -241,7 +241,7 @@ public sealed partial class HoverHeightWindow : VBoxContainer
     private void ShowStatus()
     {
         // the answer to what the person just entered comes before the grid's refusal of an earlier height, also one that arrives after it;
-        // a valid entry ends both and is sent again, so the grid refusing it is said anew
+        // a changed height ends both and is sent, so the grid refusing it is said anew; the same height entered again ends only the first
         string? key = !_supported ? "hover.unsupported" : _notANumber ? "hover.not_a_number" : _refused ? "hover.refused" : null;
         _status.Text = key is null ? "" : _strings.Get(key);
         _status.Visible = key is not null;
