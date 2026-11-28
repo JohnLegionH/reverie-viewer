@@ -222,7 +222,7 @@ public partial class ComponentGallery : MarginContainer
         var sliderRow = Row(left, "Slider");
         sliderRow.AddChild(new RvSlider("Interface size", 75, 200, 125, " %") { CustomMinimumSize = new Vector2(260, 0) });
         var disabledSlider = new RvSlider("Disabled", 0, 100, 40) { CustomMinimumSize = new Vector2(160, 0) };
-        disabledSlider.Slider.Editable = false;
+        ReverieStyle.SetEditable(disabledSlider.Slider, false);
         disabledSlider.Modulate = disabledSlider.Modulate with { A = ControlStates.DisabledStrength };
         sliderRow.AddChild(disabledSlider);
         var segRow = Row(left, "Segmented");

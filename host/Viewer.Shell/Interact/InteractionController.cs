@@ -18,7 +18,7 @@ public sealed record SocialHooks(Action<Guid> InstantMessage, Action<Guid> AddFr
 /// <summary>What choosing an entry of the own avatar's menu does.</summary>
 public sealed record SelfHooks(Action OpenAppearance, Action OpenInventory, Func<IReadOnlyList<WornEntry>> Worn, Action<Guid> TakeOff, Func<bool> IsFlying, Action ToggleFly,
     Action<Guid>? Detach = null, Func<IReadOnlyList<WornEntry>>? Attachments = null, Action? DetachAll = null, Action? TakeOffAllClothes = null,
-    Func<Guid, bool>? CanDetachItem = null);
+    Func<Guid, bool>? CanDetachItem = null, Action? OpenHoverHeight = null);
 
 public enum MenuKind { None, Object, Avatar, Land, Self }
 
@@ -686,6 +686,7 @@ public sealed class InteractionController
                 {
                     case "appearance": self.OpenAppearance(); break;
                     case "inventory": self.OpenInventory(); break;
+                    case "hover_height": self.OpenHoverHeight?.Invoke(); break;
                     case "stand": Stand(); break;
                     case "fly" or "stop_fly": self.ToggleFly(); break;
                     case "detach_all": self.DetachAll?.Invoke(); break;

@@ -168,6 +168,7 @@ public static class ContextMenus
         {
             new("appearance", "menu.appearance"),
             new("inventory", "menu.inventory"),
+            new("hover_height", "menu.me.hover"),   // menu_avatar_self.xml: Hover height, after the outfit entries and above Take off
             new("take_off", "menu.take_off", c.Worn.Count > 0 || attachments.Count > 0, takeOff),
             new("detach_all", "menu.detach_all", attachments.Any(a => canDetach(a.Id))),   // menu_avatar_self.xml: Detach All, enabled while something is worn
         };

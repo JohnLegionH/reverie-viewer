@@ -29,6 +29,20 @@ public class HoverHeightRulesTests
     public void The_control_works_only_with_the_capability_and_the_feature(bool capability, bool feature, bool works) =>
         Assert.Equal(works, HoverHeightRules.Supported(capability, feature));
 
+    [Theory]
+    [InlineData("0.5", true)]
+    [InlineData(" -1.25 ", true)]
+    [InlineData("0,5", true)]
+    [InlineData("100", true)]
+    [InlineData("1+0.5", true)]
+    [InlineData("abc", false)]
+    [InlineData("", false)]
+    [InlineData("1.2.3", false)]
+    [InlineData("NaN", false)]
+    [InlineData("0.5 metres", false)]
+    public void A_typed_entry_is_told_apart_as_a_number_or_not(string typed, bool number) =>
+        Assert.Equal(number, HoverHeightRules.IsTypedNumber(typed));
+
     [Fact]
     public void The_request_states_the_height_as_hover_height_and_nothing_else()
     {

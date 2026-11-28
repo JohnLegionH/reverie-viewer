@@ -16,6 +16,17 @@ namespace Viewer.Godot;
 /// </summary>
 public static class ReverieStyle
 {
+    public const string SliderOff = "RvSliderOff";
+    public const string PlainSliderOff = "PlainSliderOff";
+
+    /// <summary>Sets whether a slider takes changes, and draws it so, in either of the two slider styles.</summary>
+    public static void SetEditable(HSlider slider, bool on)
+    {
+        slider.Editable = on;
+        bool reverie = slider.ThemeTypeVariation == Slider || slider.ThemeTypeVariation == SliderOff;
+        slider.ThemeTypeVariation = reverie ? (on ? Slider : SliderOff) : on ? "" : PlainSliderOff;
+    }
+
     public const string TopBar = "RvTopBar", MenuTitle = "RvMenuTitle", MenuTitleOpen = "RvMenuTitleOpen", AppTitle = "RvAppTitle", AppTitleOpen = "RvAppTitleOpen", AppName = "RvAppName",
         IconButton = "RvIconButton", Location = "RvLocation", LocationEdit = "RvLocationEdit", LocationButton = "RvLocationButton",
         Region = "RvRegion", Status = "RvStatus", Muted = "RvMuted", Primary = "RvPrimary", Secondary = "RvSecondary", Chip = "RvChip",
@@ -203,6 +214,11 @@ public static class ReverieStyle
         theme.SetStylebox("slider", Slider, track);
         theme.SetStylebox("grabber_area", Slider, Face(C(r.Accent), C(r.Accent), 0, 3, 0, 3));
         theme.SetStylebox("grabber_area_highlight", Slider, Face(C(r.Accent), C(r.Accent), 0, 3, 0, 3));
+        // the engine draws the filled part of a slider that is off as it draws a working one, so off is a style of its own (SetEditable)
+        theme.SetTypeVariation(SliderOff, Slider);
+        var offFill = Face(C(r["border.control"]), C(r["border.control"]), 0, 3, 0, 3);
+        theme.SetStylebox("grabber_area", SliderOff, offFill);
+        theme.SetStylebox("grabber_area_highlight", SliderOff, offFill);
         theme.SetStylebox("focus", Slider, FocusRing(r, 3));
         theme.SetIcon("grabber", Slider, Knob(C(r["text.strong"]), C(r["border.strong"]), ReverieTheme.SwitchKnob));
         theme.SetIcon("grabber_highlight", Slider, Knob(C(r["text.strong"]), C(r.Accent), ReverieTheme.SwitchKnob));

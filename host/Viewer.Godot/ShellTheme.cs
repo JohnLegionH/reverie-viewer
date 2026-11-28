@@ -263,6 +263,9 @@ public static class ShellTheme
         theme.SetStylebox("slider", "HSlider", Box(t, t.Input, t.Border, 3));
         theme.SetStylebox("grabber_area", "HSlider", Box(t, t.AccentFill, t.AccentFill, 3));
         theme.SetStylebox("grabber_area_highlight", "HSlider", Box(t, t.Accent, t.Accent, 3));
+        theme.SetTypeVariation(ReverieStyle.PlainSliderOff, "HSlider");   // a slider that is off: its filled part in the border colour
+        theme.SetStylebox("grabber_area", ReverieStyle.PlainSliderOff, Box(t, t.Border, t.Border, 3));
+        theme.SetStylebox("grabber_area_highlight", ReverieStyle.PlainSliderOff, Box(t, t.Border, t.Border, 3));
 
         // lists, trees and tabs
         theme.SetStylebox("panel", "ItemList", area);

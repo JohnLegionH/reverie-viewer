@@ -141,7 +141,7 @@ If a restraint (RLV) locks an object, it cannot be taken off, and its entry is g
 
 ## Hover height
 
-If your avatar stands above or sinks into the ground, open **Avatar > Hover height...** (Ctrl+Alt+H) and move the slider, or type a value, from -2 to 2 metres. Others see the change. The viewer keeps your choice for that account and tells each region you reach. If the controls are greyed, the region does not offer hover height.
+If your avatar stands above or sinks into the ground, open **Avatar > Hover height...** (Ctrl+Alt+H), or right-click your own avatar and choose **Hover height...**, then move the slider, or type a value, from -2 to 2 metres. Others see the change. The viewer keeps your choice for that account and tells each region you reach. If the controls are greyed, the region does not offer hover height.
 
 ## Outfits
 

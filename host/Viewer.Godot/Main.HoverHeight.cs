@@ -52,6 +52,8 @@ public partial class Main
         if (_hover is null || _hoverFor is not { } session)
             return;
         _hover.ShowHeight(_hoverKept ?? 0f);
+        if (!_hoverRefused)
+            _hover.ForgetRefusal();
         _hover.ShowSupport(session.HoverHeightSupported);
     }
 
@@ -83,7 +85,10 @@ public partial class Main
         _hoverNextLook = now + 1000;
         bool supported = _hoverSupported = session.HoverHeightSupported;
         if (HoverOpen && !_hoverRefused)
+        {
+            _hover?.ForgetRefusal();   // a new region, or a new try: the earlier refusal is no longer the news
             _hover?.ShowSupport(supported);
+        }
         if (_hoverToSend && supported && _hoverKept is { } metres)
         {
             _hoverToSend = false;
@@ -103,7 +108,6 @@ public partial class Main
             return;
         }
         _hoverRefused = true;
-        if (HoverOpen)
-            _hover?.ShowRefused();
+        _hover?.ShowRefused();   // also while the window is closed: it says so when it is next opened
     }
 }

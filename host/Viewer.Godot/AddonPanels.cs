@@ -288,7 +288,7 @@ public sealed partial class AddonWindowView : BoxContainer
                     label.Text = slider.Text;
                     bar.AccessibilityName = slider.Text;
                     bar.Value = slider.Value;
-                    bar.Editable = slider.Enabled;
+                    ReverieStyle.SetEditable(bar, slider.Enabled);
                     number.Text = Shown();
                     _syncing = false;
                 }

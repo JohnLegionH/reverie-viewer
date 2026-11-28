@@ -78,7 +78,11 @@ public class AttachAndSelfMenuTests
     public void The_own_avatar_menu_has_appearance_inventory_take_off_and_fly()
     {
         var entries = ContextMenus.ForSelf(new SelfMenuContext(Sitting: false, Flying: false, [Shirt, Hat]));
-        Assert.Equal(["appearance", "inventory", "take_off", "detach_all", "fly"], entries.Select(e => e.Id).ToArray());
+        // Hover height stands before Take Off, as the official menu has it (menu_avatar_self.xml: after the outfit entries, above Take off)
+        Assert.Equal(["appearance", "inventory", "hover_height", "take_off", "detach_all", "fly"], entries.Select(e => e.Id).ToArray());
+        var hover = Find(entries, "hover_height");
+        Assert.True(hover.Enabled);
+        Assert.Equal("menu.me.hover", hover.LabelKey);
         var takeOff = Find(entries, "take_off");
         Assert.True(takeOff.Enabled);
         Assert.Equal(["clothes", $"take_off/{Shirt.Id}", $"take_off/{Hat.Id}"], takeOff.Children!.Select(c => c.Id).ToArray());   // the Clothes menu first
@@ -103,6 +107,16 @@ public class AttachAndSelfMenuTests
     {
         var entries = ContextMenus.ForSelf(new SelfMenuContext(false, false, []));
         Assert.False(Find(entries, "take_off").Enabled);
+    }
+
+    [Fact]
+    public void Choosing_hover_height_in_the_own_menu_opens_the_hover_height_window()
+    {
+        var s = new SelfRig();
+        s.Rig.C.SelfHooks = s.Rig.C.SelfHooks! with { OpenHoverHeight = () => s.Self.Add("hover") };
+        s.Rig.C.RightClick(s.Rig.Down(100, 100, ignoreSelf: false));
+        Assert.True(s.Rig.C.Choose("hover_height"));
+        Assert.Equal(["hover"], s.Self);
     }
 
     private sealed class SelfRig

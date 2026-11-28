@@ -79,7 +79,7 @@ public partial class TestRender
         "upload-image", "upload-bulk", "upload-model", "upload-bulk-models", "snapshot", "snapshot-150", "snapshot-200", "about", "licences", "login-dialog",
         "music-ask", "music-ask-150", "music-ask-200",
         "pack-ask", "pack-ask-150", "pack-ask-200", "pack-failed", "pack-failed-150", "pack-failed-200",
-        "hover", "hover-150", "hover-200", "hover-off",
+        "hover", "hover-150", "hover-200", "hover-off", "hover-off-150", "hover-off-200",
     ];
 
     /// <summary>A question box is as tall as what it holds: every line of its words shown, its buttons inside it, and no more than two lines'
@@ -834,6 +834,8 @@ public partial class TestRender
                     _failures.Add("diff " + diff);
             }
         }
+        if (hoverShown is not null && !wrongToken)
+            await CheckHoverBehaviour(shell, hoverShown, rig.Viewport, strings, scene != "hover-off");   // after the picture: what a person does in the window
         shell.QueueFree();
         if (scene == "preferences" && !wrongToken)
         {

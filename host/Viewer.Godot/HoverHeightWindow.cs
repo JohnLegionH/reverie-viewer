@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 using System;
+using System.Globalization;
 using Godot;
 using Viewer.Core.Avatars;
 using Viewer.Shell;
@@ -20,8 +21,56 @@ public static class HoverHeightFeature
         shell.AddFloater(new FloaterSpec(FloaterId, "hover.title", new UiSize(515, 130), new UiSize(360, 120)), window);
         s.Commands.Register("floater.hover_height", () => s.Floaters.Toggle(FloaterId));
         s.Menus.AddEntry("me", new MenuEntry("me.hover", "menu.me.hover", "floater.hover_height", Order: 6, Checked: () => s.Floaters.IsOpen(FloaterId)));
+        KeepKeyboard(shell, window);
         s.Floaters.Opened += id => { if (id == FloaterId) window.Opened?.Invoke(); };
         return window;
+    }
+
+    /// <summary>Closing the window gives the keyboard back to what had it last outside the window (the chat field, say), when it is in
+    /// the window, on the menu bar or nowhere as the window closes. The menu bar's titles take the keyboard when pressed, so they are not
+    /// counted. A field the person has left, by Esc or by a press on the world, is not given it back.</summary>
+    private static void KeepKeyboard(ShellRoot shell, HoverHeightWindow window)
+    {
+        var floaters = shell.Shell.Floaters;
+        Control? outside = null;   // the last control outside the window and the menu bar that had the keyboard
+        bool inWindow = false, onBar = false, giveBack = false;
+        bool InWindow(Control c) => shell.Frames[FloaterId].IsAncestorOf(c);
+        bool OnBar(Control c) => shell.TopBar.IsAncestorOf(c);
+        shell.GetViewport().GuiFocusChanged += c =>
+        {
+            onBar = OnBar(c);
+            if (onBar)
+                return;
+            inWindow = InWindow(c);
+            if (!inWindow)
+                outside = c;
+        };
+        shell.Shell.Focus.TextReleaseRequested += () =>
+        {
+            if (!inWindow)
+                outside = null;
+        };
+        window.WorldPressed = () => outside = null;
+        floaters.Opened += id =>
+        {
+            if (id == FloaterId && !onBar && shell.GetViewport().GuiGetFocusOwner() is null)
+                outside = null;   // nothing had the keyboard as the window opened
+        };
+        floaters.SetCloseGuard(FloaterId, () =>   // asked while the window is still shown, so where the keyboard is can still be read
+        {
+            var held = shell.GetViewport().GuiGetFocusOwner();
+            giveBack = held is null || InWindow(held) || OnBar(held);
+            return true;
+        });
+        floaters.Closed += id =>
+        {
+            if (id != FloaterId)
+                return;
+            window.ForgetEntry();
+            if (giveBack && outside is not null && GodotObject.IsInstanceValid(outside) && outside.IsVisibleInTree())
+                outside.GrabFocus();
+            inWindow = giveBack = false;
+        };
     }
 }
 
@@ -33,6 +82,11 @@ public sealed partial class HoverHeightWindow : VBoxContainer
     private readonly Label _status;
     private bool _showing;
     private bool _dragging;
+    private bool _supported = true, _refused, _notANumber;
+    private string? _typed;   // what the person has typed in the value box and not yet entered
+    private float _good;   // the height last shown
+
+    internal Action? WorldPressed { get; set; }
 
     public HSlider Slider { get; }
     public SpinBox Entry { get; }
@@ -56,7 +110,7 @@ public sealed partial class HoverHeightWindow : VBoxContainer
             AccessibilityName = strings.Get("hover.height"),
         };
         row.AddChild(Slider);
-        Entry = new SpinBox
+        Entry = new HoverValueBox(strings)
         {
             Name = "hover_value", MinValue = HoverHeightRules.Minimum, MaxValue = HoverHeightRules.Maximum, Step = HoverHeightRules.Step,
             AccessibilityName = strings.Get("hover.height"),
@@ -67,14 +121,60 @@ public sealed partial class HoverHeightWindow : VBoxContainer
         _status = new Label { Name = "hover_status", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(200, 0), ThemeTypeVariation = ReverieStyle.Muted };
         AddChild(_status);
 
+        // Tab and Shift+Tab go round the window's two controls
+        var line = Entry.GetLineEdit();
+        Slider.FocusNext = Slider.FocusPrevious = Slider.GetPathTo(line);
+        line.FocusNext = line.FocusPrevious = line.GetPathTo(Slider);
+        line.TextChanged += text => _typed = text;
+        // the engine tells of a typed change one step late, so Enter is judged by the text it submits; the late word is then dropped
+        line.TextSubmitted += text => { _typed = text; CheckEntry(); };
+        line.FocusExited += CheckEntry;
+
         Slider.DragStarted += () => _dragging = true;
         Slider.DragEnded += _ => { _dragging = false; Tell(Slider.Value, true); };
-        Slider.ValueChanged += v => { if (!_showing) Tell(v, !_dragging); };
+        Slider.ValueChanged += v => { if (!_showing) { _typed = null; Tell(v, !_dragging); } };
         Entry.ValueChanged += v => { if (!_showing) Tell(v, true); };
+    }
+
+    private bool TypedIsNoNumber => _typed is { } typed && !HoverHeightRules.IsTypedNumber(typed);
+
+    /// <summary>What was typed is entered (Enter, or the box is left): something that is not a number leaves the last good value in the
+    /// box, and the window says why. The typed text is kept until the engine's value box has read it too, which it may do later in the frame.</summary>
+    private void CheckEntry()
+    {
+        if (_typed is null)
+            return;
+        _notANumber = TypedIsNoNumber;
+        if (_notANumber)
+            PutBack();
+        ShowStatus();
+        Callable.From(() =>
+        {
+            if (TypedIsNoNumber)
+                PutBack();
+            _typed = null;
+        }).CallDeferred();
+    }
+
+    private void PutBack()
+    {
+        ShowHeight(_good);
+        Entry.GetLineEdit().Text = Math.Round(_good, 3).ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
+    public override void _UnhandledInput(InputEvent e)
+    {
+        if (e is InputEventMouseButton { Pressed: true })
+            WorldPressed?.Invoke();
     }
 
     private void Tell(double value, bool finished)
     {
+        // the engine's value box reads a leading number out of some entries that are no number ("1.2.3" as 1.2): such a change is not taken
+        if (TypedIsNoNumber)
+            return;
+        _refused = _notANumber = false;
+        ShowStatus();
         ShowHeight((float)value);
         Changed?.Invoke((float)value, finished);
     }
@@ -82,6 +182,7 @@ public sealed partial class HoverHeightWindow : VBoxContainer
     /// <summary>Shows a height without telling the owner.</summary>
     public void ShowHeight(float metres)
     {
+        _good = metres;
         _showing = true;
         Slider.Value = metres;
         Entry.Value = metres;
@@ -91,16 +192,47 @@ public sealed partial class HoverHeightWindow : VBoxContainer
     /// <summary>Greys the controls, with the reason, where the region does not take a hover height.</summary>
     public void ShowSupport(bool supported)
     {
-        Slider.Editable = supported;
+        _supported = supported;
+        ReverieStyle.SetEditable(Slider, supported);
         Entry.Editable = supported;
-        Slider.TooltipText = Entry.TooltipText = Entry.GetLineEdit().TooltipText = supported ? "" : _strings.Get("hover.unsupported");
-        _status.Text = supported ? "" : _strings.Get("hover.unsupported");
-        _status.Visible = !supported;
+        Slider.TooltipText = Entry.GetLineEdit().TooltipText = supported ? "" : _strings.Get("hover.unsupported");
+        ((HoverValueBox)Entry).Why = supported ? null : _strings.Get("hover.unsupported");
+        ShowStatus();
     }
 
+    /// <summary>Says the grid did not take the height; it stays said, also when the window is opened again, until the height changes.</summary>
     public void ShowRefused()
     {
-        _status.Text = _strings.Get("hover.refused");
-        _status.Visible = true;
+        _refused = true;
+        ShowStatus();
     }
+
+    public void ForgetRefusal()
+    {
+        _refused = false;
+        ShowStatus();
+    }
+
+    internal void ForgetEntry()
+    {
+        _typed = null;
+        _notANumber = false;
+        ShowStatus();
+    }
+
+    private void ShowStatus()
+    {
+        string? key = !_supported ? "hover.unsupported" : _refused ? "hover.refused" : _notANumber ? "hover.not_a_number" : null;
+        _status.Text = key is null ? "" : _strings.Get(key);
+        _status.Visible = key is not null;
+    }
+}
+
+/// <summary>The value box: each of its two arrows says what it does when pointed at (the upper raises, the lower lowers); where the control
+/// is off, they say why.</summary>
+public sealed partial class HoverValueBox(StringTable strings) : SpinBox
+{
+    public string? Why { get; set; }
+
+    public override string _GetTooltip(Vector2 atPosition) => Why ?? strings.Get(atPosition.Y < Size.Y / 2 ? "hover.arrow_up" : "hover.arrow_down");
 }

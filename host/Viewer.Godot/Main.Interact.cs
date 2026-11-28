@@ -122,7 +122,8 @@ public partial class Main
                     Attachments: () => WornAttachments(s, wornObjects),
                     DetachAll: () => outfitActions.DetachAll(),
                     TakeOffAllClothes: () => outfitActions.TakeOffAllClothes(),
-                    CanDetachItem: RlvCanDetach);
+                    CanDetachItem: RlvCanDetach,
+                    OpenHoverHeight: () => _shell.Shell.Floaters.Open(HoverHeightFeature.FloaterId));
                 _seatMouseLook = new SeatMouseLook(_mouseLook);
                 _tradeMessage = null;
                 _interact.OpenRequested += _ => { _tradeMessage = null; _shell.Shell.Floaters.Open(InteractFeature.ContentsId); RefreshInteractWindows(); };
